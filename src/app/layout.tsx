@@ -16,7 +16,6 @@ export default function RootLayout({
           config={{
             loginMethods: ['email'],
             embeddedWallets: {
-              createOnLogin: 'off',
               solana: {
                 createOnLogin: 'users-without-wallets',
               },

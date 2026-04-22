@@ -36,7 +36,7 @@ export default function Dashboard() {
 
   if (!ready || !authenticated) return null;
 
-  const solanaWallet = wallets.find((w) => w.chainType === 'solana');
+  const solanaWallet = wallets.find((w) => (w as { type?: string }).type === 'solana');
   const displayName = user?.email?.address ?? 'Organizer';
 
   return (
