@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "NODE_OPTIONS='--max-old-space-size=512' next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@privy-io/react-auth": "^3.22.1",
+    "@solana/web3.js": "^1.98.4",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4"
