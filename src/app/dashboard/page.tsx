@@ -1,6 +1,6 @@
 'use client';
 
-import { useLogout, usePrivy, useWallets } from '@privy-io/react-auth';
+import { useLogout, usePrivy, useSolanaWallets } from '@privy-io/react-auth';
 import { Epilogue, Unbounded } from 'next/font/google';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -28,7 +28,7 @@ export default function Dashboard() {
   const router = useRouter();
   const { ready, authenticated, user } = usePrivy();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
-  const { wallets } = useWallets();
+  const { wallets: solanaWallets } = useSolanaWallets();
 
   useEffect(() => {
     if (ready && !authenticated) router.push('/');
@@ -36,7 +36,7 @@ export default function Dashboard() {
 
   if (!ready || !authenticated) return null;
 
-  const solanaWallet = wallets.find((w) => (w as { type?: string }).type === 'solana');
+  const solanaWallet = solanaWallets[0];
   const displayName = user?.email?.address ?? 'Organizer';
 
   return (
