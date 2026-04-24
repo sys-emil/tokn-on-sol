@@ -1,6 +1,7 @@
 'use client';
 
-import { useLogout, usePrivy, useSolanaWallets } from '@privy-io/react-auth';
+import { useLogout, usePrivy } from '@privy-io/react-auth';
+import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
