@@ -9,7 +9,7 @@ import {
   mplBubblegum,
   mintV1,
   TokenProgramVersion,
-  parseLeafFromMintV1Transaction,
+  getLeafSchemaSerializer,
 } from "@metaplex-foundation/mpl-bubblegum";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { getOperatorKeypair } from "@/lib/solana";
@@ -100,10 +100,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     let assetId = "";
     let parseError: unknown = null;
-    for (let attempt = 0; attempt < 5; attempt++) {
-      if (attempt > 0) await new Promise((r) => setTimeout(r, 1000));
+    for (let attempt = 0; attempt < 8; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 1500));
       try {
-        const leaf = await parseLeafFromMintV1Transaction(umi, signature);
+        const tx = await umi.rpc.getTransaction(signature, { commitment: "confirmed" });
+        const innerIx = tx?.meta?.innerInstructions?.[0]?.instructions?.[0];
+        if (!innerIx) {
+          parseError = new Error("inner instruction not yet available");
+          continue;
+        }
+        const [leaf] = getLeafSchemaSerializer().deserialize(innerIx.data.slice(8));
         assetId = leaf.id.toString();
         if (assetId) break;
       } catch (err) {
