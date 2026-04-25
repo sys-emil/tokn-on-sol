@@ -9,6 +9,7 @@ import {
   mplBubblegum,
   mintV1,
   TokenProgramVersion,
+  parseLeafFromMintV1Transaction,
 } from "@metaplex-foundation/mpl-bubblegum";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { getOperatorKeypair } from "@/lib/solana";
@@ -97,29 +98,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const signatureBase58 = Buffer.from(signature).toString("base64");
 
-    const heliusApiKey = process.env.HELIUS_API_KEY ?? "";
-    const dasUrl = `https://devnet.helius-rpc.com/?api-key=${heliusApiKey}`;
-
     let assetId = "";
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
-      const dasRes = await fetch(dasUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: "mint-lookup",
-          method: "getAssetsByOwner",
-          params: {
-            ownerAddress: ownerWallet,
-            sortBy: { sortBy: "created", sortDirection: "desc" },
-            limit: 1,
-          },
-        }),
-      });
-      const dasJson = await dasRes.json() as { result?: { items?: Array<{ id: string }> } };
-      assetId = dasJson.result?.items?.[0]?.id ?? "";
-      if (assetId) break;
+    let parseError: unknown = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 1000));
+      try {
+        const leaf = await parseLeafFromMintV1Transaction(umi, signature);
+        assetId = leaf.id.toString();
+        if (assetId) break;
+      } catch (err) {
+        parseError = err;
+      }
+    }
+
+    if (!assetId) {
+      const message = parseError instanceof Error ? parseError.message : "leaf parse failed";
+      return NextResponse.json(
+        { success: false, error: `Could not derive assetId from transaction: ${message}`, signature: signatureBase58 },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true, assetId, signature: signatureBase58 });
