@@ -99,22 +99,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const heliusApiKey = process.env.HELIUS_API_KEY ?? "";
     const dasUrl = `https://devnet.helius-rpc.com/?api-key=${heliusApiKey}`;
-    const dasRes = await fetch(dasUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "mint-lookup",
-        method: "getAssetsByOwner",
-        params: {
-          ownerAddress: ownerWallet,
-          sortBy: { sortBy: "created", sortDirection: "desc" },
-          limit: 1,
-        },
-      }),
-    });
-    const dasJson = await dasRes.json() as { result?: { items?: Array<{ id: string }> } };
-    const assetId = dasJson.result?.items?.[0]?.id ?? "";
+
+    let assetId = "";
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+      const dasRes = await fetch(dasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: "mint-lookup",
+          method: "getAssetsByOwner",
+          params: {
+            ownerAddress: ownerWallet,
+            sortBy: { sortBy: "created", sortDirection: "desc" },
+            limit: 1,
+          },
+        }),
+      });
+      const dasJson = await dasRes.json() as { result?: { items?: Array<{ id: string }> } };
+      assetId = dasJson.result?.items?.[0]?.id ?? "";
+      if (assetId) break;
+    }
 
     return NextResponse.json({ success: true, assetId, signature: signatureBase58 });
   } catch (err) {
