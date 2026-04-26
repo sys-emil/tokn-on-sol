@@ -717,7 +717,7 @@ export default function Dashboard() {
         {/* Nav */}
         <nav className="nav">
           <div className="nav-left">
-            <div className="logo">Tokn<span className="logo-dot">.</span></div>
+            <div className="logo">Passly<span className="logo-dot">.</span></div>
             <div className="nav-divider" />
             <div className="nav-section">Dashboard</div>
           </div>
@@ -856,7 +856,7 @@ export default function Dashboard() {
                     onChange={(e) => setEventName(e.target.value)}
                     required
                     disabled={minting}
-                    placeholder="Tokn Launch Night"
+                    placeholder="Passly Launch Night"
                     maxLength={120}
                     autoFocus
                   />

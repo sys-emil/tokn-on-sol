@@ -456,7 +456,7 @@ export default function Home() {
 
         {/* Nav */}
         <nav className="nav">
-          <div className="logo">Tokn<span className="logo-dot">.</span></div>
+          <div className="logo">Passly<span className="logo-dot">.</span></div>
           <div className="nav-chain">Solana</div>
         </nav>
 
@@ -475,7 +475,7 @@ export default function Home() {
             </h1>
 
             <p className="hero-body a3">
-              Tokn issues cryptographically unique NFT tickets on Solana.
+              Passly issues cryptographically unique NFT tickets on Solana.
               Each one is verifiable on-chain, impossible to clone, and
               scannable at the gate in real time.
             </p>
@@ -498,7 +498,7 @@ export default function Home() {
               <div className="ticket-divider" />
 
               <div className="ticket-top">
-                <div className="ticket-id">#TKN&ndash;0001</div>
+                <div className="ticket-id">#PSL&ndash;0001</div>
                 <div className="ticket-verified">
                   <div className="ticket-verified-dot" />
                   On-chain
@@ -559,7 +559,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="footer">
-          <div className="footer-copy">© 2025 Tokn Based</div>
+          <div className="footer-copy">© 2025 Passly</div>
           <div className="footer-tagline">Built on Solana</div>
         </footer>
 
