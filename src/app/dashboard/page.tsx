@@ -57,16 +57,37 @@ export default function Dashboard() {
   const [mintError, setMintError] = useState<string | null>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [ticketsIssued, setTicketsIssued] = useState(0);
+  const [eventsLoaded, setEventsLoaded] = useState(false);
+
+  const solanaWalletAddress = solanaWallets[0]?.address;
 
   useEffect(() => {
     if (ready && !authenticated) router.push('/');
   }, [ready, authenticated, router]);
 
+  useEffect(() => {
+    if (!solanaWalletAddress || eventsLoaded) return;
+    async function loadEvents(): Promise<void> {
+      try {
+        const res = await fetch(`/api/tickets/events?ownerWallet=${solanaWalletAddress}`);
+        if (res.ok) {
+          const data = (await res.json()) as { events: EventRow[]; totalTickets: number };
+          setEvents(data.events);
+          setTicketsIssued(data.totalTickets);
+        }
+      } finally {
+        setEventsLoaded(true);
+      }
+    }
+    void loadEvents();
+  }, [solanaWalletAddress, eventsLoaded]);
+
   if (!ready || !authenticated) return null;
 
   const solanaWallet = solanaWallets[0];
-  const ownerWallet = solanaWallet?.address;
+  const ownerWallet = solanaWalletAddress;
   const displayName = user?.email?.address ?? 'Organizer';
+  const loadingEvents = !!ownerWallet && !eventsLoaded;
 
   function resetForm(): void {
     setEventName('');
@@ -751,7 +772,11 @@ export default function Dashboard() {
                 <div className="card-label">My Events</div>
                 <div className="card-num">01</div>
               </div>
-              {events.length === 0 ? (
+              {loadingEvents ? (
+                <div className="events-empty">
+                  <p className="events-empty-text">Loading events…</p>
+                </div>
+              ) : events.length === 0 ? (
                 <div className="events-empty">
                   <p className="events-empty-text">
                     No events yet.<br />Create your first NFT-ticketed event.

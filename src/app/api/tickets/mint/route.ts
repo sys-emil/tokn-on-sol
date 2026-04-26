@@ -52,6 +52,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    const host = req.headers.get("host") ?? "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const metadataUri = `${protocol}://${host}/api/tickets/metadata?name=${encodeURIComponent(eventName)}&date=${encodeURIComponent(eventDate)}`;
+
     const operatorKeypair = getOperatorKeypair();
 
     const umi = createUmi(clusterApiUrl("devnet"))
@@ -71,7 +75,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       metadata: {
         name: eventName,
         symbol: "TOKN",
-        uri: "",
+        uri: metadataUri,
         sellerFeeBasisPoints: 0,
         // collection: null until a collection mint is created
         collection: null,
