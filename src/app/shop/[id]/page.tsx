@@ -1,7 +1,8 @@
 import { Epilogue, Unbounded } from 'next/font/google';
 import { notFound } from 'next/navigation';
-import { supabasePublic } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import type { Event } from '@/lib/supabase';
+import ShopClient from './ShopClient';
 
 const unbounded = Unbounded({
   subsets: ['latin'],
@@ -18,7 +19,7 @@ const epilogue = Epilogue({
 });
 
 async function getEvent(id: string): Promise<Event | null> {
-  const { data, error } = await supabasePublic
+  const { data, error } = await supabaseAdmin
     .from('events')
     .select('*')
     .eq('id', id)
@@ -54,20 +55,12 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
           --color-accent-bg:  oklch(0.18 0.040 148);
         }
 
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: var(--color-bg);
-        }
+        html, body { margin: 0; padding: 0; background: var(--color-bg); }
 
         .shop-root {
           font-family: var(--font-body);
           background-color: var(--color-bg);
-          background-image: radial-gradient(
-            circle,
-            oklch(0.23 0.014 258 / 0.45) 1px,
-            transparent 1px
-          );
+          background-image: radial-gradient(circle, oklch(0.23 0.014 258 / 0.45) 1px, transparent 1px);
           background-size: 28px 28px;
           color: var(--color-text);
           min-height: 100dvh;
@@ -94,9 +87,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
           to   { opacity: 1; transform: translateY(0); }
         }
 
-        @media (prefers-reduced-motion: reduce) {
-          .shop-card { animation: none; }
-        }
+        @media (prefers-reduced-motion: reduce) { .shop-card { animation: none; } }
 
         .shop-card-header {
           padding: 32px 36px 28px;
@@ -169,41 +160,9 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
           letter-spacing: -0.01em;
         }
 
-        .shop-divider {
-          height: 1px;
-          background: var(--color-border);
-        }
+        .shop-divider { height: 1px; background: var(--color-border); }
 
-        .shop-card-footer {
-          padding: 24px 36px 32px;
-        }
-
-        .btn-buy {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          padding: 14px 24px;
-          font-family: var(--font-display);
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: oklch(0.10 0.014 258);
-          background: var(--color-accent);
-          border: none;
-          cursor: pointer;
-          transition: opacity 0.15s ease;
-          box-sizing: border-box;
-        }
-
-        .btn-buy:hover { opacity: 0.88; }
-
-        .btn-buy.sold-out {
-          background: var(--color-border);
-          color: var(--color-text-muted);
-          cursor: not-allowed;
-        }
+        .shop-card-footer { padding: 24px 36px 32px; }
 
         .shop-brand {
           margin-top: 28px;
@@ -244,9 +203,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div className="shop-card-footer">
-            <button className={`btn-buy${soldOut ? ' sold-out' : ''}`} disabled={soldOut}>
-              {soldOut ? 'Sold Out' : 'Buy Ticket'}
-            </button>
+            <ShopClient eventId={event.id} soldOut={soldOut} />
           </div>
         </div>
 
