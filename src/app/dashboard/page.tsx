@@ -76,7 +76,7 @@ export default function Dashboard() {
     if (!solanaWalletAddress || eventsLoaded) return;
     async function loadEvents(): Promise<void> {
       try {
-        const res = await fetch(`/api/tickets/events?ownerWallet=${solanaWalletAddress}`);
+        const res = await fetch(`/api/events/list?organizerWallet=${solanaWalletAddress}`);
         if (res.ok) {
           const data = (await res.json()) as { events: EventRow[]; totalTickets: number };
           setEvents(data.events);
