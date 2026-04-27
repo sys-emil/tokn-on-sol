@@ -34,6 +34,7 @@ interface EventRow {
   name: string;
   date: string;
   count: number;
+  id?: string;
 }
 
 interface MintResult {
@@ -51,10 +52,14 @@ export default function Dashboard() {
   const [eventName, setEventName] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [ticketCount, setTicketCount] = useState(1);
+  const [priceEur, setPriceEur] = useState(0);
+  const [capacity, setCapacity] = useState(100);
   const [minting, setMinting] = useState(false);
   const [mintedSoFar, setMintedSoFar] = useState(0);
   const [mintResult, setMintResult] = useState<MintResult | null>(null);
   const [mintError, setMintError] = useState<string | null>(null);
+  const [shopLink, setShopLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [ticketsIssued, setTicketsIssued] = useState(0);
   const [eventsLoaded, setEventsLoaded] = useState(false);
@@ -93,9 +98,13 @@ export default function Dashboard() {
     setEventName('');
     setEventDate('');
     setTicketCount(1);
+    setPriceEur(0);
+    setCapacity(100);
     setMintedSoFar(0);
     setMintResult(null);
     setMintError(null);
+    setShopLink(null);
+    setCopied(false);
   }
 
   function closeModal(): void {
@@ -114,6 +123,14 @@ export default function Dashboard() {
       setMintError('Event name and date are required.');
       return;
     }
+    if (priceEur < 0) {
+      setMintError('Ticket price must be 0 or greater.');
+      return;
+    }
+    if (capacity < 1 || capacity > 10000) {
+      setMintError('Capacity must be between 1 and 10,000.');
+      return;
+    }
     const count = Math.max(1, Math.min(500, Math.floor(ticketCount || 0)));
     if (count < 1) {
       setMintError('Number of tickets must be at least 1.');
@@ -122,8 +139,39 @@ export default function Dashboard() {
 
     setMintError(null);
     setMintResult(null);
+    setShopLink(null);
+    setCopied(false);
     setMintedSoFar(0);
     setMinting(true);
+
+    let eventId: string;
+    try {
+      const createRes = await fetch('/api/events/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organizer_wallet: ownerWallet,
+          name: trimmedName,
+          date: eventDate,
+          price_eur: Math.round(priceEur * 100),
+          capacity,
+        }),
+      });
+      const createData = (await createRes.json()) as
+        | { success: true; id: string }
+        | { success: false; error: string };
+      if (!createRes.ok || !createData.success) {
+        const message = !createData.success ? createData.error : `HTTP ${createRes.status}`;
+        setMintError(`Failed to save event: ${message}`);
+        setMinting(false);
+        return;
+      }
+      eventId = createData.id;
+    } catch (err) {
+      setMintError(err instanceof Error ? err.message : 'Failed to save event.');
+      setMinting(false);
+      return;
+    }
 
     let lastResult: MintResult | null = null;
     try {
@@ -151,14 +199,16 @@ export default function Dashboard() {
 
       if (lastResult) {
         setMintResult(lastResult);
+        const link = `${window.location.origin}/shop/${eventId}`;
+        setShopLink(link);
         setEvents((prev) => [
           ...prev,
-          { name: trimmedName, date: eventDate, count },
+          { name: trimmedName, date: eventDate, count, id: eventId },
         ]);
         setTimeout(() => {
           setModalOpen(false);
           resetForm();
-        }, 1500);
+        }, 4000);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Mint failed.';
@@ -716,6 +766,44 @@ export default function Dashboard() {
           cursor: not-allowed;
         }
 
+        .btn-copy {
+          font-family: var(--font-display);
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--color-accent);
+          background: transparent;
+          border: 1px solid var(--color-accent);
+          padding: 5px 10px;
+          cursor: pointer;
+          transition: background 0.16s ease, color 0.16s ease;
+          flex-shrink: 0;
+        }
+
+        .btn-copy:hover {
+          background: var(--color-accent);
+          color: oklch(0.10 0.014 258);
+        }
+
+        .shop-link-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 6px;
+        }
+
+        .shop-link-url {
+          font-family: var(--font-display);
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          color: var(--color-text-muted);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          flex: 1;
+        }
+
         /* ── Responsive ──────────────────────────────────────── */
         @media (max-width: 900px) {
           .nav { padding: 0 24px; }
@@ -797,6 +885,19 @@ export default function Dashboard() {
                         <div className="event-row-name">{evt.name}</div>
                         <div className="event-row-meta">{evt.date}</div>
                         <div className="event-row-meta">{evt.count} tickets</div>
+                        {evt.id && (
+                          <button
+                            type="button"
+                            className="btn-copy"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(
+                                `${window.location.origin}/shop/${evt.id}`
+                              );
+                            }}
+                          >
+                            Shop Link
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -901,6 +1002,37 @@ export default function Dashboard() {
                 </div>
 
                 <div className="field">
+                  <label className="field-label" htmlFor="evt-price">Ticket Price (€)</label>
+                  <input
+                    id="evt-price"
+                    type="number"
+                    className="field-input"
+                    value={priceEur}
+                    onChange={(e) => setPriceEur(Number(e.target.value))}
+                    min={0}
+                    step={0.01}
+                    required
+                    disabled={minting}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="field">
+                  <label className="field-label" htmlFor="evt-capacity">Capacity</label>
+                  <input
+                    id="evt-capacity"
+                    type="number"
+                    className="field-input"
+                    value={capacity}
+                    onChange={(e) => setCapacity(Number(e.target.value))}
+                    min={1}
+                    max={10000}
+                    required
+                    disabled={minting}
+                  />
+                </div>
+
+                <div className="field">
                   <label className="field-label" htmlFor="evt-count">Number of Tickets</label>
                   <input
                     id="evt-count"
@@ -939,6 +1071,23 @@ export default function Dashboard() {
                       <span className="modal-status-meta">
                         {truncateLong(mintResult.assetId)}
                       </span>
+                      {shopLink && (
+                        <div className="shop-link-row">
+                          <span className="shop-link-url">{shopLink}</span>
+                          <button
+                            type="button"
+                            className="btn-copy"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(shopLink).then(() => {
+                                setCopied(true);
+                                setTimeout(() => setCopied(false), 2000);
+                              });
+                            }}
+                          >
+                            {copied ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
