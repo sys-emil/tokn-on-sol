@@ -61,6 +61,7 @@ export default function Dashboard() {
   const [shopLink, setShopLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedRowId, setCopiedRowId] = useState<string | null>(null);
+  const [copiedDoormanId, setCopiedDoormanId] = useState<string | null>(null);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [ticketsIssued, setTicketsIssued] = useState(0);
   const [eventsLoaded, setEventsLoaded] = useState(false);
@@ -900,6 +901,22 @@ export default function Dashboard() {
                             }}
                           >
                             {copiedRowId === evt.id ? 'Copied!' : 'Shop Link'}
+                          </button>
+                        )}
+                        {evt.id && (
+                          <button
+                            type="button"
+                            className="btn-copy"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(
+                                `${window.location.origin}/doorman/${evt.id}`
+                              ).then(() => {
+                                setCopiedDoormanId(evt.id ?? null);
+                                setTimeout(() => setCopiedDoormanId(null), 2000);
+                              });
+                            }}
+                          >
+                            {copiedDoormanId === evt.id ? 'Copied!' : 'Doorman'}
                           </button>
                         )}
                       </div>
