@@ -3,6 +3,7 @@
 import { useLogout, usePrivy } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -776,6 +777,9 @@ export default function Dashboard() {
 
           <div className="nav-right">
             <span className="nav-email">{displayName}</span>
+            <Link href="/my-tickets" className="btn-logout" style={{ textDecoration: 'none' }}>
+              My Tickets
+            </Link>
             <button className="btn-logout" onClick={() => logout()}>
               Log out
             </button>
