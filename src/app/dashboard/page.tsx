@@ -21,11 +21,6 @@ const epilogue = Epilogue({
   display: 'swap',
 });
 
-function truncate(address: string): string {
-  if (address.length <= 8) return address;
-  return `${address.slice(0, 4)}...${address.slice(-4)}`;
-}
-
 interface EventRow {
   name: string;
   date: string;
@@ -249,7 +244,7 @@ export default function Dashboard() {
         .nav-right {
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 12px;
         }
 
         .nav-email {
@@ -273,6 +268,9 @@ export default function Dashboard() {
           border: 1px solid var(--color-border);
           padding: 8px 16px;
           cursor: pointer;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
           transition: color 0.15s ease, border-color 0.15s ease;
         }
 
@@ -423,23 +421,24 @@ export default function Dashboard() {
           color: var(--color-text);
         }
 
-        .stat-desc {
+        .stat-unit {
           font-family: var(--font-body);
-          font-size: 13px;
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
           color: var(--color-text-muted);
-          line-height: 1.6;
-          margin: 0;
+          margin-top: -8px;
         }
 
         /* ── Wallet card ─────────────────────────────────────── */
-        .wallet-address-wrap {
+        .wallet-status {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           padding: 14px 16px;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
-          flex: 1;
         }
 
         .wallet-dot {
@@ -450,13 +449,10 @@ export default function Dashboard() {
           flex-shrink: 0;
         }
 
-        .wallet-address {
-          font-family: var(--font-display);
+        .wallet-connected {
+          font-family: var(--font-body);
           font-size: 13px;
-          font-weight: 600;
-          letter-spacing: 0.06em;
           color: var(--color-text);
-          word-break: break-all;
         }
 
         .wallet-none {
@@ -501,21 +497,13 @@ export default function Dashboard() {
 
         .event-row {
           background: var(--color-bg);
-          padding: 14px 16px;
+          padding: 12px 16px;
           display: flex;
-          align-items: center;
-          gap: 14px;
+          flex-direction: column;
+          gap: 8px;
           font-family: var(--font-body);
           font-size: 13px;
           color: var(--color-text);
-          line-height: 1.4;
-        }
-
-        .event-row-dot {
-          width: 6px;
-          height: 6px;
-          background: var(--color-accent);
-          flex-shrink: 0;
         }
 
         .event-row-name {
@@ -523,10 +511,14 @@ export default function Dashboard() {
           font-weight: 600;
           letter-spacing: 0.02em;
           color: var(--color-text);
-          flex: 1;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          line-height: 1.3;
+        }
+
+        .event-row-bottom {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
         }
 
         .event-row-meta {
@@ -537,9 +529,51 @@ export default function Dashboard() {
           flex-shrink: 0;
         }
 
+        .event-row-meta + .event-row-meta::before {
+          content: '·';
+          margin-right: 10px;
+          color: var(--color-border);
+        }
+
         .events-list-footer {
           display: flex;
           justify-content: flex-end;
+        }
+
+        /* ── Row action buttons ──────────────────────────────── */
+        .btn-row {
+          font-family: var(--font-display);
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          padding: 5px 10px;
+          cursor: pointer;
+          transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+
+        .btn-row-primary {
+          color: oklch(0.10 0.014 258);
+          background: var(--color-accent);
+          border: 1px solid var(--color-accent);
+        }
+
+        .btn-row-primary:hover {
+          background: oklch(0.80 0.118 148);
+          border-color: oklch(0.80 0.118 148);
+        }
+
+        .btn-row-ghost {
+          color: var(--color-text-muted);
+          background: transparent;
+          border: 1px solid var(--color-border);
+        }
+
+        .btn-row-ghost:hover {
+          color: var(--color-text);
+          border-color: oklch(0.40 0.016 258);
         }
 
         /* ── Modal ───────────────────────────────────────────── */
@@ -828,42 +862,43 @@ export default function Dashboard() {
                   <div className="events-list">
                     {events.map((evt, i) => (
                       <div className="event-row" key={`${evt.name}-${i}`}>
-                        <div className="event-row-dot" />
                         <div className="event-row-name">{evt.name}</div>
-                        <div className="event-row-meta">{evt.date}</div>
-                        <div className="event-row-meta">{evt.count} tickets</div>
-                        {evt.id && (
-                          <button
-                            type="button"
-                            className="btn-copy"
-                            onClick={() => {
-                              void navigator.clipboard.writeText(
-                                `${window.location.origin}/shop/${evt.id}`
-                              ).then(() => {
-                                setCopiedRowId(evt.id ?? null);
-                                setTimeout(() => setCopiedRowId(null), 2000);
-                              });
-                            }}
-                          >
-                            {copiedRowId === evt.id ? 'Copied!' : 'Shop Link'}
-                          </button>
-                        )}
-                        {evt.id && (
-                          <button
-                            type="button"
-                            className="btn-copy"
-                            onClick={() => {
-                              void navigator.clipboard.writeText(
-                                `${window.location.origin}/doorman/${evt.id}`
-                              ).then(() => {
-                                setCopiedDoormanId(evt.id ?? null);
-                                setTimeout(() => setCopiedDoormanId(null), 2000);
-                              });
-                            }}
-                          >
-                            {copiedDoormanId === evt.id ? 'Copied!' : 'Doorman'}
-                          </button>
-                        )}
+                        <div className="event-row-bottom">
+                          <div className="event-row-meta">{evt.date}</div>
+                          <div className="event-row-meta">{evt.count} tickets</div>
+                          {evt.id && (
+                            <button
+                              type="button"
+                              className="btn-row btn-row-primary"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(
+                                  `${window.location.origin}/shop/${evt.id}`
+                                ).then(() => {
+                                  setCopiedRowId(evt.id ?? null);
+                                  setTimeout(() => setCopiedRowId(null), 2000);
+                                });
+                              }}
+                            >
+                              {copiedRowId === evt.id ? 'Copied!' : 'Shop Link'}
+                            </button>
+                          )}
+                          {evt.id && (
+                            <button
+                              type="button"
+                              className="btn-row btn-row-ghost"
+                              onClick={() => {
+                                void navigator.clipboard.writeText(
+                                  `${window.location.origin}/doorman/${evt.id}`
+                                ).then(() => {
+                                  setCopiedDoormanId(evt.id ?? null);
+                                  setTimeout(() => setCopiedDoormanId(null), 2000);
+                                });
+                              }}
+                            >
+                              {copiedDoormanId === evt.id ? 'Copied!' : 'Doorman'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -886,9 +921,7 @@ export default function Dashboard() {
                 <div className="card-num">02</div>
               </div>
               <div className="stat-value">{ticketsIssued}</div>
-              <p className="stat-desc">
-                Tickets sold across all your events.
-              </p>
+              <div className="stat-unit">tickets sold</div>
             </div>
 
             {/* Wallet */}
@@ -898,11 +931,9 @@ export default function Dashboard() {
                 <div className="card-num">03</div>
               </div>
               {solanaWallet ? (
-                <div className="wallet-address-wrap">
+                <div className="wallet-status">
                   <div className="wallet-dot" />
-                  <div className="wallet-address">
-                    {truncate(solanaWallet.address)}
-                  </div>
+                  <span className="wallet-connected">Connected</span>
                 </div>
               ) : (
                 <div className="wallet-none">No wallet connected.</div>

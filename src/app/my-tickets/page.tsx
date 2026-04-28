@@ -267,6 +267,7 @@ export default function MyTickets() {
           gap: 1px;
           background: var(--color-border);
           border: 1px solid var(--color-border);
+          align-items: start;
         }
 
         .card {
@@ -308,25 +309,17 @@ export default function MyTickets() {
           gap: 1px;
           background: var(--color-border);
           border: 1px solid var(--color-border);
-          flex: 1;
         }
 
         .row {
           background: var(--color-bg);
-          padding: 14px 16px;
+          padding: 12px 16px;
           display: flex;
-          align-items: center;
-          gap: 14px;
+          flex-direction: column;
+          gap: 8px;
           font-family: var(--font-body);
           font-size: 13px;
           color: var(--color-text);
-        }
-
-        .row-dot {
-          width: 6px;
-          height: 6px;
-          background: var(--color-accent);
-          flex-shrink: 0;
         }
 
         .row-name {
@@ -334,10 +327,14 @@ export default function MyTickets() {
           font-weight: 600;
           letter-spacing: 0.02em;
           color: var(--color-text);
-          flex: 1;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          line-height: 1.3;
+        }
+
+        .row-bottom {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
         }
 
         .row-meta {
@@ -348,27 +345,43 @@ export default function MyTickets() {
           flex-shrink: 0;
         }
 
-        .btn-action {
+        /* ── Row action buttons ──────────────────────────────── */
+        .btn-row {
           font-family: var(--font-display);
           font-size: 9px;
           font-weight: 600;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: var(--color-accent);
-          background: transparent;
-          border: 1px solid var(--color-accent);
           padding: 5px 10px;
           cursor: pointer;
           text-decoration: none;
           display: inline-flex;
           align-items: center;
-          transition: background 0.16s ease, color 0.16s ease;
+          transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
           flex-shrink: 0;
+          white-space: nowrap;
         }
 
-        .btn-action:hover {
-          background: var(--color-accent);
+        .btn-row-primary {
           color: oklch(0.10 0.014 258);
+          background: var(--color-accent);
+          border: 1px solid var(--color-accent);
+        }
+
+        .btn-row-primary:hover {
+          background: oklch(0.80 0.118 148);
+          border-color: oklch(0.80 0.118 148);
+        }
+
+        .btn-row-ghost {
+          color: var(--color-text-muted);
+          background: transparent;
+          border: 1px solid var(--color-border);
+        }
+
+        .btn-row-ghost:hover {
+          color: var(--color-text);
+          border-color: oklch(0.40 0.016 258);
         }
 
         /* ── Empty / loading states ──────────────────────────── */
@@ -378,7 +391,6 @@ export default function MyTickets() {
           display: flex;
           align-items: center;
           justify-content: center;
-          flex: 1;
         }
 
         .empty-text {
@@ -454,12 +466,13 @@ export default function MyTickets() {
                 <div className="rows-list">
                   {tickets.map((t) => (
                     <div className="row" key={t.assetId}>
-                      <div className="row-dot" />
                       <div className="row-name">{t.eventName}</div>
-                      <div className="row-meta">{formatDate(t.eventDate)}</div>
-                      <Link href={`/tickets/${t.assetId}`} className="btn-action">
-                        View Ticket
-                      </Link>
+                      <div className="row-bottom">
+                        <div className="row-meta">{formatDate(t.eventDate)}</div>
+                        <Link href={`/tickets/${t.assetId}`} className="btn-row btn-row-primary">
+                          View Ticket
+                        </Link>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -484,13 +497,14 @@ export default function MyTickets() {
                 <div className="rows-list">
                   {upcomingEvents.map((evt) => (
                     <div className="row" key={evt.id}>
-                      <div className="row-dot" />
                       <div className="row-name">{evt.name}</div>
-                      <div className="row-meta">{formatDate(evt.date)}</div>
-                      <div className="row-meta">{formatPrice(evt.price_eur)}</div>
-                      <Link href={`/shop/${evt.id}`} className="btn-action">
-                        Get Ticket
-                      </Link>
+                      <div className="row-bottom">
+                        <div className="row-meta">{formatDate(evt.date)}</div>
+                        <div className="row-meta">{formatPrice(evt.price_eur)}</div>
+                        <Link href={`/shop/${evt.id}`} className="btn-row btn-row-ghost">
+                          Get Ticket
+                        </Link>
+                      </div>
                     </div>
                   ))}
                 </div>
