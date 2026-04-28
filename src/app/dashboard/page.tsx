@@ -25,21 +25,11 @@ function truncate(address: string): string {
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
-function truncateLong(address: string): string {
-  if (address.length <= 16) return address;
-  return `${address.slice(0, 8)}...${address.slice(-8)}`;
-}
-
 interface EventRow {
   name: string;
   date: string;
   count: number;
   id?: string;
-}
-
-interface MintResult {
-  assetId: string;
-  signature: string;
 }
 
 export default function Dashboard() {
@@ -51,13 +41,10 @@ export default function Dashboard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventDate, setEventDate] = useState('');
-  const [ticketCount, setTicketCount] = useState(1);
   const [priceEur, setPriceEur] = useState(0);
   const [capacity, setCapacity] = useState(100);
-  const [minting, setMinting] = useState(false);
-  const [mintedSoFar, setMintedSoFar] = useState(0);
-  const [mintResult, setMintResult] = useState<MintResult | null>(null);
-  const [mintError, setMintError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [shopLink, setShopLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedRowId, setCopiedRowId] = useState<string | null>(null);
@@ -99,54 +86,43 @@ export default function Dashboard() {
   function resetForm(): void {
     setEventName('');
     setEventDate('');
-    setTicketCount(1);
     setPriceEur(0);
     setCapacity(100);
-    setMintedSoFar(0);
-    setMintResult(null);
-    setMintError(null);
+    setFormError(null);
     setShopLink(null);
     setCopied(false);
   }
 
   function closeModal(): void {
-    if (minting) return;
+    if (creating) return;
     setModalOpen(false);
     resetForm();
   }
 
-  async function handleMint(): Promise<void> {
+  async function handleCreateEvent(): Promise<void> {
     if (!ownerWallet) {
-      setMintError('No Solana wallet connected.');
+      setFormError('No Solana wallet connected.');
       return;
     }
     const trimmedName = eventName.trim();
     if (!trimmedName || !eventDate) {
-      setMintError('Event name and date are required.');
+      setFormError('Event name and date are required.');
       return;
     }
     if (priceEur < 0) {
-      setMintError('Ticket price must be 0 or greater.');
+      setFormError('Ticket price must be 0 or greater.');
       return;
     }
     if (capacity < 1 || capacity > 10000) {
-      setMintError('Capacity must be between 1 and 10,000.');
-      return;
-    }
-    const count = Math.max(1, Math.min(500, Math.floor(ticketCount || 0)));
-    if (count < 1) {
-      setMintError('Number of tickets must be at least 1.');
+      setFormError('Capacity must be between 1 and 10,000.');
       return;
     }
 
-    setMintError(null);
-    setMintResult(null);
+    setFormError(null);
     setShopLink(null);
     setCopied(false);
-    setMintedSoFar(0);
-    setMinting(true);
+    setCreating(true);
 
-    let eventId: string;
     try {
       const createRes = await fetch('/api/events/create', {
         method: 'POST',
@@ -164,59 +140,24 @@ export default function Dashboard() {
         | { success: false; error: string };
       if (!createRes.ok || !createData.success) {
         const message = !createData.success ? createData.error : `HTTP ${createRes.status}`;
-        setMintError(`Failed to save event: ${message}`);
-        setMinting(false);
+        setFormError(`Failed to save event: ${message}`);
         return;
       }
-      eventId = createData.id;
+      const eventId = createData.id;
+      const link = `${window.location.origin}/shop/${eventId}`;
+      setShopLink(link);
+      setEvents((prev) => [
+        ...prev,
+        { name: trimmedName, date: eventDate, count: 0, id: eventId },
+      ]);
+      setTimeout(() => {
+        setModalOpen(false);
+        resetForm();
+      }, 3000);
     } catch (err) {
-      setMintError(err instanceof Error ? err.message : 'Failed to save event.');
-      setMinting(false);
-      return;
-    }
-
-    let lastResult: MintResult | null = null;
-    try {
-      for (let i = 0; i < count; i++) {
-        const res = await fetch('/api/tickets/mint', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            eventName: trimmedName,
-            eventDate,
-            ownerWallet,
-          }),
-        });
-        const data = (await res.json()) as
-          | { success: true; assetId: string; signature: string }
-          | { success: false; error: string };
-        if (!res.ok || !data.success) {
-          const message = !data.success ? data.error : `HTTP ${res.status}`;
-          throw new Error(message);
-        }
-        lastResult = { assetId: data.assetId, signature: data.signature };
-        setMintedSoFar(i + 1);
-        setTicketsIssued((n) => n + 1);
-      }
-
-      if (lastResult) {
-        setMintResult(lastResult);
-        const link = `${window.location.origin}/shop/${eventId}`;
-        setShopLink(link);
-        setEvents((prev) => [
-          ...prev,
-          { name: trimmedName, date: eventDate, count, id: eventId },
-        ]);
-        setTimeout(() => {
-          setModalOpen(false);
-          resetForm();
-        }, 4000);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Mint failed.';
-      setMintError(message);
+      setFormError(err instanceof Error ? err.message : 'Failed to save event.');
     } finally {
-      setMinting(false);
+      setCreating(false);
     }
   }
 
@@ -942,7 +883,7 @@ export default function Dashboard() {
               </div>
               <div className="stat-value">{ticketsIssued}</div>
               <p className="stat-desc">
-                NFTs minted and distributed<br />across all your events.
+                Tickets sold across all your events.
               </p>
             </div>
 
@@ -982,7 +923,7 @@ export default function Dashboard() {
               <div className="modal-header">
                 <div className="modal-eyebrow">New Event</div>
                 <h2 className="modal-title" id="modal-title">
-                  Create event &amp; mint tickets
+                  Create event
                 </h2>
               </div>
 
@@ -990,7 +931,7 @@ export default function Dashboard() {
                 className="modal-form"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void handleMint();
+                  void handleCreateEvent();
                 }}
               >
                 <div className="field">
@@ -1002,7 +943,7 @@ export default function Dashboard() {
                     value={eventName}
                     onChange={(e) => setEventName(e.target.value)}
                     required
-                    disabled={minting}
+                    disabled={creating}
                     placeholder="Passly Launch Night"
                     maxLength={120}
                     autoFocus
@@ -1018,7 +959,7 @@ export default function Dashboard() {
                     value={eventDate}
                     onChange={(e) => setEventDate(e.target.value)}
                     required
-                    disabled={minting}
+                    disabled={creating}
                   />
                 </div>
 
@@ -1033,7 +974,7 @@ export default function Dashboard() {
                     min={0}
                     step={0.01}
                     required
-                    disabled={minting}
+                    disabled={creating}
                     placeholder="0.00"
                   />
                 </div>
@@ -1049,66 +990,37 @@ export default function Dashboard() {
                     min={1}
                     max={10000}
                     required
-                    disabled={minting}
+                    disabled={creating}
                   />
                 </div>
 
-                <div className="field">
-                  <label className="field-label" htmlFor="evt-count">Number of Tickets</label>
-                  <input
-                    id="evt-count"
-                    type="number"
-                    className="field-input"
-                    value={ticketCount}
-                    onChange={(e) => setTicketCount(Number(e.target.value))}
-                    min={1}
-                    max={500}
-                    required
-                    disabled={minting}
-                  />
-                </div>
-
-                {mintError && (
+                {formError && (
                   <div className="modal-status">
                     <div className="modal-status-dot error" />
-                    <div className="modal-status-text">{mintError}</div>
+                    <div className="modal-status-text">{formError}</div>
                   </div>
                 )}
 
-                {minting && !mintError && (
-                  <div className="modal-status">
-                    <div className="modal-status-dot progress" />
-                    <div className="modal-status-text">
-                      Minting {Math.min(mintedSoFar + 1, ticketCount)} of {ticketCount}...
-                    </div>
-                  </div>
-                )}
-
-                {!minting && mintResult && !mintError && (
+                {shopLink && !formError && (
                   <div className="modal-status">
                     <div className="modal-status-dot success" />
                     <div className="modal-status-text">
-                      {mintedSoFar} ticket{mintedSoFar === 1 ? '' : 's'} minted successfully.
-                      <span className="modal-status-meta">
-                        {truncateLong(mintResult.assetId)}
-                      </span>
-                      {shopLink && (
-                        <div className="shop-link-row">
-                          <span className="shop-link-url">{shopLink}</span>
-                          <button
-                            type="button"
-                            className="btn-copy"
-                            onClick={() => {
-                              void navigator.clipboard.writeText(shopLink).then(() => {
-                                setCopied(true);
-                                setTimeout(() => setCopied(false), 2000);
-                              });
-                            }}
-                          >
-                            {copied ? 'Copied!' : 'Copy'}
-                          </button>
-                        </div>
-                      )}
+                      Event created.
+                      <div className="shop-link-row">
+                        <span className="shop-link-url">{shopLink}</span>
+                        <button
+                          type="button"
+                          className="btn-copy"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(shopLink).then(() => {
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2000);
+                            });
+                          }}
+                        >
+                          {copied ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1118,16 +1030,16 @@ export default function Dashboard() {
                     type="button"
                     className="btn-logout"
                     onClick={closeModal}
-                    disabled={minting}
+                    disabled={creating}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     className="btn-create"
-                    disabled={minting || !ownerWallet}
+                    disabled={creating || !ownerWallet}
                   >
-                    {minting ? 'Minting...' : '+ Mint Tickets'}
+                    {creating ? 'Creating...' : 'Create Event'}
                   </button>
                 </div>
               </form>
