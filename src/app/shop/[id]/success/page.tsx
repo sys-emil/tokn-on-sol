@@ -121,6 +121,9 @@ function SuccessInner() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id') ?? '';
   const [failed, setFailed] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+
+  const MAX_ATTEMPTS = 20;
 
   useEffect(() => {
     if (!sessionId) { setFailed(true); return; }
@@ -129,8 +132,11 @@ function SuccessInner() {
     let stopped = false;
 
     async function poll() {
-      while (attempt < 10 && !stopped) {
-        if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+      while (attempt < MAX_ATTEMPTS && !stopped) {
+        if (attempt > 0) {
+          const delay = attempt < 5 ? 2000 : 3000;
+          await new Promise((r) => setTimeout(r, delay));
+        }
         attempt++;
         try {
           const res = await fetch(`/api/checkout/confirm?session_id=${encodeURIComponent(sessionId)}`);
@@ -142,6 +148,7 @@ function SuccessInner() {
         } catch {
           // network hiccup — keep trying
         }
+        setAttempts(attempt);
       }
       if (!stopped) setFailed(true);
     }
@@ -164,12 +171,24 @@ function SuccessInner() {
     );
   }
 
+  const progressTitle = attempts < 3
+    ? 'Confirming your ticket...'
+    : attempts < 8
+    ? 'Almost there...'
+    : 'Still working...';
+
+  const progressBody = attempts < 3
+    ? 'Your payment is confirmed. Minting your ticket on Solana...'
+    : attempts < 8
+    ? 'The blockchain is processing your ticket. This can take up to 30 seconds.'
+    : 'Taking a bit longer than usual. Please don\'t close this tab.';
+
   return (
     <div className="success-card">
       <div className="spinner" />
       <div className="success-eyebrow">Payment confirmed</div>
-      <h1 className="success-title">Confirming your ticket...</h1>
-      <p className="success-body">Minting your NFT ticket on Solana. This takes a few seconds.</p>
+      <h1 className="success-title">{progressTitle}</h1>
+      <p className="success-body">{progressBody}</p>
     </div>
   );
 }
