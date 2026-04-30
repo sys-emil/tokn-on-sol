@@ -1,5 +1,6 @@
 'use client';
 
+import { BrowserMultiFormatReader } from '@zxing/browser';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
@@ -132,37 +133,38 @@ export default function DoormanPage() {
   useEffect(() => {
     if (phase.tag !== 'scanning') return;
 
-    let stopped = false;
+    const abortController = new AbortController();
 
-    async function start() {
+    async function start(abortController: AbortController) {
       if (!videoRef.current) return;
       try {
-        const { BrowserMultiFormatReader } = await import('@zxing/browser');
         const reader = new BrowserMultiFormatReader();
         const controls = await reader.decodeFromConstraints(
           { video: { facingMode: 'environment' } },
           videoRef.current,
           (result) => {
-            if (result && !stopped) {
+            if (result && !abortController.signal.aborted) {
               void handleQrResult(result.getText());
             }
           }
         );
-        if (stopped) {
+        if (abortController.signal.aborted) {
           controls.stop();
         } else {
           controlsRef.current = controls;
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Camera unavailable';
-        if (!stopped) setPhase({ tag: 'camera-error', message: msg });
+        if (!abortController.signal.aborted) {
+          const msg = err instanceof Error ? err.message : 'Camera unavailable';
+          setPhase({ tag: 'camera-error', message: msg });
+        }
       }
     }
 
-    void start();
+    void start(abortController);
 
     return () => {
-      stopped = true;
+      abortController.abort();
       controlsRef.current?.stop();
       controlsRef.current = null;
     };
