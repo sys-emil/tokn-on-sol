@@ -134,7 +134,7 @@ export default function DoormanPage() {
     async function start() {
       if (!videoRef.current) return;
 
-      if (typeof (window as { BarcodeDetector?: unknown }).BarcodeDetector === 'undefined') {
+      if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
         setPhase({ tag: 'camera-error', message: 'QR scanning not supported on this browser. Please use Safari iOS 17+ or Chrome.' });
         return;
       }
