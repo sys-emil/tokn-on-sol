@@ -135,12 +135,21 @@ export default function DoormanPage() {
 
     const abortController = new AbortController();
 
+    let stream: MediaStream | null = null;
+
     async function start(abortController: AbortController) {
       if (!videoRef.current) return;
       try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        if (abortController.signal.aborted) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
         const reader = new BrowserMultiFormatReader();
-        const controls = await reader.decodeFromConstraints(
-          { video: { facingMode: 'environment' } },
+        const controls = await reader.decodeFromStream(
+          stream,
           videoRef.current,
           (result) => {
             if (result && !abortController.signal.aborted) {
@@ -167,6 +176,7 @@ export default function DoormanPage() {
       abortController.abort();
       controlsRef.current?.stop();
       controlsRef.current = null;
+      stream?.getTracks().forEach((t) => t.stop());
     };
   }, [phase.tag, handleQrResult]);
 
