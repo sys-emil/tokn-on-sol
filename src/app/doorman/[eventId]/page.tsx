@@ -128,6 +128,12 @@ export default function DoormanPage() {
   useEffect(() => {
     if (phase.tag !== 'scanning') return;
 
+    alert(
+      'BarcodeDetector in window: ' + ('BarcodeDetector' in window) +
+      '\ntypeof BarcodeDetector: ' + typeof (window as any).BarcodeDetector +
+      '\nkeys snapshot: ' + Object.keys(window).filter(k => k.toLowerCase().includes('barcode')).join(', ')
+    );
+
     const abortController = new AbortController();
     let stream: MediaStream | null = null;
 
