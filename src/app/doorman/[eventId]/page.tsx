@@ -163,7 +163,7 @@ export default function DoormanPage() {
             inversionAttempts: 'dontInvert',
           });
           if (code && !abortController.signal.aborted) {
-            void handleQrResult(code.data);
+            alert('Scanned: ' + code.data.substring(0, 100));
             return;
           }
           requestAnimationFrame(scanFrame);
