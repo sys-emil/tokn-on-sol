@@ -1,6 +1,5 @@
 'use client';
 
-import { BrowserMultiFormatReader } from '@zxing/browser';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
@@ -60,7 +59,6 @@ export default function DoormanPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const processingRef = useRef(false);
-  const controlsRef = useRef<{ stop: () => void } | null>(null);
 
   // Fetch event
   useEffect(() => {
@@ -95,9 +93,6 @@ export default function DoormanPage() {
   const handleQrResult = useCallback(async (raw: string) => {
     if (processingRef.current) return;
     processingRef.current = true;
-
-    controlsRef.current?.stop();
-    controlsRef.current = null;
 
     setPhase({ tag: 'verifying' });
 
@@ -134,34 +129,48 @@ export default function DoormanPage() {
     if (phase.tag !== 'scanning') return;
 
     const abortController = new AbortController();
-
     let stream: MediaStream | null = null;
 
-    async function start(abortController: AbortController) {
+    async function start() {
       if (!videoRef.current) return;
+
+      if (typeof (window as { BarcodeDetector?: unknown }).BarcodeDetector === 'undefined') {
+        setPhase({ tag: 'camera-error', message: 'QR scanning not supported on this browser. Please use Safari iOS 17+ or Chrome.' });
+        return;
+      }
+
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        });
         if (abortController.signal.aborted) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
         videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
         await videoRef.current.play();
-        const reader = new BrowserMultiFormatReader();
-        const controls = await reader.decodeFromStream(
-          stream,
-          videoRef.current,
-          (result) => {
-            if (result && !abortController.signal.aborted) {
-              void handleQrResult(result.getText());
+
+        const detector = new (window as unknown as { BarcodeDetector: new (opts: { formats: string[] }) => { detect: (el: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector({ formats: ['qr_code'] });
+
+        async function scanLoop() {
+          if (abortController.signal.aborted) return;
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            try {
+              const barcodes = await detector.detect(videoRef.current);
+              if (barcodes.length > 0 && !abortController.signal.aborted) {
+                void handleQrResult(barcodes[0].rawValue);
+                return;
+              }
+            } catch {
+              // detector not ready yet, keep looping
             }
           }
-        );
-        if (abortController.signal.aborted) {
-          controls.stop();
-        } else {
-          controlsRef.current = controls;
+          if (!abortController.signal.aborted) {
+            requestAnimationFrame(() => { void scanLoop(); });
+          }
         }
+        void scanLoop();
       } catch (err) {
         if (!abortController.signal.aborted) {
           const msg = err instanceof Error ? err.message : 'Camera unavailable';
@@ -170,12 +179,10 @@ export default function DoormanPage() {
       }
     }
 
-    void start(abortController);
+    void start();
 
     return () => {
       abortController.abort();
-      controlsRef.current?.stop();
-      controlsRef.current = null;
       stream?.getTracks().forEach((t) => t.stop());
     };
   }, [phase.tag, handleQrResult]);
