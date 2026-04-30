@@ -1,5 +1,6 @@
 'use client';
 
+import jsQR from 'jsqr';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
@@ -58,6 +59,7 @@ export default function DoormanPage() {
   const [scannedToday, setScannedToday] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const processingRef = useRef(false);
 
   // Fetch event
@@ -128,55 +130,45 @@ export default function DoormanPage() {
   useEffect(() => {
     if (phase.tag !== 'scanning') return;
 
-    alert(
-      'BarcodeDetector in window: ' + ('BarcodeDetector' in window) +
-      '\ntypeof BarcodeDetector: ' + typeof (window as any).BarcodeDetector +
-      '\nkeys snapshot: ' + Object.keys(window).filter(k => k.toLowerCase().includes('barcode')).join(', ')
-    );
-
     const abortController = new AbortController();
     let stream: MediaStream | null = null;
 
     async function start() {
-      if (!videoRef.current) return;
-
-      if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
-        setPhase({ tag: 'camera-error', message: 'QR scanning not supported on this browser. Please use Safari iOS 17+ or Chrome.' });
-        return;
-      }
-
+      if (!videoRef.current || !canvasRef.current) return;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
         });
-        if (abortController.signal.aborted) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute('playsinline', 'true');
         await videoRef.current.play();
 
-        const detector = new (window as unknown as { BarcodeDetector: new (opts: { formats: string[] }) => { detect: (el: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector({ formats: ['qr_code'] });
+        const canvas = canvasRef.current;
+        const ctxOrNull = canvas.getContext('2d');
+        if (!ctxOrNull) return;
+        const ctx = ctxOrNull;
 
-        async function scanLoop() {
+        function scanFrame() {
           if (abortController.signal.aborted) return;
-          if (videoRef.current && videoRef.current.readyState >= 2) {
-            try {
-              const barcodes = await detector.detect(videoRef.current);
-              if (barcodes.length > 0 && !abortController.signal.aborted) {
-                void handleQrResult(barcodes[0].rawValue);
-                return;
-              }
-            } catch {
-              // detector not ready yet, keep looping
-            }
+          const video = videoRef.current;
+          if (!video || video.readyState < 2) {
+            requestAnimationFrame(scanFrame);
+            return;
           }
-          if (!abortController.signal.aborted) {
-            requestAnimationFrame(() => { void scanLoop(); });
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert',
+          });
+          if (code && !abortController.signal.aborted) {
+            void handleQrResult(code.data);
+            return;
           }
+          requestAnimationFrame(scanFrame);
         }
-        void scanLoop();
+        requestAnimationFrame(scanFrame);
       } catch (err) {
         if (!abortController.signal.aborted) {
           const msg = err instanceof Error ? err.message : 'Camera unavailable';
@@ -548,6 +540,7 @@ export default function DoormanPage() {
 
             <div className="scanner-wrap">
               <video ref={videoRef} className="scanner-video" muted playsInline />
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
 
               {/* Scan guide frame — visible while scanning */}
               {(phase.tag === 'scanning') && (
