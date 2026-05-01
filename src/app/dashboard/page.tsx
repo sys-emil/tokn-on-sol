@@ -797,6 +797,16 @@ export default function Dashboard() {
           .modal-actions .btn-create,
           .modal-actions .btn-logout { width: 100%; justify-content: center; }
         }
+
+        @media (max-width: 480px) {
+          .nav { padding: 0 16px; }
+          .main { padding: 88px 16px 64px; }
+          .nav-email { max-width: 140px; }
+        }
+
+        @media (max-width: 400px) {
+          .modal-surface { padding: 20px 16px; }
+        }
       `}</style>
 
       <div className={`dash-root ${unbounded.variable} ${epilogue.variable}`}>
