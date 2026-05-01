@@ -33,6 +33,7 @@ export default async function Home() {
           margin: 0;
           padding: 0;
           background: var(--color-bg);
+          overflow-x: hidden;
         }
 
         .root {
@@ -695,6 +696,8 @@ export default async function Home() {
         /* ── Graphic: event creation form ────────────────────── */
         .gfx-event-form {
           width: 88%;
+          max-width: 100%;
+          overflow: hidden;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: 12px;
@@ -845,6 +848,8 @@ export default async function Home() {
           gap: 10px;
           padding: 20px;
           width: 100%;
+          max-width: 100%;
+          overflow: hidden;
         }
         .gfx-hash-line {
           font-family: var(--font-display);
@@ -992,6 +997,8 @@ export default async function Home() {
           flex-direction: column;
           display: flex;
           width: 100%;
+          max-width: 100%;
+          overflow: hidden;
         }
         .gfx-chain-row {
           display: flex;
@@ -1176,6 +1183,14 @@ export default async function Home() {
         @media (max-width: 640px) {
           .proud-grid { grid-template-columns: 1fr; }
           .proud-card, .proud-card.is-wide, .proud-card.is-half { grid-column: span 1; }
+        }
+
+        @media (max-width: 480px) {
+          .section-inner { padding: 48px 16px; }
+        }
+
+        @media (max-width: 400px) {
+          .phone-wrap { transform: scale(0.82); transform-origin: center top; }
         }
       `}</style>
 
