@@ -421,6 +421,12 @@ export default function MyTickets() {
           .main { padding: 96px 24px 64px; }
           .cards { grid-template-columns: 1fr; }
         }
+
+        @media (max-width: 480px) {
+          .nav { padding: 0 16px; }
+          .main { padding: 88px 16px 64px; }
+          .card { padding: 20px 16px; }
+        }
       `}</style>
 
       <div className={`page-root ${unbounded.variable} ${epilogue.variable}`}>
