@@ -13,12 +13,12 @@ export default function CtaButton({ className }: CtaButtonProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (authenticated) router.push('/dashboard');
+    if (authenticated) router.push('/my-tickets');
   }, [authenticated]);
 
   function handleClick() {
     if (authenticated) {
-      router.push('/dashboard');
+      router.push('/my-tickets');
       return;
     }
     login();

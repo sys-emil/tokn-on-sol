@@ -432,6 +432,7 @@ export default function MyTickets() {
             <div className="nav-section">My Tickets</div>
           </div>
           <div className="nav-right">
+            <Link href="/dashboard" className="btn-nav" style={{ textDecoration: 'none' }}>Organizer Dashboard</Link>
             <button className="btn-nav" onClick={() => logout()}>Log out</button>
           </div>
         </nav>
