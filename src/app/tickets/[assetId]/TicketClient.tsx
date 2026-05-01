@@ -11,7 +11,8 @@ export default function TicketClient({ qrToken }: { qrToken: string }) {
     void QRCode.toCanvas(canvasRef.current, qrToken, {
       width: 220,
       margin: 2,
-      color: { dark: '#f5f3ee', light: '#1a1c26' },
+      errorCorrectionLevel: 'H',
+      color: { dark: '#1a1c26', light: '#f5f3ee' },
     });
   }, [qrToken]);
 

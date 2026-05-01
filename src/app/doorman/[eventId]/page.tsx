@@ -148,19 +148,32 @@ export default function DoormanPage() {
         if (!ctxOrNull) return;
         const ctx = ctxOrNull;
 
-        function scanFrame() {
+        let lastScanTs = 0;
+
+        function scanFrame(now: number) {
           if (abortController.signal.aborted) return;
           const video = videoRef.current;
           if (!video || video.readyState < 2) {
             requestAnimationFrame(scanFrame);
             return;
           }
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          // Throttle jsQR work to ~10fps; rAF keeps the preview smooth
+          if (now - lastScanTs < 100) {
+            requestAnimationFrame(scanFrame);
+            return;
+          }
+          lastScanTs = now;
+
+          // Downscale to ≤640px on long edge for faster processing
+          const scale = Math.min(1, 640 / Math.max(video.videoWidth, video.videoHeight));
+          const w = Math.round(video.videoWidth * scale);
+          const h = Math.round(video.videoHeight * scale);
+          canvas.width = w;
+          canvas.height = h;
+          ctx.drawImage(video, 0, 0, w, h);
+          const imageData = ctx.getImageData(0, 0, w, h);
           const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'dontInvert',
+            inversionAttempts: 'attemptBoth',
           });
           if (code && !abortController.signal.aborted) {
             handleQrResult(code.data);
