@@ -7,7 +7,6 @@ interface VerifyBody {
 
 interface QrPayload {
   assetId: string;
-  owner: string;
   exp: number;
 }
 
@@ -65,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ valid: false, reason: "Invalid QR code" });
   }
 
-  if (!payload.assetId || !payload.owner || typeof payload.exp !== "number") {
+  if (!payload.assetId || typeof payload.exp !== "number") {
     return NextResponse.json({ valid: false, reason: "Invalid QR code" });
   }
 

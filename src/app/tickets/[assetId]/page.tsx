@@ -63,7 +63,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
   const dateAttr = asset.content?.metadata?.attributes?.find((a) => a.trait_type === 'Event Date');
   const date = dateAttr?.value ?? '';
 
-  const qrPayload = { assetId, owner, exp: Date.now() + 300_000 };
+  const qrPayload = { assetId, exp: Date.now() + 300_000 };
   const qrToken = await signQrToken(qrPayload);
 
   const shortId = `#PSL-${assetId.slice(-4).toUpperCase()}`;
@@ -95,6 +95,54 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
           justify-content: center;
           padding: 48px 24px;
           box-sizing: border-box;
+          position: relative;
+          isolation: isolate;
+        }
+
+        /* Aurora pulsing glow */
+        .ticket-aurora {
+          position: fixed;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          overflow: hidden;
+          -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, #000 40%, transparent 100%);
+                  mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, #000 40%, transparent 100%);
+        }
+        .ticket-aurora-blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(80px);
+          will-change: transform, opacity;
+        }
+        .ticket-aurora-blob-1 {
+          top: 5%; left: 10%;
+          width: 500px; height: 500px;
+          background: radial-gradient(circle at 50% 50%,
+            oklch(0.72 0.118 148 / 0.40) 0%,
+            oklch(0.72 0.118 148 / 0.18) 40%,
+            oklch(0.72 0.118 148 / 0) 70%);
+          animation: tauroraPulseA 9s ease-in-out infinite;
+        }
+        .ticket-aurora-blob-2 {
+          bottom: 5%; right: 5%;
+          width: 400px; height: 400px;
+          background: radial-gradient(circle at 50% 50%,
+            oklch(0.78 0.140 158 / 0.30) 0%,
+            oklch(0.72 0.118 148 / 0.12) 45%,
+            oklch(0.72 0.118 148 / 0) 72%);
+          animation: tauroraPulseB 11s ease-in-out infinite;
+        }
+        @keyframes tauroraPulseA {
+          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.80; }
+          50%      { transform: translate(20px, 30px) scale(1.10); opacity: 1; }
+        }
+        @keyframes tauroraPulseB {
+          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.65; }
+          50%      { transform: translate(-25px, -20px) scale(1.08); opacity: 0.90; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ticket-aurora-blob { animation: none; }
         }
 
         .ticket-card {
@@ -105,6 +153,8 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
           display: flex;
           flex-direction: column;
           animation: fadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+          position: relative;
+          z-index: 1;
         }
 
         @keyframes fadeUp {
@@ -148,10 +198,18 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
         }
 
         .ticket-qr {
-          padding: 28px 32px;
+          padding: 24px 32px;
           display: flex;
           justify-content: center;
           border-bottom: 1px solid var(--color-border);
+          background: oklch(0.10 0.014 258);
+        }
+
+        .ticket-qr-frame {
+          background: #f5f3ee;
+          padding: 12px;
+          display: inline-flex;
+          box-shadow: 0 0 0 1px oklch(0.72 0.118 148 / 0.35), 0 0 24px oklch(0.72 0.118 148 / 0.18);
         }
 
         .ticket-meta {
@@ -196,12 +254,18 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
           text-transform: uppercase;
           color: var(--color-text-muted);
           text-align: center;
+          position: relative;
+          z-index: 1;
         }
 
         .ticket-brand span { color: var(--color-accent); }
       `}</style>
 
       <div className={`ticket-root ${unbounded.variable} ${epilogue.variable}`}>
+        <div className="ticket-aurora" aria-hidden="true">
+          <div className="ticket-aurora-blob ticket-aurora-blob-1" />
+          <div className="ticket-aurora-blob ticket-aurora-blob-2" />
+        </div>
         <div className="ticket-card">
           <div className="ticket-header">
             <div className="ticket-eyebrow">Your Ticket</div>
@@ -210,7 +274,9 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
           </div>
 
           <div className="ticket-qr">
-            <TicketClient qrToken={qrToken} />
+            <div className="ticket-qr-frame">
+              <TicketClient qrToken={qrToken} />
+            </div>
           </div>
 
           <div className="ticket-meta">

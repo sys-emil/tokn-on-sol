@@ -9,12 +9,12 @@ export default function TicketClient({ qrToken }: { qrToken: string }) {
   useEffect(() => {
     if (!canvasRef.current) return;
     void QRCode.toCanvas(canvasRef.current, qrToken, {
-      width: 220,
+      width: 260,
       margin: 2,
-      errorCorrectionLevel: 'H',
+      errorCorrectionLevel: 'M',
       color: { dark: '#1a1c26', light: '#f5f3ee' },
     });
   }, [qrToken]);
 
-  return <canvas ref={canvasRef} width={220} height={220} style={{ display: 'block' }} />;
+  return <canvas ref={canvasRef} width={260} height={260} style={{ display: 'block' }} />;
 }

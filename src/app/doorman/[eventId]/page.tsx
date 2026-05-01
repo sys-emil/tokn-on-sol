@@ -175,7 +175,7 @@ export default function DoormanPage() {
           const code = jsQR(imageData.data, imageData.width, imageData.height, {
             inversionAttempts: 'attemptBoth',
           });
-          if (code && !abortController.signal.aborted) {
+          if (code?.data && !abortController.signal.aborted) {
             handleQrResult(code.data);
             return;
           }
