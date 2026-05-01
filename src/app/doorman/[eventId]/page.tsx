@@ -57,7 +57,6 @@ export default function DoormanPage() {
   const [event, setEvent] = useState<EventData | null>(null);
   const [phase, setPhase] = useState<Phase>({ tag: 'loading' });
   const [scannedToday, setScannedToday] = useState(0);
-  const [debugScan, setDebugScan] = useState<string>('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -164,7 +163,8 @@ export default function DoormanPage() {
             inversionAttempts: 'dontInvert',
           });
           if (code && !abortController.signal.aborted) {
-            setDebugScan(code.data.substring(0, 150));
+            handleQrResult(code.data);
+            return;
           }
           requestAnimationFrame(scanFrame);
         }
@@ -541,17 +541,6 @@ export default function DoormanPage() {
             <div className="scanner-wrap">
               <video ref={videoRef} className="scanner-video" muted playsInline />
               <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-              {debugScan && (
-                <div style={{
-                  position: 'absolute', top: 0, left: 0, right: 0,
-                  background: 'rgba(0,0,0,0.85)', color: '#fff',
-                  padding: '12px', fontSize: '11px', zIndex: 99,
-                  wordBreak: 'break-all', fontFamily: 'monospace'
-                }}>
-                  {debugScan}
-                </div>
-              )}
 
               {/* Scan guide frame — visible while scanning */}
               {(phase.tag === 'scanning') && (

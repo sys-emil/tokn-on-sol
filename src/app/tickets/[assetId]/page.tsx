@@ -60,7 +60,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
 
   const name = asset.content?.metadata?.name ?? 'Unknown Event';
   const owner = asset.ownership?.owner ?? '';
-  const dateAttr = asset.content?.metadata?.attributes?.find((a) => a.trait_type === 'Date');
+  const dateAttr = asset.content?.metadata?.attributes?.find((a) => a.trait_type === 'Event Date');
   const date = dateAttr?.value ?? '';
 
   const qrPayload = { assetId, owner, exp: Date.now() + 300_000 };
