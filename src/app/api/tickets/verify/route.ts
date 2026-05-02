@@ -1,36 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+// Note: NEXTAUTH_SECRET is intentionally unused here.
+// Ticket authenticity is guaranteed by on-chain Ed25519 signature verification.
+
 import { supabaseAdmin } from "@/lib/supabase";
+import bs58 from "bs58";
+import { NextRequest, NextResponse } from "next/server";
 
 interface VerifyBody {
   token: string;
 }
 
 interface QrPayload {
-  assetId: string;
-  exp: number;
+  a: string; // assetId
+  t: number; // minuteTimestamp = Math.floor(Date.now() / 60000)
+  w: string; // walletAddress (base58)
+  s: string; // Ed25519 signature (base58)
 }
 
-async function verifyHmac(payloadStr: string, sigHex: string): Promise<boolean> {
-  const secret = process.env.NEXTAUTH_SECRET ?? "";
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sigBytes = await crypto.subtle.sign("HMAC", key, encoder.encode(payloadStr));
-  const expectedHex = Array.from(new Uint8Array(sigBytes))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  if (expectedHex.length !== sigHex.length) return false;
-  // Constant-time comparison
-  let diff = 0;
-  for (let i = 0; i < expectedHex.length; i++) {
-    diff |= expectedHex.charCodeAt(i) ^ sigHex.charCodeAt(i);
-  }
-  return diff === 0;
+interface DasAsset {
+  result?: { ownership?: { owner?: string } };
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -46,43 +33,83 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ valid: false, reason: "Token is required" }, { status: 400 });
   }
 
-  // Parse token: base64(payload).hexsig
-  const lastDot = token.lastIndexOf(".");
-  if (lastDot === -1) {
-    return NextResponse.json({ valid: false, reason: "Invalid QR code" });
-  }
-
-  const payloadB64 = token.slice(0, lastDot);
-  const sigHex = token.slice(lastDot + 1);
-
+  // Parse token: compact JSON { a, t, w, s }
   let payload: QrPayload;
-  let payloadStr: string;
   try {
-    payloadStr = Buffer.from(payloadB64, "base64").toString("utf8");
-    payload = JSON.parse(payloadStr) as QrPayload;
+    payload = JSON.parse(token) as QrPayload;
   } catch {
     return NextResponse.json({ valid: false, reason: "Invalid QR code" });
   }
 
-  if (!payload.assetId || typeof payload.exp !== "number") {
+  const { a: assetId, t, w: walletAddress, s: sigBase58 } = payload;
+  if (!assetId || typeof t !== "number" || !walletAddress || !sigBase58) {
     return NextResponse.json({ valid: false, reason: "Invalid QR code" });
   }
 
-  // Verify signature
-  const signatureValid = await verifyHmac(payloadStr, sigHex);
+  // Step 1 — Replay protection: accept current minute and previous minute
+  const nowMinute = Math.floor(Date.now() / 60000);
+  if (t !== nowMinute && t !== nowMinute - 1) {
+    return NextResponse.json({ valid: false, reason: "QR code expired" });
+  }
+
+  // Step 2 — Reconstruct the challenge the client signed
+  const challenge = `passly:verify:${assetId}:${t}`;
+
+  // Step 3 — Decode base58 pubkey and signature, then verify Ed25519
+  let pubkeyBytes: Uint8Array<ArrayBuffer>;
+  let sigBytes: Uint8Array<ArrayBuffer>;
+  try {
+    pubkeyBytes = Uint8Array.from(bs58.decode(walletAddress));
+    sigBytes = Uint8Array.from(bs58.decode(sigBase58));
+  } catch {
+    return NextResponse.json({ valid: false, reason: "Invalid QR code" });
+  }
+
+  let signatureValid: boolean;
+  try {
+    const key = await crypto.subtle.importKey("raw", pubkeyBytes, "Ed25519", false, ["verify"]);
+    signatureValid = await crypto.subtle.verify(
+      "Ed25519",
+      key,
+      sigBytes,
+      new TextEncoder().encode(challenge),
+    );
+  } catch {
+    return NextResponse.json({ valid: false, reason: "Signature verification failed" });
+  }
+
   if (!signatureValid) {
     return NextResponse.json({ valid: false, reason: "Invalid signature" });
   }
 
-  // Check expiry (5 minutes)
-  if (Date.now() > payload.exp) {
-    return NextResponse.json({ valid: false, reason: "QR code expired" });
+  // Step 4 — On-chain ownership check via Helius DAS
+  const heliusApiKey = process.env.HELIUS_API_KEY ?? "";
+  const assetRes = await fetch(`https://devnet.helius-rpc.com/?api-key=${heliusApiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "verify-ownership",
+      method: "getAsset",
+      params: { id: assetId },
+    }),
+    cache: "no-store",
+  });
+
+  if (!assetRes.ok) {
+    return NextResponse.json({ valid: false, reason: "Ownership check failed" });
   }
 
-  const { assetId } = payload;
+  const assetJson = (await assetRes.json()) as DasAsset;
+  const onChainOwner = assetJson.result?.ownership?.owner;
+
+  if (!onChainOwner || onChainOwner !== walletAddress) {
+    return NextResponse.json({ valid: false, reason: "Wallet does not own this ticket" });
+  }
+
+  // Step 5 — Atomic redemption: update only if redeemed_at IS NULL (unchanged)
   const now = new Date().toISOString();
 
-  // Atomic redemption: update only if redeemed_at IS NULL
   const { data: updated } = await supabaseAdmin
     .from("purchases")
     .update({ redeemed_at: now })
@@ -91,7 +118,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select("id, event_id");
 
   if (updated && updated.length > 0) {
-    // Successfully redeemed — fetch event name
     const eventId = (updated[0] as { event_id: string }).event_id;
     const { data: event } = await supabaseAdmin
       .from("events")

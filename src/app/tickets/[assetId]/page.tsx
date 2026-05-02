@@ -34,24 +34,6 @@ async function getAsset(assetId: string): Promise<DasAsset | null> {
   return json.result ?? null;
 }
 
-async function signQrToken(payload: object): Promise<string> {
-  const secret = process.env.NEXTAUTH_SECRET ?? 'fallback-secret';
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const payloadStr = JSON.stringify(payload);
-  const sigBytes = await crypto.subtle.sign('HMAC', key, encoder.encode(payloadStr));
-  const sigHex = Array.from(new Uint8Array(sigBytes))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  return `${Buffer.from(payloadStr).toString('base64')}.${sigHex}`;
-}
-
 export default async function TicketPage({ params }: { params: Promise<{ assetId: string }> }) {
   const { assetId } = await params;
   const asset = await getAsset(assetId);
@@ -62,9 +44,6 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
   const owner = asset.ownership?.owner ?? '';
   const dateAttr = asset.content?.metadata?.attributes?.find((a) => a.trait_type === 'Event Date');
   const date = dateAttr?.value ?? '';
-
-  const qrPayload = { assetId, exp: Date.now() + 300_000 };
-  const qrToken = await signQrToken(qrPayload);
 
   const shortId = `#PSL-${assetId.slice(-4).toUpperCase()}`;
 
@@ -275,7 +254,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
 
           <div className="ticket-qr">
             <div className="ticket-qr-frame">
-              <TicketClient qrToken={qrToken} />
+              <TicketClient assetId={assetId} />
             </div>
           </div>
 
