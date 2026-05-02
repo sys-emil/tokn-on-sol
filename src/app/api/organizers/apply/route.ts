@@ -57,7 +57,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     name: name.trim(),
     type,
     business_name: type === "business" ? (businessName?.trim() ?? null) : null,
-    status: "pending",
+    status: "approved",
   });
 
   if (error) {

@@ -22,7 +22,7 @@ const epilogue = Epilogue({
 });
 
 type OrgType = 'private' | 'business';
-type PageState = 'loading' | 'form' | 'pending' | 'submitted';
+type PageState = 'loading' | 'form';
 
 export default function BecomeOrganizer() {
   const router = useRouter();
@@ -46,7 +46,7 @@ export default function BecomeOrganizer() {
     if (!authenticated) login();
   }, [ready, authenticated, login]);
 
-  // Check existing application status
+  // Check existing application status — if already approved, go straight to dashboard
   useEffect(() => {
     if (!walletAddress) return;
     async function checkStatus(): Promise<void> {
@@ -55,8 +55,6 @@ export default function BecomeOrganizer() {
       const data = (await res.json()) as { status: string };
       if (data.status === 'approved') {
         router.push('/dashboard');
-      } else if (data.status === 'pending') {
-        setPageState('pending');
       } else {
         setPageState('form');
       }
@@ -94,7 +92,7 @@ export default function BecomeOrganizer() {
         setFormError(data.error ?? 'Something went wrong.');
         return;
       }
-      setPageState('submitted');
+      router.push('/dashboard');
     } catch {
       setFormError('Network error. Please try again.');
     } finally {
@@ -494,29 +492,6 @@ export default function BecomeOrganizer() {
               </p>
             )}
           </div>
-
-          {/* Pending state */}
-          {pageState === 'pending' && (
-            <div className="state-card">
-              <div className="state-label">Under review</div>
-              <h2 className="state-title">Application received</h2>
-              <p className="state-body">
-                Your application is currently under review. We&rsquo;ll notify you once it&rsquo;s been assessed.
-                This usually takes 1&ndash;2 business days.
-              </p>
-            </div>
-          )}
-
-          {/* Success state */}
-          {pageState === 'submitted' && (
-            <div className="state-card">
-              <div className="state-label">Submitted</div>
-              <h2 className="state-title">Application received.</h2>
-              <p className="state-body">
-                We&rsquo;ll review it shortly. Check back here for your status.
-              </p>
-            </div>
-          )}
 
           {/* Form */}
           {pageState === 'form' && (
