@@ -44,6 +44,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Authoritative organizer gate — must be approved before creating events
+  const { data: organizer } = await supabaseAdmin
+    .from("organizers")
+    .select("status")
+    .eq("wallet_address", organizer_wallet)
+    .eq("status", "approved")
+    .maybeSingle();
+
+  if (!organizer) {
+    return NextResponse.json(
+      { success: false, error: "Not an approved organizer" },
+      { status: 403 }
+    );
+  }
+
   try {
     const { data, error } = await supabaseAdmin
       .from("events")

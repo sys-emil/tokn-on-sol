@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [ticketsIssued, setTicketsIssued] = useState(0);
   const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [orgStatus, setOrgStatus] = useState<'loading' | 'none' | 'pending' | 'approved'>('loading');
 
   const solanaWalletAddress = solanaWallets[0]?.address;
 
@@ -56,7 +57,27 @@ export default function Dashboard() {
   }, [ready, authenticated, router]);
 
   useEffect(() => {
-    if (!solanaWalletAddress || eventsLoaded) return;
+    if (!solanaWalletAddress) return;
+    async function checkOrg(): Promise<void> {
+      const res = await fetch(`/api/organizers/status?walletAddress=${solanaWalletAddress}`);
+      if (!res.ok) { setOrgStatus('none'); return; }
+      const data = (await res.json()) as { status: string };
+      const s = data.status;
+      if (s === 'approved' || s === 'pending') {
+        setOrgStatus(s);
+      } else {
+        setOrgStatus('none');
+      }
+    }
+    void checkOrg();
+  }, [solanaWalletAddress]);
+
+  useEffect(() => {
+    if (orgStatus === 'none') router.push('/become-organizer');
+  }, [orgStatus, router]);
+
+  useEffect(() => {
+    if (!solanaWalletAddress || eventsLoaded || orgStatus !== 'approved') return;
     async function loadEvents(): Promise<void> {
       try {
         const res = await fetch(`/api/events/list?organizerWallet=${solanaWalletAddress}`);
@@ -70,7 +91,7 @@ export default function Dashboard() {
       }
     }
     void loadEvents();
-  }, [solanaWalletAddress, eventsLoaded]);
+  }, [solanaWalletAddress, eventsLoaded, orgStatus]);
 
   if (!ready || !authenticated) return null;
 
@@ -833,6 +854,53 @@ export default function Dashboard() {
         {/* Main */}
         <main className="main">
 
+          {/* Pending organizer state */}
+          {orgStatus === 'pending' && (
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              gap: 12,
+              animation: 'fadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both',
+            }}>
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--color-accent)',
+              }}>
+                Under review
+              </div>
+              <h2 style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 'clamp(22px, 3vw, 32px)',
+                fontWeight: 900,
+                letterSpacing: '-0.02em',
+                color: 'var(--color-text)',
+                margin: 0,
+              }}>
+                Application under review
+              </h2>
+              <p style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 14,
+                color: 'var(--color-text-muted)',
+                lineHeight: 1.6,
+                margin: 0,
+                maxWidth: '44ch',
+              }}>
+                We&rsquo;re reviewing your organizer application. You&rsquo;ll be able to create
+                events as soon as it&rsquo;s approved — usually within 1&ndash;2 business days.
+              </p>
+            </div>
+          )}
+
+          {orgStatus === 'approved' && (<>
+
           {/* Heading */}
           <div className="page-heading a1">
             <div className="page-label">
@@ -952,6 +1020,9 @@ export default function Dashboard() {
             </div>
 
           </div>
+
+          </>)}
+
         </main>
 
         {modalOpen && (

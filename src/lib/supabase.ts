@@ -1,5 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 
+export type OrganizerStatus = 'pending' | 'approved' | 'rejected';
+export type OrganizerType = 'private' | 'business';
+
+export type Organizer = {
+  id: string;
+  wallet_address: string;
+  email: string;
+  name: string;
+  type: OrganizerType;
+  business_name: string | null;
+  status: OrganizerStatus;
+  created_at: string;
+};
+
 export type Event = {
   id: string;
   organizer_wallet: string;

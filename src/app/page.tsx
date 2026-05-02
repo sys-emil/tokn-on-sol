@@ -1,4 +1,5 @@
 import { Epilogue, Unbounded } from 'next/font/google';
+import Link from 'next/link';
 import CtaButton from '@/app/components/CtaButton';
 
 const unbounded = Unbounded({
@@ -263,6 +264,35 @@ export default async function Home() {
         .cta-arrow {
           display: inline-block;
           transition: transform 0.16s ease;
+        }
+
+        .hero-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+          align-self: flex-start;
+        }
+
+        .cta-secondary {
+          display: inline-flex;
+          align-items: center;
+          padding: 14px 28px;
+          font-family: var(--font-display);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--color-text-muted);
+          background: transparent;
+          border: 1.5px solid var(--color-text-muted);
+          text-decoration: none;
+          transition: color 0.16s ease, border-color 0.16s ease;
+        }
+
+        .cta-secondary:hover {
+          color: var(--color-text);
+          border-color: var(--color-text);
         }
 
         /* ── Phone mockup ────────────────────────────────────── */
@@ -1227,7 +1257,12 @@ export default async function Home() {
               scannable at the gate in real time.
             </p>
 
-            <CtaButton className="cta a4" />
+            <div className="hero-actions a4">
+              <CtaButton className="cta" />
+              <Link href="/become-organizer" className="cta-secondary">
+                Host an Event
+              </Link>
+            </div>
           </div>
 
           {/* Phone mockup */}
