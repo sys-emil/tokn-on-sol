@@ -28,11 +28,13 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 ### Key flows
 
 1. **Purchase** – `/shop/[id]` → `/api/checkout/create` (Stripe session) → Stripe webhook `/api/webhooks/stripe` mints cNFT via Metaplex Bubblegum and writes a `purchases` row to Supabase.
-2. **QR verification** – Ticket detail page (`/tickets/[assetId]`) renders a signed QR token (`base64(payload).hexsig` using HMAC-SHA256). Doorman page (`/doorman/[eventId]`) scans it with jsQR and calls `/api/tickets/verify` which decodes + verifies the HMAC and sets `redeemed_at` in Supabase.
-   - Token payload shape: `{ assetId, owner, exp }` where `exp = Date.now() + 300_000` (5-minute window).
-   - HMAC key: `NEXTAUTH_SECRET`. The project doesn't use NextAuth — this is a legacy env var name; don't rename it, it's a breaking change for deployed instances.
-   - Verification in `/api/tickets/verify` uses constant-time hex comparison.
-3. **Organizer** – `/dashboard` lets authenticated organizers create events (saved to Supabase) and view sales.
+2. **QR verification** – `src/app/tickets/[assetId]/TicketClient.tsx` generates a QR code by signing a challenge with the buyer's embedded Solana wallet (Ed25519). Doorman page (`/doorman/[eventId]`) scans it with jsQR and calls `/api/tickets/verify`.
+   - Token format: compact JSON `{ a: assetId, t: minuteTimestamp, w: walletAddress, s: base58Signature }`
+   - Challenge signed by the wallet: `` `passly:verify:${assetId}:${t}` `` where `t = Math.floor(Date.now() / 60000)`
+   - Verify route steps: (1) replay protection — accept current or previous minute, (2) reconstruct challenge, (3) verify Ed25519 signature via `crypto.subtle`, (4) on-chain ownership check via Helius DAS, (5) atomic redemption — sets `redeemed_at` only if currently NULL.
+   - `NEXTAUTH_SECRET` is present in env but **not used** for QR verification (legacy name, do not remove — may be referenced elsewhere).
+3. **Organizer gate** – New organizers apply at `/become-organizer`. The POST handler at `/api/organizers/apply` verifies the Privy auth token server-side (`@privy-io/server-auth`), checks that the user has a verified email address on their Privy account, then inserts into the `organizers` table at `status: 'approved'`. `/dashboard` requires approved organizer status.
+4. **Organizer dashboard** – `/dashboard` lets approved organizers create events (saved to Supabase) and view sales. Events can be marked **private** at creation — private events are excluded from the public listing but remain purchasable via direct link.
 
 ### Routing
 
@@ -40,14 +42,15 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 |------|-----|
 | `/` | Public landing page |
 | `/shop/[id]` | Public event listing & purchase |
-| `/dashboard` | Organizer (Privy auth required) |
+| `/become-organizer` | Organizer application (Privy auth required) |
+| `/dashboard` | Organizer dashboard (approved organizer required) |
 | `/my-tickets` | Buyer's ticket collection |
 | `/tickets/[assetId]` | Individual ticket + QR code |
 | `/doorman/[eventId]` | Camera scanner for venue staff |
 
 ### Authentication & wallets (Privy)
 
-Root layout wraps everything in `PrivyProvider`. Email login auto-creates a Solana embedded wallet per user. All auth-gated pages check `usePrivy().authenticated` client-side.
+Root layout wraps everything in `PrivyProvider`. Login method is **email only** (`loginMethods: ['email']`). Email login auto-creates a Solana embedded wallet per user. All auth-gated pages check `usePrivy().authenticated` client-side. Server-side token verification uses `PrivyClient` from `@privy-io/server-auth` (requires `PRIVY_APP_SECRET`).
 
 ### Blockchain
 
@@ -59,9 +62,11 @@ Root layout wraps everything in `PrivyProvider`. Email login auto-creates a Sola
 
 ### Database (Supabase)
 
-Two main tables:
-- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold`
+Three tables:
+- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, is_private, created_at`
+  - `is_private boolean default false` — private events are excluded from `/api/events/public` but still purchasable via direct link.
 - `purchases`: `event_id, buyer_wallet, asset_id, stripe_session_id, redeemed_at`
+- `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), created_at`
 
 **Security model** — intentional, don't change:
 - All Supabase writes go through the service-role admin client. **No RLS — this is intentional.** Don't add row-level security policies.
@@ -87,6 +92,6 @@ NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE
 OPERATOR_PRIVATE_KEY
 MERKLE_TREE_ADDRESS
 STRIPE_SECRET_KEY / STRIPE_PUBLIC_KEY / STRIPE_WEBHOOK_SECRET
-NEXTAUTH_SECRET        # HMAC key for QR token signing (legacy name — do not rename)
+NEXTAUTH_SECRET        # Legacy name — no longer used for QR signing; do not remove
 VERCEL_URL             # Auto-set by Vercel; used to build absolute metadata URLs
 ```
