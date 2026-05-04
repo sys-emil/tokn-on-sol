@@ -1,6 +1,6 @@
 'use client';
 
-import { useLogout, usePrivy } from '@privy-io/react-auth';
+import { useLogout, usePrivy, useLinkAccount } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
@@ -26,8 +26,9 @@ type PageState = 'loading' | 'form';
 
 export default function BecomeOrganizer() {
   const router = useRouter();
-  const { ready, authenticated, login, user } = usePrivy();
+  const { ready, authenticated, login, user, getAccessToken } = usePrivy();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
+  const { linkPhone } = useLinkAccount({ onSuccess: () => { setFormError(null); } });
   const { wallets: solanaWallets } = useSolanaWallets();
 
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -76,9 +77,14 @@ export default function BecomeOrganizer() {
     setFormError(null);
     setSubmitting(true);
     try {
+      const token = await getAccessToken();
+      if (!token) { setFormError('Authentication error. Please log in again.'); return; }
       const res = await fetch('/api/organizers/apply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           walletAddress,
           email: effectiveEmail.trim(),
@@ -89,7 +95,11 @@ export default function BecomeOrganizer() {
       });
       const data = (await res.json()) as { success: boolean; error?: string };
       if (!data.success) {
-        setFormError(data.error ?? 'Something went wrong.');
+        if (data.error === 'phone_required') {
+          setFormError('phone_required');
+        } else {
+          setFormError(data.error ?? 'Something went wrong.');
+        }
         return;
       }
       router.push('/dashboard');
@@ -557,7 +567,24 @@ export default function BecomeOrganizer() {
                 </div>
               )}
 
-              {formError && <p className="form-error">{formError}</p>}
+              {formError && formError !== 'phone_required' && (
+                <p className="form-error">{formError}</p>
+              )}
+              {formError === 'phone_required' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <p className="form-error">
+                    To become an organizer, please add and verify your phone number first. You can do this in your account settings.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-submit"
+                    style={{ alignSelf: 'flex-start' }}
+                    onClick={() => linkPhone()}
+                  >
+                    Add phone number
+                  </button>
+                </div>
+              )}
 
               <button
                 className="btn-submit"

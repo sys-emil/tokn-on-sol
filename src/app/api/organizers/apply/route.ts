@@ -1,5 +1,13 @@
+// Requires NEXT_PUBLIC_PRIVY_APP_ID and PRIVY_APP_SECRET in environment variables
+// Find them at: https://dashboard.privy.io → your app → Settings → API keys
+import { PrivyClient } from "@privy-io/server-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
+
+const privy = new PrivyClient(
+  process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
+  process.env.PRIVY_APP_SECRET!,
+);
 
 interface ApplyBody {
   walletAddress: string;
@@ -10,6 +18,23 @@ interface ApplyBody {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const authToken = req.headers.get("authorization")?.replace("Bearer ", "");
+  if (!authToken) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  let privyUser: Awaited<ReturnType<typeof privy.getUser>>;
+  try {
+    const verified = await privy.verifyAuthToken(authToken);
+    privyUser = await privy.getUser(verified.userId);
+  } catch {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!privyUser.phone?.number) {
+    return NextResponse.json({ success: false, error: "phone_required" }, { status: 403 });
+  }
+
   let body: ApplyBody;
   try {
     body = (await req.json()) as ApplyBody;
