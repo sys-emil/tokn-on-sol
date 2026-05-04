@@ -26,6 +26,7 @@ interface EventRow {
   date: string;
   count: number;
   id?: string;
+  is_private?: boolean;
 }
 
 export default function Dashboard() {
@@ -39,6 +40,7 @@ export default function Dashboard() {
   const [eventDate, setEventDate] = useState('');
   const [priceEur, setPriceEur] = useState(0);
   const [capacity, setCapacity] = useState(100);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [shopLink, setShopLink] = useState<string | null>(null);
@@ -101,6 +103,7 @@ export default function Dashboard() {
     setEventDate('');
     setPriceEur(0);
     setCapacity(100);
+    setIsPrivate(false);
     setFormError(null);
     setShopLink(null);
     setCopied(false);
@@ -146,6 +149,7 @@ export default function Dashboard() {
           date: eventDate,
           price_eur: Math.round(priceEur * 100),
           capacity,
+          is_private: isPrivate,
         }),
       });
       const createData = (await createRes.json()) as
@@ -161,7 +165,7 @@ export default function Dashboard() {
       setShopLink(link);
       setEvents((prev) => [
         ...prev,
-        { name: trimmedName, date: eventDate, count: 0, id: eventId },
+        { name: trimmedName, date: eventDate, count: 0, id: eventId, is_private: isPrivate },
       ]);
       setTimeout(() => {
         setModalOpen(false);
@@ -593,6 +597,71 @@ export default function Dashboard() {
           border-color: oklch(0.40 0.016 258);
         }
 
+        /* ── Private badge ───────────────────────────────────── */
+        .event-badge-private {
+          font-family: var(--font-display);
+          font-size: 8px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--color-text-muted);
+          border: 1px solid var(--color-border);
+          padding: 2px 6px;
+          flex-shrink: 0;
+        }
+
+        /* ── Visibility toggle ───────────────────────────────── */
+        .vis-cards {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+
+        .vis-card {
+          border: 1px solid var(--color-border);
+          background: var(--color-bg);
+          padding: 12px 14px;
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          transition: border-color 0.15s ease, background 0.15s ease;
+          text-align: left;
+        }
+
+        .vis-card:hover:not(:disabled) {
+          border-color: oklch(0.40 0.016 258);
+        }
+
+        .vis-card.selected {
+          border-color: var(--color-accent);
+          background: var(--color-accent-bg);
+        }
+
+        .vis-card:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .vis-card-name {
+          font-family: var(--font-display);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          color: var(--color-text);
+        }
+
+        .vis-card.selected .vis-card-name {
+          color: var(--color-accent);
+        }
+
+        .vis-card-sub {
+          font-family: var(--font-body);
+          font-size: 11px;
+          color: var(--color-text-muted);
+          line-height: 1.4;
+        }
+
         /* ── Modal ───────────────────────────────────────────── */
         @keyframes overlayIn {
           from { opacity: 0; }
@@ -891,7 +960,10 @@ export default function Dashboard() {
                   <div className="events-list">
                     {events.map((evt, i) => (
                       <div className="event-row" key={`${evt.name}-${i}`}>
-                        <div className="event-row-name">{evt.name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div className="event-row-name">{evt.name}</div>
+                          {evt.is_private && <span className="event-badge-private">Private</span>}
+                        </div>
                         <div className="event-row-bottom">
                           <div className="event-row-meta">{evt.date}</div>
                           <div className="event-row-meta">{evt.count} tickets</div>
@@ -1059,6 +1131,30 @@ export default function Dashboard() {
                     required
                     disabled={creating}
                   />
+                </div>
+
+                <div className="field">
+                  <div className="field-label">Visibility</div>
+                  <div className="vis-cards">
+                    <button
+                      type="button"
+                      className={`vis-card${!isPrivate ? ' selected' : ''}`}
+                      onClick={() => setIsPrivate(false)}
+                      disabled={creating}
+                    >
+                      <div className="vis-card-name">Public</div>
+                      <div className="vis-card-sub">Listed in upcoming events</div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`vis-card${isPrivate ? ' selected' : ''}`}
+                      onClick={() => setIsPrivate(true)}
+                      disabled={creating}
+                    >
+                      <div className="vis-card-name">Private</div>
+                      <div className="vis-card-sub">Hidden — share only via link</div>
+                    </button>
+                  </div>
                 </div>
 
                 {formError && (

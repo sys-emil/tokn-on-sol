@@ -10,6 +10,7 @@ export async function GET(): Promise<NextResponse> {
     .from("events")
     .select("id, name, date, price_eur, capacity, tickets_sold")
     .gte("date", today)
+    .eq("is_private", false)
     .order("date", { ascending: true });
 
   if (error) {

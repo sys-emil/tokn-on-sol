@@ -15,7 +15,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, tickets_sold")
+    .select("id, name, date, tickets_sold, is_private")
     .eq("organizer_wallet", organizerWallet)
     .order("created_at", { ascending: false });
 
@@ -31,6 +31,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     name: e.name as string,
     date: e.date as string,
     count: e.tickets_sold as number,
+    is_private: e.is_private as boolean,
   }));
 
   return NextResponse.json({ events, totalTickets });

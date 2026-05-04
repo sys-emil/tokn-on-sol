@@ -7,6 +7,7 @@ interface CreateEventBody {
   date: string;
   price_eur: number;
   capacity: number;
+  is_private?: boolean;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, price_eur, capacity } = body;
+  const { organizer_wallet, name, date, price_eur, capacity, is_private } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         date,
         price_eur,
         capacity,
+        is_private: is_private === true,
       })
       .select("id")
       .single();

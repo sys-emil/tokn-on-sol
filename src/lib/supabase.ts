@@ -22,6 +22,7 @@ export type Event = {
   price_eur: number;
   capacity: number;
   tickets_sold: number;
+  is_private: boolean;
   created_at: string;
 };
 
