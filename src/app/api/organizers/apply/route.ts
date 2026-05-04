@@ -31,8 +31,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!privyUser.phone?.number) {
-    return NextResponse.json({ success: false, error: "phone_required" }, { status: 403 });
+  if (!privyUser.email?.address) {
+    return NextResponse.json({ success: false, error: "email_required" }, { status: 403 });
   }
 
   let body: ApplyBody;

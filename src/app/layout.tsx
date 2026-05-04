@@ -14,7 +14,7 @@ export default function RootLayout({
         <PrivyProvider
           appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
           config={{
-            loginMethods: ['email', 'sms'],
+            loginMethods: ['email'],
             embeddedWallets: {
               solana: {
                 createOnLogin: 'users-without-wallets',

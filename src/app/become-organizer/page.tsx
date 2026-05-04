@@ -28,7 +28,7 @@ export default function BecomeOrganizer() {
   const router = useRouter();
   const { ready, authenticated, login, user, getAccessToken } = usePrivy();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
-  const { linkPhone } = useLinkAccount({ onSuccess: () => { setFormError(null); } });
+  const { linkEmail } = useLinkAccount({ onSuccess: () => { setFormError(null); } });
   const { wallets: solanaWallets } = useSolanaWallets();
 
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -95,8 +95,8 @@ export default function BecomeOrganizer() {
       });
       const data = (await res.json()) as { success: boolean; error?: string };
       if (!data.success) {
-        if (data.error === 'phone_required') {
-          setFormError('phone_required');
+        if (data.error === 'email_required') {
+          setFormError('email_required');
         } else {
           setFormError(data.error ?? 'Something went wrong.');
         }
@@ -567,21 +567,21 @@ export default function BecomeOrganizer() {
                 </div>
               )}
 
-              {formError && formError !== 'phone_required' && (
+              {formError && formError !== 'email_required' && (
                 <p className="form-error">{formError}</p>
               )}
-              {formError === 'phone_required' && (
+              {formError === 'email_required' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <p className="form-error">
-                    To become an organizer, please add and verify your phone number first. You can do this in your account settings.
+                    To become an organizer, please verify your email address first.
                   </p>
                   <button
                     type="button"
                     className="btn-submit"
                     style={{ alignSelf: 'flex-start' }}
-                    onClick={() => linkPhone()}
+                    onClick={() => linkEmail()}
                   >
-                    Add phone number
+                    Verify email
                   </button>
                 </div>
               )}
