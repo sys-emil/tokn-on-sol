@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { mintTicket } from "@/lib/mint";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30; // seconds — allows multi-ticket minting on Pro plan
+export const maxDuration = 60; // seconds — allows multi-ticket minting (each mint ~10-15s)
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
@@ -53,30 +53,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const alreadyMinted = existing?.length ?? 0;
   const toMint = quantity - alreadyMinted;
 
-  // Mint sequentially — Bubblegum appends leaves one at a time, parallel
-  // transactions to the same tree conflict and one will fail.
+  // Mint sequentially — Bubblegum appends one leaf at a time; parallel transactions
+  // to the same tree conflict. Retry each mint up to 3 times and pause between
+  // tickets to let the tree state propagate on the RPC.
   let minted = 0;
   for (let i = 0; i < toMint; i++) {
-    try {
-      const { assetId, signature } = await mintTicket({
-        eventName: event.name,
-        eventDate: event.date,
-        ownerWallet: buyerWallet,
-        baseUrl: siteUrl,
-      });
+    if (i > 0) await new Promise((r) => setTimeout(r, 2000)); // let tree state settle
 
-      await supabaseAdmin.from("purchases").insert({
-        event_id: eventId,
-        buyer_wallet: buyerWallet,
-        asset_id: assetId,
-        signature,
-        stripe_session_id: session.id,
-      });
+    let success = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 3000));
+      try {
+        const { assetId, signature } = await mintTicket({
+          eventName: event.name,
+          eventDate: event.date,
+          ownerWallet: buyerWallet,
+          baseUrl: siteUrl,
+        });
 
-      minted++;
-    } catch (err) {
-      console.error(`Mint attempt ${alreadyMinted + i + 1} of ${quantity} failed:`, err);
-      // Continue to next ticket — don't break; partial delivery is better than none.
+        await supabaseAdmin.from("purchases").insert({
+          event_id: eventId,
+          buyer_wallet: buyerWallet,
+          asset_id: assetId,
+          signature,
+          stripe_session_id: session.id,
+        });
+
+        minted++;
+        success = true;
+        break;
+      } catch (err) {
+        console.error(`Ticket ${alreadyMinted + i + 1}/${quantity} attempt ${attempt + 1} failed:`, err);
+      }
+    }
+
+    if (!success) {
+      console.error(`Ticket ${alreadyMinted + i + 1}/${quantity} failed after 3 attempts, skipping.`);
     }
   }
 
