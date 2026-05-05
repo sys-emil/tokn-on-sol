@@ -12,9 +12,9 @@ import {
 } from "@metaplex-foundation/mpl-bubblegum";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { getOperatorKeypair } from "@/lib/solana";
-import { clusterApiUrl } from "@solana/web3.js";
 
 const MERKLE_TREE = process.env.MERKLE_TREE_ADDRESS ?? "";
+const HELIUS_RPC = process.env.NEXT_PUBLIC_HELIUS_RPC_URL ?? "";
 
 export interface MintTicketParams {
   eventName: string;
@@ -35,8 +35,10 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
 
   const metadataUri = `${baseUrl}/api/tickets/metadata?name=${encodeURIComponent(eventName)}&date=${encodeURIComponent(eventDate)}`;
 
+  if (!HELIUS_RPC) throw new Error("NEXT_PUBLIC_HELIUS_RPC_URL is not configured");
+
   const operatorKeypair = getOperatorKeypair();
-  const umi = createUmi(clusterApiUrl("devnet"))
+  const umi = createUmi(HELIUS_RPC)
     .use(mplBubblegum())
     .use(mplTokenMetadata());
 

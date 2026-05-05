@@ -142,11 +142,7 @@ function SuccessInner() {
           const res = await fetch(`/api/checkout/confirm?session_id=${encodeURIComponent(sessionId)}`);
           const data = (await res.json()) as { found: boolean; assetIds?: string[] };
           if (data.found && data.assetIds && data.assetIds.length > 0) {
-            if (data.assetIds.length === 1) {
-              router.replace(`/tickets/${data.assetIds[0]}`);
-            } else {
-              router.replace('/my-tickets');
-            }
+            router.replace('/my-tickets');
             return;
           }
         } catch {
