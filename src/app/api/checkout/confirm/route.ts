@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const sessionId = new URL(req.url).searchParams.get("session_id");
@@ -20,18 +17,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (!data || data.length === 0) return NextResponse.json({ found: false });
 
-  // Fetch expected quantity from Stripe so we wait for all tickets to mint
-  let expectedQty = 1;
-  try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    expectedQty = parseInt(session.metadata?.quantity ?? "1", 10) || 1;
-  } catch {
-    // If Stripe call fails, proceed with what we have
-    expectedQty = data.length;
-  }
-
-  if (data.length < expectedQty) return NextResponse.json({ found: false });
-
+  // Return whatever tickets have been minted so far. The webhook mints sequentially
+  // and may still be running — the client redirects to /my-tickets where any
+  // remaining tickets will appear once minting finishes.
   const assetIds = data.map((row) => row.asset_id as string);
   return NextResponse.json({ found: true, assetIds });
 }

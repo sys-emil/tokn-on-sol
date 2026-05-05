@@ -45,10 +45,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
+  // Idempotency: count tickets already minted for this session (Stripe may retry).
+  const { data: existing } = await supabaseAdmin
+    .from("purchases")
+    .select("asset_id")
+    .eq("stripe_session_id", session.id);
+  const alreadyMinted = existing?.length ?? 0;
+  const toMint = quantity - alreadyMinted;
+
   // Mint sequentially — Bubblegum appends leaves one at a time, parallel
   // transactions to the same tree conflict and one will fail.
   let minted = 0;
-  for (let i = 0; i < quantity; i++) {
+  for (let i = 0; i < toMint; i++) {
     try {
       const { assetId, signature } = await mintTicket({
         eventName: event.name,
@@ -66,16 +74,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
 
       minted++;
-    } catch {
-      break;
+    } catch (err) {
+      console.error(`Mint attempt ${alreadyMinted + i + 1} of ${quantity} failed:`, err);
+      // Continue to next ticket — don't break; partial delivery is better than none.
     }
   }
 
+  const totalNewlyMinted = alreadyMinted + minted;
   if (minted > 0) {
     await supabaseAdmin
       .from("events")
       .update({ tickets_sold: event.tickets_sold + minted })
       .eq("id", eventId);
+  }
+
+  // Log if we couldn't mint everything — helps diagnose partial failures.
+  if (totalNewlyMinted < quantity) {
+    console.error(`Partial mint: ${totalNewlyMinted}/${quantity} tickets for session ${session.id}`);
   }
 
   return NextResponse.json({ received: true });
