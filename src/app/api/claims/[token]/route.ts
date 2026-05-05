@@ -10,18 +10,6 @@ const privy = new PrivyClient(
   process.env.PRIVY_APP_SECRET!,
 );
 
-interface ClaimRow {
-  asset_id: string;
-  seller_wallet: string;
-  claimed_at: string | null;
-  claimer_wallet: string | null;
-  purchases: {
-    event_id: string;
-    redeemed_at: string | null;
-    events: { name: string; date: string } | null;
-  } | null;
-}
-
 // GET /api/claims/[token] — public preview
 export async function GET(
   _req: NextRequest,
@@ -31,7 +19,7 @@ export async function GET(
 
   const { data: claim } = await supabaseAdmin
     .from("claims")
-    .select("asset_id, seller_wallet, claimed_at, claimer_wallet, purchases(event_id, redeemed_at, events(name, date))")
+    .select("asset_id, claimed_at")
     .eq("token", token)
     .maybeSingle();
 
@@ -39,16 +27,30 @@ export async function GET(
     return NextResponse.json({ found: false }, { status: 404 });
   }
 
-  const row = claim as unknown as ClaimRow;
-  const event = Array.isArray(row.purchases?.events) ? row.purchases?.events[0] : row.purchases?.events;
+  const assetId = claim.asset_id as string;
+
+  // Fetch event info via purchases
+  const { data: purchase } = await supabaseAdmin
+    .from("purchases")
+    .select("event_id")
+    .eq("asset_id", assetId)
+    .maybeSingle();
+
+  const { data: event } = purchase?.event_id
+    ? await supabaseAdmin
+        .from("events")
+        .select("name, date")
+        .eq("id", purchase.event_id)
+        .maybeSingle()
+    : { data: null };
 
   return NextResponse.json({
     found: true,
-    assetId: row.asset_id,
-    eventName: event?.name ?? "",
-    eventDate: event?.date ?? "",
-    claimed: !!row.claimed_at,
-    claimedAt: row.claimed_at ?? null,
+    assetId,
+    eventName: (event?.name ?? "") as string,
+    eventDate: (event?.date ?? "") as string,
+    claimed: !!(claim.claimed_at as string | null),
+    claimedAt: (claim.claimed_at as string | null) ?? null,
   });
 }
 
