@@ -74,7 +74,7 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
   let assetId = "";
   let parseError: unknown = null;
   for (let attempt = 0; attempt < 8; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 1500));
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 500));
     try {
       const tx = await umi.rpc.getTransaction(signature, { commitment: "confirmed" });
       const innerIx = tx?.meta?.innerInstructions?.[0]?.instructions?.[0];

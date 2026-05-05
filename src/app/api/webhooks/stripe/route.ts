@@ -1,10 +1,10 @@
-import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { mintTicket } from "@/lib/mint";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // seconds — allows multi-ticket minting on Pro plan
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
@@ -45,42 +45,38 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  // Return 200 to Stripe immediately — minting runs in the background.
-  // Mints are sequential: Bubblegum appends leaves one at a time, so
-  // parallel transactions to the same tree conflict and one will fail.
-  after(async () => {
-    let minted = 0;
-    for (let i = 0; i < quantity; i++) {
-      try {
-        const { assetId, signature } = await mintTicket({
-          eventName: event.name,
-          eventDate: event.date,
-          ownerWallet: buyerWallet,
-          baseUrl: siteUrl,
-        });
+  // Mint sequentially — Bubblegum appends leaves one at a time, parallel
+  // transactions to the same tree conflict and one will fail.
+  let minted = 0;
+  for (let i = 0; i < quantity; i++) {
+    try {
+      const { assetId, signature } = await mintTicket({
+        eventName: event.name,
+        eventDate: event.date,
+        ownerWallet: buyerWallet,
+        baseUrl: siteUrl,
+      });
 
-        await supabaseAdmin.from("purchases").insert({
-          event_id: eventId,
-          buyer_wallet: buyerWallet,
-          asset_id: assetId,
-          signature,
-          stripe_session_id: session.id,
-        });
+      await supabaseAdmin.from("purchases").insert({
+        event_id: eventId,
+        buyer_wallet: buyerWallet,
+        asset_id: assetId,
+        signature,
+        stripe_session_id: session.id,
+      });
 
-        minted++;
-      } catch {
-        // One mint failed — stop and record what was minted so far.
-        break;
-      }
+      minted++;
+    } catch {
+      break;
     }
+  }
 
-    if (minted > 0) {
-      await supabaseAdmin
-        .from("events")
-        .update({ tickets_sold: event.tickets_sold + minted })
-        .eq("id", eventId);
-    }
-  });
+  if (minted > 0) {
+    await supabaseAdmin
+      .from("events")
+      .update({ tickets_sold: event.tickets_sold + minted })
+      .eq("id", eventId);
+  }
 
   return NextResponse.json({ received: true });
 }
