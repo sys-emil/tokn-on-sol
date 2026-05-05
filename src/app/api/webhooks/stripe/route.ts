@@ -58,7 +58,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // tickets to let the tree state propagate on the RPC.
   let minted = 0;
   for (let i = 0; i < toMint; i++) {
-    if (i > 0) await new Promise((r) => setTimeout(r, 2000)); // let tree state settle
+    if (i > 0) await new Promise((r) => setTimeout(r, 1000)); // brief pause between mints
 
     let success = false;
     for (let attempt = 0; attempt < 3; attempt++) {
