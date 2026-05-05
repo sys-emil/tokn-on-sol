@@ -3,16 +3,19 @@ import {
   keypairIdentity,
   createSignerFromKeypair,
   publicKey,
+  type TransactionSignature,
+  type Umi,
 } from "@metaplex-foundation/umi";
 import {
   mplBubblegum,
   mintV1,
   TokenProgramVersion,
   findLeafAssetIdPda,
-  fetchTreeConfigFromSeeds,
+  parseLeafFromMintV1Transaction,
 } from "@metaplex-foundation/mpl-bubblegum";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { getOperatorKeypair } from "@/lib/solana";
+import bs58 from "bs58";
 
 const MERKLE_TREE = process.env.MERKLE_TREE_ADDRESS ?? "";
 const HELIUS_RPC = process.env.NEXT_PUBLIC_HELIUS_RPC_URL ?? "";
@@ -27,6 +30,25 @@ export interface MintTicketParams {
 export interface MintTicketResult {
   assetId: string;
   signature: string;
+}
+
+// Parse the confirmed transaction to get the actual leaf index assigned by
+// Bubblegum. The RPC may not surface the tx immediately after confirmation
+// (read-replica lag), so we retry for up to ~22s before giving up.
+async function parseLeafWithRetry(umi: Umi, signature: TransactionSignature) {
+  const MAX_ATTEMPTS = 15;
+  let lastError: unknown;
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 1500));
+    try {
+      return await parseLeafFromMintV1Transaction(umi, signature);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  const sig = bs58.encode(signature);
+  const msg = lastError instanceof Error ? lastError.message : String(lastError);
+  throw new Error(`Could not parse leaf from tx ${sig} after ${MAX_ATTEMPTS} attempts: ${msg}`);
 }
 
 export async function mintTicket(params: MintTicketParams): Promise<MintTicketResult> {
@@ -47,11 +69,6 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
   umi.use(keypairIdentity(umiKeypair));
 
   const merkleTreePk = publicKey(MERKLE_TREE);
-
-  // Read the tree's current leaf count before minting — the new leaf will get
-  // index = numMinted, letting us compute the assetId without parsing the tx.
-  const treeConfig = await fetchTreeConfigFromSeeds(umi, { merkleTree: merkleTreePk });
-  const leafIndex = Number(treeConfig.numMinted);
 
   const builder = mintV1(umi, {
     leafOwner: publicKey(ownerWallet),
@@ -78,12 +95,15 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
     confirm: { commitment: "confirmed" },
   });
 
-  const signatureBase58 = Buffer.from(signature).toString("base64");
+  // Parse the confirmed transaction to get the actual leaf index Bubblegum
+  // assigned. This is authoritative — unlike reading numMinted before the mint,
+  // it is never stale and is correct under concurrent mints to the same tree.
+  const leaf = await parseLeafWithRetry(umi, signature);
+  const leafIndex = Number(leaf.nonce);
 
-  // Derive assetId from the leaf index we read before minting — deterministic,
-  // no polling required.
   const [assetIdPda] = findLeafAssetIdPda(umi, { merkleTree: merkleTreePk, leafIndex });
   const assetId = assetIdPda.toString();
+  const signatureEncoded = bs58.encode(signature);
 
-  return { assetId, signature: signatureBase58 };
+  return { assetId, signature: signatureEncoded };
 }

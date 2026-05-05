@@ -327,7 +327,7 @@ function SuccessInner() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id') ?? '';
 
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState(!sessionId);
   const [quantity, setQuantity] = useState<number>(1);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [allDone, setAllDone] = useState(false);
@@ -336,7 +336,7 @@ function SuccessInner() {
   const MAX_ATTEMPTS = 35; // ~2 minutes of polling
 
   useEffect(() => {
-    if (!sessionId) { setFailed(true); return; }
+    if (!sessionId) return;
 
     let stopped = false;
 

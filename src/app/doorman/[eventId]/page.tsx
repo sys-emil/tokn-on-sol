@@ -82,12 +82,12 @@ export default function DoormanPage() {
     if (!walletAddress) return;
 
     if (walletAddress !== event.organizer_wallet) {
-      setPhase({ tag: 'denied' });
+      setTimeout(() => setPhase({ tag: 'denied' }), 0);
       return;
     }
 
     if (phase.tag === 'loading') {
-      setPhase({ tag: 'scanning' });
+      setTimeout(() => setPhase({ tag: 'scanning' }), 0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, authenticated, walletAddress, event]);

@@ -58,7 +58,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // tickets to let the tree state propagate on the RPC.
   let minted = 0;
   for (let i = 0; i < toMint; i++) {
-    if (i > 0) await new Promise((r) => setTimeout(r, 1000)); // brief pause between mints
+    const ticketNum = alreadyMinted + i + 1;
 
     let success = false;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -79,16 +79,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           stripe_session_id: session.id,
         });
 
+        console.info(`Ticket ${ticketNum}/${quantity} minted → assetId=${assetId} sig=${signature}`);
         minted++;
         success = true;
         break;
       } catch (err) {
-        console.error(`Ticket ${alreadyMinted + i + 1}/${quantity} attempt ${attempt + 1} failed:`, err);
+        console.error(`Ticket ${ticketNum}/${quantity} attempt ${attempt + 1} failed:`, err);
       }
     }
 
     if (!success) {
-      console.error(`Ticket ${alreadyMinted + i + 1}/${quantity} failed after 3 attempts, skipping.`);
+      console.error(`Ticket ${ticketNum}/${quantity} failed after 3 attempts, skipping.`);
     }
   }
 
