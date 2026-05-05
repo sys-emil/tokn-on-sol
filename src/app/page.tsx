@@ -59,13 +59,21 @@ export default async function Home() {
           left: 0;
           right: 0;
           z-index: 20;
-          padding: 26px 48px;
+          padding: 0 48px;
+          height: 68px;
           display: flex;
           align-items: center;
           justify-content: space-between;
           background: oklch(0.10 0.014 258 / 0.88);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
+          border-bottom: 1px solid var(--color-border);
+        }
+
+        .nav-left {
+          display: flex;
+          align-items: center;
+          gap: 32px;
         }
 
         .logo {
@@ -75,11 +83,31 @@ export default async function Home() {
           letter-spacing: 0.10em;
           text-transform: uppercase;
           color: var(--color-text);
+          text-decoration: none;
         }
 
         .logo-dot {
           color: var(--color-accent);
         }
+
+        .nav-divider {
+          width: 1px;
+          height: 18px;
+          background: var(--color-border);
+        }
+
+        .nav-link {
+          font-family: var(--font-display);
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--color-text-muted);
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+
+        .nav-link:hover { color: var(--color-text); }
 
         .nav-chain {
           font-family: var(--font-body);
@@ -1228,7 +1256,11 @@ export default async function Home() {
 
         {/* Nav */}
         <nav className="nav">
-          <div className="logo">Passly<span className="logo-dot">.</span></div>
+          <div className="nav-left">
+            <Link href="/" className="logo">Passly<span className="logo-dot">.</span></Link>
+            <div className="nav-divider" />
+            <Link href="/events" className="nav-link">Events</Link>
+          </div>
           <div className="nav-chain">Solana</div>
         </nav>
 
@@ -1258,7 +1290,11 @@ export default async function Home() {
             </p>
 
             <div className="hero-actions a4">
-              <CtaButton className="cta" />
+              <Link href="/events" className="cta">
+                Browse Events
+                <span className="cta-arrow">→</span>
+              </Link>
+              <CtaButton className="cta-secondary" />
               <Link href="/become-organizer" className="cta-secondary">
                 Host an Event
               </Link>
