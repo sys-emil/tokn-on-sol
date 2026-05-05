@@ -97,7 +97,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (existingClaim && !existingClaim.claimed_at) {
     // Return existing unclaimed link
-    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+    const baseUrl = process.env.APP_URL ?? "http://localhost:3000";
     return NextResponse.json({ success: true, url: `${baseUrl}/claim/${existingClaim.token as string}` });
   }
 
@@ -123,6 +123,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: message }, { status: 502 });
   }
 
-  const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+  const baseUrl = process.env.APP_URL ?? "http://localhost:3000";
   return NextResponse.json({ success: true, url: `${baseUrl}/claim/${token}` });
 }

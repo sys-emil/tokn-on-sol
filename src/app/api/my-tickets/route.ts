@@ -42,7 +42,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const event = Array.isArray(row.events) ? row.events[0] : row.events;
     const assetId = row.asset_id as string;
     const claimToken = claimedAssets.get(assetId);
-    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+    const baseUrl = process.env.APP_URL ?? "http://localhost:3000";
     return {
       assetId,
       eventName: (event?.name ?? "") as string,
