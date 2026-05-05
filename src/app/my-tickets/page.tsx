@@ -27,28 +27,463 @@ interface Ticket {
   eventDate: string;
   purchasedAt: string;
   eventId: string;
+  redeemedAt: string | null;
   claimUrl: string | null;
 }
 
-interface PublicEvent {
-  id: string;
-  name: string;
-  date: string;
-  price_eur: number;
-  capacity: number;
-  tickets_sold: number;
-}
-
-function formatDate(iso: string): string {
+function formatDateLong(iso: string): string {
   if (!iso) return '';
   const [year, month, day] = iso.split('-');
-  const d = new Date(Number(year), Number(month) - 1, Number(day));
-  return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+  return new Date(Number(year), Number(month) - 1, Number(day))
+    .toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-function formatPrice(cents: number): string {
-  return (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+function formatDateShort(iso: string): string {
+  if (!iso) return '';
+  const [year, month, day] = iso.split('-');
+  return new Date(Number(year), Number(month) - 1, Number(day))
+    .toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
+
+function daysUntil(iso: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const event = new Date(iso + 'T00:00:00');
+  return Math.ceil((event.getTime() - today.getTime()) / 86400000);
+}
+
+function isUpcoming(iso: string): boolean {
+  return daysUntil(iso) >= 0;
+}
+
+const CSS = `
+  :root {
+    --color-bg:         oklch(0.10 0.014 258);
+    --color-surface:    oklch(0.14 0.014 258);
+    --color-border:     oklch(0.22 0.016 258);
+    --color-text:       oklch(0.96 0.008 95);
+    --color-text-muted: oklch(0.48 0.012 250);
+    --color-accent:     oklch(0.72 0.118 148);
+    --color-accent-dim: oklch(0.18 0.04 148);
+    --color-missed:     oklch(0.55 0.10 40);
+    --color-missed-dim: oklch(0.16 0.04 40);
+  }
+
+  html, body { margin: 0; padding: 0; background: var(--color-bg); }
+
+  .page-root {
+    font-family: var(--font-body);
+    background-color: var(--color-bg);
+    background-image: radial-gradient(circle, oklch(0.23 0.014 258 / 0.45) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--color-text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Nav ─────────────────────────────────────────────────── */
+  .nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 20;
+    padding: 0 48px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: oklch(0.10 0.014 258 / 0.88);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .nav-left { display: flex; align-items: center; gap: 32px; }
+
+  .logo {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--color-text);
+    text-decoration: none;
+  }
+
+  .logo-dot { color: var(--color-accent); }
+
+  .nav-divider { width: 1px; height: 18px; background: var(--color-border); }
+
+  .nav-section {
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+
+  .btn-nav {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    background: transparent;
+    border: 1px solid var(--color-border);
+    padding: 8px 16px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .btn-nav:hover { color: var(--color-text); border-color: oklch(0.40 0.016 258); }
+
+  /* ── Layout ──────────────────────────────────────────────── */
+  .main {
+    flex: 1;
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 108px 48px 96px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 64px;
+  }
+
+  /* ── Page heading ────────────────────────────────────────── */
+  .page-heading { display: flex; flex-direction: column; gap: 6px; }
+
+  .page-label {
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.20em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .page-label-line {
+    display: block;
+    width: 24px;
+    height: 1px;
+    background: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  .page-title {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 3.2vw, 42px);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    color: var(--color-text);
+    margin: 0;
+  }
+
+  /* ── Section ─────────────────────────────────────────────── */
+  .section { display: flex; flex-direction: column; gap: 20px; }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.20em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .section-count {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--color-accent);
+  }
+
+  /* ── Upcoming cards ──────────────────────────────────────── */
+  .upcoming-list { display: flex; flex-direction: column; gap: 1px; }
+
+  .upcoming-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 24px 28px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
+  }
+
+  .upcoming-card:hover { border-color: oklch(0.35 0.016 258); }
+
+  .upcoming-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+  .upcoming-event-name {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .upcoming-event-date {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+
+  .upcoming-card-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .days-badge {
+    font-family: var(--font-display);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    background: var(--color-accent-dim, oklch(0.18 0.04 148));
+    color: var(--color-accent);
+    white-space: nowrap;
+  }
+
+  .days-badge.urgent {
+    background: oklch(0.72 0.118 148 / 0.2);
+    color: var(--color-accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
+  }
+
+  @media (prefers-reduced-motion: reduce) { .days-badge.urgent { animation: none; } }
+
+  .upcoming-actions { display: flex; gap: 6px; align-items: center; }
+
+  /* ── History timeline ────────────────────────────────────── */
+  .timeline { display: flex; flex-direction: column; gap: 28px; }
+
+  .year-group { display: flex; flex-direction: column; gap: 1px; }
+
+  .year-label {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    color: var(--color-text-muted);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 1px;
+  }
+
+  .history-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid oklch(0.22 0.016 258 / 0.5);
+  }
+
+  .history-row:last-child { border-bottom: none; }
+
+  .history-date {
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    min-width: 52px;
+    flex-shrink: 0;
+  }
+
+  .history-name {
+    flex: 1;
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-text);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .status-badge {
+    font-family: var(--font-display);
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .status-attended {
+    background: var(--color-accent-dim, oklch(0.18 0.04 148));
+    color: var(--color-accent);
+  }
+
+  .status-missed {
+    background: var(--color-missed-dim);
+    color: var(--color-missed);
+  }
+
+  .history-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+
+  /* ── Buttons ─────────────────────────────────────────────── */
+  .btn {
+    font-family: var(--font-display);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 7px 12px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .btn-primary {
+    color: oklch(0.10 0.014 258);
+    background: var(--color-accent);
+    border: 1px solid var(--color-accent);
+  }
+
+  .btn-primary:hover { opacity: 0.85; }
+
+  .btn-ghost {
+    color: var(--color-text-muted);
+    background: transparent;
+    border: 1px solid var(--color-border);
+  }
+
+  .btn-ghost:hover { color: var(--color-text); border-color: oklch(0.40 0.016 258); }
+
+  .btn-ghost:disabled { opacity: 0.4; cursor: default; }
+
+  /* ── Empty state ─────────────────────────────────────────── */
+  .empty {
+    border: 1px dashed var(--color-border);
+    padding: 32px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty-text {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--color-text-muted);
+    text-align: center;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* ── Modal ───────────────────────────────────────────────── */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: oklch(0.05 0.01 258 / 0.80);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .modal {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 28px 28px 24px;
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .modal-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    color: var(--color-text);
+    margin: 0;
+  }
+
+  .modal-body {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .modal-url {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    padding: 10px 12px;
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--color-text-muted);
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  /* ── Animations ──────────────────────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .a1 { animation: fadeUp 0.50s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
+  .a2 { animation: fadeUp 0.50s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+  .a3 { animation: fadeUp 0.50s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
+
+  @media (prefers-reduced-motion: reduce) { .a1, .a2, .a3 { animation: none; } }
+
+  /* ── Responsive ──────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .nav { padding: 0 20px; }
+    .main { padding: 96px 20px 64px; }
+    .upcoming-card { padding: 18px 20px; flex-direction: column; align-items: flex-start; gap: 14px; }
+    .upcoming-card-right { flex-direction: row; align-items: center; width: 100%; justify-content: space-between; }
+    .history-name { font-size: 13px; }
+  }
+`;
 
 export default function MyTickets() {
   const router = useRouter();
@@ -58,8 +493,6 @@ export default function MyTickets() {
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [ticketsLoaded, setTicketsLoaded] = useState(false);
-  const [upcomingEvents, setUpcomingEvents] = useState<PublicEvent[]>([]);
-  const [eventsLoaded, setEventsLoaded] = useState(false);
   const [shareModal, setShareModal] = useState<{ assetId: string; url: string } | null>(null);
   const [sharingAssetId, setSharingAssetId] = useState<string | null>(null);
   const [copyConfirmed, setCopyConfirmed] = useState(false);
@@ -72,7 +505,7 @@ export default function MyTickets() {
 
   useEffect(() => {
     if (!buyerWallet || ticketsLoaded) return;
-    async function loadTickets(): Promise<void> {
+    async function load() {
       try {
         const res = await fetch(`/api/my-tickets?buyerWallet=${buyerWallet}`);
         if (res.ok) {
@@ -83,29 +516,11 @@ export default function MyTickets() {
         setTicketsLoaded(true);
       }
     }
-    void loadTickets();
+    void load();
   }, [buyerWallet, ticketsLoaded]);
 
-  useEffect(() => {
-    async function loadEvents(): Promise<void> {
-      try {
-        const res = await fetch('/api/events/public');
-        if (res.ok) {
-          const data = (await res.json()) as { events: PublicEvent[] };
-          setUpcomingEvents(data.events);
-        }
-      } finally {
-        setEventsLoaded(true);
-      }
-    }
-    void loadEvents();
-  }, []);
-
-  async function handleShare(assetId: string, existingClaimUrl: string | null): Promise<void> {
-    if (existingClaimUrl) {
-      setShareModal({ assetId, url: existingClaimUrl });
-      return;
-    }
+  async function handleShare(assetId: string, existingClaimUrl: string | null) {
+    if (existingClaimUrl) { setShareModal({ assetId, url: existingClaimUrl }); return; }
     setSharingAssetId(assetId);
     try {
       const authToken = await getAccessToken();
@@ -128,7 +543,7 @@ export default function MyTickets() {
     }
   }
 
-  async function handleCopy(url: string): Promise<void> {
+  async function handleCopy(url: string) {
     await navigator.clipboard.writeText(url);
     setCopyConfirmed(true);
     setTimeout(() => setCopyConfirmed(false), 2000);
@@ -136,402 +551,24 @@ export default function MyTickets() {
 
   if (!ready || !authenticated) return null;
 
-  const loadingTickets = !!buyerWallet && !ticketsLoaded;
+  const loading = !!buyerWallet && !ticketsLoaded;
+
+  // Split tickets into upcoming and past based on event date
+  const upcoming = tickets.filter((t) => isUpcoming(t.eventDate));
+  const past = tickets.filter((t) => !isUpcoming(t.eventDate));
+
+  // Group past tickets by year, newest year first
+  const byYear = new Map<number, Ticket[]>();
+  for (const t of past) {
+    const year = Number(t.eventDate.split('-')[0]);
+    if (!byYear.has(year)) byYear.set(year, []);
+    byYear.get(year)!.push(t);
+  }
+  const sortedYears = [...byYear.keys()].sort((a, b) => b - a);
 
   return (
     <>
-      <style>{`
-        :root {
-          --color-bg:         oklch(0.10 0.014 258);
-          --color-surface:    oklch(0.14 0.014 258);
-          --color-border:     oklch(0.22 0.016 258);
-          --color-text:       oklch(0.96 0.008 95);
-          --color-text-muted: oklch(0.48 0.012 250);
-          --color-accent:     oklch(0.72 0.118 148);
-        }
-
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: var(--color-bg);
-        }
-
-        .page-root {
-          font-family: var(--font-body);
-          background-color: var(--color-bg);
-          background-image: radial-gradient(
-            circle,
-            oklch(0.23 0.014 258 / 0.45) 1px,
-            transparent 1px
-          );
-          background-size: 28px 28px;
-          color: var(--color-text);
-          min-height: 100dvh;
-          display: flex;
-          flex-direction: column;
-        }
-
-        /* ── Nav ─────────────────────────────────────────────── */
-        .nav {
-          position: fixed;
-          top: 0; left: 0; right: 0;
-          z-index: 20;
-          padding: 0 48px;
-          height: 68px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: oklch(0.10 0.014 258 / 0.88);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .nav-left {
-          display: flex;
-          align-items: center;
-          gap: 32px;
-        }
-
-        .logo {
-          font-family: var(--font-display);
-          font-size: 14px;
-          font-weight: 900;
-          letter-spacing: 0.10em;
-          text-transform: uppercase;
-          color: var(--color-text);
-          text-decoration: none;
-        }
-
-        .logo-dot { color: var(--color-accent); }
-
-        .nav-divider {
-          width: 1px;
-          height: 18px;
-          background: var(--color-border);
-        }
-
-        .nav-section {
-          font-family: var(--font-body);
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
-
-        .nav-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .btn-nav {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-          background: transparent;
-          border: 1px solid var(--color-border);
-          padding: 8px 16px;
-          cursor: pointer;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          transition: color 0.15s ease, border-color 0.15s ease;
-        }
-
-        .btn-nav:hover {
-          color: var(--color-text);
-          border-color: oklch(0.40 0.016 258);
-        }
-
-        /* ── Main ────────────────────────────────────────────── */
-        .main {
-          flex: 1;
-          max-width: 1280px;
-          width: 100%;
-          margin: 0 auto;
-          padding: 108px 48px 96px;
-          box-sizing: border-box;
-          display: flex;
-          flex-direction: column;
-          gap: 48px;
-        }
-
-        .page-heading {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .page-label {
-          font-family: var(--font-body);
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.20em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .page-label-line {
-          display: block;
-          width: 24px;
-          height: 1px;
-          background: var(--color-accent);
-          flex-shrink: 0;
-        }
-
-        .page-title {
-          font-family: var(--font-display);
-          font-size: clamp(28px, 3.2vw, 42px);
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          line-height: 1.1;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        /* ── Cards grid ──────────────────────────────────────── */
-        .cards {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1px;
-          background: var(--color-border);
-          border: 1px solid var(--color-border);
-          align-items: start;
-        }
-
-        .card {
-          background: var(--color-surface);
-          padding: 32px 36px;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          box-sizing: border-box;
-        }
-
-        .card-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-        }
-
-        .card-label {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
-
-        .card-num {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.16em;
-          color: var(--color-accent);
-        }
-
-        /* ── Rows ────────────────────────────────────────────── */
-        .rows-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-          background: var(--color-border);
-          border: 1px solid var(--color-border);
-        }
-
-        .row {
-          background: var(--color-bg);
-          padding: 12px 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text);
-        }
-
-        .row-name {
-          font-family: var(--font-display);
-          font-weight: 600;
-          letter-spacing: 0.02em;
-          color: var(--color-text);
-          line-height: 1.3;
-        }
-
-        .row-bottom {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .row-meta {
-          font-family: var(--font-body);
-          font-size: 12px;
-          color: var(--color-text-muted);
-          letter-spacing: 0.04em;
-          flex-shrink: 0;
-        }
-
-        /* ── Row action buttons ──────────────────────────────── */
-        .btn-row {
-          font-family: var(--font-display);
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          padding: 5px 10px;
-          cursor: pointer;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
-          flex-shrink: 0;
-          white-space: nowrap;
-        }
-
-        .btn-row-primary {
-          color: oklch(0.10 0.014 258);
-          background: var(--color-accent);
-          border: 1px solid var(--color-accent);
-        }
-
-        .btn-row-primary:hover {
-          background: oklch(0.80 0.118 148);
-          border-color: oklch(0.80 0.118 148);
-        }
-
-        .btn-row-ghost {
-          color: var(--color-text-muted);
-          background: transparent;
-          border: 1px solid var(--color-border);
-        }
-
-        .btn-row-ghost:hover {
-          color: var(--color-text);
-          border-color: oklch(0.40 0.016 258);
-        }
-
-        /* ── Empty / loading states ──────────────────────────── */
-        .empty {
-          border: 1px dashed var(--color-border);
-          padding: 36px 24px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .empty-text {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-          text-align: center;
-          line-height: 1.6;
-          margin: 0;
-        }
-
-        /* ── Animations ──────────────────────────────────────── */
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0);    }
-        }
-
-        .a1 { animation: fadeUp 0.50s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
-        .a2 { animation: fadeUp 0.50s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
-
-        @media (prefers-reduced-motion: reduce) {
-          .a1, .a2 { animation: none; }
-        }
-
-        /* ── Share modal ─────────────────────────────────────── */
-        .modal-backdrop {
-          position: fixed;
-          inset: 0;
-          background: oklch(0.05 0.01 258 / 0.80);
-          backdrop-filter: blur(4px);
-          z-index: 100;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-        }
-
-        .modal {
-          background: var(--color-surface);
-          border: 1px solid var(--color-border);
-          padding: 28px 28px 24px;
-          width: 100%;
-          max-width: 420px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .modal-title {
-          font-family: var(--font-display);
-          font-size: 14px;
-          font-weight: 900;
-          letter-spacing: -0.01em;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        .modal-body {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-          line-height: 1.6;
-          margin: 0;
-        }
-
-        .modal-url {
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          padding: 10px 12px;
-          font-family: var(--font-body);
-          font-size: 12px;
-          color: var(--color-text-muted);
-          word-break: break-all;
-          line-height: 1.5;
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 8px;
-          justify-content: flex-end;
-        }
-
-        .btn-row-disabled {
-          color: var(--color-text-muted);
-          background: transparent;
-          border: 1px solid var(--color-border);
-          opacity: 0.45;
-          cursor: default;
-        }
-
-        /* ── Responsive ──────────────────────────────────────── */
-        @media (max-width: 900px) {
-          .nav { padding: 0 24px; }
-          .main { padding: 96px 24px 64px; }
-          .cards { grid-template-columns: 1fr; }
-        }
-
-        @media (max-width: 480px) {
-          .nav { padding: 0 16px; }
-          .main { padding: 88px 16px 64px; }
-          .card { padding: 20px 16px; }
-        }
-      `}</style>
-
+      <style>{CSS}</style>
       <div className={`page-root ${unbounded.variable} ${epilogue.variable}`}>
 
         <nav className="nav">
@@ -541,7 +578,7 @@ export default function MyTickets() {
             <div className="nav-section">My Tickets</div>
           </div>
           <div className="nav-right">
-            <Link href="/dashboard" className="btn-nav" style={{ textDecoration: 'none' }}>Organizer Dashboard</Link>
+            <Link href="/dashboard" className="btn-nav">Organizer Dashboard</Link>
             <button className="btn-nav" onClick={() => logout()}>Log out</button>
           </div>
         </nav>
@@ -553,85 +590,112 @@ export default function MyTickets() {
               <span className="page-label-line" />
               Account
             </div>
-            <h1 className="page-title">Your tickets</h1>
+            <h1 className="page-title">My Tickets</h1>
           </div>
 
-          <div className="cards a2">
+          {/* ── Upcoming ──────────────────────────────────────── */}
+          <div className="section a2">
+            <div className="section-header">
+              <div className="section-title">Upcoming</div>
+              {upcoming.length > 0 && (
+                <div className="section-count">{upcoming.length}</div>
+              )}
+            </div>
 
-            {/* My Tickets */}
-            <div className="card">
-              <div className="card-header">
-                <div className="card-label">My Tickets</div>
-                <div className="card-num">01</div>
+            {loading ? (
+              <div className="empty"><p className="empty-text">Loading…</p></div>
+            ) : upcoming.length === 0 ? (
+              <div className="empty">
+                <p className="empty-text">
+                  No upcoming tickets.{' '}
+                  <Link href="/" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>
+                    Browse events →
+                  </Link>
+                </p>
               </div>
-              {loadingTickets ? (
-                <div className="empty">
-                  <p className="empty-text">Loading tickets…</p>
-                </div>
-              ) : tickets.length === 0 ? (
-                <div className="empty">
-                  <p className="empty-text">No tickets yet.</p>
-                </div>
-              ) : (
-                <div className="rows-list">
-                  {tickets.map((t) => (
-                    <div className="row" key={t.assetId}>
-                      <div className="row-name">{t.eventName}</div>
-                      <div className="row-bottom">
-                        <div className="row-meta">{formatDate(t.eventDate)}</div>
-                        <Link href={`/tickets/${t.assetId}`} className="btn-row btn-row-primary">
-                          View Ticket
-                        </Link>
-                        <button
-                          className={`btn-row ${t.claimUrl ? 'btn-row-ghost' : 'btn-row-ghost'}`}
-                          onClick={() => void handleShare(t.assetId, t.claimUrl)}
-                          disabled={sharingAssetId === t.assetId}
-                          style={{ minWidth: 70 }}
+            ) : (
+              <div className="upcoming-list">
+                {upcoming.map((t) => {
+                  const days = daysUntil(t.eventDate);
+                  const daysLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`;
+                  return (
+                    <div className="upcoming-card" key={t.assetId}>
+                      <div className="upcoming-card-body">
+                        <div className="upcoming-event-name">{t.eventName}</div>
+                        <div className="upcoming-event-date">{formatDateLong(t.eventDate)}</div>
+                      </div>
+                      <div className="upcoming-card-right">
+                        <div className={`days-badge${days <= 7 ? ' urgent' : ''}`}>{daysLabel}</div>
+                        <div className="upcoming-actions">
+                          <Link href={`/tickets/${t.assetId}`} className="btn btn-primary">
+                            View Ticket
+                          </Link>
+                          <button
+                            className="btn btn-ghost"
+                            onClick={() => void handleShare(t.assetId, t.claimUrl)}
+                            disabled={sharingAssetId === t.assetId}
+                          >
+                            {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Copy Link' : 'Share'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── History ───────────────────────────────────────── */}
+          <div className="section a3">
+            <div className="section-header">
+              <div className="section-title">History</div>
+              {past.length > 0 && (
+                <div className="section-count">{past.length}</div>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="empty"><p className="empty-text">Loading…</p></div>
+            ) : past.length === 0 ? (
+              <div className="empty">
+                <p className="empty-text">Events you attend will appear here.</p>
+              </div>
+            ) : (
+              <div className="timeline">
+                {sortedYears.map((year) => (
+                  <div className="year-group" key={year}>
+                    <div className="year-label">{year}</div>
+                    {byYear.get(year)!.map((t) => (
+                      <div className="history-row" key={t.assetId}>
+                        <div className="history-date">{formatDateShort(t.eventDate)}</div>
+                        <div className="history-name">{t.eventName}</div>
+                        <div
+                          className={`status-badge ${t.redeemedAt ? 'status-attended' : 'status-missed'}`}
                         >
-                          {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Copy Link' : 'Share'}
-                        </button>
+                          {t.redeemedAt ? 'Attended' : 'Missed'}
+                        </div>
+                        <div className="history-actions">
+                          <Link href={`/tickets/${t.assetId}`} className="btn btn-ghost">
+                            View
+                          </Link>
+                          <button
+                            className="btn btn-ghost"
+                            onClick={() => void handleShare(t.assetId, t.claimUrl)}
+                            disabled={sharingAssetId === t.assetId}
+                          >
+                            {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Copy Link' : 'Share'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Upcoming Events */}
-            <div className="card">
-              <div className="card-header">
-                <div className="card-label">Upcoming Events</div>
-                <div className="card-num">02</div>
+                    ))}
+                  </div>
+                ))}
               </div>
-              {!eventsLoaded ? (
-                <div className="empty">
-                  <p className="empty-text">Loading events…</p>
-                </div>
-              ) : upcomingEvents.length === 0 ? (
-                <div className="empty">
-                  <p className="empty-text">No upcoming events.</p>
-                </div>
-              ) : (
-                <div className="rows-list">
-                  {upcomingEvents.map((evt) => (
-                    <div className="row" key={evt.id}>
-                      <div className="row-name">{evt.name}</div>
-                      <div className="row-bottom">
-                        <div className="row-meta">{formatDate(evt.date)}</div>
-                        <div className="row-meta">{formatPrice(evt.price_eur)}</div>
-                        <Link href={`/shop/${evt.id}`} className="btn-row btn-row-ghost">
-                          Get Ticket
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
+            )}
           </div>
-        </main>
 
+        </main>
       </div>
 
       {shareModal && (
@@ -643,10 +707,8 @@ export default function MyTickets() {
             </p>
             <div className="modal-url">{shareModal.url}</div>
             <div className="modal-actions">
-              <button className="btn-row btn-row-ghost" onClick={() => setShareModal(null)}>
-                Close
-              </button>
-              <button className="btn-row btn-row-primary" onClick={() => void handleCopy(shareModal.url)}>
+              <button className="btn btn-ghost" onClick={() => setShareModal(null)}>Close</button>
+              <button className="btn btn-primary" onClick={() => void handleCopy(shareModal.url)}>
                 {copyConfirmed ? 'Copied!' : 'Copy link'}
               </button>
             </div>

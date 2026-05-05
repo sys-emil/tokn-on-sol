@@ -15,7 +15,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await supabaseAdmin
     .from("purchases")
-    .select("asset_id, created_at, event_id, events(name, date)")
+    .select("asset_id, created_at, event_id, redeemed_at, events(name, date)")
     .eq("buyer_wallet", buyerWallet)
     .order("created_at", { ascending: false });
 
@@ -25,7 +25,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const assetIds = (data ?? []).map((row) => row.asset_id as string);
 
-  // Fetch which tickets have an active (unclaimed) claim link
   const { data: claimsData } = assetIds.length > 0
     ? await supabaseAdmin
         .from("claims")
@@ -49,6 +48,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       eventDate: (event?.date ?? "") as string,
       purchasedAt: row.created_at as string,
       eventId: row.event_id as string,
+      redeemedAt: (row.redeemed_at ?? null) as string | null,
       claimUrl: claimToken ? `${baseUrl}/claim/${claimToken}` : null,
     };
   });
