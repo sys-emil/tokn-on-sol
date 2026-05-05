@@ -46,38 +46,39 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Return 200 to Stripe immediately — minting runs in the background.
-  // This prevents webhook timeouts on slow Solana confirmations.
+  // Mints are sequential: Bubblegum appends leaves one at a time, so
+  // parallel transactions to the same tree conflict and one will fail.
   after(async () => {
-    try {
-      const mintResults = await Promise.all(
-        Array.from({ length: quantity }, () =>
-          mintTicket({
-            eventName: event.name,
-            eventDate: event.date,
-            ownerWallet: buyerWallet,
-            baseUrl: siteUrl,
-          }),
-        ),
-      );
+    let minted = 0;
+    for (let i = 0; i < quantity; i++) {
+      try {
+        const { assetId, signature } = await mintTicket({
+          eventName: event.name,
+          eventDate: event.date,
+          ownerWallet: buyerWallet,
+          baseUrl: siteUrl,
+        });
 
-      await supabaseAdmin.from("purchases").insert(
-        mintResults.map(({ assetId, signature }) => ({
+        await supabaseAdmin.from("purchases").insert({
           event_id: eventId,
           buyer_wallet: buyerWallet,
           asset_id: assetId,
           signature,
           stripe_session_id: session.id,
-        })),
-      );
+        });
 
+        minted++;
+      } catch {
+        // One mint failed — stop and record what was minted so far.
+        break;
+      }
+    }
+
+    if (minted > 0) {
       await supabaseAdmin
         .from("events")
-        .update({ tickets_sold: event.tickets_sold + quantity })
+        .update({ tickets_sold: event.tickets_sold + minted })
         .eq("id", eventId);
-    } catch {
-      // Stripe will retry the webhook if it doesn't receive a 200,
-      // but we already returned 200. Failures here are silent —
-      // the success page will time out and show the session ID for support.
     }
   });
 
