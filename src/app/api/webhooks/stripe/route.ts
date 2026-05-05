@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { mintTicket } from "@/lib/mint";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // seconds — allows multi-ticket minting (each mint ~10-15s)
+export const maxDuration = 300; // seconds — multi-ticket minting (each mint ~10-15s, up to 10 tickets)
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
