@@ -7,6 +7,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 interface CheckoutBody {
   eventId: string;
   buyerWallet: string;
+  quantity?: number;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -18,7 +19,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { eventId, buyerWallet } = body;
+  const { eventId, buyerWallet, quantity: rawQty } = body;
+  const quantity = Math.max(1, Math.min(10, Math.floor(rawQty ?? 1)));
 
   if (!eventId || !buyerWallet) {
     return NextResponse.json(
@@ -37,8 +39,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Event not found" }, { status: 404 });
   }
 
-  if (event.tickets_sold >= event.capacity) {
+  const available = event.capacity - event.tickets_sold;
+  if (available <= 0) {
     return NextResponse.json({ success: false, error: "Event is sold out" }, { status: 409 });
+  }
+  if (quantity > available) {
+    return NextResponse.json(
+      { success: false, error: `Only ${available} ticket${available === 1 ? "" : "s"} remaining` },
+      { status: 409 }
+    );
   }
 
   const host = req.headers.get("host") ?? "";
@@ -50,7 +59,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mode: "payment",
       line_items: [
         {
-          quantity: 1,
+          quantity,
           price_data: {
             currency: "eur",
             unit_amount: event.price_eur,
@@ -60,7 +69,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ],
       success_url: `${origin}/shop/${eventId}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/shop/${eventId}`,
-      metadata: { eventId, buyerWallet },
+      metadata: { eventId, buyerWallet, quantity: String(quantity) },
     });
 
     return NextResponse.json({ success: true, url: session.url });

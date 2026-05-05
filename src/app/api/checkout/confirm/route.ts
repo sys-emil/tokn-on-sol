@@ -13,9 +13,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const { data } = await supabaseAdmin
     .from("purchases")
     .select("asset_id")
-    .eq("stripe_session_id", sessionId)
-    .single();
+    .eq("stripe_session_id", sessionId);
 
-  if (!data) return NextResponse.json({ found: false });
-  return NextResponse.json({ found: true, assetId: data.asset_id });
+  if (!data || data.length === 0) return NextResponse.json({ found: false });
+
+  const assetIds = data.map((row) => row.asset_id as string);
+  return NextResponse.json({ found: true, assetIds });
 }

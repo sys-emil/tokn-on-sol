@@ -29,7 +29,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const session = stripeEvent.data.object as Stripe.Checkout.Session;
-  const { eventId, buyerWallet } = session.metadata ?? {};
+  const { eventId, buyerWallet, quantity: quantityStr } = session.metadata ?? {};
+  const quantity = Math.max(1, Math.min(10, parseInt(quantityStr ?? "1", 10) || 1));
 
   if (!eventId || !buyerWallet) {
     return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
@@ -45,33 +46,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  let assetId: string;
-  let signature: string;
+  let mintResults: { assetId: string; signature: string }[];
   try {
-    const result = await mintTicket({
-      eventName: event.name,
-      eventDate: event.date,
-      ownerWallet: buyerWallet,
-      baseUrl: siteUrl,
-    });
-    assetId = result.assetId;
-    signature = result.signature;
+    mintResults = await Promise.all(
+      Array.from({ length: quantity }, () =>
+        mintTicket({
+          eventName: event.name,
+          eventDate: event.date,
+          ownerWallet: buyerWallet,
+          baseUrl: siteUrl,
+        }),
+      ),
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `Mint failed: ${message}` }, { status: 500 });
   }
 
-  await supabaseAdmin.from("purchases").insert({
-    event_id: eventId,
-    buyer_wallet: buyerWallet,
-    asset_id: assetId,
-    signature,
-    stripe_session_id: session.id,
-  });
+  await supabaseAdmin.from("purchases").insert(
+    mintResults.map(({ assetId, signature }) => ({
+      event_id: eventId,
+      buyer_wallet: buyerWallet,
+      asset_id: assetId,
+      signature,
+      stripe_session_id: session.id,
+    })),
+  );
 
   await supabaseAdmin
     .from("events")
-    .update({ tickets_sold: event.tickets_sold + 1 })
+    .update({ tickets_sold: event.tickets_sold + quantity })
     .eq("id", eventId);
 
   return NextResponse.json({ received: true });

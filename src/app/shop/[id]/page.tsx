@@ -203,7 +203,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div className="shop-card-footer">
-            <ShopClient eventId={event.id} soldOut={soldOut} />
+            <ShopClient eventId={event.id} soldOut={soldOut} priceEur={event.price_eur} available={available} />
           </div>
         </div>
 
