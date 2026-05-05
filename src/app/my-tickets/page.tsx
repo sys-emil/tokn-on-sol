@@ -1,6 +1,6 @@
 'use client';
 
-import { useLogout, usePrivy } from '@privy-io/react-auth';
+import { useLogout, usePrivy, getAccessToken } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
@@ -27,6 +27,7 @@ interface Ticket {
   eventDate: string;
   purchasedAt: string;
   eventId: string;
+  claimUrl: string | null;
 }
 
 interface PublicEvent {
@@ -59,6 +60,9 @@ export default function MyTickets() {
   const [ticketsLoaded, setTicketsLoaded] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<PublicEvent[]>([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [shareModal, setShareModal] = useState<{ assetId: string; url: string } | null>(null);
+  const [sharingAssetId, setSharingAssetId] = useState<string | null>(null);
+  const [copyConfirmed, setCopyConfirmed] = useState(false);
 
   const buyerWallet = solanaWallets[0]?.address;
 
@@ -96,6 +100,39 @@ export default function MyTickets() {
     }
     void loadEvents();
   }, []);
+
+  async function handleShare(assetId: string, existingClaimUrl: string | null): Promise<void> {
+    if (existingClaimUrl) {
+      setShareModal({ assetId, url: existingClaimUrl });
+      return;
+    }
+    setSharingAssetId(assetId);
+    try {
+      const authToken = await getAccessToken();
+      const res = await fetch('/api/claims/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
+        body: JSON.stringify({ assetId }),
+      });
+      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
+      if (data.success && data.url) {
+        setTickets((prev) => prev.map((t) => t.assetId === assetId ? { ...t, claimUrl: data.url! } : t));
+        setShareModal({ assetId, url: data.url });
+      } else if (data.error === 'not_delegated') {
+        alert('This ticket was purchased before sharing was supported and cannot be shared.');
+      } else {
+        alert(data.error ?? 'Failed to create share link.');
+      }
+    } finally {
+      setSharingAssetId(null);
+    }
+  }
+
+  async function handleCopy(url: string): Promise<void> {
+    await navigator.clipboard.writeText(url);
+    setCopyConfirmed(true);
+    setTimeout(() => setCopyConfirmed(false), 2000);
+  }
 
   if (!ready || !authenticated) return null;
 
@@ -415,6 +452,72 @@ export default function MyTickets() {
           .a1, .a2 { animation: none; }
         }
 
+        /* ── Share modal ─────────────────────────────────────── */
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: oklch(0.05 0.01 258 / 0.80);
+          backdrop-filter: blur(4px);
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+        }
+
+        .modal {
+          background: var(--color-surface);
+          border: 1px solid var(--color-border);
+          padding: 28px 28px 24px;
+          width: 100%;
+          max-width: 420px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .modal-title {
+          font-family: var(--font-display);
+          font-size: 14px;
+          font-weight: 900;
+          letter-spacing: -0.01em;
+          color: var(--color-text);
+          margin: 0;
+        }
+
+        .modal-body {
+          font-family: var(--font-body);
+          font-size: 13px;
+          color: var(--color-text-muted);
+          line-height: 1.6;
+          margin: 0;
+        }
+
+        .modal-url {
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          padding: 10px 12px;
+          font-family: var(--font-body);
+          font-size: 12px;
+          color: var(--color-text-muted);
+          word-break: break-all;
+          line-height: 1.5;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-end;
+        }
+
+        .btn-row-disabled {
+          color: var(--color-text-muted);
+          background: transparent;
+          border: 1px solid var(--color-border);
+          opacity: 0.45;
+          cursor: default;
+        }
+
         /* ── Responsive ──────────────────────────────────────── */
         @media (max-width: 900px) {
           .nav { padding: 0 24px; }
@@ -479,6 +582,14 @@ export default function MyTickets() {
                         <Link href={`/tickets/${t.assetId}`} className="btn-row btn-row-primary">
                           View Ticket
                         </Link>
+                        <button
+                          className={`btn-row ${t.claimUrl ? 'btn-row-ghost' : 'btn-row-ghost'}`}
+                          onClick={() => void handleShare(t.assetId, t.claimUrl)}
+                          disabled={sharingAssetId === t.assetId}
+                          style={{ minWidth: 70 }}
+                        >
+                          {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Copy Link' : 'Share'}
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -522,6 +633,26 @@ export default function MyTickets() {
         </main>
 
       </div>
+
+      {shareModal && (
+        <div className="modal-backdrop" onClick={() => setShareModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Share ticket link</h2>
+            <p className="modal-body">
+              Send this link to a friend or buyer. Once claimed, the ticket moves to their wallet and this link becomes invalid.
+            </p>
+            <div className="modal-url">{shareModal.url}</div>
+            <div className="modal-actions">
+              <button className="btn-row btn-row-ghost" onClick={() => setShareModal(null)}>
+                Close
+              </button>
+              <button className="btn-row btn-row-primary" onClick={() => void handleCopy(shareModal.url)}>
+                {copyConfirmed ? 'Copied!' : 'Copy link'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

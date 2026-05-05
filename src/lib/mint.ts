@@ -46,6 +46,7 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
 
   const builder = mintV1(umi, {
     leafOwner: publicKey(ownerWallet),
+    leafDelegate: operatorSigner.publicKey,
     merkleTree: publicKey(MERKLE_TREE),
     payer: operatorSigner,
     metadata: {
