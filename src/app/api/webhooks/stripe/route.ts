@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -8,9 +9,7 @@ export const dynamic = "force-dynamic";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
-const siteUrl = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "http://localhost:3000";
+const siteUrl = process.env.APP_URL ?? "http://localhost:3000";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawBody = await req.text();
@@ -46,37 +45,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  let mintResults: { assetId: string; signature: string }[];
-  try {
-    mintResults = await Promise.all(
-      Array.from({ length: quantity }, () =>
-        mintTicket({
-          eventName: event.name,
-          eventDate: event.date,
-          ownerWallet: buyerWallet,
-          baseUrl: siteUrl,
-        }),
-      ),
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: `Mint failed: ${message}` }, { status: 500 });
-  }
+  // Return 200 to Stripe immediately — minting runs in the background.
+  // This prevents webhook timeouts on slow Solana confirmations.
+  after(async () => {
+    try {
+      const mintResults = await Promise.all(
+        Array.from({ length: quantity }, () =>
+          mintTicket({
+            eventName: event.name,
+            eventDate: event.date,
+            ownerWallet: buyerWallet,
+            baseUrl: siteUrl,
+          }),
+        ),
+      );
 
-  await supabaseAdmin.from("purchases").insert(
-    mintResults.map(({ assetId, signature }) => ({
-      event_id: eventId,
-      buyer_wallet: buyerWallet,
-      asset_id: assetId,
-      signature,
-      stripe_session_id: session.id,
-    })),
-  );
+      await supabaseAdmin.from("purchases").insert(
+        mintResults.map(({ assetId, signature }) => ({
+          event_id: eventId,
+          buyer_wallet: buyerWallet,
+          asset_id: assetId,
+          signature,
+          stripe_session_id: session.id,
+        })),
+      );
 
-  await supabaseAdmin
-    .from("events")
-    .update({ tickets_sold: event.tickets_sold + quantity })
-    .eq("id", eventId);
+      await supabaseAdmin
+        .from("events")
+        .update({ tickets_sold: event.tickets_sold + quantity })
+        .eq("id", eventId);
+    } catch {
+      // Stripe will retry the webhook if it doesn't receive a 200,
+      // but we already returned 200. Failures here are silent —
+      // the success page will time out and show the session ID for support.
+    }
+  });
 
   return NextResponse.json({ received: true });
 }
