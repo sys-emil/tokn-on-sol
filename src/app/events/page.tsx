@@ -1,6 +1,7 @@
 import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
+import { PasslyLogo } from '@/app/components/PasslyLogo';
 
 export const dynamic = 'force-dynamic';
 
@@ -444,7 +445,7 @@ export default async function EventsPage() {
 
         <nav className="nav">
           <div className="nav-left">
-            <Link href="/" className="logo">Passly<span className="logo-dot">.</span></Link>
+            <PasslyLogo height={22} />
             <div className="nav-divider" />
             <div className="nav-section">Events</div>
           </div>

@@ -5,6 +5,7 @@ import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { useEffect, useState } from 'react';
 
 const unbounded = Unbounded({
@@ -900,7 +901,7 @@ export default function Dashboard() {
         {/* Nav */}
         <nav className="nav">
           <div className="nav-left">
-            <div className="logo">Passly<span className="logo-dot">.</span></div>
+            <PasslyLogo height={22} />
             <div className="nav-divider" />
             <div className="nav-section">Dashboard</div>
           </div>

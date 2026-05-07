@@ -6,6 +6,7 @@ import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { PasslyLogo } from '@/app/components/PasslyLogo';
 
 const unbounded = Unbounded({
   subsets: ['latin'],
@@ -573,7 +574,7 @@ export default function MyTickets() {
 
         <nav className="nav">
           <div className="nav-left">
-            <Link href="/" className="logo">Passly<span className="logo-dot">.</span></Link>
+            <PasslyLogo height={22} />
             <div className="nav-divider" />
             <div className="nav-section">My Tickets</div>
           </div>

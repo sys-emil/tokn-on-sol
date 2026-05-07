@@ -1,6 +1,7 @@
 import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
 import CtaButton from '@/app/components/CtaButton';
+import { PasslyLogo } from '@/app/components/PasslyLogo';
 
 const unbounded = Unbounded({
   subsets: ['latin'],
@@ -1257,7 +1258,7 @@ export default async function Home() {
         {/* Nav */}
         <nav className="nav">
           <div className="nav-left">
-            <Link href="/" className="logo">Passly<span className="logo-dot">.</span></Link>
+            <PasslyLogo height={22} />
             <div className="nav-divider" />
             <Link href="/events" className="nav-link">Events</Link>
           </div>
