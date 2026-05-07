@@ -545,7 +545,7 @@ export default async function Home() {
           font-weight: 600;
           letter-spacing: 0.22em;
           text-transform: uppercase;
-          color: var(--color-accent);
+          color: var(--color-text-muted);
         }
         .phone-event-title {
           font-family: var(--font-display);
@@ -598,7 +598,7 @@ export default async function Home() {
           letter-spacing: 0.04em;
           color: var(--color-text);
         }
-        .phone-row-value-accent { color: var(--color-accent); }
+        .phone-row-value-accent { color: var(--color-text-muted); }
         .phone-footer-mark {
           margin-top: 14px;
           text-align: center;
@@ -661,7 +661,7 @@ export default async function Home() {
           font-weight: 500;
           letter-spacing: 0.20em;
           text-transform: uppercase;
-          color: var(--color-accent);
+          color: var(--color-text-muted);
         }
 
         /* ── Section eyebrow ─────────────────────────────────── */
@@ -732,7 +732,7 @@ export default async function Home() {
           font-weight: 600;
           letter-spacing: 0.22em;
           text-transform: uppercase;
-          color: var(--color-accent);
+          color: var(--color-text-muted);
         }
         .proud-card-zoom {
           width: 28px;
@@ -914,7 +914,7 @@ export default async function Home() {
           font-size: 9px;
           font-weight: 600;
           letter-spacing: 0.18em;
-          color: var(--color-accent);
+          color: var(--color-text-muted);
         }
         .gfx-scan-beam {
           position: absolute;
@@ -923,7 +923,7 @@ export default async function Home() {
           transform: translate(-50%, -50%);
           width: 70px;
           height: 70px;
-          border: 2px dashed var(--color-accent);
+          border: 2px dashed oklch(0.72 0.118 148 / 0.35);
           border-radius: 50%;
           opacity: 0.6;
           animation: scanPulse 2.4s ease-in-out infinite;
@@ -1021,12 +1021,12 @@ export default async function Home() {
         }
         .gfx-gauge-bar {
           width: 6px;
-          background: oklch(0.72 0.118 148 / 0.5);
+          background: oklch(0.72 0.118 148 / 0.18);
           border-radius: 2px;
         }
         .gfx-gauge-bar.is-on {
           background: var(--color-accent);
-          box-shadow: 0 0 10px oklch(0.72 0.118 148 / 0.6);
+          box-shadow: 0 0 8px oklch(0.72 0.118 148 / 0.3);
         }
 
         /* ── Graphic: direct flow ────────────────────────────── */
@@ -1085,7 +1085,7 @@ export default async function Home() {
         .gfx-flow-arrow.is-direct {
           background: var(--color-accent);
           height: 2px;
-          box-shadow: 0 0 6px oklch(0.72 0.118 148 / 0.6);
+          box-shadow: 0 0 6px oklch(0.72 0.118 148 / 0.3);
         }
         .gfx-flow-arrow.is-direct::after { color: var(--color-accent); }
         .gfx-flow-label {
@@ -1127,8 +1127,8 @@ export default async function Home() {
         }
         .gfx-block.is-active {
           border-color: var(--color-accent);
-          background: oklch(0.18 0.040 148 / 0.35);
-          box-shadow: 0 0 0 3px oklch(0.72 0.118 148 / 0.12);
+          background: oklch(0.18 0.040 148 / 0.25);
+          box-shadow: 0 0 0 3px oklch(0.72 0.118 148 / 0.08);
         }
         .gfx-block-num {
           font-family: var(--font-display);
@@ -1162,7 +1162,7 @@ export default async function Home() {
         }
         .solana-symbol {
           font-size: 36px;
-          color: var(--color-accent);
+          color: var(--color-text-muted);
           line-height: 1;
         }
         .solana-text {
