@@ -1681,6 +1681,7 @@ export default async function Home() {
         {/* CTA banner */}
         <section className="cta-banner">
           <div className="cta-banner-inner">
+            <PasslyLogo variant="on-accent" asLink={false} height={72} />
             <h2 className="cta-banner-headline">
               Ready to sell tickets that can&rsquo;t be faked?
             </h2>
