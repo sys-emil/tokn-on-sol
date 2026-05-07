@@ -574,7 +574,7 @@ export default function MyTickets() {
 
         <nav className="nav">
           <div className="nav-left">
-            <PasslyLogo height={22} />
+            <PasslyLogo />
             <div className="nav-divider" />
             <div className="nav-section">My Tickets</div>
           </div>

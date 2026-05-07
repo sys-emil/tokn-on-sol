@@ -445,7 +445,7 @@ export default async function EventsPage() {
 
         <nav className="nav">
           <div className="nav-left">
-            <PasslyLogo height={22} />
+            <PasslyLogo />
             <div className="nav-divider" />
             <div className="nav-section">Events</div>
           </div>

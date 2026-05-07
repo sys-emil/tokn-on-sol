@@ -1258,7 +1258,7 @@ export default async function Home() {
         {/* Nav */}
         <nav className="nav">
           <div className="nav-left">
-            <PasslyLogo height={22} />
+            <PasslyLogo />
             <div className="nav-divider" />
             <Link href="/events" className="nav-link">Events</Link>
           </div>

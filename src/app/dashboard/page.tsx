@@ -901,7 +901,7 @@ export default function Dashboard() {
         {/* Nav */}
         <nav className="nav">
           <div className="nav-left">
-            <PasslyLogo height={22} />
+            <PasslyLogo />
             <div className="nav-divider" />
             <div className="nav-section">Dashboard</div>
           </div>
