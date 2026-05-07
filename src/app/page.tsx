@@ -99,7 +99,7 @@ export default async function Home() {
 
         .nav-link {
           font-family: var(--font-display);
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 600;
           letter-spacing: 0.14em;
           text-transform: uppercase;
@@ -109,10 +109,14 @@ export default async function Home() {
         }
 
         .nav-link:hover { color: var(--color-text); }
+        .nav-link:focus-visible {
+          outline: 2px solid var(--color-accent);
+          outline-offset: 4px;
+        }
 
         .nav-chain {
           font-family: var(--font-body);
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 500;
           letter-spacing: 0.16em;
           text-transform: uppercase;
@@ -261,7 +265,7 @@ export default async function Home() {
           gap: 12px;
           padding: 14px 28px;
           font-family: var(--font-display);
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 600;
           letter-spacing: 0.14em;
           text-transform: uppercase;
@@ -285,6 +289,11 @@ export default async function Home() {
           transform: translateX(5px);
         }
 
+        .cta:focus-visible {
+          outline: 2px solid var(--color-accent);
+          outline-offset: 4px;
+        }
+
         .cta:disabled {
           opacity: 0.35;
           cursor: not-allowed;
@@ -297,10 +306,29 @@ export default async function Home() {
 
         .hero-actions {
           display: flex;
+          flex-direction: column;
+          gap: 16px;
+          align-self: flex-start;
+        }
+
+        .hero-actions-primary {
+          display: flex;
           align-items: center;
           gap: 12px;
           flex-wrap: wrap;
-          align-self: flex-start;
+        }
+
+        .hero-actions-organiser {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .hero-actions-divider {
+          font-family: var(--font-body);
+          font-size: 12px;
+          color: var(--color-text-muted);
+          opacity: 0.6;
         }
 
         .cta-secondary {
@@ -308,7 +336,7 @@ export default async function Home() {
           align-items: center;
           padding: 14px 28px;
           font-family: var(--font-display);
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 600;
           letter-spacing: 0.14em;
           text-transform: uppercase;
@@ -323,6 +351,28 @@ export default async function Home() {
           color: var(--color-text);
           border-color: var(--color-text);
         }
+
+        .cta-secondary:focus-visible {
+          outline: 2px solid var(--color-accent);
+          outline-offset: 4px;
+        }
+
+        /* ── Skip link (keyboard accessibility) ─────────────── */
+        .skip-link {
+          position: absolute;
+          top: -100%;
+          left: 16px;
+          z-index: 100;
+          padding: 8px 16px;
+          background: var(--color-accent);
+          color: oklch(0.10 0.014 258);
+          font-family: var(--font-display);
+          font-size: 12px;
+          font-weight: 600;
+          text-decoration: none;
+          letter-spacing: 0.08em;
+        }
+        .skip-link:focus { top: 16px; }
 
         /* ── Phone mockup ────────────────────────────────────── */
         @keyframes phoneFloat {
@@ -1255,6 +1305,8 @@ export default async function Home() {
 
       <div className={`root ${unbounded.variable} ${epilogue.variable}`}>
 
+        <a className="skip-link" href="#main-content">Skip to content</a>
+
         {/* Nav */}
         <nav className="nav">
           <div className="nav-left">
@@ -1266,7 +1318,7 @@ export default async function Home() {
         </nav>
 
         {/* Hero */}
-        <section className="hero">
+        <section id="main-content" className="hero">
           <div className="hero-aurora" aria-hidden="true">
             <div className="hero-aurora-blob hero-aurora-blob-1" />
             <div className="hero-aurora-blob hero-aurora-blob-2" />
@@ -1275,7 +1327,7 @@ export default async function Home() {
           <div className="hero-content">
             <div className="hero-label a1">
               <span className="hero-label-line" />
-              NFT Ticketing on Solana
+              Fraud-proof event tickets
             </div>
 
             <h1 className="hero-headline a2">
@@ -1285,20 +1337,25 @@ export default async function Home() {
             </h1>
 
             <p className="hero-body a3">
-              Passly issues cryptographically unique NFT tickets on Solana.
-              Each one is verifiable on-chain, impossible to clone, and
-              scannable at the gate in real time.
+              Every ticket is unique and impossible to clone.
+              No fakes at the gate, no bots on checkout —
+              just verifiable proof that it&rsquo;s yours.
             </p>
 
             <div className="hero-actions a4">
-              <Link href="/events" className="cta">
-                Browse Events
-                <span className="cta-arrow">→</span>
-              </Link>
-              <CtaButton className="cta-secondary" />
-              <Link href="/become-organizer" className="cta-secondary">
-                Host an Event
-              </Link>
+              <div className="hero-actions-primary">
+                <Link href="/events" className="cta">
+                  Browse Events
+                  <span className="cta-arrow">→</span>
+                </Link>
+                <CtaButton className="cta-secondary" />
+              </div>
+              <div className="hero-actions-organiser">
+                <span className="hero-actions-divider">Organising an event?</span>
+                <Link href="/become-organizer" className="cta-secondary" style={{ padding: '10px 20px' }}>
+                  Host an Event
+                </Link>
+              </div>
             </div>
           </div>
 
