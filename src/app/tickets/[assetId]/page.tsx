@@ -51,12 +51,14 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
     <>
       <style>{`
         :root {
-          --color-bg:         oklch(0.10 0.014 258);
-          --color-surface:    oklch(0.14 0.014 258);
-          --color-border:     oklch(0.22 0.016 258);
-          --color-text:       oklch(0.96 0.008 95);
-          --color-text-muted: oklch(0.48 0.012 250);
-          --color-accent:     oklch(0.72 0.118 148);
+          --color-bg:          oklch(0.09 0.028 305);
+          --color-surface:     oklch(0.15 0.024 308);
+          --color-border:      oklch(0.26 0.022 305);
+          --color-text:        oklch(0.96 0.008 75);
+          --color-text-muted:  oklch(0.56 0.012 305);
+          --color-accent:      oklch(0.79 0.19 48);
+          --color-accent-2:    oklch(0.67 0.24 295);
+          --color-accent-3:    oklch(0.72 0.22 350);
         }
 
         html, body { margin: 0; padding: 0; background: var(--color-bg); }
@@ -64,7 +66,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
         .ticket-root {
           font-family: var(--font-body);
           background-color: var(--color-bg);
-          background-image: radial-gradient(circle, oklch(0.23 0.014 258 / 0.45) 1px, transparent 1px);
+          background-image: radial-gradient(circle, oklch(0.28 0.026 308 / 0.38) 1px, transparent 1px);
           background-size: 28px 28px;
           color: var(--color-text);
           min-height: 100dvh;
@@ -98,18 +100,18 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
           top: 5%; left: 10%;
           width: 500px; height: 500px;
           background: radial-gradient(circle at 50% 50%,
-            oklch(0.72 0.118 148 / 0.40) 0%,
-            oklch(0.72 0.118 148 / 0.18) 40%,
-            oklch(0.72 0.118 148 / 0) 70%);
+            oklch(0.79 0.19 48 / 0.38) 0%,
+            oklch(0.79 0.19 48 / 0.16) 40%,
+            oklch(0.79 0.19 48 / 0) 70%);
           animation: tauroraPulseA 9s ease-in-out infinite;
         }
         .ticket-aurora-blob-2 {
           bottom: 5%; right: 5%;
           width: 400px; height: 400px;
           background: radial-gradient(circle at 50% 50%,
-            oklch(0.78 0.140 158 / 0.30) 0%,
-            oklch(0.72 0.118 148 / 0.12) 45%,
-            oklch(0.72 0.118 148 / 0) 72%);
+            oklch(0.67 0.24 295 / 0.32) 0%,
+            oklch(0.67 0.24 295 / 0.12) 45%,
+            oklch(0.67 0.24 295 / 0) 72%);
           animation: tauroraPulseB 11s ease-in-out infinite;
         }
         @keyframes tauroraPulseA {
@@ -181,14 +183,14 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
           display: flex;
           justify-content: center;
           border-bottom: 1px solid var(--color-border);
-          background: oklch(0.10 0.014 258);
+          background: oklch(0.09 0.028 305);
         }
 
         .ticket-qr-frame {
           background: #f5f3ee;
           padding: 12px;
           display: inline-flex;
-          box-shadow: 0 0 0 1px oklch(0.72 0.118 148 / 0.35), 0 0 24px oklch(0.72 0.118 148 / 0.18);
+          box-shadow: 0 0 0 1px oklch(0.79 0.19 48 / 0.35), 0 0 24px oklch(0.79 0.19 48 / 0.18);
         }
 
         .ticket-meta {

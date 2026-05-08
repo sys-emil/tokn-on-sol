@@ -22,13 +22,17 @@ export default async function Home() {
     <>
       <style>{`
         :root {
-          --color-bg:           oklch(0.10 0.014 258);
-          --color-surface:      oklch(0.14 0.014 258);
-          --color-border:       oklch(0.22 0.016 258);
-          --color-text:         oklch(0.96 0.008 95);
-          --color-text-muted:   oklch(0.48 0.012 250);
-          --color-accent:       oklch(0.72 0.118 148);
-          --color-accent-bg:    oklch(0.18 0.040 148);
+          --color-bg:           oklch(0.09 0.028 305);
+          --color-surface:      oklch(0.15 0.024 308);
+          --color-border:       oklch(0.26 0.022 305);
+          --color-text:         oklch(0.96 0.008 75);
+          --color-text-muted:   oklch(0.56 0.012 305);
+          --color-accent:       oklch(0.79 0.19 48);
+          --color-accent-bg:    oklch(0.18 0.048 48);
+          --color-accent-2:     oklch(0.67 0.24 295);
+          --color-accent-2-bg:  oklch(0.16 0.040 295);
+          --color-accent-3:     oklch(0.72 0.22 350);
+          --color-accent-3-bg:  oklch(0.17 0.040 350);
         }
 
         html, body {
@@ -43,7 +47,7 @@ export default async function Home() {
           background-color: var(--color-bg);
           background-image: radial-gradient(
             circle,
-            oklch(0.23 0.014 258 / 0.45) 1px,
+            oklch(0.28 0.026 308 / 0.38) 1px,
             transparent 1px
           );
           background-size: 28px 28px;
@@ -65,7 +69,7 @@ export default async function Home() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: oklch(0.10 0.014 258 / 0.88);
+          background: oklch(0.09 0.028 305 / 0.88);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
           border-bottom: 1px solid var(--color-border);
@@ -164,9 +168,9 @@ export default async function Home() {
           width: 620px;
           height: 620px;
           background: radial-gradient(circle at 50% 50%,
-            oklch(0.72 0.118 148 / 0.55) 0%,
-            oklch(0.72 0.118 148 / 0.28) 38%,
-            oklch(0.72 0.118 148 / 0) 70%);
+            oklch(0.79 0.19 48 / 0.50) 0%,
+            oklch(0.79 0.19 48 / 0.25) 38%,
+            oklch(0.79 0.19 48 / 0) 70%);
           animation: auroraPulseA 9s ease-in-out infinite;
         }
         .hero-aurora-blob-2 {
@@ -175,9 +179,9 @@ export default async function Home() {
           width: 480px;
           height: 480px;
           background: radial-gradient(circle at 50% 50%,
-            oklch(0.78 0.140 158 / 0.40) 0%,
-            oklch(0.72 0.118 148 / 0.18) 42%,
-            oklch(0.72 0.118 148 / 0) 72%);
+            oklch(0.67 0.24 295 / 0.42) 0%,
+            oklch(0.67 0.24 295 / 0.18) 42%,
+            oklch(0.67 0.24 295 / 0) 72%);
           animation: auroraPulseB 11s ease-in-out infinite;
         }
         .hero-aurora-blob-3 {
@@ -186,9 +190,9 @@ export default async function Home() {
           width: 540px;
           height: 540px;
           background: radial-gradient(circle at 50% 50%,
-            oklch(0.62 0.150 148 / 0.32) 0%,
-            oklch(0.62 0.150 148 / 0.12) 45%,
-            oklch(0.62 0.150 148 / 0) 72%);
+            oklch(0.72 0.22 350 / 0.30) 0%,
+            oklch(0.72 0.22 350 / 0.12) 45%,
+            oklch(0.72 0.22 350 / 0) 72%);
           animation: auroraPulseC 13s ease-in-out infinite;
         }
         @keyframes auroraPulseA {
@@ -224,14 +228,14 @@ export default async function Home() {
           font-weight: 500;
           letter-spacing: 0.20em;
           text-transform: uppercase;
-          color: var(--color-accent);
+          color: var(--color-accent-2);
         }
 
         .hero-label-line {
           display: block;
           width: 28px;
           height: 1px;
-          background: var(--color-accent);
+          background: var(--color-accent-2);
           flex-shrink: 0;
         }
 
@@ -282,7 +286,7 @@ export default async function Home() {
 
         .cta:hover {
           background: var(--color-accent);
-          color: oklch(0.10 0.014 258);
+          color: oklch(0.09 0.028 305);
         }
 
         .cta:hover .cta-arrow {
@@ -365,7 +369,7 @@ export default async function Home() {
           z-index: 100;
           padding: 8px 16px;
           background: var(--color-accent);
-          color: oklch(0.10 0.014 258);
+          color: oklch(0.09 0.028 305);
           font-family: var(--font-display);
           font-size: 12px;
           font-weight: 600;
@@ -442,10 +446,10 @@ export default async function Home() {
           width: 100%;
           height: 100%;
           border-radius: 46px;
-          background: oklch(0.10 0.014 258);
+          background: oklch(0.09 0.028 305);
           position: relative;
           overflow: hidden;
-          box-shadow: inset 0 0 0 1.5px oklch(0.06 0.014 258);
+          box-shadow: inset 0 0 0 1.5px oklch(0.05 0.018 305);
           display: flex;
           flex-direction: column;
         }
@@ -633,13 +637,13 @@ export default async function Home() {
         /* Atmospheric section backgrounds */
         .how-it-works {
           background-image:
-            radial-gradient(ellipse 800px 500px at 85% 0%, oklch(0.72 0.118 148 / 0.06) 0%, transparent 60%),
-            linear-gradient(180deg, oklch(0.10 0.014 258) 0%, oklch(0.11 0.014 258) 100%);
+            radial-gradient(ellipse 800px 500px at 85% 0%, oklch(0.79 0.19 48 / 0.07) 0%, transparent 60%),
+            linear-gradient(180deg, oklch(0.09 0.028 305) 0%, oklch(0.10 0.026 305) 100%);
         }
         .why-passly {
           background-image:
-            radial-gradient(ellipse 700px 400px at 15% 100%, oklch(0.72 0.118 148 / 0.07) 0%, transparent 60%),
-            linear-gradient(180deg, oklch(0.11 0.014 258) 0%, oklch(0.10 0.014 258) 100%);
+            radial-gradient(ellipse 700px 400px at 15% 100%, oklch(0.67 0.24 295 / 0.08) 0%, transparent 60%),
+            linear-gradient(180deg, oklch(0.10 0.026 305) 0%, oklch(0.09 0.028 305) 100%);
         }
 
         .section-inner {
@@ -716,7 +720,7 @@ export default async function Home() {
         .proud-card.is-wide { grid-column: span 4; }
         .proud-card.is-half { grid-column: span 3; }
         .proud-card:hover {
-          border-color: oklch(0.32 0.020 258);
+          border-color: oklch(0.36 0.022 305);
           transform: translateY(-2px);
           box-shadow: 0 24px 48px oklch(0 0 0 / 0.4);
         }
@@ -738,7 +742,7 @@ export default async function Home() {
           width: 28px;
           height: 28px;
           border-radius: 8px;
-          background: oklch(0.18 0.014 258);
+          background: oklch(0.20 0.020 308);
           border: 1px solid var(--color-border);
           display: flex;
           align-items: center;
@@ -779,27 +783,27 @@ export default async function Home() {
         /* ── Card backgrounds ────────────────────────────────── */
         .pg-bg-radial {
           background:
-            radial-gradient(circle at 75% 30%, oklch(0.72 0.118 148 / 0.22) 0%, transparent 55%),
-            radial-gradient(circle at 20% 80%, oklch(0.62 0.150 148 / 0.14) 0%, transparent 60%),
-            oklch(0.12 0.014 258);
+            radial-gradient(circle at 75% 30%, oklch(0.79 0.19 48 / 0.22) 0%, transparent 55%),
+            radial-gradient(circle at 20% 80%, oklch(0.72 0.22 350 / 0.14) 0%, transparent 60%),
+            oklch(0.13 0.024 305);
         }
         .pg-bg-grid {
           background:
-            linear-gradient(oklch(0.22 0.016 258 / 0.6) 1px, transparent 1px) 0 0 / 32px 32px,
-            linear-gradient(90deg, oklch(0.22 0.016 258 / 0.6) 1px, transparent 1px) 0 0 / 32px 32px,
-            radial-gradient(circle at 50% 50%, oklch(0.72 0.118 148 / 0.18) 0%, transparent 60%),
-            oklch(0.12 0.014 258);
+            linear-gradient(oklch(0.26 0.022 305 / 0.6) 1px, transparent 1px) 0 0 / 32px 32px,
+            linear-gradient(90deg, oklch(0.26 0.022 305 / 0.6) 1px, transparent 1px) 0 0 / 32px 32px,
+            radial-gradient(circle at 50% 50%, oklch(0.67 0.24 295 / 0.18) 0%, transparent 60%),
+            oklch(0.13 0.024 305);
         }
         .pg-bg-soft {
           background:
-            radial-gradient(ellipse at 50% 110%, oklch(0.72 0.118 148 / 0.22) 0%, transparent 65%),
-            oklch(0.13 0.014 258);
+            radial-gradient(ellipse at 50% 110%, oklch(0.72 0.22 350 / 0.22) 0%, transparent 65%),
+            oklch(0.13 0.024 305);
         }
         .pg-bg-mesh {
           background:
-            radial-gradient(circle at 0% 0%, oklch(0.72 0.118 148 / 0.18) 0%, transparent 50%),
-            radial-gradient(circle at 100% 100%, oklch(0.62 0.150 148 / 0.14) 0%, transparent 55%),
-            oklch(0.12 0.014 258);
+            radial-gradient(circle at 0% 0%, oklch(0.79 0.19 48 / 0.20) 0%, transparent 50%),
+            radial-gradient(circle at 100% 100%, oklch(0.67 0.24 295 / 0.16) 0%, transparent 55%),
+            oklch(0.13 0.024 305);
         }
 
         /* ── Graphic: event creation form ────────────────────── */
@@ -837,7 +841,7 @@ export default async function Home() {
         }
         .gfx-input.is-active {
           border-color: var(--color-accent);
-          box-shadow: 0 0 0 3px oklch(0.72 0.118 148 / 0.15);
+          box-shadow: 0 0 0 3px oklch(0.79 0.19 48 / 0.15);
         }
         .gfx-input-cursor::after {
           content: '';
@@ -923,7 +927,7 @@ export default async function Home() {
           transform: translate(-50%, -50%);
           width: 70px;
           height: 70px;
-          border: 2px dashed oklch(0.72 0.118 148 / 0.35);
+          border: 2px dashed oklch(0.79 0.19 48 / 0.35);
           border-radius: 50%;
           opacity: 0.6;
           animation: scanPulse 2.4s ease-in-out infinite;
@@ -946,7 +950,7 @@ export default async function Home() {
           justify-content: center;
           font-size: 18px;
           font-weight: 900;
-          box-shadow: 0 0 0 6px oklch(0.72 0.118 148 / 0.2);
+          box-shadow: 0 0 0 6px oklch(0.79 0.19 48 / 0.2);
         }
 
         /* ── Graphic: unfakeable hash list ───────────────────── */
@@ -976,10 +980,10 @@ export default async function Home() {
           justify-content: space-between;
         }
         .gfx-hash-line.is-active {
-          color: var(--color-accent);
-          border-color: oklch(0.72 0.118 148 / 0.4);
-          background: oklch(0.18 0.040 148 / 0.4);
-          box-shadow: 0 0 24px oklch(0.72 0.118 148 / 0.25);
+          color: var(--color-accent-2);
+          border-color: oklch(0.67 0.24 295 / 0.4);
+          background: oklch(0.16 0.040 295 / 0.4);
+          box-shadow: 0 0 24px oklch(0.67 0.24 295 / 0.25);
         }
 
         /* ── Graphic: speed gauge ────────────────────────────── */
@@ -1021,12 +1025,12 @@ export default async function Home() {
         }
         .gfx-gauge-bar {
           width: 6px;
-          background: oklch(0.72 0.118 148 / 0.18);
+          background: oklch(0.79 0.19 48 / 0.18);
           border-radius: 2px;
         }
         .gfx-gauge-bar.is-on {
           background: var(--color-accent);
-          box-shadow: 0 0 8px oklch(0.72 0.118 148 / 0.3);
+          box-shadow: 0 0 8px oklch(0.79 0.19 48 / 0.3);
         }
 
         /* ── Graphic: direct flow ────────────────────────────── */
@@ -1052,7 +1056,7 @@ export default async function Home() {
           padding: 10px 14px;
           border: 1px solid var(--color-border);
           border-radius: 8px;
-          background: oklch(0.13 0.014 258);
+          background: oklch(0.13 0.022 305);
           color: var(--color-text);
           white-space: nowrap;
         }
@@ -1085,7 +1089,7 @@ export default async function Home() {
         .gfx-flow-arrow.is-direct {
           background: var(--color-accent);
           height: 2px;
-          box-shadow: 0 0 6px oklch(0.72 0.118 148 / 0.3);
+          box-shadow: 0 0 6px oklch(0.79 0.19 48 / 0.3);
         }
         .gfx-flow-arrow.is-direct::after { color: var(--color-accent); }
         .gfx-flow-label {
@@ -1119,16 +1123,16 @@ export default async function Home() {
           padding: 10px 8px;
           border: 1px solid var(--color-border);
           border-radius: 6px;
-          background: oklch(0.10 0.014 258);
+          background: oklch(0.09 0.028 305);
           display: flex;
           flex-direction: column;
           gap: 3px;
           min-width: 0;
         }
         .gfx-block.is-active {
-          border-color: var(--color-accent);
-          background: oklch(0.18 0.040 148 / 0.25);
-          box-shadow: 0 0 0 3px oklch(0.72 0.118 148 / 0.08);
+          border-color: var(--color-accent-2);
+          background: oklch(0.16 0.040 295 / 0.25);
+          box-shadow: 0 0 0 3px oklch(0.67 0.24 295 / 0.08);
         }
         .gfx-block-num {
           font-family: var(--font-display);
@@ -1145,7 +1149,7 @@ export default async function Home() {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .gfx-block.is-active .gfx-block-hash { color: var(--color-accent); }
+        .gfx-block.is-active .gfx-block-hash { color: var(--color-accent-2); }
         .gfx-chain-link { color: var(--color-text-muted); font-size: 10px; }
 
         /* ── Solana section ──────────────────────────────────── */
@@ -1190,7 +1194,7 @@ export default async function Home() {
 
         /* ── CTA banner ──────────────────────────────────────── */
         .cta-banner {
-          background: linear-gradient(180deg, oklch(0.15 0.040 148 / 0.12) 0%, transparent 100%);
+          background: linear-gradient(135deg, oklch(0.79 0.19 48 / 0.07) 0%, oklch(0.67 0.24 295 / 0.05) 100%);
         }
         .cta-banner-inner {
           max-width: 1280px;
@@ -1506,13 +1510,13 @@ export default async function Home() {
                   <svg viewBox="0 0 360 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <defs>
                       <linearGradient id="mintGrad" x1="0" x2="1" y1="0" y2="1">
-                        <stop offset="0%" stopColor="oklch(0.72 0.118 148)" stopOpacity="0.9" />
-                        <stop offset="100%" stopColor="oklch(0.62 0.150 148)" stopOpacity="0.5" />
+                        <stop offset="0%" stopColor="oklch(0.79 0.19 48)" stopOpacity="0.9" />
+                        <stop offset="100%" stopColor="oklch(0.67 0.24 295)" stopOpacity="0.6" />
                       </linearGradient>
                     </defs>
-                    <circle cx="180" cy="100" r="78" stroke="oklch(0.32 0.020 258)" strokeWidth="1" strokeDasharray="3 5" />
-                    <circle cx="180" cy="100" r="54" stroke="oklch(0.28 0.020 258)" strokeWidth="1" />
-                    <g stroke="oklch(0.72 0.118 148 / 0.35)" strokeWidth="1">
+                    <circle cx="180" cy="100" r="78" stroke="oklch(0.36 0.022 305)" strokeWidth="1" strokeDasharray="3 5" />
+                    <circle cx="180" cy="100" r="54" stroke="oklch(0.30 0.020 305)" strokeWidth="1" />
+                    <g stroke="oklch(0.79 0.19 48 / 0.30)" strokeWidth="1">
                       <line x1="104" y1="60" x2="180" y2="100" />
                       <line x1="262" y1="58" x2="180" y2="100" />
                       <line x1="86"  y1="140" x2="180" y2="100" />
@@ -1521,15 +1525,15 @@ export default async function Home() {
                       <line x1="180" y1="172" x2="180" y2="100" />
                     </g>
                     <g>
-                      <circle cx="104" cy="60"  r="10" fill="oklch(0.18 0.040 148)" stroke="oklch(0.72 0.118 148 / 0.6)" />
-                      <circle cx="262" cy="58"  r="10" fill="oklch(0.18 0.040 148)" stroke="oklch(0.72 0.118 148 / 0.6)" />
-                      <circle cx="86"  cy="140" r="10" fill="oklch(0.18 0.040 148)" stroke="oklch(0.72 0.118 148 / 0.6)" />
-                      <circle cx="278" cy="144" r="10" fill="oklch(0.18 0.040 148)" stroke="oklch(0.72 0.118 148 / 0.6)" />
-                      <circle cx="180" cy="30"  r="10" fill="oklch(0.18 0.040 148)" stroke="oklch(0.72 0.118 148 / 0.6)" />
-                      <circle cx="180" cy="172" r="10" fill="oklch(0.18 0.040 148)" stroke="oklch(0.72 0.118 148 / 0.6)" />
+                      <circle cx="104" cy="60"  r="10" fill="oklch(0.18 0.048 48)" stroke="oklch(0.79 0.19 48 / 0.6)" />
+                      <circle cx="262" cy="58"  r="10" fill="oklch(0.16 0.040 295)" stroke="oklch(0.67 0.24 295 / 0.6)" />
+                      <circle cx="86"  cy="140" r="10" fill="oklch(0.17 0.040 350)" stroke="oklch(0.72 0.22 350 / 0.6)" />
+                      <circle cx="278" cy="144" r="10" fill="oklch(0.18 0.048 48)" stroke="oklch(0.79 0.19 48 / 0.6)" />
+                      <circle cx="180" cy="30"  r="10" fill="oklch(0.16 0.040 295)" stroke="oklch(0.67 0.24 295 / 0.6)" />
+                      <circle cx="180" cy="172" r="10" fill="oklch(0.17 0.040 350)" stroke="oklch(0.72 0.22 350 / 0.6)" />
                     </g>
                     <circle cx="180" cy="100" r="26" fill="url(#mintGrad)" />
-                    <text x="180" y="104" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="10" fontWeight="700" fill="oklch(0.10 0.014 258)" letterSpacing="1.5">MINT</text>
+                    <text x="180" y="104" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="10" fontWeight="700" fill="oklch(0.09 0.028 305)" letterSpacing="1.5">MINT</text>
                   </svg>
                 </div>
               </article>

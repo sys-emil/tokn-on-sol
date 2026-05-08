@@ -117,12 +117,14 @@ export default function BecomeOrganizer() {
     <>
       <style>{`
         :root {
-          --color-bg:         oklch(0.10 0.014 258);
-          --color-surface:    oklch(0.14 0.014 258);
-          --color-border:     oklch(0.22 0.016 258);
-          --color-text:       oklch(0.96 0.008 95);
-          --color-text-muted: oklch(0.48 0.012 250);
-          --color-accent:     oklch(0.72 0.118 148);
+          --color-bg:          oklch(0.09 0.028 305);
+          --color-surface:     oklch(0.15 0.024 308);
+          --color-border:      oklch(0.26 0.022 305);
+          --color-text:        oklch(0.96 0.008 75);
+          --color-text-muted:  oklch(0.56 0.012 305);
+          --color-accent:      oklch(0.79 0.19 48);
+          --color-accent-2:    oklch(0.67 0.24 295);
+          --color-accent-3:    oklch(0.72 0.22 350);
         }
 
         html, body {
@@ -136,7 +138,7 @@ export default function BecomeOrganizer() {
           background-color: var(--color-bg);
           background-image: radial-gradient(
             circle,
-            oklch(0.23 0.014 258 / 0.45) 1px,
+            oklch(0.28 0.026 308 / 0.38) 1px,
             transparent 1px
           );
           background-size: 28px 28px;
@@ -156,7 +158,7 @@ export default function BecomeOrganizer() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: oklch(0.10 0.014 258 / 0.88);
+          background: oklch(0.09 0.028 305 / 0.88);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
           border-bottom: 1px solid var(--color-border);
@@ -220,7 +222,7 @@ export default function BecomeOrganizer() {
 
         .btn-nav:hover {
           color: var(--color-text);
-          border-color: oklch(0.40 0.016 258);
+          border-color: oklch(0.42 0.022 305);
         }
 
         /* ── Main ────────────────────────────────────────────── */
@@ -352,12 +354,12 @@ export default function BecomeOrganizer() {
         }
 
         .type-card:hover {
-          border-color: oklch(0.40 0.016 258);
+          border-color: oklch(0.42 0.022 305);
         }
 
         .type-card.selected {
           border-color: var(--color-accent);
-          background: oklch(0.14 0.025 148 / 0.35);
+          background: var(--color-accent-bg);
         }
 
         .type-card-name {
@@ -385,7 +387,7 @@ export default function BecomeOrganizer() {
           font-weight: 600;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: oklch(0.10 0.014 258);
+          color: oklch(0.09 0.028 305);
           background: var(--color-accent);
           border: 1px solid var(--color-accent);
           padding: 14px 28px;
@@ -395,8 +397,8 @@ export default function BecomeOrganizer() {
         }
 
         .btn-submit:hover:not(:disabled) {
-          background: oklch(0.80 0.118 148);
-          border-color: oklch(0.80 0.118 148);
+          background: oklch(0.84 0.17 48);
+          border-color: oklch(0.84 0.17 48);
         }
 
         .btn-submit:disabled {

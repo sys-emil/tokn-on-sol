@@ -59,15 +59,19 @@ function isUpcoming(iso: string): boolean {
 
 const CSS = `
   :root {
-    --color-bg:         oklch(0.10 0.014 258);
-    --color-surface:    oklch(0.14 0.014 258);
-    --color-border:     oklch(0.22 0.016 258);
-    --color-text:       oklch(0.96 0.008 95);
-    --color-text-muted: oklch(0.48 0.012 250);
-    --color-accent:     oklch(0.72 0.118 148);
-    --color-accent-dim: oklch(0.18 0.04 148);
-    --color-missed:     oklch(0.55 0.10 40);
-    --color-missed-dim: oklch(0.16 0.04 40);
+    --color-bg:          oklch(0.09 0.028 305);
+    --color-surface:     oklch(0.15 0.024 308);
+    --color-border:      oklch(0.26 0.022 305);
+    --color-text:        oklch(0.96 0.008 75);
+    --color-text-muted:  oklch(0.56 0.012 305);
+    --color-accent:      oklch(0.79 0.19 48);
+    --color-accent-dim:  oklch(0.18 0.048 48);
+    --color-accent-2:    oklch(0.67 0.24 295);
+    --color-accent-2-bg: oklch(0.16 0.040 295);
+    --color-accent-3:    oklch(0.72 0.22 350);
+    --color-accent-3-bg: oklch(0.17 0.040 350);
+    --color-missed:      oklch(0.68 0.14 32);
+    --color-missed-dim:  oklch(0.16 0.040 32);
   }
 
   html, body { margin: 0; padding: 0; background: var(--color-bg); }
@@ -75,7 +79,7 @@ const CSS = `
   .page-root {
     font-family: var(--font-body);
     background-color: var(--color-bg);
-    background-image: radial-gradient(circle, oklch(0.23 0.014 258 / 0.45) 1px, transparent 1px);
+    background-image: radial-gradient(circle, oklch(0.28 0.026 308 / 0.38) 1px, transparent 1px);
     background-size: 28px 28px;
     color: var(--color-text);
     min-height: 100dvh;
@@ -93,7 +97,7 @@ const CSS = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: oklch(0.10 0.014 258 / 0.88);
+    background: oklch(0.09 0.028 305 / 0.88);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--color-border);
@@ -143,7 +147,7 @@ const CSS = `
     transition: color 0.15s ease, border-color 0.15s ease;
   }
 
-  .btn-nav:hover { color: var(--color-text); border-color: oklch(0.40 0.016 258); }
+  .btn-nav:hover { color: var(--color-text); border-color: oklch(0.42 0.022 305); }
 
   /* ── Layout ──────────────────────────────────────────────── */
   .main {
@@ -273,8 +277,8 @@ const CSS = `
   }
 
   .days-badge.urgent {
-    background: oklch(0.72 0.118 148 / 0.2);
-    color: var(--color-accent);
+    background: var(--color-accent-3-bg);
+    color: var(--color-accent-3);
     animation: pulse 2s ease-in-out infinite;
   }
 
@@ -308,7 +312,7 @@ const CSS = `
     align-items: center;
     gap: 16px;
     padding: 12px 0;
-    border-bottom: 1px solid oklch(0.22 0.016 258 / 0.5);
+    border-bottom: 1px solid oklch(0.26 0.022 305 / 0.5);
   }
 
   .history-row:last-child { border-bottom: none; }
@@ -375,7 +379,7 @@ const CSS = `
   }
 
   .btn-primary {
-    color: oklch(0.10 0.014 258);
+    color: oklch(0.09 0.028 305);
     background: var(--color-accent);
     border: 1px solid var(--color-accent);
   }
@@ -388,7 +392,7 @@ const CSS = `
     border: 1px solid var(--color-border);
   }
 
-  .btn-ghost:hover { color: var(--color-text); border-color: oklch(0.40 0.016 258); }
+  .btn-ghost:hover { color: var(--color-text); border-color: oklch(0.42 0.022 305); }
 
   .btn-ghost:disabled { opacity: 0.4; cursor: default; }
 
@@ -414,7 +418,7 @@ const CSS = `
   .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: oklch(0.05 0.01 258 / 0.80);
+    background: oklch(0.05 0.015 305 / 0.85);
     backdrop-filter: blur(4px);
     z-index: 100;
     display: flex;

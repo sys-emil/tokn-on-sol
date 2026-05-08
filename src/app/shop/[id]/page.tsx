@@ -46,13 +46,17 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
     <>
       <style>{`
         :root {
-          --color-bg:         oklch(0.10 0.014 258);
-          --color-surface:    oklch(0.14 0.014 258);
-          --color-border:     oklch(0.22 0.016 258);
-          --color-text:       oklch(0.96 0.008 95);
-          --color-text-muted: oklch(0.48 0.012 250);
-          --color-accent:     oklch(0.72 0.118 148);
-          --color-accent-bg:  oklch(0.18 0.040 148);
+          --color-bg:          oklch(0.09 0.028 305);
+          --color-surface:     oklch(0.15 0.024 308);
+          --color-border:      oklch(0.26 0.022 305);
+          --color-text:        oklch(0.96 0.008 75);
+          --color-text-muted:  oklch(0.56 0.012 305);
+          --color-accent:      oklch(0.79 0.19 48);
+          --color-accent-bg:   oklch(0.18 0.048 48);
+          --color-accent-2:    oklch(0.67 0.24 295);
+          --color-accent-2-bg: oklch(0.16 0.040 295);
+          --color-accent-3:    oklch(0.72 0.22 350);
+          --color-accent-3-bg: oklch(0.17 0.040 350);
         }
 
         html, body { margin: 0; padding: 0; background: var(--color-bg); }
@@ -60,7 +64,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
         .shop-root {
           font-family: var(--font-body);
           background-color: var(--color-bg);
-          background-image: radial-gradient(circle, oklch(0.23 0.014 258 / 0.45) 1px, transparent 1px);
+          background-image: radial-gradient(circle, oklch(0.28 0.026 308 / 0.38) 1px, transparent 1px);
           background-size: 28px 28px;
           color: var(--color-text);
           min-height: 100dvh;
