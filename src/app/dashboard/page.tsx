@@ -52,8 +52,9 @@ export default function Dashboard() {
   const [ticketsIssued, setTicketsIssued] = useState(0);
   const [eventsLoaded, setEventsLoaded] = useState(false);
   const [orgStatus, setOrgStatus] = useState<'loading' | 'none' | 'approved'>('loading');
-  const [stripeStatus, setStripeStatus] = useState<'loading' | 'disconnected' | 'pending' | 'connected'>('loading');
+  const [stripeStatus, setStripeStatus] = useState<'loading' | 'disconnected' | 'pending' | 'connected'>('disconnected');
   const [connectingStripe, setConnectingStripe] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
 
   const solanaWalletAddress = solanaWallets[0]?.address;
 
@@ -149,7 +150,12 @@ export default function Dashboard() {
 
   async function handleConnectStripe(): Promise<void> {
     if (!ownerWallet || connectingStripe) return;
+    setStripeError(null);
     const token = await getAccessToken();
+    if (!token) {
+      setStripeError('Not authenticated. Please log out and back in.');
+      return;
+    }
     setConnectingStripe(true);
     try {
       const res = await fetch('/api/stripe/connect/start', {
@@ -160,7 +166,11 @@ export default function Dashboard() {
       const data = (await res.json()) as { success: boolean; url?: string; error?: string };
       if (data.success && data.url) {
         window.location.href = data.url;
+      } else {
+        setStripeError(data.error ?? 'Failed to start Stripe onboarding.');
       }
+    } catch (err) {
+      setStripeError(err instanceof Error ? err.message : 'Failed to start Stripe onboarding.');
     } finally {
       setConnectingStripe(false);
     }
@@ -1194,6 +1204,11 @@ export default function Dashboard() {
                   >
                     {connectingStripe ? 'Redirecting…' : 'Continue setup'}
                   </button>
+                  {stripeError && (
+                    <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'oklch(0.62 0.18 28)', lineHeight: 1.5 }}>
+                      {stripeError}
+                    </div>
+                  )}
                 </>
               )}
               {(stripeStatus === 'disconnected' || stripeStatus === 'loading') && (
@@ -1204,11 +1219,16 @@ export default function Dashboard() {
                   <button
                     className="btn-stripe-connect"
                     onClick={() => void handleConnectStripe()}
-                    disabled={connectingStripe || stripeStatus === 'loading'}
+                    disabled={connectingStripe}
                   >
                     {connectingStripe ? 'Redirecting…' : 'Connect Stripe'}
                   </button>
                 </>
+              )}
+              {stripeError && (
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'oklch(0.62 0.18 28)', lineHeight: 1.5 }}>
+                  {stripeError}
+                </div>
               )}
             </div>
 
