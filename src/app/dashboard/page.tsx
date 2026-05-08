@@ -163,7 +163,14 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ walletAddress: ownerWallet }),
       });
-      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
+      const text = await res.text();
+      let data: { success: boolean; url?: string; error?: string };
+      try {
+        data = JSON.parse(text) as { success: boolean; url?: string; error?: string };
+      } catch {
+        setStripeError(`Server error (${res.status}): ${text.slice(0, 120) || 'empty response'}`);
+        return;
+      }
       if (data.success && data.url) {
         window.location.href = data.url;
       } else {

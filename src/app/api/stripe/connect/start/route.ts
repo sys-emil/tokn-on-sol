@@ -52,29 +52,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   let accountId = organizer.stripe_account_id as string | null;
 
-  if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      capabilities: {
-        card_payments: { requested: true },
-        transfers: { requested: true },
-      },
-      ...(email ? { email } : {}),
+  try {
+    if (!accountId) {
+      const account = await stripe.accounts.create({
+        type: "express",
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        ...(email ? { email } : {}),
+      });
+      accountId = account.id;
+
+      await supabaseAdmin
+        .from("organizers")
+        .update({ stripe_account_id: accountId })
+        .eq("wallet_address", walletAddress);
+    }
+
+    const accountLink = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${origin}/dashboard?stripe=refresh`,
+      return_url: `${origin}/dashboard?stripe=return`,
+      type: "account_onboarding",
     });
-    accountId = account.id;
 
-    await supabaseAdmin
-      .from("organizers")
-      .update({ stripe_account_id: accountId })
-      .eq("wallet_address", walletAddress);
+    return NextResponse.json({ success: true, url: accountLink.url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
-
-  const accountLink = await stripe.accountLinks.create({
-    account: accountId,
-    refresh_url: `${origin}/dashboard?stripe=refresh`,
-    return_url: `${origin}/dashboard?stripe=return`,
-    type: "account_onboarding",
-  });
-
-  return NextResponse.json({ success: true, url: accountLink.url });
 }
