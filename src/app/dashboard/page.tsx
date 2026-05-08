@@ -4,7 +4,7 @@ import { useLogout, usePrivy } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { useEffect, useState } from 'react';
 
@@ -104,11 +104,9 @@ export default function Dashboard() {
     void loadEvents();
   }, [solanaWalletAddress, eventsLoaded, orgStatus]);
 
-  const searchParams = useSearchParams();
-
   // After returning from Stripe Express onboarding, refresh Connect status from Stripe.
   useEffect(() => {
-    const stripeParam = searchParams.get('stripe');
+    const stripeParam = new URLSearchParams(window.location.search).get('stripe');
     if ((stripeParam !== 'return' && stripeParam !== 'refresh') || !solanaWalletAddress) return;
     async function refreshStripeStatus(): Promise<void> {
       setStripeStatus('loading');
@@ -123,7 +121,7 @@ export default function Dashboard() {
       }
     }
     void refreshStripeStatus();
-  }, [searchParams, solanaWalletAddress]);
+  }, [solanaWalletAddress]);
 
   if (!ready || !authenticated) return null;
 
