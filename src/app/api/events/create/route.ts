@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CONNECT_THRESHOLD_CENTS } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 
 interface CreateEventBody {
@@ -60,9 +61,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (price_eur > 0 && !organizer.stripe_charges_enabled) {
+  const requiresConnect = price_eur > 0 && price_eur * capacity > CONNECT_THRESHOLD_CENTS;
+  if (requiresConnect && !organizer.stripe_charges_enabled) {
     return NextResponse.json(
-      { success: false, error: "Connect Stripe to create paid events" },
+      { success: false, error: "Connect Stripe to create events with potential revenue above €200" },
       { status: 403 }
     );
   }

@@ -1394,18 +1394,18 @@ export default function Dashboard() {
                   >
                     Cancel
                   </button>
-                  {priceEur > 0 && stripeStatus !== 'connected' && !formError && !shopLink && (
+                  {priceEur > 0 && Math.round(priceEur * 100) * capacity > 20000 && stripeStatus !== 'connected' && !formError && !shopLink && (
                     <div className="modal-status" style={{ marginBottom: 0 }}>
                       <div className="modal-status-dot" style={{ background: 'var(--color-accent-2)', marginTop: 6 }} />
                       <div className="modal-status-text" style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>
-                        Connect Stripe (card 04) before creating paid events.
+                        This event&apos;s potential revenue exceeds €200 — connect Stripe (card 04) first.
                       </div>
                     </div>
                   )}
                   <button
                     type="submit"
                     className="btn-create"
-                    disabled={creating || !ownerWallet || (priceEur > 0 && stripeStatus !== 'connected')}
+                    disabled={creating || !ownerWallet || (priceEur > 0 && Math.round(priceEur * 100) * capacity > 20000 && stripeStatus !== 'connected')}
                   >
                     {creating ? 'Creating...' : 'Create Event'}
                   </button>

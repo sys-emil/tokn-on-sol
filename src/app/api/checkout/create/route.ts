@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, PLATFORM_FEE_BPS } from "@/lib/stripe";
+import { stripe, PLATFORM_FEE_BPS, CONNECT_THRESHOLD_CENTS } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 
 interface CheckoutBody {
@@ -48,22 +48,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // For paid events, require that the organizer has completed Stripe Connect onboarding.
+  // For paid events above the Connect threshold, route via destination charge.
   let stripeAccountId: string | null = null;
   if (event.price_eur > 0) {
-    const { data: organizer } = await supabaseAdmin
-      .from("organizers")
-      .select("stripe_account_id, stripe_charges_enabled")
-      .eq("wallet_address", event.organizer_wallet)
-      .maybeSingle();
+    const eventRevenueCents = event.price_eur * event.capacity;
+    if (eventRevenueCents > CONNECT_THRESHOLD_CENTS) {
+      const { data: organizer } = await supabaseAdmin
+        .from("organizers")
+        .select("stripe_account_id, stripe_charges_enabled")
+        .eq("wallet_address", event.organizer_wallet)
+        .maybeSingle();
 
-    if (!organizer?.stripe_account_id || !organizer.stripe_charges_enabled) {
-      return NextResponse.json(
-        { success: false, error: "Organizer has not completed Stripe Connect onboarding" },
-        { status: 503 }
-      );
+      if (!organizer?.stripe_account_id || !organizer.stripe_charges_enabled) {
+        return NextResponse.json(
+          { success: false, error: "Organizer has not completed Stripe Connect onboarding" },
+          { status: 503 }
+        );
+      }
+      stripeAccountId = organizer.stripe_account_id as string;
     }
-    stripeAccountId = organizer.stripe_account_id as string;
   }
 
   const host = req.headers.get("host") ?? "";
