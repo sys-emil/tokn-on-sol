@@ -4,7 +4,7 @@ import { useLogout, usePrivy } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { useEffect, useState } from 'react';
 
@@ -32,7 +32,7 @@ interface EventRow {
 
 export default function Dashboard() {
   const router = useRouter();
-  const { ready, authenticated, user } = usePrivy();
+  const { ready, authenticated, user, getAccessToken } = usePrivy();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
 
@@ -52,6 +52,8 @@ export default function Dashboard() {
   const [ticketsIssued, setTicketsIssued] = useState(0);
   const [eventsLoaded, setEventsLoaded] = useState(false);
   const [orgStatus, setOrgStatus] = useState<'loading' | 'none' | 'approved'>('loading');
+  const [stripeStatus, setStripeStatus] = useState<'loading' | 'disconnected' | 'pending' | 'connected'>('loading');
+  const [connectingStripe, setConnectingStripe] = useState(false);
 
   const solanaWalletAddress = solanaWallets[0]?.address;
 
@@ -63,10 +65,20 @@ export default function Dashboard() {
     if (!solanaWalletAddress) return;
     async function checkOrg(): Promise<void> {
       const res = await fetch(`/api/organizers/status?walletAddress=${solanaWalletAddress}`);
-      if (!res.ok) { setOrgStatus('none'); return; }
-      const data = (await res.json()) as { status: string };
+      if (!res.ok) { setOrgStatus('none'); setStripeStatus('disconnected'); return; }
+      const data = (await res.json()) as {
+        status: string;
+        stripe_account_id: string | null;
+        stripe_charges_enabled: boolean;
+        stripe_payouts_enabled: boolean;
+      };
       const s = data.status;
       setOrgStatus(s === 'approved' ? 'approved' : 'none');
+      if (s === 'approved') {
+        if (!data.stripe_account_id) setStripeStatus('disconnected');
+        else if (!data.stripe_charges_enabled) setStripeStatus('pending');
+        else setStripeStatus('connected');
+      }
     }
     void checkOrg();
   }, [solanaWalletAddress]);
@@ -92,6 +104,27 @@ export default function Dashboard() {
     void loadEvents();
   }, [solanaWalletAddress, eventsLoaded, orgStatus]);
 
+  const searchParams = useSearchParams();
+
+  // After returning from Stripe Express onboarding, refresh Connect status from Stripe.
+  useEffect(() => {
+    const stripeParam = searchParams.get('stripe');
+    if ((stripeParam !== 'return' && stripeParam !== 'refresh') || !solanaWalletAddress) return;
+    async function refreshStripeStatus(): Promise<void> {
+      setStripeStatus('loading');
+      try {
+        const r = await fetch(`/api/stripe/connect/status?walletAddress=${solanaWalletAddress}`);
+        const data = (await r.json()) as { connected: boolean; charges_enabled?: boolean };
+        if (!data.connected) setStripeStatus('disconnected');
+        else if (!data.charges_enabled) setStripeStatus('pending');
+        else setStripeStatus('connected');
+      } catch {
+        setStripeStatus('disconnected');
+      }
+    }
+    void refreshStripeStatus();
+  }, [searchParams, solanaWalletAddress]);
+
   if (!ready || !authenticated) return null;
 
   const solanaWallet = solanaWallets[0];
@@ -114,6 +147,25 @@ export default function Dashboard() {
     if (creating) return;
     setModalOpen(false);
     resetForm();
+  }
+
+  async function handleConnectStripe(): Promise<void> {
+    if (!ownerWallet || connectingStripe) return;
+    const token = await getAccessToken();
+    setConnectingStripe(true);
+    try {
+      const res = await fetch('/api/stripe/connect/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ walletAddress: ownerWallet }),
+      });
+      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
+      if (data.success && data.url) {
+        window.location.href = data.url;
+      }
+    } finally {
+      setConnectingStripe(false);
+    }
   }
 
   async function handleCreateEvent(): Promise<void> {
@@ -496,6 +548,75 @@ export default function Dashboard() {
           text-transform: uppercase;
           color: var(--color-text-muted);
           margin-top: auto;
+        }
+
+        /* ── Payouts card ────────────────────────────────────── */
+        .payouts-status {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 16px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+        }
+
+        .payouts-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .payouts-dot.connected { background: var(--color-accent); }
+        .payouts-dot.pending   { background: var(--color-accent-2); }
+
+        .payouts-label {
+          font-family: var(--font-body);
+          font-size: 13px;
+          color: var(--color-text);
+        }
+
+        .payouts-account {
+          font-family: var(--font-display);
+          font-size: 10px;
+          letter-spacing: 0.10em;
+          color: var(--color-text-muted);
+          margin-top: auto;
+        }
+
+        .btn-stripe-connect {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 11px 22px;
+          font-family: var(--font-display);
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--color-accent-2);
+          background: transparent;
+          border: 1.5px solid var(--color-accent-2);
+          cursor: pointer;
+          transition: background 0.16s ease, color 0.16s ease;
+          align-self: flex-start;
+        }
+
+        .btn-stripe-connect:hover:not(:disabled) {
+          background: var(--color-accent-2);
+          color: oklch(0.09 0.028 305);
+        }
+
+        .btn-stripe-connect:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .connect-hint {
+          font-family: var(--font-body);
+          font-size: 11px;
+          color: var(--color-text-muted);
+          line-height: 1.5;
         }
 
         /* ── Entrance animation ──────────────────────────────── */
@@ -1047,6 +1168,52 @@ export default function Dashboard() {
               <div className="wallet-chain">Solana</div>
             </div>
 
+            {/* Payouts */}
+            <div className="card">
+              <div className="card-header">
+                <div className="card-label">Payouts</div>
+                <div className="card-num">04</div>
+              </div>
+              {stripeStatus === 'connected' && (
+                <>
+                  <div className="payouts-status">
+                    <div className="payouts-dot connected" />
+                    <span className="payouts-label">Connected</span>
+                  </div>
+                  <div className="payouts-account">3% platform fee · Stripe Express</div>
+                </>
+              )}
+              {stripeStatus === 'pending' && (
+                <>
+                  <div className="payouts-status">
+                    <div className="payouts-dot pending" />
+                    <span className="payouts-label">Onboarding incomplete</span>
+                  </div>
+                  <button
+                    className="btn-stripe-connect"
+                    onClick={() => void handleConnectStripe()}
+                    disabled={connectingStripe}
+                  >
+                    {connectingStripe ? 'Redirecting…' : 'Continue setup'}
+                  </button>
+                </>
+              )}
+              {(stripeStatus === 'disconnected' || stripeStatus === 'loading') && (
+                <>
+                  <div className="connect-hint">
+                    Connect Stripe to receive payouts for paid events. Passly retains a 3% platform fee.
+                  </div>
+                  <button
+                    className="btn-stripe-connect"
+                    onClick={() => void handleConnectStripe()}
+                    disabled={connectingStripe || stripeStatus === 'loading'}
+                  >
+                    {connectingStripe ? 'Redirecting…' : 'Connect Stripe'}
+                  </button>
+                </>
+              )}
+            </div>
+
           </div>
 
           </>)}
@@ -1202,10 +1369,18 @@ export default function Dashboard() {
                   >
                     Cancel
                   </button>
+                  {priceEur > 0 && stripeStatus !== 'connected' && !formError && !shopLink && (
+                    <div className="modal-status" style={{ marginBottom: 0 }}>
+                      <div className="modal-status-dot" style={{ background: 'var(--color-accent-2)', marginTop: 6 }} />
+                      <div className="modal-status-text" style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>
+                        Connect Stripe (card 04) before creating paid events.
+                      </div>
+                    </div>
+                  )}
                   <button
                     type="submit"
                     className="btn-create"
-                    disabled={creating || !ownerWallet}
+                    disabled={creating || !ownerWallet || (priceEur > 0 && stripeStatus !== 'connected')}
                   >
                     {creating ? 'Creating...' : 'Create Event'}
                   </button>

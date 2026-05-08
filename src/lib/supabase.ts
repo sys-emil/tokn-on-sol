@@ -11,6 +11,9 @@ export type Organizer = {
   type: OrganizerType;
   business_name: string | null;
   status: OrganizerStatus;
+  stripe_account_id: string | null;
+  stripe_charges_enabled: boolean;
+  stripe_payouts_enabled: boolean;
   created_at: string;
 };
 

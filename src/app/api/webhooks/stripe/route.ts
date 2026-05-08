@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { mintTicket } from "@/lib/mint";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // seconds — multi-ticket minting (each mint ~10-15s, up to 10 tickets)
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
 const siteUrl = process.env.APP_URL ?? "http://localhost:3000";
@@ -21,6 +21,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `Webhook signature failed: ${message}` }, { status: 400 });
+  }
+
+  if (stripeEvent.type === "account.updated") {
+    const account = stripeEvent.data.object as Stripe.Account;
+    await supabaseAdmin
+      .from("organizers")
+      .update({
+        stripe_charges_enabled: account.charges_enabled ?? false,
+        stripe_payouts_enabled: account.payouts_enabled ?? false,
+      })
+      .eq("stripe_account_id", account.id);
+    return NextResponse.json({ received: true });
   }
 
   if (stripeEvent.type !== "checkout.session.completed") {

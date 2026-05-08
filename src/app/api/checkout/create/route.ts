@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
+import { stripe, PLATFORM_FEE_BPS } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 
 interface CheckoutBody {
   eventId: string;
@@ -50,6 +48,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // For paid events, require that the organizer has completed Stripe Connect onboarding.
+  let stripeAccountId: string | null = null;
+  if (event.price_eur > 0) {
+    const { data: organizer } = await supabaseAdmin
+      .from("organizers")
+      .select("stripe_account_id, stripe_charges_enabled")
+      .eq("wallet_address", event.organizer_wallet)
+      .maybeSingle();
+
+    if (!organizer?.stripe_account_id || !organizer.stripe_charges_enabled) {
+      return NextResponse.json(
+        { success: false, error: "Organizer has not completed Stripe Connect onboarding" },
+        { status: 503 }
+      );
+    }
+    stripeAccountId = organizer.stripe_account_id as string;
+  }
+
   const host = req.headers.get("host") ?? "";
   const protocol = host.includes("localhost") ? "http" : "https";
   const origin = `${protocol}://${host}`;
@@ -67,6 +83,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           },
         },
       ],
+      ...(stripeAccountId
+        ? {
+            payment_intent_data: {
+              application_fee_amount: Math.round(event.price_eur * quantity * PLATFORM_FEE_BPS / 10000),
+              transfer_data: { destination: stripeAccountId },
+            },
+          }
+        : {}),
       success_url: `${origin}/shop/${eventId}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/shop/${eventId}`,
       metadata: { eventId, buyerWallet, quantity: String(quantity) },

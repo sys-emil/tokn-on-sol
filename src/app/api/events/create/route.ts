@@ -48,7 +48,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Authoritative organizer gate — must be approved before creating events
   const { data: organizer } = await supabaseAdmin
     .from("organizers")
-    .select("status")
+    .select("status, stripe_charges_enabled")
     .eq("wallet_address", organizer_wallet)
     .eq("status", "approved")
     .maybeSingle();
@@ -56,6 +56,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!organizer) {
     return NextResponse.json(
       { success: false, error: "Not an approved organizer" },
+      { status: 403 }
+    );
+  }
+
+  if (price_eur > 0 && !organizer.stripe_charges_enabled) {
+    return NextResponse.json(
+      { success: false, error: "Connect Stripe to create paid events" },
       { status: 403 }
     );
   }
