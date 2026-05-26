@@ -306,7 +306,7 @@ function TicketRow({ index, assetId }: { index: number; assetId: string | null }
 
       <div className="ticket-status">
         <div className="ticket-status-label">
-          {minted ? 'Minted on Solana' : 'Minting…'}
+          {minted ? 'Confirmed' : 'Processing…'}
         </div>
         {minted && assetId && (
           <div className="ticket-asset-id">{assetId.slice(0, 8)}…{assetId.slice(-6)}</div>
@@ -389,7 +389,7 @@ function SuccessInner() {
         </div>
         <div className="error-box">
           Your payment went through but we couldn&apos;t confirm all your tickets. They may still be
-          minting — check your ticket collection in a few minutes.
+          processing — check your ticket collection in a few minutes.
           <code className="error-session-id">{sessionId}</code>
         </div>
         <a className="btn-manual" href="/my-tickets">Go to my tickets</a>
@@ -398,10 +398,10 @@ function SuccessInner() {
   }
 
   const title = allDone
-    ? `${quantity === 1 ? 'Ticket' : `All ${quantity} tickets`} minted`
+    ? `${quantity === 1 ? 'Ticket' : `All ${quantity} tickets`} confirmed`
     : quantity === 1
-    ? 'Minting your ticket…'
-    : `Minting ${quantity} tickets…`;
+    ? 'Preparing your ticket…'
+    : `Preparing your tickets…`;
 
   return (
     <div className="success-card">
@@ -410,7 +410,7 @@ function SuccessInner() {
         <h1 className="success-title">{title}</h1>
         {quantity > 1 && (
           <p className="progress-label">
-            <strong>{mintedCount} of {quantity}</strong> tickets minted on Solana
+            <strong>{mintedCount} of {quantity}</strong> tickets confirmed
           </p>
         )}
       </div>

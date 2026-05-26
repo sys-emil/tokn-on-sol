@@ -1087,7 +1087,7 @@ export default function Dashboard() {
               ) : events.length === 0 ? (
                 <div className="events-empty">
                   <p className="events-empty-text">
-                    No events yet.<br />Create your first NFT-ticketed event.
+                    No events yet.<br />Create your first event.
                   </p>
                   <button
                     className="btn-create"

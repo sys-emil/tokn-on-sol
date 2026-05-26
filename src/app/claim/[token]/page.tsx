@@ -324,7 +324,7 @@ export default function ClaimPage() {
               </div>
               <div className="divider" />
               <p className="body-text">
-                Claim this ticket to add it to your Passly wallet. Once claimed, it&apos;s yours — the original link becomes invalid.
+                Claim this ticket to add it to your Passly account. Once claimed, it&apos;s yours — the original link becomes invalid.
               </p>
               <button className="btn btn-primary" onClick={handleClaimClick}>
                 Claim this ticket

@@ -1454,7 +1454,7 @@ export default async function Home() {
                 <h3 className="proud-card-title">Spin up an event in minutes — not weeks.</h3>
                 <p className="proud-card-desc">
                   Name it, date it, set capacity, build the tier structure. Passly handles
-                  the rest. No contracts to deploy, no wallets to wire up.
+                  the rest. No apps to download, no accounts to juggle.
                 </p>
                 <div className="proud-card-graphic pg-bg-radial">
                   <div className="gfx-event-form">
@@ -1495,16 +1495,16 @@ export default async function Home() {
                 </div>
               </article>
 
-              {/* 02 — Mint */}
+              {/* 02 — Issue */}
               <article className="proud-card">
                 <div className="proud-card-head">
-                  <span className="proud-card-step">02 · Mint</span>
+                  <span className="proud-card-step">02 · Issue</span>
                   <div className="proud-card-zoom">⤢</div>
                 </div>
-                <h3 className="proud-card-title">Each ticket becomes a one-of-a-kind on-chain asset.</h3>
+                <h3 className="proud-card-title">Each ticket gets a unique cryptographic identity.</h3>
                 <p className="proud-card-desc">
-                  Compressed NFTs on Solana. Cryptographically unique.
-                  Mathematically impossible to clone.
+                  Cryptographically unique. Mathematically impossible to duplicate.
+                  No screenshot works. No copy passes.
                 </p>
                 <div className="proud-card-graphic pg-bg-grid gfx-mint">
                   <svg viewBox="0 0 360 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1533,7 +1533,7 @@ export default async function Home() {
                       <circle cx="180" cy="172" r="10" fill="oklch(0.17 0.040 350)" stroke="oklch(0.72 0.22 350 / 0.6)" />
                     </g>
                     <circle cx="180" cy="100" r="26" fill="url(#mintGrad)" />
-                    <text x="180" y="104" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="10" fontWeight="700" fill="oklch(0.09 0.028 305)" letterSpacing="1.5">MINT</text>
+                    <text x="180" y="104" textAnchor="middle" fontFamily="system-ui,sans-serif" fontSize="10" fontWeight="700" fill="oklch(0.09 0.028 305)" letterSpacing="1.5">ISSUE</text>
                   </svg>
                 </div>
               </article>
@@ -1544,10 +1544,10 @@ export default async function Home() {
                   <span className="proud-card-step">03 · Verify</span>
                   <div className="proud-card-zoom">⤢</div>
                 </div>
-                <h3 className="proud-card-title">Scan at the gate. The chain confirms in 400ms.</h3>
+                <h3 className="proud-card-title">Scan at the gate. Verified in 400ms.</h3>
                 <p className="proud-card-desc">
-                  Real-time finality. No backend to fake, no databases to spoof.
-                  The blockchain is the source of truth.
+                  Real-time verification. No fakes, no duplicates, no workarounds.
+                  Every scan is the final word.
                 </p>
                 <div className="proud-card-graphic pg-bg-soft gfx-scan">
                   <div className="gfx-scan-ticket">
@@ -1592,17 +1592,17 @@ export default async function Home() {
                   <span className="proud-card-step">Unfakeable</span>
                   <div className="proud-card-zoom">⤢</div>
                 </div>
-                <h3 className="proud-card-title">A hash that cannot be forged, copied, or screenshot.</h3>
+                <h3 className="proud-card-title">A signature that cannot be forged, copied, or screenshot.</h3>
                 <p className="proud-card-desc">
-                  Each ticket is a unique on-chain asset. Try to duplicate it and the chain
-                  rejects it instantly. There is exactly one of every ticket, ever.
+                  Each ticket has a unique cryptographic signature. Try to duplicate it
+                  and it&rsquo;s rejected instantly. There is exactly one of every ticket, ever.
                 </p>
                 <div className="proud-card-graphic pg-bg-radial gfx-hash">
                   <div className="gfx-hash-line">
                     <span>0x7c3f…91ab…e5d2</span><span>duplicate · rejected</span>
                   </div>
                   <div className="gfx-hash-line is-active">
-                    <span>0x7c3f…91ab…e5d2</span><span>✓ unique on-chain</span>
+                    <span>0x7c3f…91ab…e5d2</span><span>✓ verified</span>
                   </div>
                   <div className="gfx-hash-line">
                     <span>0x7c3f…91ab…e5d2</span><span>duplicate · rejected</span>
@@ -1621,7 +1621,7 @@ export default async function Home() {
                 </div>
                 <h3 className="proud-card-title">400ms finality. Faster than the swipe.</h3>
                 <p className="proud-card-desc">
-                  Solana settles before the scanner beeps. Lines move.
+                  Verification happens before the scanner beeps. Lines move.
                   Crowds don&rsquo;t back up.
                 </p>
                 <div className="proud-card-graphic pg-bg-mesh gfx-gauge">
@@ -1682,9 +1682,9 @@ export default async function Home() {
                   <span className="proud-card-step">Permanent</span>
                   <div className="proud-card-zoom">⤢</div>
                 </div>
-                <h3 className="proud-card-title">Your ticket lives on Solana. Forever, verifiable, by anyone.</h3>
+                <h3 className="proud-card-title">Your attendance record. Permanent, verifiable, yours.</h3>
                 <p className="proud-card-desc">
-                  Proof of attendance becomes part of the chain&rsquo;s permanent record.
+                  Proof of attendance stays with you forever.
                   Drops, perks, and loyalty hooks all flow from it.
                 </p>
                 <div className="proud-card-graphic pg-bg-grid gfx-chain">
@@ -1721,20 +1721,20 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Built on Solana */}
+        {/* Built for speed */}
         <section className="solana-section">
           <div className="solana-inner">
-            <div className="solana-symbol">◎</div>
+            <div className="solana-symbol">✦</div>
             <p className="solana-text">
-              Passly runs on Solana — the fastest, cheapest blockchain for
-              real-world ticketing.
+              Built for speed, security, and scale — so you can focus on the event,
+              not the infrastructure.
             </p>
             <div className="solana-stats">
-              <span>Under $0.001 per ticket</span>
+              <span>No app required</span>
               <span className="solana-dot">·</span>
-              <span>400ms finality</span>
+              <span>400ms verification</span>
               <span className="solana-dot">·</span>
-              <span>100% on-chain</span>
+              <span>Zero platform lock-in</span>
             </div>
           </div>
         </section>
@@ -1756,7 +1756,7 @@ export default async function Home() {
         {/* Footer */}
         <footer className="footer">
           <div className="footer-copy">© 2026 Passly</div>
-          <div className="footer-tagline">Built on Solana</div>
+          <div className="footer-tagline">Passly · Digital Ticketing</div>
         </footer>
 
       </div>

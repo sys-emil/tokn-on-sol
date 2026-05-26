@@ -649,7 +649,7 @@ export default function MyTickets() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">Share ticket link</h2>
             <p className="modal-body">
-              Send this link to a friend or buyer. Once claimed, the ticket moves to their wallet and this link becomes invalid.
+              Send this link to a friend or buyer. Once claimed, the ticket transfers to them and this link becomes invalid.
             </p>
             <div className="modal-url">{shareModal.url}</div>
             <div className="modal-actions">
