@@ -454,6 +454,7 @@ export default function MyTickets() {
             <div className="nav-section">My Shelf</div>
           </div>
           <div className="nav-right">
+            <Link href="/events" className="btn-nav">Events</Link>
             <Link href={buyerWallet ? `/collection/${buyerWallet}` : '#'} className="btn-nav">
               Public Profile
             </Link>
