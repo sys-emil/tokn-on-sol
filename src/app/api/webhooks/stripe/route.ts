@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { mintTicket } from "@/lib/mint";
+import { sendTicketConfirmation } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // seconds — multi-ticket minting (each mint ~10-15s, up to 10 tickets)
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // to the same tree conflict. Retry each mint up to 3 times and pause between
   // tickets to let the tree state propagate on the RPC.
   let minted = 0;
+  const newAssetIds: string[] = [];
   for (let i = 0; i < toMint; i++) {
     const ticketNum = alreadyMinted + i + 1;
 
@@ -92,6 +94,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         });
 
         console.info(`Ticket ${ticketNum}/${quantity} minted → assetId=${assetId} sig=${signature}`);
+        newAssetIds.push(assetId);
         minted++;
         success = true;
         break;
@@ -116,6 +119,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Log if we couldn't mint everything — helps diagnose partial failures.
   if (totalNewlyMinted < quantity) {
     console.error(`Partial mint: ${totalNewlyMinted}/${quantity} tickets for session ${session.id}`);
+  }
+
+  // Send confirmation email if we have a buyer email and at least one new ticket
+  const buyerEmail = session.customer_details?.email;
+  if (buyerEmail && newAssetIds.length > 0) {
+    void sendTicketConfirmation({
+      to: buyerEmail,
+      eventName: event.name,
+      eventDate: event.date,
+      assetIds: newAssetIds,
+      baseUrl: siteUrl,
+    }).catch((err) => console.error("Confirmation email failed:", err));
   }
 
   return NextResponse.json({ received: true });
