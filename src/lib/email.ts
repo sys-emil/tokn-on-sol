@@ -1,6 +1,5 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY ?? "");
 const FROM = process.env.EMAIL_FROM ?? "Passly <tickets@passly.xyz>";
 
 function formatDate(iso: string): string {
@@ -41,6 +40,7 @@ export async function sendTicketConfirmation({
 }): Promise<void> {
   if (!process.env.RESEND_API_KEY) return;
 
+  const resend = new Resend(process.env.RESEND_API_KEY);
   const plural = assetIds.length > 1;
   const ticketRows = assetIds.map((id, i) => ticketRow(id, baseUrl, i, assetIds.length)).join("");
 
