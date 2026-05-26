@@ -27,6 +27,13 @@ export interface MintTicketParams {
   baseUrl: string;
 }
 
+export interface MintBadgeParams {
+  badgeType: string;
+  badgeName: string;
+  ownerWallet: string;
+  baseUrl: string;
+}
+
 export interface MintTicketResult {
   assetId: string;
   signature: string;
@@ -101,6 +108,59 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
   const leaf = await parseLeafWithRetry(umi, signature);
   const leafIndex = Number(leaf.nonce);
 
+  const [assetIdPda] = findLeafAssetIdPda(umi, { merkleTree: merkleTreePk, leafIndex });
+  const assetId = assetIdPda.toString();
+  const signatureEncoded = bs58.encode(signature);
+
+  return { assetId, signature: signatureEncoded };
+}
+
+export async function mintBadge(params: MintBadgeParams): Promise<MintTicketResult> {
+  const { badgeType, badgeName, ownerWallet, baseUrl } = params;
+
+  if (!MERKLE_TREE) throw new Error("MERKLE_TREE_ADDRESS is not configured");
+  if (!HELIUS_RPC) throw new Error("NEXT_PUBLIC_HELIUS_RPC_URL is not configured");
+
+  const metadataUri = `${baseUrl}/api/badges/metadata?type=${encodeURIComponent(badgeType)}`;
+
+  const operatorKeypair = getOperatorKeypair();
+  const umi = createUmi(HELIUS_RPC)
+    .use(mplBubblegum())
+    .use(mplTokenMetadata());
+
+  const umiKeypair = umi.eddsa.createKeypairFromSecretKey(operatorKeypair.secretKey);
+  const operatorSigner = createSignerFromKeypair(umi, umiKeypair);
+  umi.use(keypairIdentity(umiKeypair));
+
+  const merkleTreePk = publicKey(MERKLE_TREE);
+
+  const builder = mintV1(umi, {
+    leafOwner: publicKey(ownerWallet),
+    leafDelegate: operatorSigner.publicKey,
+    merkleTree: merkleTreePk,
+    payer: operatorSigner,
+    metadata: {
+      name: badgeName,
+      symbol: "BADG",
+      uri: metadataUri,
+      sellerFeeBasisPoints: 0,
+      collection: null,
+      creators: [{ address: operatorSigner.publicKey, verified: true, share: 100 }],
+      isMutable: false,
+      primarySaleHappened: false,
+      editionNonce: 0,
+      uses: null,
+      tokenProgramVersion: TokenProgramVersion.Original,
+      tokenStandard: null,
+    },
+  });
+
+  const { signature } = await builder.sendAndConfirm(umi, {
+    confirm: { commitment: "confirmed" },
+  });
+
+  const leaf = await parseLeafWithRetry(umi, signature);
+  const leafIndex = Number(leaf.nonce);
   const [assetIdPda] = findLeafAssetIdPda(umi, { merkleTree: merkleTreePk, leafIndex });
   const assetId = assetIdPda.toString();
   const signatureEncoded = bs58.encode(signature);

@@ -25,16 +25,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const assetIds = (data ?? []).map((row) => row.asset_id as string);
 
-  const { data: claimsData } = assetIds.length > 0
-    ? await supabaseAdmin
-        .from("claims")
-        .select("asset_id, token")
-        .in("asset_id", assetIds)
-        .is("claimed_at", null)
-    : { data: [] };
+  const [claimsResult, badgesResult] = await Promise.all([
+    assetIds.length > 0
+      ? supabaseAdmin
+          .from("claims")
+          .select("asset_id, token")
+          .in("asset_id", assetIds)
+          .is("claimed_at", null)
+      : Promise.resolve({ data: [] }),
+    supabaseAdmin
+      .from("badges")
+      .select("badge_type, asset_id, earned_at")
+      .eq("wallet_address", buyerWallet)
+      .order("earned_at", { ascending: true }),
+  ]);
 
   const claimedAssets = new Map<string, string>(
-    (claimsData ?? []).map((c) => [c.asset_id as string, c.token as string]),
+    ((claimsResult.data ?? []) as { asset_id: string; token: string }[]).map((c) => [
+      c.asset_id,
+      c.token,
+    ]),
   );
 
   const tickets = (data ?? []).map((row) => {
@@ -53,5 +63,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     };
   });
 
-  return NextResponse.json({ tickets });
+  const badges = ((badgesResult.data ?? []) as {
+    badge_type: string;
+    asset_id: string | null;
+    earned_at: string;
+  }[]).map((b) => ({
+    badgeType: b.badge_type,
+    assetId: b.asset_id,
+    earnedAt: b.earned_at,
+  }));
+
+  return NextResponse.json({ tickets, badges });
 }

@@ -2,6 +2,7 @@
 // Ticket authenticity is guaranteed by on-chain Ed25519 signature verification.
 
 import { supabaseAdmin } from "@/lib/supabase";
+import { checkAndAwardBadges } from "@/lib/badges";
 import bs58 from "bs58";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -124,6 +125,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .select("name")
       .eq("id", eventId)
       .single();
+
+    // Fire badge check async — doorman can't wait for a mint
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000";
+    void checkAndAwardBadges(walletAddress, eventId, baseUrl);
 
     return NextResponse.json({
       valid: true,
