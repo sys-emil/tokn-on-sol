@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { CONNECT_THRESHOLD_CENTS } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 
 interface CreateEventBody {
@@ -9,6 +8,7 @@ interface CreateEventBody {
   price_eur: number;
   capacity: number;
   is_private?: boolean;
+  payout_hold_days?: number;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, price_eur, capacity, is_private } = body;
+  const { organizer_wallet, name, date, price_eur, capacity, is_private, payout_hold_days } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -46,10 +46,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Authoritative organizer gate — must be approved before creating events
+  const holdDays = payout_hold_days ?? 0;
+  if (!Number.isInteger(holdDays) || holdDays < 0 || holdDays > 90) {
+    return NextResponse.json(
+      { success: false, error: "payout_hold_days must be an integer between 0 and 90" },
+      { status: 400 }
+    );
+  }
+
+  // Authoritative organizer gate — must be approved before creating events.
+  // Incomplete Stripe Connect onboarding does NOT block event creation: paid
+  // ticket sales are gated at checkout instead (/api/checkout/create returns
+  // 503 until the organizer's Connect account has charges_enabled).
   const { data: organizer } = await supabaseAdmin
     .from("organizers")
-    .select("status, stripe_charges_enabled")
+    .select("status")
     .eq("wallet_address", organizer_wallet)
     .eq("status", "approved")
     .maybeSingle();
@@ -57,14 +68,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!organizer) {
     return NextResponse.json(
       { success: false, error: "Not an approved organizer" },
-      { status: 403 }
-    );
-  }
-
-  const requiresConnect = price_eur > 0 && price_eur * capacity > CONNECT_THRESHOLD_CENTS;
-  if (requiresConnect && !organizer.stripe_charges_enabled) {
-    return NextResponse.json(
-      { success: false, error: "Connect Stripe to create events with potential revenue above €200" },
       { status: 403 }
     );
   }
@@ -79,6 +82,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         price_eur,
         capacity,
         is_private: is_private === true,
+        payout_hold_days: holdDays,
       })
       .select("id")
       .single();

@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [priceEur, setPriceEur] = useState(0);
   const [capacity, setCapacity] = useState(100);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [payoutHoldDays, setPayoutHoldDays] = useState(0);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [shopLink, setShopLink] = useState<string | null>(null);
@@ -137,6 +138,7 @@ export default function Dashboard() {
     setPriceEur(0);
     setCapacity(100);
     setIsPrivate(false);
+    setPayoutHoldDays(0);
     setFormError(null);
     setShopLink(null);
     setCopied(false);
@@ -201,6 +203,10 @@ export default function Dashboard() {
       setFormError('Capacity must be between 1 and 10,000.');
       return;
     }
+    if (!Number.isInteger(payoutHoldDays) || payoutHoldDays < 0 || payoutHoldDays > 90) {
+      setFormError('Payout hold must be between 0 and 90 days.');
+      return;
+    }
 
     setFormError(null);
     setShopLink(null);
@@ -218,6 +224,7 @@ export default function Dashboard() {
           price_eur: Math.round(priceEur * 100),
           capacity,
           is_private: isPrivate,
+          payout_hold_days: payoutHoldDays,
         }),
       });
       const createData = (await createRes.json()) as
@@ -1204,6 +1211,10 @@ export default function Dashboard() {
                     <div className="payouts-dot pending" />
                     <span className="payouts-label">Onboarding incomplete</span>
                   </div>
+                  <div className="connect-hint">
+                    You can create events, but paid ticket sales are disabled until Stripe
+                    verification is complete.
+                  </div>
                   <button
                     className="btn-stripe-connect"
                     onClick={() => void handleConnectStripe()}
@@ -1221,7 +1232,9 @@ export default function Dashboard() {
               {(stripeStatus === 'disconnected' || stripeStatus === 'loading') && (
                 <>
                   <div className="connect-hint">
-                    Connect Stripe to receive payouts for paid events. Passly retains a 3% platform fee.
+                    Connect Stripe to receive payouts for paid events. Passly retains a 3% platform
+                    fee. You can create events without connecting, but paid ticket sales stay
+                    disabled until onboarding is complete.
                   </div>
                   <button
                     className="btn-stripe-connect"
@@ -1330,6 +1343,27 @@ export default function Dashboard() {
                   />
                 </div>
 
+                {priceEur > 0 && (
+                  <div className="field">
+                    <label className="field-label" htmlFor="evt-hold">Payout hold (days after event)</label>
+                    <input
+                      id="evt-hold"
+                      type="number"
+                      className="field-input"
+                      value={payoutHoldDays}
+                      onChange={(e) => setPayoutHoldDays(Math.floor(Number(e.target.value)))}
+                      min={0}
+                      max={90}
+                      step={1}
+                      disabled={creating}
+                    />
+                    <div className="connect-hint">
+                      0 = daily automatic payout. A hold keeps ticket revenue on Passly until N days
+                      after the event as chargeback protection, then pays out automatically.
+                    </div>
+                  </div>
+                )}
+
                 <div className="field">
                   <div className="field-label">Visibility</div>
                   <div className="vis-cards">
@@ -1394,18 +1428,19 @@ export default function Dashboard() {
                   >
                     Cancel
                   </button>
-                  {priceEur > 0 && Math.round(priceEur * 100) * capacity > 20000 && stripeStatus !== 'connected' && !formError && !shopLink && (
+                  {priceEur > 0 && stripeStatus !== 'connected' && !formError && !shopLink && (
                     <div className="modal-status" style={{ marginBottom: 0 }}>
                       <div className="modal-status-dot" style={{ background: 'var(--color-accent-2)', marginTop: 6 }} />
                       <div className="modal-status-text" style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>
-                        This event&apos;s potential revenue exceeds €200 — connect Stripe (card 04) first.
+                        You can create this event now, but paid ticket sales stay disabled until
+                        Stripe payout onboarding (card 04) is complete.
                       </div>
                     </div>
                   )}
                   <button
                     type="submit"
                     className="btn-create"
-                    disabled={creating || !ownerWallet || (priceEur > 0 && Math.round(priceEur * 100) * capacity > 20000 && stripeStatus !== 'connected')}
+                    disabled={creating || !ownerWallet}
                   >
                     {creating ? 'Creating...' : 'Create Event'}
                   </button>

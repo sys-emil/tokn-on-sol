@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe, PLATFORM_FEE_BPS, CONNECT_THRESHOLD_CENTS } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 
 interface CheckoutBody {
@@ -48,24 +48,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // For paid events above the Connect threshold, route via destination charge.
-  let stripeAccountId: string | null = null;
+  // Paid tickets require completed Connect onboarding — the KYC gate. Organizers
+  // can create events without Stripe, but nobody can pay them until onboarding
+  // is done. Free events pass through unconditionally.
+  //
+  // The charge itself is a plain platform charge (Separate Charges & Transfers,
+  // NOT a destination charge) — see the rationale in src/lib/payouts.ts. The
+  // webhook records a payouts row; a daily cron transfers the organizer's share
+  // once the event's payout hold period has elapsed.
   if (event.price_eur > 0) {
-    const eventRevenueCents = event.price_eur * event.capacity;
-    if (eventRevenueCents > CONNECT_THRESHOLD_CENTS) {
-      const { data: organizer } = await supabaseAdmin
-        .from("organizers")
-        .select("stripe_account_id, stripe_charges_enabled")
-        .eq("wallet_address", event.organizer_wallet)
-        .maybeSingle();
+    const { data: organizer } = await supabaseAdmin
+      .from("organizers")
+      .select("stripe_account_id, stripe_charges_enabled")
+      .eq("wallet_address", event.organizer_wallet)
+      .maybeSingle();
 
-      if (!organizer?.stripe_account_id || !organizer.stripe_charges_enabled) {
-        return NextResponse.json(
-          { success: false, error: "Organizer has not completed Stripe Connect onboarding" },
-          { status: 503 }
-        );
-      }
-      stripeAccountId = organizer.stripe_account_id as string;
+    if (!organizer?.stripe_account_id || !organizer.stripe_charges_enabled) {
+      return NextResponse.json(
+        { success: false, error: "Ticket sales are not active yet — the organizer has not completed payout onboarding." },
+        { status: 503 }
+      );
     }
   }
 
@@ -86,14 +88,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           },
         },
       ],
-      ...(stripeAccountId
-        ? {
-            payment_intent_data: {
-              application_fee_amount: Math.round(event.price_eur * quantity * PLATFORM_FEE_BPS / 10000),
-              transfer_data: { destination: stripeAccountId },
-            },
-          }
-        : {}),
       success_url: `${origin}/shop/${eventId}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/shop/${eventId}`,
       metadata: { eventId, buyerWallet, quantity: String(quantity) },

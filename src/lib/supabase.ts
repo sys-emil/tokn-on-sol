@@ -37,6 +37,7 @@ export type Event = {
   capacity: number;
   tickets_sold: number;
   is_private: boolean;
+  payout_hold_days: number;
   created_at: string;
 };
 

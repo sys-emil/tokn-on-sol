@@ -1,0 +1,114 @@
+import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
+import { supabaseAdmin } from "@/lib/supabase";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+/**
+ * Daily payout run (Vercel Cron, see vercel.json).
+ *
+ * Picks up all payouts whose hold period has elapsed (`available_at <= now`,
+ * status 'pending') and transfers the organizer's net share from the platform
+ * balance to their Connect account. `source_transaction` ties each Transfer to
+ * the original charge so it settles as soon as that charge's funds are
+ * available. The Stripe idempotency key is derived from the payout row ID —
+ * re-running the cron can never double-transfer.
+ *
+ * Failure handling: a transfer that fails because the connected account is
+ * restricted/disabled moves the row to 'held' (funds stay on the platform
+ * balance) and shows up in the admin view for manual resolution.
+ */
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const authHeader = req.headers.get("authorization");
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: due, error } = await supabaseAdmin
+    .from("payouts")
+    .select("id, stripe_session_id, charge_id, organizer_wallet, stripe_account_id, net_cents, currency")
+    .eq("status", "pending")
+    .lte("available_at", new Date().toISOString())
+    .order("created_at", { ascending: true })
+    .limit(100);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  let paid = 0;
+  let held = 0;
+
+  for (const payout of due ?? []) {
+    // Resolve the destination account at transfer time — onboarding may have
+    // completed (or the account been restricted) since the purchase.
+    let accountId = payout.stripe_account_id as string | null;
+    const { data: organizer } = await supabaseAdmin
+      .from("organizers")
+      .select("stripe_account_id, stripe_payouts_enabled")
+      .eq("wallet_address", payout.organizer_wallet)
+      .maybeSingle();
+    if (organizer?.stripe_account_id) accountId = organizer.stripe_account_id as string;
+
+    if (!accountId) {
+      await supabaseAdmin
+        .from("payouts")
+        .update({
+          status: "held",
+          failure_reason: "Organizer has no Stripe Connect account",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", payout.id);
+      held++;
+      continue;
+    }
+
+    try {
+      const transfer = await stripe.transfers.create(
+        {
+          amount: payout.net_cents,
+          currency: payout.currency ?? "eur",
+          destination: accountId,
+          ...(payout.charge_id ? { source_transaction: payout.charge_id } : {}),
+          metadata: { payout_id: payout.id, stripe_session_id: payout.stripe_session_id },
+        },
+        { idempotencyKey: `payout-transfer-${payout.id}` },
+      );
+
+      await supabaseAdmin
+        .from("payouts")
+        .update({
+          status: "paid",
+          transfer_id: transfer.id,
+          stripe_account_id: accountId,
+          failure_reason: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", payout.id);
+      paid++;
+    } catch (err) {
+      // Restricted/disabled account, missing transfer capability, etc. —
+      // funds remain on the platform balance, row goes to 'held' for the
+      // admin view. A retry from the admin panel resets it to 'pending'.
+      const message = err instanceof Stripe.errors.StripeError
+        ? `${err.code ?? err.type}: ${err.message}`
+        : err instanceof Error ? err.message : String(err);
+      console.error(`Transfer failed for payout ${payout.id}:`, message);
+
+      await supabaseAdmin
+        .from("payouts")
+        .update({
+          status: "held",
+          stripe_account_id: accountId,
+          failure_reason: `Transfer failed: ${message}`,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", payout.id);
+      held++;
+    }
+  }
+
+  return NextResponse.json({ success: true, processed: (due ?? []).length, paid, held });
+}

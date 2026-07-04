@@ -4,13 +4,15 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { mintTicket } from "@/lib/mint";
 import { sendTicketConfirmation } from "@/lib/email";
+import { buildPayoutRow, claimWebhookEvent } from "@/lib/payouts";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // seconds — multi-ticket minting (each mint ~10-15s, up to 10 tickets)
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 
-const siteUrl = process.env.APP_URL ?? "http://localhost:3000";
+const siteUrl = process.env.APP_URL
+  ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawBody = await req.text();
@@ -22,6 +24,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `Webhook signature failed: ${message}` }, { status: 400 });
+  }
+
+  // Idempotency gate: every relevant event ID is claimed exactly once via a
+  // primary-key insert. Stripe retries deliveries and Connect events can arrive
+  // on multiple endpoints — a second delivery is acknowledged without reprocessing.
+  const handledTypes = new Set<string>([
+    "checkout.session.completed",
+    "account.updated",
+    "payout.paid",
+    "payout.failed",
+    "charge.dispute.created",
+  ]);
+  if (!handledTypes.has(stripeEvent.type)) {
+    return NextResponse.json({ received: true });
+  }
+
+  let claimed: boolean;
+  try {
+    claimed = await claimWebhookEvent(supabaseAdmin, {
+      id: stripeEvent.id,
+      type: stripeEvent.type,
+      account: stripeEvent.account,
+    });
+  } catch (err) {
+    // If we can't record the event, tell Stripe to retry rather than risking
+    // an unprocessed event slipping through.
+    console.error("Webhook idempotency check failed:", err);
+    return NextResponse.json({ error: "Idempotency check failed" }, { status: 500 });
+  }
+  if (!claimed) {
+    return NextResponse.json({ received: true, duplicate: true });
   }
 
   if (stripeEvent.type === "account.updated") {
@@ -36,7 +69,60 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ received: true });
   }
 
-  if (stripeEvent.type !== "checkout.session.completed") {
+  // Connect-account payout lifecycle (event.account = connected account).
+  // Money already left the platform via Transfer; these track the organizer's
+  // bank payout. A failed bank payout is logged for the admin view but needs
+  // no balance action — Stripe returns funds to the connected account balance.
+  if (stripeEvent.type === "payout.paid" || stripeEvent.type === "payout.failed") {
+    const payout = stripeEvent.data.object as Stripe.Payout;
+    if (stripeEvent.type === "payout.failed") {
+      console.error(
+        `Connect payout failed for account ${stripeEvent.account}: ${payout.id} (${payout.failure_message ?? payout.failure_code ?? "unknown"})`,
+      );
+      // Surface on held/failed transfers list: flag any still-pending payouts
+      // for this organizer so the cron pauses transfers until resolved.
+      if (stripeEvent.account) {
+        await supabaseAdmin
+          .from("payouts")
+          .update({
+            status: "held",
+            failure_reason: `Bank payout ${payout.id} failed on connected account: ${payout.failure_message ?? payout.failure_code ?? "unknown"}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("stripe_account_id", stripeEvent.account)
+          .eq("status", "pending");
+      }
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  // A chargeback on a platform charge: block the organizer transfer if it has
+  // not happened yet; if funds were already transferred, flag for manual review.
+  if (stripeEvent.type === "charge.dispute.created") {
+    const dispute = stripeEvent.data.object as Stripe.Dispute;
+    const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id;
+
+    const { data: payout } = await supabaseAdmin
+      .from("payouts")
+      .select("id, status")
+      .eq("charge_id", chargeId)
+      .maybeSingle();
+
+    if (payout) {
+      const update: Record<string, string> = {
+        dispute_id: dispute.id,
+        updated_at: new Date().toISOString(),
+      };
+      if (payout.status === "pending" || payout.status === "held") {
+        update.status = "disputed";
+        update.failure_reason = `Chargeback ${dispute.id} — transfer blocked`;
+      } else {
+        update.failure_reason = `Chargeback ${dispute.id} received AFTER transfer — manual recovery needed`;
+      }
+      await supabaseAdmin.from("payouts").update(update).eq("id", payout.id);
+    } else {
+      console.error(`Dispute ${dispute.id} for unknown charge ${chargeId}`);
+    }
     return NextResponse.json({ received: true });
   }
 
@@ -50,12 +136,53 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
-    .select("name, date, tickets_sold")
+    .select("name, date, tickets_sold, organizer_wallet, payout_hold_days")
     .eq("id", eventId)
     .single();
 
   if (eventError || !event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
+
+  // Record the payout obligation before minting — money accounting must exist
+  // even if on-chain minting fails. Unique on stripe_session_id, so a webhook
+  // retry after a partial mint can never create a second payout row.
+  if ((session.amount_total ?? 0) > 0) {
+    try {
+      let chargeId: string | null = null;
+      if (typeof session.payment_intent === "string") {
+        const pi = await stripe.paymentIntents.retrieve(session.payment_intent);
+        chargeId = typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id ?? null;
+      }
+
+      const { data: organizer } = await supabaseAdmin
+        .from("organizers")
+        .select("stripe_account_id")
+        .eq("wallet_address", event.organizer_wallet)
+        .maybeSingle();
+
+      const payoutRow = buildPayoutRow({
+        session,
+        chargeId,
+        eventId,
+        eventDate: event.date,
+        organizerWallet: event.organizer_wallet,
+        stripeAccountId: (organizer?.stripe_account_id as string | null) ?? null,
+        holdDays: event.payout_hold_days ?? 0,
+      });
+      if (payoutRow) {
+        const { error: payoutError } = await supabaseAdmin
+          .from("payouts")
+          .upsert(payoutRow, { onConflict: "stripe_session_id", ignoreDuplicates: true });
+        if (payoutError) throw new Error(payoutError.message);
+      }
+    } catch (err) {
+      // Without a payout row the organizer would never be paid — release the
+      // idempotency claim and let Stripe retry the whole event.
+      console.error(`Failed to record payout for session ${session.id}:`, err);
+      await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
+      return NextResponse.json({ error: "Failed to record payout" }, { status: 500 });
+    }
   }
 
   // Idempotency: count tickets already minted for this session (Stripe may retry).
@@ -116,9 +243,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq("id", eventId);
   }
 
-  // Log if we couldn't mint everything — helps diagnose partial failures.
+  // Partial mint: release the idempotency claim and return 500 so Stripe
+  // retries this event — the purchases-count check above ensures the retry
+  // only mints the missing tickets, never duplicates.
   if (totalNewlyMinted < quantity) {
     console.error(`Partial mint: ${totalNewlyMinted}/${quantity} tickets for session ${session.id}`);
+    await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
+
+    const buyerEmailPartial = session.customer_details?.email;
+    if (buyerEmailPartial && newAssetIds.length > 0) {
+      void sendTicketConfirmation({
+        to: buyerEmailPartial,
+        eventName: event.name,
+        eventDate: event.date,
+        assetIds: newAssetIds,
+        baseUrl: siteUrl,
+      }).catch((err) => console.error("Confirmation email failed:", err));
+    }
+    return NextResponse.json({ error: "Partial mint — retry requested" }, { status: 500 });
   }
 
   // Send confirmation email if we have a buyer email and at least one new ticket

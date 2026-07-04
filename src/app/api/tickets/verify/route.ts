@@ -127,9 +127,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .single();
 
     // Fire badge check async — doorman can't wait for a mint
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000";
+    const baseUrl = process.env.APP_URL
+      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
     void checkAndAwardBadges(walletAddress, eventId, baseUrl);
 
     return NextResponse.json({

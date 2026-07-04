@@ -13,6 +13,7 @@ Don't run the dev server or build. Verify changes with:
 ```bash
 npx tsc --noEmit   # type-check
 npm run lint       # ESLint (Next.js recommended + TypeScript strict)
+npm test           # Vitest — payout fee/hold/idempotency unit tests
 ```
 
 The user pushes to git and checks Vercel deploys manually.
@@ -62,11 +63,22 @@ Root layout wraps everything in `PrivyProvider`. Login method is **email only** 
 
 ### Database (Supabase)
 
-Three tables:
-- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, is_private, created_at`
+Tables:
+- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, is_private, payout_hold_days, created_at`
   - `is_private boolean default false` — private events are excluded from `/api/events/public` but still purchasable via direct link.
+  - `payout_hold_days int default 0 (0–90)` — days after the event date before ticket revenue is transferred to the organizer (chargeback protection). 0 = transferred by the next daily payout cron.
 - `purchases`: `event_id, buyer_wallet, asset_id, stripe_session_id, redeemed_at`
-- `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), created_at`
+- `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, created_at`
+- `payouts`: one row per paid checkout session — `stripe_session_id (unique), payment_intent_id, charge_id, event_id, organizer_wallet, stripe_account_id, gross_cents, fee_cents, net_cents, currency, available_at, status (pending|paid|held|disputed|failed), transfer_id, dispute_id, failure_reason`
+- `stripe_webhook_events`: processed Stripe event IDs (`id` = evt_… primary key) — the webhook idempotency gate.
+
+### Stripe Connect payouts
+
+- **Model**: Separate Charges & Transfers (NOT destination charges) — rationale documented in `src/lib/payouts.ts`. The platform charges the buyer; the webhook writes a `payouts` row; `/api/cron/payouts` (Vercel Cron, daily 03:00 UTC, auth `Bearer CRON_SECRET`) transfers `net_cents` (gross − 3%) to the organizer's Express account once `available_at` has passed, using `source_transaction` and idempotency key `payout-transfer-<payout id>`.
+- **KYC gate**: organizers can always create events; `/api/checkout/create` returns 503 for paid events until the organizer's Connect account has `charges_enabled`.
+- **Failure handling**: failed transfers (restricted account etc.) → status `held`, funds stay on the platform balance. `charge.dispute.created` blocks a pending transfer (`disputed`). Admin resolution UI at `/admin/payouts` (gated by `ADMIN_SECRET`, sent as `x-admin-secret`): retry / release / cancel.
+- **Webhook idempotency**: every handled event ID is claimed via PK insert into `stripe_webhook_events` before processing. On partial mints or payout-row failures the claim is released and a 500 returned so Stripe retries.
+- The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `account.updated`, `charge.dispute.created` and (Connect) `payout.paid`, `payout.failed`.
 
 **Security model** — intentional, don't change:
 - All Supabase writes go through the service-role admin client. **No RLS — this is intentional.** Don't add row-level security policies.
@@ -92,6 +104,9 @@ NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE
 OPERATOR_PRIVATE_KEY
 MERKLE_TREE_ADDRESS
 STRIPE_SECRET_KEY / STRIPE_PUBLIC_KEY / STRIPE_WEBHOOK_SECRET
+CRON_SECRET            # Auth for /api/cron/payouts (Vercel Cron sends it as Bearer token)
+ADMIN_SECRET           # Auth for /admin/payouts + /api/admin/payouts (x-admin-secret header)
 NEXTAUTH_SECRET        # Legacy name — no longer used for QR signing; do not remove
-VERCEL_URL             # Auto-set by Vercel; used to build absolute metadata URLs
+VERCEL_URL             # Auto-set by Vercel; fallback for building absolute URLs
+APP_URL                # Stable production domain (e.g. https://passly.app); takes priority over VERCEL_URL for metadata URIs, claim links, and email links
 ```
