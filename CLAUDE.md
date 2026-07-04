@@ -104,6 +104,7 @@ NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE
 OPERATOR_PRIVATE_KEY
 MERKLE_TREE_ADDRESS
 STRIPE_SECRET_KEY / STRIPE_PUBLIC_KEY / STRIPE_WEBHOOK_SECRET
+STRIPE_CONNECT_WEBHOOK_SECRET  # Signing secret of the second (Connect) webhook endpoint
 CRON_SECRET            # Auth for /api/cron/payouts (Vercel Cron sends it as Bearer token)
 ADMIN_SECRET           # Auth for /admin/payouts + /api/admin/payouts (x-admin-secret header)
 NEXTAUTH_SECRET        # Legacy name — no longer used for QR signing; do not remove

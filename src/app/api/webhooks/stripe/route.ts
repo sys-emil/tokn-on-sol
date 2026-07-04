@@ -9,7 +9,14 @@ import { buildPayoutRow, claimWebhookEvent } from "@/lib/payouts";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // seconds — multi-ticket minting (each mint ~10-15s, up to 10 tickets)
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
+// Two endpoints deliver to this route: the platform endpoint (checkout,
+// disputes) and the Connect endpoint (account.updated, payout.* on connected
+// accounts). Each Stripe endpoint has its own signing secret, so signature
+// verification tries both.
+const webhookSecrets = [
+  process.env.STRIPE_WEBHOOK_SECRET,
+  process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
+].filter((s): s is string => !!s);
 
 const siteUrl = process.env.APP_URL
   ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
@@ -18,12 +25,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawBody = await req.text();
   const sig = req.headers.get("stripe-signature") ?? "";
 
-  let stripeEvent: Stripe.Event;
-  try {
-    stripeEvent = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: `Webhook signature failed: ${message}` }, { status: 400 });
+  let stripeEvent: Stripe.Event | null = null;
+  let lastError = "no webhook secret configured";
+  for (const secret of webhookSecrets) {
+    try {
+      stripeEvent = stripe.webhooks.constructEvent(rawBody, sig, secret);
+      break;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+    }
+  }
+  if (!stripeEvent) {
+    return NextResponse.json({ error: `Webhook signature failed: ${lastError}` }, { status: 400 });
   }
 
   // Idempotency gate: every relevant event ID is claimed exactly once via a
