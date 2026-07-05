@@ -116,6 +116,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .update({ redeemed_at: now })
     .eq("asset_id", assetId)
     .is("redeemed_at", null)
+    .is("revoked_at", null)
     .select("id, event_id");
 
   if (updated && updated.length > 0) {
@@ -139,15 +140,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
   }
 
-  // Not updated — either ticket not found or already redeemed
+  // Not updated — ticket not found, revoked (refunded), or already redeemed
   const { data: existing } = await supabaseAdmin
     .from("purchases")
-    .select("redeemed_at")
+    .select("redeemed_at, revoked_at")
     .eq("asset_id", assetId)
     .single();
 
   if (!existing) {
     return NextResponse.json({ valid: false, reason: "Ticket not found" });
+  }
+
+  if (existing.revoked_at) {
+    return NextResponse.json({ valid: false, reason: "Ticket revoked (refunded)" });
   }
 
   return NextResponse.json({

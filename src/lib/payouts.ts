@@ -27,7 +27,7 @@ export const PLATFORM_FEE_BPS = 300; // 3 % platform fee
  * which is precisely why the configurable hold period exists.
  */
 
-export type PayoutStatus = "pending" | "paid" | "held" | "disputed" | "failed";
+export type PayoutStatus = "pending" | "paid" | "held" | "disputed" | "failed" | "refunded";
 
 export type PayoutRow = {
   id: string;

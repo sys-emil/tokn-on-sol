@@ -3,7 +3,7 @@ import { after } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
-import { buildPayoutRow, claimWebhookEvent } from "@/lib/payouts";
+import { buildPayoutRow, claimWebhookEvent, computeFeeSplit } from "@/lib/payouts";
 import { processMintJobs } from "@/lib/mintJobs";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     "payout.paid",
     "payout.failed",
     "charge.dispute.created",
+    "charge.refunded",
   ]);
   if (!handledTypes.has(stripeEvent.type)) {
     return NextResponse.json({ received: true });
@@ -121,6 +122,90 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           .eq("status", "pending");
       }
     }
+    return NextResponse.json({ received: true });
+  }
+
+  // A refund on a platform charge. Fires for partial and full refunds alike;
+  // amount_refunded is cumulative, so reprocessing is idempotent.
+  // - full refund before transfer → payout 'refunded', tickets revoked, seats freed
+  // - partial refund before transfer → organizer share recomputed from the remainder
+  // - refund after transfer → flag for manual recovery (money already left)
+  if (stripeEvent.type === "charge.refunded") {
+    const charge = stripeEvent.data.object as Stripe.Charge;
+
+    const { data: payout } = await supabaseAdmin
+      .from("payouts")
+      .select("id, status, stripe_session_id, currency")
+      .eq("charge_id", charge.id)
+      .maybeSingle();
+
+    if (!payout) {
+      console.error(`Refund on charge ${charge.id} with no payout row`);
+      return NextResponse.json({ received: true });
+    }
+
+    try {
+      const remainingCents = Math.max(0, charge.amount - charge.amount_refunded);
+      const fullyRefunded = charge.refunded || remainingCents <= 0;
+      const now = new Date().toISOString();
+
+      if (payout.status === "paid") {
+        await supabaseAdmin
+          .from("payouts")
+          .update({
+            failure_reason: `Refund of ${charge.amount_refunded} ${payout.currency} received AFTER transfer — manual recovery needed`,
+            updated_at: now,
+          })
+          .eq("id", payout.id);
+      } else if (fullyRefunded) {
+        const { error: payoutError } = await supabaseAdmin
+          .from("payouts")
+          .update({
+            status: "refunded",
+            net_cents: 0,
+            failure_reason: `Fully refunded — transfer cancelled`,
+            updated_at: now,
+          })
+          .eq("id", payout.id);
+        if (payoutError) throw new Error(payoutError.message);
+
+        // Revoke the session's tickets (rejected at the door) and free the seats.
+        await supabaseAdmin
+          .from("purchases")
+          .update({ revoked_at: now })
+          .eq("stripe_session_id", payout.stripe_session_id)
+          .is("revoked_at", null);
+        const { error: seatError } = await supabaseAdmin.rpc("refund_ticket_sale", {
+          p_session_id: payout.stripe_session_id,
+        });
+        if (seatError) throw new Error(seatError.message);
+
+        // Stop a not-yet-minted job — no point delivering revoked tickets.
+        await supabaseAdmin
+          .from("mint_jobs")
+          .update({ status: "failed", last_error: "Charge fully refunded", updated_at: now })
+          .eq("stripe_session_id", payout.stripe_session_id)
+          .eq("status", "queued");
+      } else {
+        const { feeCents, netCents } = computeFeeSplit(remainingCents);
+        const { error: payoutError } = await supabaseAdmin
+          .from("payouts")
+          .update({
+            gross_cents: remainingCents,
+            fee_cents: feeCents,
+            net_cents: netCents,
+            failure_reason: `Partially refunded (${charge.amount_refunded} of ${charge.amount} ${payout.currency})`,
+            updated_at: now,
+          })
+          .eq("id", payout.id);
+        if (payoutError) throw new Error(payoutError.message);
+      }
+    } catch (err) {
+      console.error(`Failed to process refund for charge ${charge.id}:`, err);
+      await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
+      return NextResponse.json({ error: "Failed to process refund" }, { status: 500 });
+    }
+
     return NextResponse.json({ received: true });
   }
 

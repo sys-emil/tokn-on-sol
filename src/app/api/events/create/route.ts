@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requestOwnsWallet } from "@/lib/privyServer";
 
 interface CreateEventBody {
   organizer_wallet: string;
@@ -52,6 +53,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { success: false, error: "payout_hold_days must be an integer between 0 and 90" },
       { status: 400 }
     );
+  }
+
+  // The caller must prove ownership of organizer_wallet via their Privy auth
+  // token — otherwise anyone could create events in another organizer's name.
+  if (!(await requestOwnsWallet(req, organizer_wallet))) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
   // Authoritative organizer gate — must be approved before creating events.

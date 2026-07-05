@@ -28,7 +28,7 @@ interface PayoutRow {
   net_cents: number;
   currency: string;
   available_at: string;
-  status: 'pending' | 'paid' | 'held' | 'disputed' | 'failed';
+  status: 'pending' | 'paid' | 'held' | 'disputed' | 'failed' | 'refunded';
   transfer_id: string | null;
   dispute_id: string | null;
   failure_reason: string | null;
@@ -41,7 +41,8 @@ const STATUS_ORDER: Record<PayoutRow['status'], number> = {
   held: 1,
   failed: 2,
   pending: 3,
-  paid: 4,
+  refunded: 4,
+  paid: 5,
 };
 
 export default function AdminPayouts() {
@@ -327,7 +328,7 @@ function PayoutTable({
                       Release
                     </button>
                   )}
-                  {p.status !== 'paid' && p.status !== 'failed' && (
+                  {p.status !== 'paid' && p.status !== 'failed' && p.status !== 'refunded' && (
                     <button className="btn btn-danger" disabled={busyId === p.id} onClick={() => void onAction(p.id, 'cancel')}>
                       Cancel
                     </button>

@@ -35,7 +35,7 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
    - Verify route steps: (1) replay protection — accept current or previous minute, (2) reconstruct challenge, (3) verify Ed25519 signature via `crypto.subtle`, (4) on-chain ownership check via Helius DAS, (5) atomic redemption — sets `redeemed_at` only if currently NULL.
    - `NEXTAUTH_SECRET` is present in env but **not used** for QR verification (legacy name, do not remove — may be referenced elsewhere).
 3. **Organizer gate** – New organizers apply at `/become-organizer`. The POST handler at `/api/organizers/apply` verifies the Privy auth token server-side (`@privy-io/server-auth`), checks that the user has a verified email address on their Privy account, then inserts into the `organizers` table at `status: 'approved'`. `/dashboard` requires approved organizer status.
-4. **Organizer dashboard** – `/dashboard` lets approved organizers create events (saved to Supabase) and view sales. Events can be marked **private** at creation — private events are excluded from the public listing but remain purchasable via direct link.
+4. **Organizer dashboard** – `/dashboard` lets approved organizers create events (saved to Supabase) and view sales. `/api/events/create` requires a Privy Bearer token proving ownership of `organizer_wallet` (`requestOwnsWallet` in `src/lib/privyServer.ts` — use this helper for any new writing organizer route). Events can be marked **private** at creation — private events are excluded from the public listing but remain purchasable via direct link.
 
 ### Routing
 
@@ -70,9 +70,9 @@ Tables:
   - `tickets_reserved int default 0` — capacity claimed by open checkout sessions. Available = `capacity - tickets_sold - tickets_reserved`. Never update `tickets_sold`/`tickets_reserved` directly from code — always go through the SQL functions `reserve_tickets`, `unreserve_tickets`, `finalize_ticket_sale`, `release_reservation`, `release_expired_reservations` (atomic, race-free).
 - `ticket_reservations`: one row per checkout session — `stripe_session_id (PK), event_id, quantity, status (reserved|finalized|released), expires_at`. State transitions happen only inside the SQL functions above.
 - `mint_jobs`: async mint queue — `stripe_session_id (unique), event_id, buyer_wallet, buyer_email, quantity, status (queued|processing|done|failed), attempts, last_error`. Claimed via `claim_mint_jobs(limit, max_attempts)` (FOR UPDATE SKIP LOCKED). Worker: `src/lib/mintJobs.ts`.
-- `purchases`: `event_id, buyer_wallet, asset_id, stripe_session_id, redeemed_at`
+- `purchases`: `event_id, buyer_wallet, asset_id, stripe_session_id, redeemed_at, revoked_at` — `revoked_at` is set when the charge is fully refunded; the doorman verify route rejects revoked tickets.
 - `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, created_at`
-- `payouts`: one row per paid checkout session — `stripe_session_id (unique), payment_intent_id, charge_id, event_id, organizer_wallet, stripe_account_id, gross_cents, fee_cents, net_cents, currency, available_at, status (pending|paid|held|disputed|failed), transfer_id, dispute_id, failure_reason`
+- `payouts`: one row per paid checkout session — `stripe_session_id (unique), payment_intent_id, charge_id, event_id, organizer_wallet, stripe_account_id, gross_cents, fee_cents, net_cents, currency, available_at, status (pending|paid|held|disputed|failed|refunded), transfer_id, dispute_id, failure_reason`
 - `stripe_webhook_events`: processed Stripe event IDs (`id` = evt_… primary key) — the webhook idempotency gate.
 
 ### Stripe Connect payouts
@@ -81,7 +81,8 @@ Tables:
 - **KYC gate**: organizers can always create events; `/api/checkout/create` returns 503 for paid events until the organizer's Connect account has `charges_enabled`.
 - **Failure handling**: failed transfers (restricted account etc.) → status `held`, funds stay on the platform balance. `charge.dispute.created` blocks a pending transfer (`disputed`). Admin resolution UI at `/admin/payouts` (gated by `ADMIN_SECRET`, sent as `x-admin-secret`): retry / release / cancel.
 - **Webhook idempotency**: every handled event ID is claimed via PK insert into `stripe_webhook_events` before processing. On payout-row/finalize/enqueue failures the claim is released and a 500 returned so Stripe retries. Mint retries are handled by the `mint_jobs` queue, not by Stripe redelivery.
-- The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `checkout.session.expired`, `account.updated`, `charge.dispute.created` and (Connect) `payout.paid`, `payout.failed`.
+- **Refunds** (`charge.refunded`): full refund before transfer → payout `refunded` (terminal), tickets revoked (`purchases.revoked_at`), seats freed via `refund_ticket_sale`; partial refund → organizer share recomputed from the remaining amount; refund after transfer → flagged for manual recovery.
+- The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `checkout.session.expired`, `account.updated`, `charge.dispute.created`, `charge.refunded` and (Connect) `payout.paid`, `payout.failed`.
 
 **Security model** — intentional, don't change:
 - All Supabase reads/writes go through the service-role admin client (bypasses RLS).

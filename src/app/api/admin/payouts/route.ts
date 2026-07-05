@@ -80,7 +80,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: true, status: "pending" });
   }
 
-  if (action === "cancel" && payout.status !== "paid") {
+  // 'refunded' is terminal — the buyer got the money back; nothing to retry,
+  // release, or cancel.
+  if (action === "cancel" && payout.status !== "paid" && payout.status !== "refunded") {
     await supabaseAdmin
       .from("payouts")
       .update({ status: "failed", failure_reason: "Cancelled by admin", updated_at: now })

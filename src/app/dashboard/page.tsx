@@ -214,9 +214,14 @@ export default function Dashboard() {
     setCreating(true);
 
     try {
+      const token = await getAccessToken();
+      if (!token) {
+        setFormError('Not authenticated. Please log out and back in.');
+        return;
+      }
       const createRes = await fetch('/api/events/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           organizer_wallet: ownerWallet,
           name: trimmedName,
