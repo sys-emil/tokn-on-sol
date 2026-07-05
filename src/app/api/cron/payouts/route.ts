@@ -26,6 +26,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Safety net for missed checkout.session.expired webhooks: free reserved
+  // capacity for reservations that expired more than 15 minutes ago.
+  const { data: releasedReservations, error: sweepError } = await supabaseAdmin
+    .rpc("release_expired_reservations");
+  if (sweepError) {
+    console.error("Failed to release expired reservations:", sweepError.message);
+  }
+
   const { data: due, error } = await supabaseAdmin
     .from("payouts")
     .select("id, stripe_session_id, charge_id, organizer_wallet, stripe_account_id, net_cents, currency")
@@ -110,5 +118,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ success: true, processed: (due ?? []).length, paid, held });
+  return NextResponse.json({
+    success: true,
+    processed: (due ?? []).length,
+    paid,
+    held,
+    releasedReservations: (releasedReservations as number | null) ?? 0,
+  });
 }

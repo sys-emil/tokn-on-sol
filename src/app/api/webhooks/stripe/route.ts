@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
-import { mintTicket } from "@/lib/mint";
-import { sendTicketConfirmation } from "@/lib/email";
 import { buildPayoutRow, claimWebhookEvent } from "@/lib/payouts";
+import { processMintJobs } from "@/lib/mintJobs";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // seconds — multi-ticket minting (each mint ~10-15s, up to 10 tickets)
+export const maxDuration = 300; // seconds — minting continues in after() once the response is sent
 
 // Two endpoints deliver to this route: the platform endpoint (checkout,
 // disputes) and the Connect endpoint (account.updated, payout.* on connected
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // on multiple endpoints — a second delivery is acknowledged without reprocessing.
   const handledTypes = new Set<string>([
     "checkout.session.completed",
+    "checkout.session.expired",
     "account.updated",
     "payout.paid",
     "payout.failed",
@@ -68,6 +69,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   if (!claimed) {
     return NextResponse.json({ received: true, duplicate: true });
+  }
+
+  // Abandoned checkout: free the capacity that was reserved at session creation.
+  if (stripeEvent.type === "checkout.session.expired") {
+    const expiredSession = stripeEvent.data.object as Stripe.Checkout.Session;
+    const { error: releaseError } = await supabaseAdmin.rpc("release_reservation", {
+      p_session_id: expiredSession.id,
+    });
+    if (releaseError) {
+      console.error(`Failed to release reservation for session ${expiredSession.id}:`, releaseError.message);
+      await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
+      return NextResponse.json({ error: "Failed to release reservation" }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
   }
 
   if (stripeEvent.type === "account.updated") {
@@ -149,12 +164,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
-    .select("name, date, tickets_sold, organizer_wallet, payout_hold_days")
+    .select("name, date, organizer_wallet, payout_hold_days")
     .eq("id", eventId)
     .single();
 
   if (eventError || !event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
+
+  // Convert the checkout reservation into a sale — atomic and idempotent, so a
+  // webhook retry (partial mint) can never double-count. Capacity is accounted
+  // by payment, independent of mint success.
+  const { error: finalizeError } = await supabaseAdmin.rpc("finalize_ticket_sale", {
+    p_session_id: session.id,
+    p_event_id: eventId,
+    p_quantity: quantity,
+  });
+  if (finalizeError) {
+    console.error(`Failed to finalize ticket sale for session ${session.id}:`, finalizeError.message);
+    await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
+    return NextResponse.json({ error: "Failed to finalize ticket sale" }, { status: 500 });
   }
 
   // Record the payout obligation before minting — money accounting must exist
@@ -198,95 +227,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Idempotency: count tickets already minted for this session (Stripe may retry).
-  const { data: existing } = await supabaseAdmin
-    .from("purchases")
-    .select("asset_id")
-    .eq("stripe_session_id", session.id);
-  const alreadyMinted = existing?.length ?? 0;
-  const toMint = quantity - alreadyMinted;
-
-  // Mint sequentially — Bubblegum appends one leaf at a time; parallel transactions
-  // to the same tree conflict. Retry each mint up to 3 times and pause between
-  // tickets to let the tree state propagate on the RPC.
-  let minted = 0;
-  const newAssetIds: string[] = [];
-  for (let i = 0; i < toMint; i++) {
-    const ticketNum = alreadyMinted + i + 1;
-
-    let success = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise((r) => setTimeout(r, 3000));
-      try {
-        const { assetId, signature } = await mintTicket({
-          eventName: event.name,
-          eventDate: event.date,
-          ownerWallet: buyerWallet,
-          baseUrl: siteUrl,
-        });
-
-        await supabaseAdmin.from("purchases").insert({
-          event_id: eventId,
-          buyer_wallet: buyerWallet,
-          asset_id: assetId,
-          signature,
-          stripe_session_id: session.id,
-        });
-
-        console.info(`Ticket ${ticketNum}/${quantity} minted → assetId=${assetId} sig=${signature}`);
-        newAssetIds.push(assetId);
-        minted++;
-        success = true;
-        break;
-      } catch (err) {
-        console.error(`Ticket ${ticketNum}/${quantity} attempt ${attempt + 1} failed:`, err);
-      }
-    }
-
-    if (!success) {
-      console.error(`Ticket ${ticketNum}/${quantity} failed after 3 attempts, skipping.`);
-    }
-  }
-
-  const totalNewlyMinted = alreadyMinted + minted;
-  if (minted > 0) {
-    await supabaseAdmin
-      .from("events")
-      .update({ tickets_sold: event.tickets_sold + minted })
-      .eq("id", eventId);
-  }
-
-  // Partial mint: release the idempotency claim and return 500 so Stripe
-  // retries this event — the purchases-count check above ensures the retry
-  // only mints the missing tickets, never duplicates.
-  if (totalNewlyMinted < quantity) {
-    console.error(`Partial mint: ${totalNewlyMinted}/${quantity} tickets for session ${session.id}`);
+  // Enqueue the mint instead of minting inline — 10 tickets à 10-15 s would
+  // blow Stripe's webhook timeout and risk endpoint deactivation. The job is
+  // processed right after the response via after(); the minute cron
+  // (/api/cron/mint) retries anything that crashed or only partially minted.
+  const { error: jobError } = await supabaseAdmin.from("mint_jobs").upsert(
+    {
+      stripe_session_id: session.id,
+      event_id: eventId,
+      buyer_wallet: buyerWallet,
+      buyer_email: session.customer_details?.email ?? null,
+      quantity,
+    },
+    { onConflict: "stripe_session_id", ignoreDuplicates: true },
+  );
+  if (jobError) {
+    console.error(`Failed to enqueue mint job for session ${session.id}:`, jobError.message);
     await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
+    return NextResponse.json({ error: "Failed to enqueue mint job" }, { status: 500 });
+  }
 
-    const buyerEmailPartial = session.customer_details?.email;
-    if (buyerEmailPartial && newAssetIds.length > 0) {
-      void sendTicketConfirmation({
-        to: buyerEmailPartial,
-        eventName: event.name,
-        eventDate: event.date,
-        assetIds: newAssetIds,
-        baseUrl: siteUrl,
-      }).catch((err) => console.error("Confirmation email failed:", err));
+  after(async () => {
+    try {
+      await processMintJobs(3, siteUrl);
+    } catch (err) {
+      console.error("Post-response mint processing failed:", err);
     }
-    return NextResponse.json({ error: "Partial mint — retry requested" }, { status: 500 });
-  }
-
-  // Send confirmation email if we have a buyer email and at least one new ticket
-  const buyerEmail = session.customer_details?.email;
-  if (buyerEmail && newAssetIds.length > 0) {
-    void sendTicketConfirmation({
-      to: buyerEmail,
-      eventName: event.name,
-      eventDate: event.date,
-      assetIds: newAssetIds,
-      baseUrl: siteUrl,
-    }).catch((err) => console.error("Confirmation email failed:", err));
-  }
+  });
 
   return NextResponse.json({ received: true });
 }

@@ -8,7 +8,7 @@ export async function GET(): Promise<NextResponse> {
 
   const { data, error } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, price_eur, capacity, tickets_sold")
+    .select("id, name, date, price_eur, capacity, tickets_sold, tickets_reserved")
     .gte("date", today)
     .eq("is_private", false)
     .order("date", { ascending: true });
@@ -24,6 +24,7 @@ export async function GET(): Promise<NextResponse> {
     price_eur: e.price_eur as number,
     capacity: e.capacity as number,
     tickets_sold: e.tickets_sold as number,
+    tickets_reserved: (e.tickets_reserved as number | null) ?? 0,
   }));
 
   return NextResponse.json({ events });

@@ -28,7 +28,7 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 
 ### Key flows
 
-1. **Purchase** – `/shop/[id]` → `/api/checkout/create` (Stripe session) → Stripe webhook `/api/webhooks/stripe` mints cNFT via Metaplex Bubblegum and writes a `purchases` row to Supabase.
+1. **Purchase** – `/shop/[id]` → `/api/checkout/create` (reserves capacity atomically via `reserve_tickets` SQL function, then creates a 30-min Stripe session) → Stripe webhook `/api/webhooks/stripe` converts the reservation to a sale (`finalize_ticket_sale`), enqueues a `mint_jobs` row and returns immediately. Minting runs async: `after()` in the webhook invocation processes the job (`src/lib/mintJobs.ts`); the minute cron `/api/cron/mint` retries crashed/partial jobs (max 5 attempts, then status `failed` + admin alert email). `checkout.session.expired` releases the reservation; `release_expired_reservations()` in the payout cron is the safety net for missed expiry webhooks.
 2. **QR verification** – `src/app/tickets/[assetId]/TicketClient.tsx` generates a QR code by signing a challenge with the buyer's embedded Solana wallet (Ed25519). Doorman page (`/doorman/[eventId]`) scans it with jsQR and calls `/api/tickets/verify`.
    - Token format: compact JSON `{ a: assetId, t: minuteTimestamp, w: walletAddress, s: base58Signature }`
    - Challenge signed by the wallet: `` `passly:verify:${assetId}:${t}` `` where `t = Math.floor(Date.now() / 60000)`
@@ -64,9 +64,12 @@ Root layout wraps everything in `PrivyProvider`. Login method is **email only** 
 ### Database (Supabase)
 
 Tables:
-- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, is_private, payout_hold_days, created_at`
+- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, created_at`
   - `is_private boolean default false` — private events are excluded from `/api/events/public` but still purchasable via direct link.
   - `payout_hold_days int default 0 (0–90)` — days after the event date before ticket revenue is transferred to the organizer (chargeback protection). 0 = transferred by the next daily payout cron.
+  - `tickets_reserved int default 0` — capacity claimed by open checkout sessions. Available = `capacity - tickets_sold - tickets_reserved`. Never update `tickets_sold`/`tickets_reserved` directly from code — always go through the SQL functions `reserve_tickets`, `unreserve_tickets`, `finalize_ticket_sale`, `release_reservation`, `release_expired_reservations` (atomic, race-free).
+- `ticket_reservations`: one row per checkout session — `stripe_session_id (PK), event_id, quantity, status (reserved|finalized|released), expires_at`. State transitions happen only inside the SQL functions above.
+- `mint_jobs`: async mint queue — `stripe_session_id (unique), event_id, buyer_wallet, buyer_email, quantity, status (queued|processing|done|failed), attempts, last_error`. Claimed via `claim_mint_jobs(limit, max_attempts)` (FOR UPDATE SKIP LOCKED). Worker: `src/lib/mintJobs.ts`.
 - `purchases`: `event_id, buyer_wallet, asset_id, stripe_session_id, redeemed_at`
 - `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, created_at`
 - `payouts`: one row per paid checkout session — `stripe_session_id (unique), payment_intent_id, charge_id, event_id, organizer_wallet, stripe_account_id, gross_cents, fee_cents, net_cents, currency, available_at, status (pending|paid|held|disputed|failed), transfer_id, dispute_id, failure_reason`
@@ -77,12 +80,12 @@ Tables:
 - **Model**: Separate Charges & Transfers (NOT destination charges) — rationale documented in `src/lib/payouts.ts`. The platform charges the buyer; the webhook writes a `payouts` row; `/api/cron/payouts` (Vercel Cron, daily 03:00 UTC, auth `Bearer CRON_SECRET`) transfers `net_cents` (gross − 3%) to the organizer's Express account once `available_at` has passed, using `source_transaction` and idempotency key `payout-transfer-<payout id>`.
 - **KYC gate**: organizers can always create events; `/api/checkout/create` returns 503 for paid events until the organizer's Connect account has `charges_enabled`.
 - **Failure handling**: failed transfers (restricted account etc.) → status `held`, funds stay on the platform balance. `charge.dispute.created` blocks a pending transfer (`disputed`). Admin resolution UI at `/admin/payouts` (gated by `ADMIN_SECRET`, sent as `x-admin-secret`): retry / release / cancel.
-- **Webhook idempotency**: every handled event ID is claimed via PK insert into `stripe_webhook_events` before processing. On partial mints or payout-row failures the claim is released and a 500 returned so Stripe retries.
-- The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `account.updated`, `charge.dispute.created` and (Connect) `payout.paid`, `payout.failed`.
+- **Webhook idempotency**: every handled event ID is claimed via PK insert into `stripe_webhook_events` before processing. On payout-row/finalize/enqueue failures the claim is released and a 500 returned so Stripe retries. Mint retries are handled by the `mint_jobs` queue, not by Stripe redelivery.
+- The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `checkout.session.expired`, `account.updated`, `charge.dispute.created` and (Connect) `payout.paid`, `payout.failed`.
 
 **Security model** — intentional, don't change:
-- All Supabase writes go through the service-role admin client. **No RLS — this is intentional.** Don't add row-level security policies.
-- Public reads use the anon client.
+- All Supabase reads/writes go through the service-role admin client (bypasses RLS).
+- **RLS is enabled on every table** (since 2026-07-05). The only anon policy is SELECT on non-private `events`. New tables must enable RLS in their migration. The exported `supabasePublic` anon client is currently unused by the app.
 
 ### Conventions
 
@@ -105,7 +108,8 @@ OPERATOR_PRIVATE_KEY
 MERKLE_TREE_ADDRESS
 STRIPE_SECRET_KEY / STRIPE_PUBLIC_KEY / STRIPE_WEBHOOK_SECRET
 STRIPE_CONNECT_WEBHOOK_SECRET  # Signing secret of the second (Connect) webhook endpoint
-CRON_SECRET            # Auth for /api/cron/payouts (Vercel Cron sends it as Bearer token)
+CRON_SECRET            # Auth for /api/cron/payouts + /api/cron/mint (Vercel Cron sends it as Bearer token)
+ADMIN_ALERT_EMAIL      # Recipient for operational alerts (permanently failed mint jobs); alerts are skipped when unset
 ADMIN_SECRET           # Auth for /admin/payouts + /api/admin/payouts (x-admin-secret header)
 NEXTAUTH_SECRET        # Legacy name — no longer used for QR signing; do not remove
 VERCEL_URL             # Auto-set by Vercel; fallback for building absolute URLs

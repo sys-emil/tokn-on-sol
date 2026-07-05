@@ -26,6 +26,7 @@ interface EventRow {
   price_eur: number;
   capacity: number;
   tickets_sold: number;
+  tickets_reserved: number;
 }
 
 function formatDateShort(iso: string): string {
@@ -427,14 +428,15 @@ export default async function EventsPage() {
 
   const { data } = await supabaseAdmin
     .from('events')
-    .select('id, name, date, price_eur, capacity, tickets_sold')
+    .select('id, name, date, price_eur, capacity, tickets_sold, tickets_reserved')
     .gte('date', today)
     .eq('is_private', false)
     .order('date', { ascending: true });
 
   const all = (data ?? []) as EventRow[];
-  const available = all.filter((e) => e.tickets_sold < e.capacity);
-  const soldOut = all.filter((e) => e.tickets_sold >= e.capacity);
+  const taken = (e: EventRow) => e.tickets_sold + (e.tickets_reserved ?? 0);
+  const available = all.filter((e) => taken(e) < e.capacity);
+  const soldOut = all.filter((e) => taken(e) >= e.capacity);
 
   const totalCount = available.length + soldOut.length;
 
@@ -484,7 +486,7 @@ export default async function EventsPage() {
               {available.length > 0 && (
                 <div className="events-list">
                   {available.map((e) => {
-                    const remaining = e.capacity - e.tickets_sold;
+                    const remaining = e.capacity - taken(e);
                     const isLow = remaining / e.capacity <= 0.15;
                     const days = daysUntil(e.date);
                     const dateLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : formatDateShort(e.date);

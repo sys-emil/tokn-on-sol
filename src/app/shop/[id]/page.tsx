@@ -39,7 +39,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
     currency: 'EUR',
   });
 
-  const available = event.capacity - event.tickets_sold;
+  const available = event.capacity - event.tickets_sold - (event.tickets_reserved ?? 0);
   const soldOut = available <= 0;
 
   return (

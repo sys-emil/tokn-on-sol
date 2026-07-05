@@ -25,6 +25,17 @@ function ticketRow(assetId: string, baseUrl: string, index: number, total: numbe
     </tr>`;
 }
 
+// Plain-text operational alert to the platform admin (mint failures etc.).
+// Requires ADMIN_ALERT_EMAIL — silently skipped when unset so non-critical
+// environments don't need it.
+export async function sendAdminAlert({ subject, text }: { subject: string; text: string }): Promise<void> {
+  const to = process.env.ADMIN_ALERT_EMAIL;
+  if (!process.env.RESEND_API_KEY || !to) return;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  await resend.emails.send({ from: FROM, to, subject: `[Passly Alert] ${subject}`, text });
+}
+
 export async function sendTicketConfirmation({
   to,
   eventName,
