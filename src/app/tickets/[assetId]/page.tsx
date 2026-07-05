@@ -1,6 +1,7 @@
 import { Epilogue, Unbounded } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import TicketClient from './TicketClient';
+import { heliusRpcUrl } from '@/lib/solana';
 
 const unbounded = Unbounded({
   subsets: ['latin'],
@@ -22,8 +23,7 @@ interface DasAsset {
 }
 
 async function getAsset(assetId: string): Promise<DasAsset | null> {
-  const apiKey = process.env.HELIUS_API_KEY ?? '';
-  const res = await fetch(`https://devnet.helius-rpc.com/?api-key=${apiKey}`, {
+  const res = await fetch(heliusRpcUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 'get-asset', method: 'getAsset', params: { id: assetId } }),

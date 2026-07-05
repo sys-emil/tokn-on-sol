@@ -1,6 +1,7 @@
 import { PrivyClient } from "@privy-io/server-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { transferCnft, getOperatorWalletAddress } from "@/lib/transfer";
+import { heliusRpcUrl } from "@/lib/solana";
 import { NextRequest, NextResponse } from "next/server";
 
 const privy = new PrivyClient(
@@ -51,8 +52,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Verify on-chain ownership
-  const heliusApiKey = process.env.HELIUS_API_KEY ?? "";
-  const assetRes = await fetch(`https://devnet.helius-rpc.com/?api-key=${heliusApiKey}`, {
+  const assetRes = await fetch(heliusRpcUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: "verify-owner", method: "getAsset", params: { id: assetId } }),

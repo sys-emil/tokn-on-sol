@@ -10,14 +10,16 @@ import {
 import { getOperatorKeypair } from "../src/lib/solana";
 
 async function main() {
-  const apiKey = process.env.HELIUS_API_KEY;
-  if (!apiKey) throw new Error("HELIUS_API_KEY is not set");
+  // Network comes from NEXT_PUBLIC_HELIUS_RPC_URL (mainnet or devnet) — point
+  // it at the target network before running. Cost on mainnet for this tree
+  // size (depth 14 = 16,384 leaves, no canopy): roughly 0.1 SOL.
+  const rpcUrl = process.env.NEXT_PUBLIC_HELIUS_RPC_URL;
+  if (!rpcUrl) throw new Error("NEXT_PUBLIC_HELIUS_RPC_URL is not set");
+  console.log(`Creating tree via ${rpcUrl.split("?")[0]}`);
 
   const operatorKeypair = getOperatorKeypair();
 
-  const umi = createUmi(
-    `https://devnet.helius-rpc.com/?api-key=${apiKey}`
-  ).use(mplBubblegum());
+  const umi = createUmi(rpcUrl).use(mplBubblegum());
 
   const umiKeypair = umi.eddsa.createKeypairFromSecretKey(
     operatorKeypair.secretKey
@@ -38,8 +40,9 @@ async function main() {
 
   console.log("Merkle tree created:", merkleTree.publicKey.toString());
   console.log(
-    "Add this to your .env file:\n" +
-      `MERKLE_TREE_ADDRESS=${merkleTree.publicKey.toString()}`
+    "Add it to MERKLE_TREE_ADDRESSES (comma-separated, mints are spread across " +
+      "all listed trees) or set it as the single MERKLE_TREE_ADDRESS:\n" +
+      `MERKLE_TREE_ADDRESSES=${merkleTree.publicKey.toString()}`
   );
 }
 

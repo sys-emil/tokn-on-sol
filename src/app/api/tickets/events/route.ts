@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { heliusRpcUrl } from "@/lib/solana";
 
 interface DasAsset {
   content: {
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "HELIUS_API_KEY not configured" }, { status: 500 });
   }
 
-  const dasUrl = `https://devnet.helius-rpc.com/?api-key=${heliusApiKey}`;
+  const dasUrl = heliusRpcUrl();
   const res = await fetch(dasUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

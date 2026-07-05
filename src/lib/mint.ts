@@ -14,11 +14,8 @@ import {
   parseLeafFromMintV1Transaction,
 } from "@metaplex-foundation/mpl-bubblegum";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
-import { getOperatorKeypair } from "@/lib/solana";
+import { getOperatorKeypair, pickMerkleTree, heliusRpcUrl } from "@/lib/solana";
 import bs58 from "bs58";
-
-const MERKLE_TREE = process.env.MERKLE_TREE_ADDRESS ?? "";
-const HELIUS_RPC = process.env.NEXT_PUBLIC_HELIUS_RPC_URL ?? "";
 
 export interface MintTicketParams {
   eventName: string;
@@ -61,13 +58,10 @@ async function parseLeafWithRetry(umi: Umi, signature: TransactionSignature) {
 export async function mintTicket(params: MintTicketParams): Promise<MintTicketResult> {
   const { eventName, eventDate, ownerWallet, baseUrl } = params;
 
-  if (!MERKLE_TREE) throw new Error("MERKLE_TREE_ADDRESS is not configured");
-  if (!HELIUS_RPC) throw new Error("NEXT_PUBLIC_HELIUS_RPC_URL is not configured");
-
   const metadataUri = `${baseUrl}/api/tickets/metadata?name=${encodeURIComponent(eventName)}&date=${encodeURIComponent(eventDate)}`;
 
   const operatorKeypair = getOperatorKeypair();
-  const umi = createUmi(HELIUS_RPC)
+  const umi = createUmi(heliusRpcUrl())
     .use(mplBubblegum())
     .use(mplTokenMetadata());
 
@@ -75,7 +69,7 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
   const operatorSigner = createSignerFromKeypair(umi, umiKeypair);
   umi.use(keypairIdentity(umiKeypair));
 
-  const merkleTreePk = publicKey(MERKLE_TREE);
+  const merkleTreePk = publicKey(pickMerkleTree());
 
   const builder = mintV1(umi, {
     leafOwner: publicKey(ownerWallet),
@@ -118,13 +112,10 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
 export async function mintBadge(params: MintBadgeParams): Promise<MintTicketResult> {
   const { badgeType, badgeName, ownerWallet, baseUrl } = params;
 
-  if (!MERKLE_TREE) throw new Error("MERKLE_TREE_ADDRESS is not configured");
-  if (!HELIUS_RPC) throw new Error("NEXT_PUBLIC_HELIUS_RPC_URL is not configured");
-
   const metadataUri = `${baseUrl}/api/badges/metadata?type=${encodeURIComponent(badgeType)}`;
 
   const operatorKeypair = getOperatorKeypair();
-  const umi = createUmi(HELIUS_RPC)
+  const umi = createUmi(heliusRpcUrl())
     .use(mplBubblegum())
     .use(mplTokenMetadata());
 
@@ -132,7 +123,7 @@ export async function mintBadge(params: MintBadgeParams): Promise<MintTicketResu
   const operatorSigner = createSignerFromKeypair(umi, umiKeypair);
   umi.use(keypairIdentity(umiKeypair));
 
-  const merkleTreePk = publicKey(MERKLE_TREE);
+  const merkleTreePk = publicKey(pickMerkleTree());
 
   const builder = mintV1(umi, {
     leafOwner: publicKey(ownerWallet),

@@ -55,9 +55,9 @@ Root layout wraps everything in `PrivyProvider`. Login method is **email only** 
 
 ### Blockchain
 
-- **Network**: Solana **Devnet** only via Helius RPC (`NEXT_PUBLIC_HELIUS_RPC_URL`). No mainnet logic anywhere.
+- **Network**: decided solely by `NEXT_PUBLIC_HELIUS_RPC_URL` via `heliusRpcUrl()` in `src/lib/solana.ts` — never hardcode an RPC host. Currently pointed at **Devnet**; the mainnet switch is an env-var change plus new trees/operator key (see backlog memory).
 - **Minting**: `src/lib/mint.ts` — Metaplex Bubblegum cNFTs. The operator keypair (`OPERATOR_PRIVATE_KEY`) signs every mint; the buyer's embedded wallet receives the cNFT as `leafOwner`. The buyer never signs — don't change this to client-side signing.
-- **Merkle tree**: single tree (`MERKLE_TREE_ADDRESS`); `npm run create-tree` initialises it once.
+- **Merkle trees**: `MERKLE_TREE_ADDRESSES` (comma-separated; each mint picks one at random via `pickMerkleTree()` — spreads concurrent mints so tree transactions don't conflict). Legacy fallback: `MERKLE_TREE_ADDRESS`. `npm run create-tree` creates one tree on the network `NEXT_PUBLIC_HELIUS_RPC_URL` points at (~0.1 SOL on mainnet, depth 14 = 16,384 tickets).
 - **Asset queries**: Helius DAS API (`HELIUS_API_KEY`) for ownership and metadata lookups; always fetched with `cache: 'no-store'`.
 - **cNFT metadata attributes**: use `trait_type: "Event Name"` and `trait_type: "Event Date"` (two words, title-case). Both `/api/tickets/metadata` (writer) and `/tickets/[assetId]/page.tsx` (reader) must match these exact strings.
 
@@ -106,7 +106,7 @@ NEXT_PUBLIC_PRIVY_APP_ID / PRIVY_APP_SECRET
 NEXT_PUBLIC_HELIUS_RPC_URL / HELIUS_API_KEY
 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY
 OPERATOR_PRIVATE_KEY
-MERKLE_TREE_ADDRESS
+MERKLE_TREE_ADDRESSES  # Comma-separated list; legacy MERKLE_TREE_ADDRESS still works as single-tree fallback
 STRIPE_SECRET_KEY / STRIPE_PUBLIC_KEY / STRIPE_WEBHOOK_SECRET
 STRIPE_CONNECT_WEBHOOK_SECRET  # Signing secret of the second (Connect) webhook endpoint
 CRON_SECRET            # Auth for /api/cron/payouts + /api/cron/mint (Vercel Cron sends it as Bearer token)

@@ -3,16 +3,11 @@ import { keypairIdentity, createSignerFromKeypair, publicKey, type Context } fro
 import { mplBubblegum, getAssetWithProof, transfer } from "@metaplex-foundation/mpl-bubblegum";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { dasApi, type DasApiInterface } from "@metaplex-foundation/digital-asset-standard-api";
-import { getOperatorKeypair } from "@/lib/solana";
-
-function getHeliusRpc(): string {
-  const key = process.env.HELIUS_API_KEY ?? "";
-  return `https://devnet.helius-rpc.com/?api-key=${key}`;
-}
+import { getOperatorKeypair, heliusRpcUrl } from "@/lib/solana";
 
 function buildUmi() {
   const operatorKeypair = getOperatorKeypair();
-  const umi = createUmi(getHeliusRpc())
+  const umi = createUmi(heliusRpcUrl())
     .use(mplBubblegum())
     .use(mplTokenMetadata())
     .use(dasApi());
