@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/mint",
-      "schedule": "* * * * *"
+      "schedule": "30 3 * * *"
     }
   ]
 }
