@@ -1,0 +1,22 @@
+{
+  "projectId": "324f9cbc-7cb1-4742-8698-d58c64986a69",
+  "shape": "package",
+  "pkg": "tokn-on-sol",
+  "globalName": "Passly",
+  "srcDir": "src/app/components",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".design-sync/passly.css",
+  "componentSrcMap": {
+    "Icon": "src/app/components/passlyUi.tsx",
+    "Spark": "src/app/components/passlyUi.tsx",
+    "PasslyLogo": null,
+    "CtaButton": null
+  },
+  "overrides": {
+    "Icon": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md",
+  "entry": "./src/app/components/passlyUi.tsx"
+}
