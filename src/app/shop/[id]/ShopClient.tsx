@@ -2,7 +2,9 @@
 
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { serviceFeePerTicketCents } from '@/lib/fees';
 
 interface Props {
   eventId: string;
@@ -25,6 +27,9 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
 
   const walletAddress = solanaWallets[0]?.address;
   const maxQty = Math.min(10, available);
+  const feePerTicket = serviceFeePerTicketCents(priceEur);
+  const feeTotal = feePerTicket * quantity;
+  const grandTotal = (priceEur + feePerTicket) * quantity;
 
   useEffect(() => {
     if (!pendingCheckout.current) return;
@@ -44,12 +49,12 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
       });
       const data = (await res.json()) as { success: boolean; url?: string; error?: string };
       if (!res.ok || !data.success || !data.url) {
-        setError(data.error ?? 'Could not create checkout session.');
+        setError(data.error ?? 'Der Kauf konnte nicht gestartet werden. Bitte versuch es erneut.');
         return;
       }
       window.location.href = data.url;
     } catch {
-      setError('Network error. Please try again.');
+      setError('Netzwerkfehler. Bitte versuch es erneut.');
     } finally {
       setLoading(false);
     }
@@ -66,7 +71,7 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
     }
 
     if (!walletAddress) {
-      setError('Wallet not ready yet. Please wait a moment and try again.');
+      setError('Dein Konto wird noch eingerichtet. Warte einen Moment und versuch es dann erneut.');
       return;
     }
 
@@ -77,127 +82,116 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
     <>
       <style>{`
         .qty-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 16px;
-          gap: 12px;
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 12px; margin-bottom: 14px;
         }
-        .qty-label {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
+        .qty-label { font-size: 13px; font-weight: 500; color: var(--ink-2); }
         .qty-controls {
-          display: flex;
-          align-items: center;
-          gap: 0;
-          border: 1px solid var(--color-border);
+          display: inline-flex; align-items: center;
+          background: var(--surface);
+          border: 1px solid var(--line-2); border-radius: 8px;
+          box-shadow: var(--shadow-sm);
+          overflow: hidden;
         }
         .qty-btn {
-          width: 32px;
-          height: 32px;
-          background: transparent;
-          border: none;
-          color: var(--color-text);
-          font-size: 16px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.12s ease;
-          flex-shrink: 0;
+          width: 34px; height: 34px;
+          display: grid; place-items: center;
+          font-size: 16px; color: var(--ink-2);
+          transition: background 0.12s;
         }
-        .qty-btn:hover:not(:disabled) { background: var(--color-border); }
-        .qty-btn:disabled { color: var(--color-text-muted); cursor: default; }
+        .qty-btn:hover:not(:disabled) { background: var(--surface-2); }
+        .qty-btn:disabled { color: var(--ink-4); cursor: default; }
         .qty-num {
-          font-family: var(--font-display);
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--color-text);
-          min-width: 28px;
-          text-align: center;
+          min-width: 34px; text-align: center;
+          font-size: 14px; font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+          line-height: 34px;
         }
-        .qty-total {
-          font-family: var(--font-display);
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--color-accent);
-          letter-spacing: 0.02em;
+        .fee-summary {
+          display: flex; align-items: baseline; justify-content: space-between;
+          gap: 12px; margin-bottom: 14px;
         }
-        .btn-buy {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          padding: 14px 24px;
-          font-family: var(--font-display);
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: oklch(0.10 0.014 258);
-          background: var(--color-accent);
-          border: none;
-          cursor: pointer;
-          transition: opacity 0.15s ease;
-          box-sizing: border-box;
-        }
-        .btn-buy:hover:not(:disabled) { opacity: 0.88; }
-        .btn-buy:disabled {
-          background: var(--color-border);
-          color: var(--color-text-muted);
-          cursor: not-allowed;
+        .fee-summary .label { font-size: 12px; color: var(--ink-3); }
+        .fee-summary .total {
+          font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+          font-variant-numeric: tabular-nums; white-space: nowrap;
         }
         .buy-error {
           margin-top: 12px;
-          font-family: var(--font-body);
-          font-size: 12px;
-          color: oklch(0.62 0.18 28);
-          line-height: 1.5;
+          padding: 10px 12px;
+          border-radius: 8px;
+          background: var(--bad-wash);
+          border: 1px solid oklch(0.86 0.10 25);
+          font-size: 12.5px; color: var(--bad); line-height: 1.5;
         }
       `}</style>
 
       {!soldOut && (
         <div className="qty-row">
-          <div className="qty-label">Quantity</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div className="qty-controls">
-              <button
-                className="qty-btn"
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                disabled={quantity <= 1 || loading}
-              >
-                −
-              </button>
-              <div className="qty-num">{quantity}</div>
-              <button
-                className="qty-btn"
-                onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
-                disabled={quantity >= maxQty || loading}
-              >
-                +
-              </button>
-            </div>
-            {quantity > 1 && (
-              <div className="qty-total">{formatPrice(priceEur * quantity)}</div>
-            )}
+          <div className="qty-label">Anzahl</div>
+          <div className="qty-controls">
+            <button
+              className="qty-btn"
+              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              disabled={quantity <= 1 || loading}
+              aria-label="Weniger Tickets"
+            >
+              −
+            </button>
+            <div className="qty-num">{quantity}</div>
+            <button
+              className="qty-btn"
+              onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+              disabled={quantity >= maxQty || loading}
+              aria-label="Mehr Tickets"
+            >
+              +
+            </button>
           </div>
         </div>
       )}
 
+      {!soldOut && priceEur > 0 && (
+        <div className="fee-summary">
+          <div className="label">Gesamt · inkl. {formatPrice(feeTotal)} Servicegebühr</div>
+          <div className="total">{formatPrice(grandTotal)}</div>
+        </div>
+      )}
+
       <button
-        className="btn-buy"
+        className="btn primary lg"
+        style={{ width: '100%', justifyContent: 'center' }}
         disabled={soldOut || loading || !ready}
         onClick={() => void handleBuy()}
       >
-        {soldOut ? 'Sold Out' : loading ? 'Redirecting...' : quantity > 1 ? `Buy ${quantity} Tickets` : 'Buy Ticket'}
+        {soldOut
+          ? 'Ausverkauft'
+          : loading
+          ? 'Weiterleitung …'
+          : quantity > 1
+          ? `${quantity} Tickets kaufen`
+          : 'Ticket kaufen'}
       </button>
 
       {error && <div className="buy-error">{error}</div>}
+
+      {!soldOut && (
+        <p
+          style={{
+            marginTop: 12,
+            fontSize: 11.5,
+            lineHeight: 1.55,
+            color: 'var(--ink-3)',
+          }}
+        >
+          Mit dem Kauf akzeptierst du die <Link href="/agb" style={{ color: 'var(--accent)', fontWeight: 500 }}>AGB</Link>.
+          Der Vertrag kommt mit dem Veranstalter zustande. Für Tickets zu
+          termingebundenen Veranstaltungen besteht kein Widerrufsrecht
+          (§&nbsp;312g Abs.&nbsp;2 Nr.&nbsp;9 BGB) — jeder Kauf ist verbindlich.
+          Hinweise zur Datenverarbeitung: <Link href="/datenschutz" style={{ color: 'var(--accent)', fontWeight: 500 }}>Datenschutzerklärung</Link>.
+        </p>
+      )}
     </>
   );
 }

@@ -1,21 +1,9 @@
-import { Epilogue, Unbounded } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import TicketClient from './TicketClient';
 import { heliusRpcUrl } from '@/lib/solana';
-
-const unbounded = Unbounded({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['400', '600', '900'],
-  display: 'swap',
-});
-
-const epilogue = Epilogue({
-  subsets: ['latin'],
-  variable: '--font-body',
-  weight: ['400', '500'],
-  display: 'swap',
-});
+import { supabaseAdmin } from '@/lib/supabase';
+import { LegalLinks } from '@/app/components/LegalLinks';
+import { PasslyLogo } from '@/app/components/PasslyLogo';
 
 interface DasAsset {
   content?: { metadata?: { name?: string; attributes?: { trait_type: string; value: string }[] } };
@@ -34,247 +22,150 @@ async function getAsset(assetId: string): Promise<DasAsset | null> {
   return json.result ?? null;
 }
 
+interface PurchaseInfo {
+  redeemedAt: string | null;
+  revokedAt: string | null;
+  eventName: string | null;
+  eventDate: string | null;
+  venue: string | null;
+  priceEur: number | null;
+}
+
+async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
+  const { data } = await supabaseAdmin
+    .from('purchases')
+    .select('redeemed_at, revoked_at, events(name, date, venue, price_eur)')
+    .eq('asset_id', assetId)
+    .maybeSingle();
+  if (!data) return null;
+  const ev = Array.isArray(data.events) ? data.events[0] : data.events;
+  return {
+    redeemedAt: (data.redeemed_at as string | null) ?? null,
+    revokedAt: (data.revoked_at as string | null) ?? null,
+    eventName: (ev?.name as string | undefined) ?? null,
+    eventDate: (ev?.date as string | undefined) ?? null,
+    venue: (ev?.venue as string | undefined) ?? null,
+    priceEur: (ev?.price_eur as number | undefined) ?? null,
+  };
+}
+
+const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+
+const PAGE_CSS = `
+  .ticket-canvas {
+    min-height: 100vh;
+    display: grid; place-items: center;
+    padding: 40px 20px;
+    background:
+      radial-gradient(1000px 500px at 50% -10%, var(--accent-wash), transparent 60%),
+      var(--surface-2);
+  }
+  .ticket-screen {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    box-shadow: var(--shadow-lg);
+    width: 380px; max-width: 100%;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .ticket-body {
+    margin: 0 18px;
+    padding: 20px;
+    border-radius: 18px;
+    background: var(--accent-wash);
+    border: 1px solid var(--accent-line);
+    position: relative;
+  }
+  .perf {
+    position: absolute;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--accent-line);
+    top: 50%; transform: translateY(-50%);
+  }
+`;
+
 export default async function TicketPage({ params }: { params: Promise<{ assetId: string }> }) {
   const { assetId } = await params;
-  const asset = await getAsset(assetId);
+  const [asset, purchase] = await Promise.all([getAsset(assetId), getPurchase(assetId)]);
 
-  if (!asset) notFound();
+  if (!asset && !purchase) notFound();
 
-  const name = asset.content?.metadata?.name ?? 'Unknown Event';
-  const owner = asset.ownership?.owner ?? '';
-  const dateAttr = asset.content?.metadata?.attributes?.find((a) => a.trait_type === 'Event Date');
-  const date = dateAttr?.value ?? '';
+  const name = purchase?.eventName
+    ?? asset?.content?.metadata?.name
+    ?? 'Unbekanntes Event';
+  const dateAttr = asset?.content?.metadata?.attributes?.find((a) => a.trait_type === 'Event Date');
+  const date = purchase?.eventDate ?? dateAttr?.value ?? '';
+  const venueAttr = asset?.content?.metadata?.attributes?.find((a) => a.trait_type === 'Venue');
+  const venue = purchase?.venue ?? venueAttr?.value ?? null;
 
-  const shortId = `#PSL-${assetId.slice(-4).toUpperCase()}`;
+  const status: 'valid' | 'checked' | 'revoked' = purchase?.revokedAt
+    ? 'revoked'
+    : purchase?.redeemedAt
+      ? 'checked'
+      : 'valid';
+
+  const serial = `PSL-${assetId.slice(-4).toUpperCase()}`;
 
   return (
     <>
-      <style>{`
-        :root {
-          --color-bg:          oklch(0.09 0.028 305);
-          --color-surface:     oklch(0.15 0.024 308);
-          --color-border:      oklch(0.26 0.022 305);
-          --color-text:        oklch(0.96 0.008 75);
-          --color-text-muted:  oklch(0.56 0.012 305);
-          --color-accent:      oklch(0.79 0.19 48);
-          --color-accent-2:    oklch(0.67 0.24 295);
-          --color-accent-3:    oklch(0.72 0.22 350);
-        }
+      <style>{PAGE_CSS}</style>
+      <div className="ticket-canvas">
+        <div className="ticket-screen">
 
-        html, body { margin: 0; padding: 0; background: var(--color-bg); }
-
-        .ticket-root {
-          font-family: var(--font-body);
-          background-color: var(--color-bg);
-          background-image: radial-gradient(circle, oklch(0.28 0.026 308 / 0.38) 1px, transparent 1px);
-          background-size: 28px 28px;
-          color: var(--color-text);
-          min-height: 100dvh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 48px 24px;
-          box-sizing: border-box;
-          position: relative;
-          isolation: isolate;
-        }
-
-        /* Aurora pulsing glow */
-        .ticket-aurora {
-          position: fixed;
-          inset: 0;
-          z-index: 0;
-          pointer-events: none;
-          overflow: hidden;
-          -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, #000 40%, transparent 100%);
-                  mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, #000 40%, transparent 100%);
-        }
-        .ticket-aurora-blob {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(80px);
-          will-change: transform, opacity;
-        }
-        .ticket-aurora-blob-1 {
-          top: 5%; left: 10%;
-          width: 500px; height: 500px;
-          background: radial-gradient(circle at 50% 50%,
-            oklch(0.79 0.19 48 / 0.38) 0%,
-            oklch(0.79 0.19 48 / 0.16) 40%,
-            oklch(0.79 0.19 48 / 0) 70%);
-          animation: tauroraPulseA 9s ease-in-out infinite;
-        }
-        .ticket-aurora-blob-2 {
-          bottom: 5%; right: 5%;
-          width: 400px; height: 400px;
-          background: radial-gradient(circle at 50% 50%,
-            oklch(0.67 0.24 295 / 0.32) 0%,
-            oklch(0.67 0.24 295 / 0.12) 45%,
-            oklch(0.67 0.24 295 / 0) 72%);
-          animation: tauroraPulseB 11s ease-in-out infinite;
-        }
-        @keyframes tauroraPulseA {
-          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.80; }
-          50%      { transform: translate(20px, 30px) scale(1.10); opacity: 1; }
-        }
-        @keyframes tauroraPulseB {
-          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.65; }
-          50%      { transform: translate(-25px, -20px) scale(1.08); opacity: 0.90; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .ticket-aurora-blob { animation: none; }
-        }
-
-        .ticket-card {
-          width: 100%;
-          max-width: 400px;
-          background: var(--color-surface);
-          border: 1px solid var(--color-border);
-          display: flex;
-          flex-direction: column;
-          animation: fadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
-          position: relative;
-          z-index: 1;
-        }
-
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (prefers-reduced-motion: reduce) { .ticket-card { animation: none; } }
-
-        .ticket-header {
-          padding: 28px 32px 24px;
-          border-bottom: 1px solid var(--color-border);
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .ticket-eyebrow {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-        }
-
-        .ticket-name {
-          font-family: var(--font-display);
-          font-size: clamp(18px, 3.5vw, 22px);
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        .ticket-date {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-          margin-top: 2px;
-        }
-
-        .ticket-qr {
-          padding: 24px 32px;
-          display: flex;
-          justify-content: center;
-          border-bottom: 1px solid var(--color-border);
-          background: oklch(0.09 0.028 305);
-        }
-
-        .ticket-qr-frame {
-          background: #f5f3ee;
-          padding: 12px;
-          display: inline-flex;
-          box-shadow: 0 0 0 1px oklch(0.79 0.19 48 / 0.35), 0 0 24px oklch(0.79 0.19 48 / 0.18);
-        }
-
-        .ticket-meta {
-          padding: 20px 32px 28px;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-
-        .ticket-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .ticket-row-label {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
-
-        .ticket-row-value {
-          font-family: var(--font-display);
-          font-size: 13px;
-          font-weight: 600;
-          letter-spacing: 0.04em;
-          color: var(--color-text);
-        }
-
-        .ticket-row-value.accent { color: var(--color-accent); }
-
-        .ticket-brand {
-          margin-top: 28px;
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-          text-align: center;
-          position: relative;
-          z-index: 1;
-        }
-
-        .ticket-brand span { color: var(--color-accent); }
-      `}</style>
-
-      <div className={`ticket-root ${unbounded.variable} ${epilogue.variable}`}>
-        <div className="ticket-aurora" aria-hidden="true">
-          <div className="ticket-aurora-blob ticket-aurora-blob-1" />
-          <div className="ticket-aurora-blob ticket-aurora-blob-2" />
-        </div>
-        <div className="ticket-card">
-          <div className="ticket-header">
-            <div className="ticket-eyebrow">Your Ticket</div>
-            <h1 className="ticket-name">{name}</h1>
-            {date && <div className="ticket-date">{date}</div>}
+          <div style={{ padding: '18px 22px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <PasslyLogo height={20} />
           </div>
 
-          <div className="ticket-qr">
-            <div className="ticket-qr-frame">
+          <div style={{ padding: '16px 22px 14px' }}>
+            <div style={{ fontSize: 11.5, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Dein Ticket</div>
+            <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.015em', lineHeight: 1.25, marginTop: 4 }}>{name}</div>
+            {date && (
+              <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>{formatDate(date)}</div>
+            )}
+          </div>
+
+          <div className="ticket-body">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              {status === 'valid' && <span className="chip ok" style={{ background: 'white' }}><span className="d" />Gültig</span>}
+              {status === 'checked' && <span className="chip" style={{ background: 'white' }}><span className="d" />Eingelöst</span>}
+              {status === 'revoked' && <span className="chip bad" style={{ background: 'white' }}><span className="d" />Storniert</span>}
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent-ink)' }}>#{serial}</span>
+            </div>
+            <div style={{ background: 'white', padding: 12, borderRadius: 12, boxShadow: '0 1px 2px rgba(17,20,45,0.06)', display: 'grid', placeItems: 'center' }}>
               <TicketClient assetId={assetId} />
             </div>
+            <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'var(--accent-ink)', fontWeight: 500 }}>
+              {status === 'revoked' ? 'Dieses Ticket wurde storniert.' : 'Beim Einlass einscannen lassen'}
+            </div>
+            <div className="perf" style={{ left: -9 }} />
+            <div className="perf" style={{ right: -9 }} />
           </div>
 
-          <div className="ticket-meta">
-            <div className="ticket-row">
-              <div className="ticket-row-label">Ticket ID</div>
-              <div className="ticket-row-value accent">{shortId}</div>
-            </div>
-            <div className="ticket-row">
-              <div className="ticket-row-label">Owner</div>
-              <div className="ticket-row-value">
-                {owner ? `${owner.slice(0, 4)}...${owner.slice(-4)}` : '—'}
+          <div style={{ padding: '16px 22px 20px', display: 'grid', gap: 8, fontSize: 12.5 }}>
+            {venue && (
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">Ort</span><span style={{ fontWeight: 500 }}>{venue}</span>
               </div>
+            )}
+            {date && (
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">Datum</span><span style={{ fontWeight: 500 }}>{formatDate(date)}</span>
+              </div>
+            )}
+            {purchase?.priceEur != null && (
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">Preis</span><span style={{ fontWeight: 500 }}>{purchase.priceEur === 0 ? 'Kostenlos' : eur(purchase.priceEur)}</span>
+              </div>
+            )}
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span className="muted">Ticket-Nr.</span><span style={{ fontWeight: 500, fontFamily: 'var(--mono)', fontSize: 11.5 }}>#{serial}</span>
             </div>
           </div>
-        </div>
 
-        <div className="ticket-brand">Passly<span>.</span></div>
+        </div>
+        <LegalLinks style={{ marginTop: 22 }} />
       </div>
     </>
   );

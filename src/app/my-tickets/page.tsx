@@ -2,25 +2,12 @@
 
 import { useLogout, usePrivy, getAccessToken } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
-import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-
-const unbounded = Unbounded({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['400', '600', '900'],
-  display: 'swap',
-});
-
-const epilogue = Epilogue({
-  subsets: ['latin'],
-  variable: '--font-body',
-  weight: ['400', '500'],
-  display: 'swap',
-});
+import { Icon } from '@/app/components/passlyUi';
+import { useEffect, useRef, useState } from 'react';
 
 interface Ticket {
   assetId: string;
@@ -39,340 +26,26 @@ interface BadgeItem {
 }
 
 const BADGE_DISPLAY: Record<string, { name: string; symbol: string; hue: number }> = {
-  first_show:      { name: 'First Show',  symbol: 'I',  hue: 48  },
-  show_5:          { name: '5 Shows',     symbol: 'V',  hue: 150 },
-  show_10:         { name: '10 Shows',    symbol: 'X',  hue: 220 },
-  loyal_organizer: { name: 'Loyal Fan',   symbol: '♥',  hue: 340 },
+  first_show:      { name: 'Erste Show', symbol: 'I', hue: 285 },
+  show_5:          { name: '5 Shows',    symbol: 'V', hue: 150 },
+  show_10:         { name: '10 Shows',   symbol: 'X', hue: 220 },
+  loyal_organizer: { name: 'Treuer Fan', symbol: '♥', hue: 340 },
 };
 
-function eventHue(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-  return h;
-}
-
-function formatDateShort(iso: string): string {
-  if (!iso) return '';
-  const [year, month, day] = iso.split('-');
-  return new Date(Number(year), Number(month) - 1, Number(day))
-    .toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
+const monthShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
+const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
+const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
 
 function daysUntil(iso: string): number {
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const event = new Date(iso + 'T00:00:00');
-  return Math.ceil((event.getTime() - today.getTime()) / 86400000);
+  return Math.ceil((new Date(iso + 'T00:00:00').getTime() - today.getTime()) / 86400000);
 }
 
 function isUpcoming(iso: string): boolean { return daysUntil(iso) >= 0; }
 
-const CSS = `
-  :root {
-    --color-bg:          oklch(0.09 0.028 305);
-    --color-surface:     oklch(0.15 0.024 308);
-    --color-border:      oklch(0.26 0.022 305);
-    --color-text:        oklch(0.96 0.008 75);
-    --color-text-muted:  oklch(0.56 0.012 305);
-    --color-accent:      oklch(0.79 0.19 48);
-    --color-accent-dim:  oklch(0.18 0.048 48);
-  }
-  html, body { margin: 0; padding: 0; background: var(--color-bg); }
-
-  .page-root {
-    font-family: var(--font-body);
-    background-color: var(--color-bg);
-    background-image: radial-gradient(circle, oklch(0.28 0.026 308 / 0.38) 1px, transparent 1px);
-    background-size: 28px 28px;
-    color: var(--color-text);
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Nav */
-  .nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
-    padding: 0 48px; height: 68px;
-    display: flex; align-items: center; justify-content: space-between;
-    background: oklch(0.09 0.028 305 / 0.88);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--color-border);
-  }
-  .nav-left  { display: flex; align-items: center; gap: 32px; }
-  .nav-right { display: flex; align-items: center; gap: 12px; }
-  .nav-divider { width: 1px; height: 18px; background: var(--color-border); }
-  .nav-section {
-    font-family: var(--font-body); font-size: 11px; font-weight: 500;
-    letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-text-muted);
-  }
-  .btn-nav {
-    font-family: var(--font-display); font-size: 10px; font-weight: 600;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--color-text-muted); background: transparent;
-    border: 1px solid var(--color-border); padding: 8px 16px;
-    cursor: pointer; text-decoration: none;
-    display: inline-flex; align-items: center;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .btn-nav:hover { color: var(--color-text); border-color: oklch(0.42 0.022 305); }
-
-  /* Layout */
-  .main {
-    flex: 1; max-width: 860px; width: 100%; margin: 0 auto;
-    padding: 108px 48px 96px; box-sizing: border-box;
-    display: flex; flex-direction: column; gap: 64px;
-  }
-
-  /* Page heading */
-  .page-heading { display: flex; flex-direction: column; gap: 6px; }
-  .page-label {
-    font-family: var(--font-body); font-size: 11px; font-weight: 500;
-    letter-spacing: 0.20em; text-transform: uppercase; color: var(--color-accent);
-    display: flex; align-items: center; gap: 10px;
-  }
-  .page-label-line { display: block; width: 24px; height: 1px; background: var(--color-accent); flex-shrink: 0; }
-  .page-title {
-    font-family: var(--font-display); font-size: clamp(28px, 3.2vw, 42px);
-    font-weight: 900; letter-spacing: -0.02em; line-height: 1.1;
-    color: var(--color-text); margin: 0;
-  }
-  .page-sub {
-    font-family: var(--font-body); font-size: 13px; color: var(--color-text-muted);
-    margin: 8px 0 0; line-height: 1.5;
-  }
-
-  /* Section */
-  .section { display: flex; flex-direction: column; gap: 20px; }
-  .section-header { display: flex; align-items: baseline; gap: 10px; }
-  .section-title {
-    font-family: var(--font-display); font-size: 10px; font-weight: 600;
-    letter-spacing: 0.20em; text-transform: uppercase; color: var(--color-text-muted);
-  }
-  .section-count {
-    font-family: var(--font-display); font-size: 10px; font-weight: 600;
-    letter-spacing: 0.12em; color: var(--color-accent);
-  }
-
-  /* Card grid */
-  .card-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
-
-  /* Ticket card */
-  .ticket-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    display: flex; flex-direction: column;
-    position: relative; overflow: hidden;
-    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-    text-decoration: none; color: inherit;
-  }
-  .ticket-card:hover { transform: translateY(-2px); }
-
-  .ticket-card.card-upcoming {
-    border-color: oklch(0.79 0.19 48 / 0.45);
-    animation: cardGlow 3.5s ease-in-out infinite;
-  }
-  @keyframes cardGlow {
-    0%,100% { box-shadow: 0 0 0 1px oklch(0.79 0.19 48 / 0.12), 0 0 18px oklch(0.79 0.19 48 / 0.06); }
-    50%     { box-shadow: 0 0 0 1px oklch(0.79 0.19 48 / 0.30), 0 0 28px oklch(0.79 0.19 48 / 0.14); }
-  }
-  @media (prefers-reduced-motion: reduce) { .ticket-card.card-upcoming { animation: none; } }
-
-  .ticket-card.card-missed { opacity: 0.55; }
-  .ticket-card.card-missed:hover { opacity: 0.75; }
-
-  /* Art area */
-  .card-art {
-    height: 140px; position: relative; overflow: hidden;
-    flex-shrink: 0;
-  }
-  .card-art-bg {
-    position: absolute; inset: 0;
-  }
-  .card-art-noise {
-    position: absolute; inset: 0;
-    background-image: radial-gradient(circle, oklch(1 0 0 / 0.04) 1px, transparent 1px);
-    background-size: 14px 14px;
-  }
-
-  /* Attended stamp */
-  .card-stamp {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    pointer-events: none;
-  }
-  .card-stamp-text {
-    font-family: var(--font-display); font-size: 11px; font-weight: 900;
-    letter-spacing: 0.28em; text-transform: uppercase;
-    color: var(--color-accent);
-    border: 2px solid var(--color-accent);
-    padding: 5px 10px;
-    transform: rotate(-18deg);
-    opacity: 0.88;
-    box-shadow: 0 0 16px oklch(0.79 0.19 48 / 0.35), inset 0 0 16px oklch(0.79 0.19 48 / 0.06);
-  }
-  .card-stamp-text.missed-stamp {
-    color: oklch(0.65 0.08 32);
-    border-color: oklch(0.65 0.08 32);
-    box-shadow: none;
-  }
-
-  /* Days badge for upcoming */
-  .card-days {
-    position: absolute; top: 10px; right: 10px;
-    font-family: var(--font-display); font-size: 8px; font-weight: 600;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    background: oklch(0.09 0.028 305 / 0.75);
-    color: var(--color-accent); padding: 3px 7px;
-    border: 1px solid oklch(0.79 0.19 48 / 0.4);
-    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-  }
-
-  /* Card info */
-  .card-info {
-    padding: 12px 14px;
-    display: flex; flex-direction: column; gap: 3px;
-    border-top: 1px solid var(--color-border);
-    flex: 1;
-  }
-  .card-name {
-    font-family: var(--font-display); font-size: 11px; font-weight: 900;
-    letter-spacing: -0.01em; color: var(--color-text);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .card-date {
-    font-family: var(--font-body); font-size: 10px; color: var(--color-text-muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .card-footer {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-top: 8px;
-  }
-  .card-status {
-    font-family: var(--font-display); font-size: 8px; font-weight: 600;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    padding: 2px 6px;
-  }
-  .status-upcoming  { background: var(--color-accent-dim, oklch(0.18 0.04 48)); color: var(--color-accent); }
-  .status-attended  { background: oklch(0.16 0.04 150); color: oklch(0.72 0.18 150); }
-  .status-missed    { background: oklch(0.16 0.04 32);  color: oklch(0.65 0.10 32); }
-  .card-share {
-    font-family: var(--font-display); font-size: 8px; font-weight: 600;
-    letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--color-text-muted); background: transparent;
-    border: none; padding: 2px 0; cursor: pointer;
-    transition: color 0.15s;
-  }
-  .card-share:hover { color: var(--color-text); }
-  .card-share:disabled { opacity: 0.4; cursor: default; }
-
-  /* Badge cards */
-  .badge-grid {
-    display: flex; flex-wrap: wrap; gap: 10px;
-  }
-  .badge-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    width: 110px; padding: 16px 12px 14px;
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    box-sizing: border-box;
-  }
-  .badge-symbol {
-    font-family: var(--font-display); font-size: 22px; font-weight: 900;
-    line-height: 1;
-  }
-  .badge-name {
-    font-family: var(--font-display); font-size: 8px; font-weight: 600;
-    letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--color-text); text-align: center;
-  }
-  .badge-date {
-    font-family: var(--font-body); font-size: 9px; color: var(--color-text-muted);
-    text-align: center;
-  }
-
-  /* Empty */
-  .empty {
-    border: 1px dashed var(--color-border); padding: 28px 24px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .empty-text {
-    font-family: var(--font-body); font-size: 13px; color: var(--color-text-muted);
-    text-align: center; line-height: 1.6; margin: 0;
-  }
-
-  /* Modal */
-  .modal-backdrop {
-    position: fixed; inset: 0;
-    background: oklch(0.05 0.015 305 / 0.85);
-    backdrop-filter: blur(4px); z-index: 100;
-    display: flex; align-items: center; justify-content: center; padding: 24px;
-  }
-  .modal {
-    background: var(--color-surface); border: 1px solid var(--color-border);
-    padding: 28px 28px 24px; width: 100%; max-width: 420px;
-    display: flex; flex-direction: column; gap: 16px;
-  }
-  .modal-title {
-    font-family: var(--font-display); font-size: 14px; font-weight: 900;
-    letter-spacing: -0.01em; color: var(--color-text); margin: 0;
-  }
-  .modal-body {
-    font-family: var(--font-body); font-size: 13px;
-    color: var(--color-text-muted); line-height: 1.6; margin: 0;
-  }
-  .modal-url {
-    background: var(--color-bg); border: 1px solid var(--color-border);
-    padding: 10px 12px; font-family: var(--font-body); font-size: 12px;
-    color: var(--color-text-muted); word-break: break-all; line-height: 1.5;
-  }
-  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
-  .btn {
-    font-family: var(--font-display); font-size: 9px; font-weight: 600;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    padding: 7px 12px; cursor: pointer; text-decoration: none;
-    display: inline-flex; align-items: center; white-space: nowrap;
-    transition: opacity 0.15s, background 0.15s, border-color 0.15s, color 0.15s;
-  }
-  .btn-primary { color: oklch(0.09 0.028 305); background: var(--color-accent); border: 1px solid var(--color-accent); }
-  .btn-primary:hover { opacity: 0.85; }
-  .btn-ghost { color: var(--color-text-muted); background: transparent; border: 1px solid var(--color-border); }
-  .btn-ghost:hover { color: var(--color-text); border-color: oklch(0.42 0.022 305); }
-
-  /* Animations */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .a1 { animation: fadeUp 0.50s cubic-bezier(0.16,1,0.3,1) 0.05s both; }
-  .a2 { animation: fadeUp 0.50s cubic-bezier(0.16,1,0.3,1) 0.15s both; }
-  .a3 { animation: fadeUp 0.50s cubic-bezier(0.16,1,0.3,1) 0.25s both; }
-  .a4 { animation: fadeUp 0.50s cubic-bezier(0.16,1,0.3,1) 0.35s both; }
-  @media (prefers-reduced-motion: reduce) { .a1,.a2,.a3,.a4 { animation: none; } }
-
-  /* Public shelf link */
-  .shelf-link {
-    font-family: var(--font-body); font-size: 12px; color: var(--color-text-muted);
-    text-decoration: none; border-bottom: 1px solid var(--color-border);
-    padding-bottom: 1px; transition: color 0.15s, border-color 0.15s;
-  }
-  .shelf-link:hover { color: var(--color-text); border-color: var(--color-text-muted); }
-
-  /* Responsive */
-  @media (max-width: 640px) {
-    .nav { padding: 0 20px; }
-    .main { padding: 96px 20px 64px; }
-    .card-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .badge-card { width: calc(50% - 5px); }
-  }
-`;
-
 export default function MyTickets() {
   const router = useRouter();
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated, user, login } = usePrivy();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
 
@@ -380,14 +53,22 @@ export default function MyTickets() {
   const [badges, setBadges] = useState<BadgeItem[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [shareModal, setShareModal] = useState<{ assetId: string; url: string } | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [sharingAssetId, setSharingAssetId] = useState<string | null>(null);
   const [copyConfirmed, setCopyConfirmed] = useState(false);
 
   const buyerWallet = solanaWallets[0]?.address;
 
+  // Open the login modal at most once for signed-out visitors — never call
+  // login() from re-runs of this effect, or the modal resets mid-flow and the
+  // e-mail code step never appears.
+  const loginPrompted = useRef(false);
   useEffect(() => {
-    if (ready && !authenticated) router.push('/');
-  }, [ready, authenticated, router]);
+    if (ready && !authenticated && !loginPrompted.current) {
+      loginPrompted.current = true;
+      login();
+    }
+  }, [ready, authenticated, login]);
 
   useEffect(() => {
     if (!buyerWallet || loaded) return;
@@ -407,6 +88,7 @@ export default function MyTickets() {
   }, [buyerWallet, loaded]);
 
   async function handleShare(assetId: string, existingClaimUrl: string | null) {
+    setShareError(null);
     if (existingClaimUrl) { setShareModal({ assetId, url: existingClaimUrl }); return; }
     setSharingAssetId(assetId);
     try {
@@ -421,9 +103,9 @@ export default function MyTickets() {
         setTickets((prev) => prev.map((t) => t.assetId === assetId ? { ...t, claimUrl: data.url! } : t));
         setShareModal({ assetId, url: data.url });
       } else if (data.error === 'not_delegated') {
-        alert('This ticket was purchased before sharing was supported and cannot be shared.');
+        setShareError('Dieses Ticket wurde gekauft, bevor Weitergabe unterstützt wurde, und kann nicht geteilt werden.');
       } else {
-        alert(data.error ?? 'Failed to create share link.');
+        setShareError(data.error ?? 'Der Link konnte nicht erstellt werden.');
       }
     } finally {
       setSharingAssetId(null);
@@ -436,226 +118,236 @@ export default function MyTickets() {
     setTimeout(() => setCopyConfirmed(false), 2000);
   }
 
-  if (!ready || !authenticated) return null;
+  if (!ready) return null;
 
+  // Signed out and the login modal was dismissed: show an explicit sign-in
+  // state instead of a blank page or a silent bounce to the landing page.
+  if (!authenticated) {
+    return (
+      <div className="app">
+        <div className="topbar">
+          <div className="topbar-inner">
+            <PasslyLogo height={24} />
+            <div className="nav">
+              <Link href="/events">Events</Link>
+            </div>
+          </div>
+        </div>
+        <div className="main">
+          <div className="container" style={{ maxWidth: 480 }}>
+            <div className="card" style={{ padding: 32, textAlign: 'center', marginTop: 48 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', margin: '0 auto 14px', color: 'var(--accent)' }}>
+                <Icon name="ticket" size={20} />
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Tickets warten hier.</div>
+              <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.6 }}>
+                Melde dich mit deiner E-Mail-Adresse an — ohne Passwort, ein Code genügt.
+              </div>
+              <button className="btn primary" style={{ marginTop: 18 }} onClick={() => login()}>
+                Anmelden
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const email = user?.email?.address ?? '';
+  const initials = (email ? email.split('@')[0] : 'PA').slice(0, 2).toUpperCase();
   const loading = !!buyerWallet && !loaded;
   const upcoming = tickets.filter((t) => isUpcoming(t.eventDate));
-  const past      = tickets.filter((t) => !isUpcoming(t.eventDate));
+  const past = tickets.filter((t) => !isUpcoming(t.eventDate));
+  const isAllEmpty = loaded && tickets.length === 0 && badges.length === 0;
+
+  const ticketCard = (t: Ticket, kind: 'upcoming' | 'past') => {
+    const attended = !!t.redeemedAt;
+    const days = daysUntil(t.eventDate);
+    const daysLabel = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : `in ${days} Tagen`;
+    return (
+      <Link key={t.assetId} href={`/tickets/${t.assetId}`} className="event-card">
+        <div className="row gap-3">
+          <div className="date-chip">
+            <div className="m">{monthShort(t.eventDate)}</div>
+            <div className="d">{dayNum(t.eventDate)}</div>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="title">{t.eventName}</div>
+            <div className="meta">
+              <Icon name="calendar" size={12} /> {formatDate(t.eventDate)}
+            </div>
+          </div>
+        </div>
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          {kind === 'upcoming' ? (
+            <span className="chip accent"><span className="d" />{daysLabel}</span>
+          ) : attended ? (
+            <span className="chip ok"><span className="d" />Dabei gewesen</span>
+          ) : (
+            <span className="chip"><span className="d" />Verpasst</span>
+          )}
+          {(kind === 'upcoming' || attended) && (
+            <button
+              className="btn subtle sm"
+              onClick={(e) => { e.preventDefault(); void handleShare(t.assetId, t.claimUrl); }}
+              disabled={sharingAssetId === t.assetId}
+            >
+              <Icon name="share" size={12} /> {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Link kopieren' : 'Teilen'}
+            </button>
+          )}
+        </div>
+      </Link>
+    );
+  };
 
   return (
     <>
-      <style>{CSS}</style>
-      <div className={`page-root ${unbounded.variable} ${epilogue.variable}`}>
+      <div className="app">
 
-        <nav className="nav">
-          <div className="nav-left">
-            <PasslyLogo />
-            <div className="nav-divider" />
-            <div className="nav-section">My Shelf</div>
-          </div>
-          <div className="nav-right">
-            <Link href="/events" className="btn-nav">Events</Link>
-            <Link href={buyerWallet ? `/collection/${buyerWallet}` : '#'} className="btn-nav">
-              Public Profile
-            </Link>
-            <Link href="/dashboard" className="btn-nav">Dashboard</Link>
-            <button className="btn-nav" onClick={() => logout()}>Log out</button>
-          </div>
-        </nav>
-
-        <main className="main">
-
-          <div className="page-heading a1">
-            <div className="page-label">
-              <span className="page-label-line" />
-              Account
+        <div className="topbar">
+          <div className="topbar-inner">
+            <PasslyLogo height={24} />
+            <div className="nav">
+              <Link href="/events">Events</Link>
+              <Link href="/my-tickets" className="active">Meine Tickets</Link>
+              <Link href="/dashboard">Dashboard</Link>
             </div>
-            <h1 className="page-title">My Shelf</h1>
-            {buyerWallet && (
-              <p className="page-sub">
-                Share your shelf:{' '}
-                <Link href={`/collection/${buyerWallet}`} className="shelf-link">
-                  passly.xyz/collection/{buyerWallet.slice(0, 6)}…
-                </Link>
-              </p>
-            )}
-          </div>
-
-          {/* Upcoming */}
-          <div className="section a2">
-            <div className="section-header">
-              <div className="section-title">Upcoming</div>
-              {upcoming.length > 0 && <div className="section-count">{upcoming.length}</div>}
+            <div className="topbar-right">
+              <button className="btn subtle sm" onClick={() => logout()}>Abmelden</button>
+              <div className="avatar" title={email}>{initials}</div>
             </div>
-            {loading ? (
-              <div className="empty"><p className="empty-text">Loading…</p></div>
-            ) : upcoming.length === 0 ? (
-              <div className="empty">
-                <p className="empty-text">
-                  No upcoming tickets.{' '}
-                  <Link href="/" style={{ color: 'var(--color-accent)', textDecoration: 'none' }}>
-                    Browse events →
-                  </Link>
-                </p>
-              </div>
-            ) : (
-              <div className="card-grid">
-                {upcoming.map((t) => {
-                  const days = daysUntil(t.eventDate);
-                  const daysLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`;
-                  const hue = eventHue(t.eventName);
-                  const hue2 = (hue + 55) % 360;
-                  return (
-                    <Link key={t.assetId} href={`/tickets/${t.assetId}`} className="ticket-card card-upcoming">
-                      <div className="card-art">
-                        <div
-                          className="card-art-bg"
-                          style={{ background: `radial-gradient(ellipse at 35% 45%, oklch(0.30 0.18 ${hue} / 0.95), transparent 55%), radial-gradient(ellipse at 65% 60%, oklch(0.24 0.13 ${hue2} / 0.8), transparent 50%), oklch(0.13 0.06 ${hue})` }}
-                        />
-                        <div className="card-art-noise" />
-                        <div className="card-days">{daysLabel}</div>
-                      </div>
-                      <div className="card-info">
-                        <div className="card-name">{t.eventName}</div>
-                        <div className="card-date">{formatDateShort(t.eventDate)}</div>
-                        <div className="card-footer">
-                          <span className="card-status status-upcoming">Upcoming</span>
-                          <button
-                            className="card-share"
-                            onClick={(e) => { e.preventDefault(); void handleShare(t.assetId, t.claimUrl); }}
-                            disabled={sharingAssetId === t.assetId}
-                          >
-                            {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Copy link' : 'Share'}
-                          </button>
-                        </div>
-                      </div>
+          </div>
+        </div>
+
+        <div className="main">
+          <div className="container">
+
+            <div className="row gap-3" style={{ justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, flexWrap: 'wrap' }}>
+              <div>
+                <h1 style={{ fontSize: 30, letterSpacing: '-0.03em', fontWeight: 600, lineHeight: 1.1 }}>Meine Tickets</h1>
+                {buyerWallet && (
+                  <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6 }}>
+                    <Link href={`/collection/${buyerWallet}`} style={{ color: 'var(--accent)', fontWeight: 500 }}>
+                      Öffentliches Profil ansehen →
                     </Link>
-                  );
-                })}
+                  </div>
+                )}
+              </div>
+              <Link href="/events" className="btn ghost"><Icon name="ticket" size={14} /> Events entdecken</Link>
+            </div>
+
+            {shareError && (
+              <div className="card" style={{ padding: '12px 16px', marginBottom: 20, fontSize: 13, color: 'var(--bad)', border: '1px solid oklch(0.86 0.10 25)', background: 'var(--bad-wash)' }}>
+                {shareError}
               </div>
             )}
-          </div>
 
-          {/* Collection (past) */}
-          <div className="section a3">
-            <div className="section-header">
-              <div className="section-title">Collection</div>
-              {past.length > 0 && <div className="section-count">{past.length}</div>}
-            </div>
-            {loading ? (
-              <div className="empty"><p className="empty-text">Loading…</p></div>
-            ) : past.length === 0 ? (
-              <div className="empty">
-                <p className="empty-text">Events you attend will appear here as collectibles.</p>
-              </div>
-            ) : (
-              <div className="card-grid">
-                {past.map((t) => {
-                  const attended = !!t.redeemedAt;
-                  const hue = eventHue(t.eventName);
-                  const hue2 = (hue + 55) % 360;
-                  return (
-                    <Link
-                      key={t.assetId}
-                      href={`/tickets/${t.assetId}`}
-                      className={`ticket-card ${attended ? 'card-attended' : 'card-missed'}`}
-                    >
-                      <div className="card-art">
-                        <div
-                          className="card-art-bg"
-                          style={{
-                            background: `radial-gradient(ellipse at 35% 45%, oklch(0.30 0.18 ${hue} / 0.95), transparent 55%), radial-gradient(ellipse at 65% 60%, oklch(0.24 0.13 ${hue2} / 0.8), transparent 50%), oklch(0.13 0.06 ${hue})`,
-                            filter: attended ? 'none' : 'grayscale(0.6) brightness(0.55)',
-                          }}
-                        />
-                        <div className="card-art-noise" />
-                        {attended && (
-                          <div className="card-stamp">
-                            <span className="card-stamp-text">Attended</span>
-                          </div>
-                        )}
-                        {!attended && (
-                          <div className="card-stamp">
-                            <span className="card-stamp-text missed-stamp">Missed</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="card-info">
-                        <div className="card-name">{t.eventName}</div>
-                        <div className="card-date">{formatDateShort(t.eventDate)}</div>
-                        <div className="card-footer">
-                          <span className={`card-status ${attended ? 'status-attended' : 'status-missed'}`}>
-                            {attended ? 'Attended' : 'Missed'}
-                          </span>
-                          {attended && (
-                            <button
-                              className="card-share"
-                              onClick={(e) => { e.preventDefault(); void handleShare(t.assetId, t.claimUrl); }}
-                              disabled={sharingAssetId === t.assetId}
-                            >
-                              {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Copy link' : 'Share'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
+            {loading && (
+              <div className="card"><div className="empty">Lade Tickets …</div></div>
+            )}
+
+            {!loading && isAllEmpty && (
+              <div className="card">
+                <div className="empty">
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', margin: '0 auto 12px', color: 'var(--accent)' }}>
+                    <Icon name="ticket" size={20} />
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Dein erstes Ticket wartet hier.</div>
+                  <div style={{ fontSize: 13, marginTop: 4, marginBottom: 16 }}>Kauf ein Ticket — es landet automatisch in dieser Übersicht.</div>
+                  <Link href="/events" className="btn primary">Events entdecken <Icon name="arrow" size={13} /></Link>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Badges */}
-          <div className="section a4">
-            <div className="section-header">
-              <div className="section-title">Badges</div>
-              {badges.length > 0 && <div className="section-count">{badges.length}</div>}
-            </div>
-            {loading ? (
-              <div className="empty"><p className="empty-text">Loading…</p></div>
-            ) : badges.length === 0 ? (
-              <div className="empty">
-                <p className="empty-text">Attend your first show to earn a badge.</p>
-              </div>
-            ) : (
-              <div className="badge-grid">
-                {badges.map((b) => {
-                  const meta = BADGE_DISPLAY[b.badgeType] ?? { name: b.badgeType, symbol: '◆', hue: 260 };
-                  const earnedDate = new Date(b.earnedAt).toLocaleDateString('en-GB', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                  });
-                  return (
-                    <div key={b.badgeType} className="badge-card">
-                      <span
-                        className="badge-symbol"
-                        style={{ color: `oklch(0.78 0.20 ${meta.hue})` }}
-                      >
-                        {meta.symbol}
-                      </span>
-                      <div className="badge-name">{meta.name}</div>
-                      <div className="badge-date">{earnedDate}</div>
+            {!loading && !isAllEmpty && (
+              <>
+                <section>
+                  <div className="section-head">
+                    <div>
+                      <h2>Bevorstehend</h2>
+                      <div className="sub">{upcoming.length} Ticket{upcoming.length !== 1 ? 's' : ''}</div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                  </div>
+                  {upcoming.length === 0 ? (
+                    <div className="card">
+                      <div className="empty">
+                        Keine bevorstehenden Tickets. <Link href="/events" style={{ color: 'var(--accent)', fontWeight: 500 }}>Events entdecken →</Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="events-grid">
+                      {upcoming.map((t) => ticketCard(t, 'upcoming'))}
+                    </div>
+                  )}
+                </section>
 
-        </main>
+                <section>
+                  <div className="section-head">
+                    <div>
+                      <h2>Sammlung</h2>
+                      <div className="sub">Besuchte Events</div>
+                    </div>
+                  </div>
+                  {past.length === 0 ? (
+                    <div className="card">
+                      <div className="empty">Events, bei denen du warst, erscheinen hier als Erinnerung.</div>
+                    </div>
+                  ) : (
+                    <div className="events-grid">
+                      {past.map((t) => ticketCard(t, 'past'))}
+                    </div>
+                  )}
+                </section>
+
+                {badges.length > 0 && (
+                  <section>
+                    <div className="section-head">
+                      <div>
+                        <h2>Abzeichen</h2>
+                        <div className="sub">{badges.length} verdient</div>
+                      </div>
+                    </div>
+                    <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
+                      {badges.map((b) => {
+                        const meta = BADGE_DISPLAY[b.badgeType] ?? { name: b.badgeType, symbol: '◆', hue: 260 };
+                        const earned = new Date(b.earnedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
+                        return (
+                          <div key={b.badgeType} className="card" style={{ padding: '16px 20px', width: 130, textAlign: 'center' }}>
+                            <div style={{ fontSize: 24, fontWeight: 600, color: `oklch(0.54 0.20 ${meta.hue})`, lineHeight: 1 }}>{meta.symbol}</div>
+                            <div style={{ fontSize: 12.5, fontWeight: 600, marginTop: 8 }}>{meta.name}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 2 }}>{earned}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+
+            <LegalLinks style={{ marginTop: 56, justifyContent: 'flex-start' }} />
+
+          </div>
+        </div>
       </div>
 
       {shareModal && (
         <div className="modal-backdrop" onClick={() => setShareModal(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Share ticket link</h2>
-            <p className="modal-body">
-              Send this link to a friend or buyer. Once claimed, the ticket transfers to them and this link becomes invalid.
-            </p>
-            <div className="modal-url">{shareModal.url}</div>
-            <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={() => setShareModal(null)}>Close</button>
-              <button className="btn btn-primary" onClick={() => void handleCopy(shareModal.url)}>
-                {copyConfirmed ? 'Copied!' : 'Copy link'}
+            <div className="modal-head">
+              <h3>Ticket-Link teilen</h3>
+              <button className="close-btn" onClick={() => setShareModal(null)}><Icon name="x" size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
+                Schicke diesen Link an eine Freundin oder einen Freund. Sobald er eingelöst wird, geht das Ticket über — und der Link wird ungültig.
+              </p>
+              <div className="input mono" style={{ fontSize: 12, wordBreak: 'break-all', userSelect: 'all' }}>{shareModal.url}</div>
+            </div>
+            <div className="modal-foot">
+              <button className="btn ghost" onClick={() => setShareModal(null)}>Schließen</button>
+              <button className="btn primary" onClick={() => void handleCopy(shareModal.url)}>
+                {copyConfirmed ? 'Kopiert!' : 'Link kopieren'}
               </button>
             </div>
           </div>

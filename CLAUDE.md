@@ -48,6 +48,7 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 | `/my-tickets` | Buyer's ticket collection |
 | `/tickets/[assetId]` | Individual ticket + QR code |
 | `/doorman/[eventId]` | Camera scanner for venue staff |
+| `/dashboard/events/[id]` | Organizer event detail (tickets, redemption, quick actions) |
 
 ### Authentication & wallets (Privy)
 
@@ -59,13 +60,15 @@ Root layout wraps everything in `PrivyProvider`. Login method is **email only** 
 - **Minting**: `src/lib/mint.ts` — Metaplex Bubblegum cNFTs. The operator keypair (`OPERATOR_PRIVATE_KEY`) signs every mint; the buyer's embedded wallet receives the cNFT as `leafOwner`. The buyer never signs — don't change this to client-side signing.
 - **Merkle trees**: `MERKLE_TREE_ADDRESSES` (comma-separated; each mint picks one at random via `pickMerkleTree()` — spreads concurrent mints so tree transactions don't conflict). Legacy fallback: `MERKLE_TREE_ADDRESS`. `npm run create-tree` creates one tree on the network `NEXT_PUBLIC_HELIUS_RPC_URL` points at (~0.1 SOL on mainnet, depth 14 = 16,384 tickets).
 - **Asset queries**: Helius DAS API (`HELIUS_API_KEY`) for ownership and metadata lookups; always fetched with `cache: 'no-store'`.
-- **cNFT metadata attributes**: use `trait_type: "Event Name"` and `trait_type: "Event Date"` (two words, title-case). Both `/api/tickets/metadata` (writer) and `/tickets/[assetId]/page.tsx` (reader) must match these exact strings.
+- **cNFT metadata**: static per-event JSON in the public Supabase Storage bucket `event-assets` (`metadata/<eventId>.json`, written by `uploadEventMetadata` in `src/lib/eventMetadata.ts` during `/api/events/create`; `events.metadata_uri` stores the URL, `events.image_url` the optional event image uploaded via `/api/events/upload-image`). The mint uses `metadata_uri`; the legacy dynamic route `/api/tickets/metadata?name=&date=` remains as fallback for events created before it existed (their minted assets point at it on-chain — don't remove).
+- **cNFT metadata attributes**: use `trait_type: "Event Name"` and `trait_type: "Event Date"` (two words, title-case). All writers (`uploadEventMetadata`, `/api/tickets/metadata`) and the reader `/tickets/[assetId]/page.tsx` must match these exact strings.
 
 ### Database (Supabase)
 
 Tables:
-- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, created_at`
+- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, image_url, metadata_uri, venue, description, created_at`
   - `is_private boolean default false` — private events are excluded from `/api/events/public` but still purchasable via direct link.
+  - `image_url` / `metadata_uri` — public Supabase Storage URLs (bucket `event-assets`); `metadata_uri` is stamped on-chain at mint, NULL for pre-existing events (mint falls back to the legacy dynamic metadata route).
   - `payout_hold_days int default 0 (0–90)` — days after the event date before ticket revenue is transferred to the organizer (chargeback protection). 0 = transferred by the next daily payout cron.
   - `tickets_reserved int default 0` — capacity claimed by open checkout sessions. Available = `capacity - tickets_sold - tickets_reserved`. Never update `tickets_sold`/`tickets_reserved` directly from code — always go through the SQL functions `reserve_tickets`, `unreserve_tickets`, `finalize_ticket_sale`, `release_reservation`, `release_expired_reservations` (atomic, race-free).
 - `ticket_reservations`: one row per checkout session — `stripe_session_id (PK), event_id, quantity, status (reserved|finalized|released), expires_at`. State transitions happen only inside the SQL functions above.
@@ -77,7 +80,8 @@ Tables:
 
 ### Stripe Connect payouts
 
-- **Model**: Separate Charges & Transfers (NOT destination charges) — rationale documented in `src/lib/payouts.ts`. The platform charges the buyer; the webhook writes a `payouts` row; `/api/cron/payouts` (Vercel Cron, daily 03:00 UTC, auth `Bearer CRON_SECRET`) transfers `net_cents` (gross − 3%) to the organizer's Express account once `available_at` has passed, using `source_transaction` and idempotency key `payout-transfer-<payout id>`.
+- **Model**: Separate Charges & Transfers (NOT destination charges) — rationale documented in `src/lib/payouts.ts`. The platform charges the buyer; the webhook writes a `payouts` row; `/api/cron/payouts` (Vercel Cron, daily 03:00 UTC, auth `Bearer CRON_SECRET`) transfers `net_cents` to the organizer's Express account once `available_at` has passed, using `source_transaction` and idempotency key `payout-transfer-<payout id>`.
+- **Fees**: buyer-side service fee €1.00 + 4% **per ticket** (`src/lib/fees.ts` — client-safe, imported by the shop UI) added as a second Stripe line item; the organizer nets 100% of the face price. The fee total is stored in the session metadata (`serviceFeeCents`) and booked as `fee_cents` by the webhook. Sessions without that metadata (pre-fee) fall back to the legacy organizer-side 3% split (`computeFeeSplit`, `PLATFORM_FEE_BPS` — keep for legacy rows). Free tickets carry no fee. Partial refunds rescale fee/net by the payout row's own fee ratio.
 - **KYC gate**: organizers can always create events; `/api/checkout/create` returns 503 for paid events until the organizer's Connect account has `charges_enabled`.
 - **Failure handling**: failed transfers (restricted account etc.) → status `held`, funds stay on the platform balance. `charge.dispute.created` blocks a pending transfer (`disputed`). Admin resolution UI at `/admin/payouts` (gated by `ADMIN_SECRET`, sent as `x-admin-secret`): retry / release / cancel.
 - **Webhook idempotency**: every handled event ID is claimed via PK insert into `stripe_webhook_events` before processing. On payout-row/finalize/enqueue failures the claim is released and a 500 returned so Stripe retries. Mint retries are handled by the `mint_jobs` queue, not by Stripe redelivery.
@@ -90,9 +94,11 @@ Tables:
 
 ### Conventions
 
-- **Styling**: Pages use inline `<style>{`...`}</style>` blocks with the OKLCH design-token palette: `--color-bg`, `--color-surface`, `--color-border`, `--color-text`, `--color-text-muted`, `--color-accent`, `--color-accent-bg`. Don't introduce Tailwind utility classes on new pages — match the existing inline-style pattern.
-- **Fonts**: Loaded via `next/font/google` per-page (Unbounded → `--font-display`, Epilogue → `--font-body`) and applied by spreading `${unbounded.variable} ${epilogue.variable}` onto the root div.
-- **Client vs server**: Most pages are `'use client'` because of Privy hooks. Server components are limited to `/shop/[id]/page.tsx`, `/tickets/[assetId]/page.tsx` (data fetching), and all `/api/*` routes.
+- **Design system ("Tokn Based" light template, fully migrated 2026-07-06)**: light theme, violet accent via `--hue: 285`, Geist fonts. Design tokens (`--ink*/--surface*/--accent*`, radii, shadows) **and** the shared component CSS (`.topbar`, `.card`, `.btn`, `.chip`, `.event-card`, `.modal`, `.drawer`, `.field/.input`, `.aurora`, utilities …) live in `src/app/globals.css`. `Icon` (stroke icon set) and `Spark` (sparkline) live in `src/app/components/passlyUi.tsx`. Page archetypes: app pages = `.app > .topbar > .main > .aurora + .container` with `.hero`; mobile pages (ticket, doorman, shop, claim, success) = centered card on `radial-gradient(1000px 500px at 50% -10%, var(--accent-wash), transparent 60%), var(--surface-2)`.
+- **Language**: all user-facing copy is **German** (getpassly.de), du-Form. No crypto/web3/Solana wording anywhere in the UI — framing is "fälschungssicher"; say "Konto"/"Ticket" instead of wallet/NFT.
+- **Styling**: page-specific styles go in inline `<style>{`...`}</style>` blocks referencing the global tokens/classes. Don't introduce Tailwind utility classes on new pages.
+- **Fonts**: Geist + Geist Mono loaded once in the root layout (`--font-geist`, `--font-geist-mono`, referenced as `--font`/`--mono`). No other fonts.
+- **Client vs server**: Most pages are `'use client'` because of Privy hooks. Server components are limited to `/`, `/events`, `/shop/[id]/page.tsx`, `/tickets/[assetId]/page.tsx`, `/collection/[walletAddress]` (data fetching) and all `/api/*` routes.
 - **Stack versions**: Next.js 16 App Router, React 19, Tailwind 4 (PostCSS only, no config file). Don't suggest patterns that assume older versions.
 
 ### Path alias

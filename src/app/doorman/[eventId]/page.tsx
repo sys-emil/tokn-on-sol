@@ -3,23 +3,10 @@
 import jsQR from 'jsqr';
 import { usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
-import { Epilogue, Unbounded } from 'next/font/google';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-const unbounded = Unbounded({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['400', '600', '900'],
-  display: 'swap',
-});
-
-const epilogue = Epilogue({
-  subsets: ['latin'],
-  variable: '--font-body',
-  weight: ['400', '500'],
-  display: 'swap',
-});
+import { Icon } from '@/app/components/passlyUi';
+import { LegalLinks } from '@/app/components/LegalLinks';
 
 interface EventData {
   id: string;
@@ -39,12 +26,153 @@ type Phase =
   | { tag: 'result-invalid'; reason: string };
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
 function shortId(assetId: string): string {
   return `#PSL-${assetId.slice(-4).toUpperCase()}`;
 }
+
+function formatDate(iso: string): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+// The verify API returns English reason strings — translate the ones the
+// doorman needs to act on differently; everything else is a generic reject.
+function reasonDe(reason: string): string {
+  switch (reason) {
+    case 'QR code expired': return 'Der QR-Code ist abgelaufen — Gast soll die Ticketseite neu laden.';
+    case 'Ticket revoked (refunded)': return 'Dieses Ticket wurde storniert (Kauf erstattet).';
+    case 'Wallet does not own this ticket': return 'Das Ticket gehört einem anderen Konto.';
+    case 'Ticket not found': return 'Kein passendes Ticket gefunden.';
+    case 'Netzwerkfehler. Bitte erneut versuchen.': return reason;
+    default: return 'Kein gültiges Ticket erkannt.';
+  }
+}
+
+const PAGE_CSS = `
+  .door-root {
+    min-height: 100dvh;
+    display: flex; flex-direction: column;
+    background: var(--surface-2);
+  }
+
+  .door-header {
+    background: color-mix(in oklab, var(--surface) 92%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    flex-shrink: 0; z-index: 10;
+  }
+
+  .door-counters {
+    padding: 12px 20px 0;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    flex-shrink: 0;
+  }
+  .door-counter {
+    padding: 10px 12px;
+    background: var(--surface);
+    border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  .door-counter .l {
+    font-size: 10.5px; color: var(--ink-3);
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .door-counter .v {
+    font-size: 18px; font-weight: 600; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .scanner-wrap {
+    flex: 1;
+    margin: 14px 20px;
+    position: relative;
+    background: oklch(0.24 0.02 275);
+    overflow: hidden;
+    min-height: 0;
+    border-radius: 18px;
+  }
+
+  .scanner-video {
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
+    position: absolute; inset: 0;
+  }
+
+  .corners span {
+    position: absolute; width: 30px; height: 30px;
+    border: 3px solid white; border-radius: 6px;
+    z-index: 3;
+  }
+  .corners .tl { top: 14%; left: 14%; border-right: none; border-bottom: none; }
+  .corners .tr { top: 14%; right: 14%; border-left: none; border-bottom: none; }
+  .corners .bl { bottom: 14%; left: 14%; border-right: none; border-top: none; }
+  .corners .br { bottom: 14%; right: 14%; border-left: none; border-top: none; }
+
+  .beam {
+    position: absolute; left: 14%; right: 14%; top: 14%; bottom: 14%;
+    overflow: hidden; border-radius: 6px; z-index: 3;
+  }
+  .beam::after {
+    content: "";
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, oklch(0.9 0.2 var(--hue)), transparent);
+    box-shadow: 0 0 14px oklch(0.7 0.2 var(--hue));
+    animation: sweep 2.2s ease-in-out infinite;
+    top: 0;
+  }
+  @keyframes sweep {
+    0% { top: 0; }
+    50% { top: calc(100% - 2px); }
+    100% { top: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { .beam::after { animation: none; top: 50%; } }
+
+  .result-overlay {
+    position: absolute; inset: 0; z-index: 5;
+    display: grid; place-items: center;
+    color: white;
+    animation: fadeIn 0.2s;
+    text-align: center;
+    padding: 16px;
+  }
+  .result-circle {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: white;
+    display: grid; place-items: center;
+    margin: 0 auto 10px;
+  }
+
+  .spinner {
+    width: 32px; height: 32px;
+    border: 2.5px solid var(--line-2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .door-foot {
+    padding: 0 20px 18px;
+    text-align: center;
+    color: var(--ink-3);
+    font-size: 12.5px;
+    flex-shrink: 0;
+  }
+
+  .center-screen {
+    min-height: 100dvh;
+    display: grid; place-items: center;
+    padding: 40px 20px;
+    background:
+      radial-gradient(1000px 500px at 50% -10%, var(--accent-wash), transparent 60%),
+      var(--surface-2);
+  }
+`;
 
 export default function DoormanPage() {
   const params = useParams();
@@ -57,10 +185,12 @@ export default function DoormanPage() {
   const [event, setEvent] = useState<EventData | null>(null);
   const [phase, setPhase] = useState<Phase>({ tag: 'loading' });
   const [scannedToday, setScannedToday] = useState(0);
+  const [lastScan, setLastScan] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const processingRef = useRef(false);
+  const loginPromptedRef = useRef(false);
 
   // Fetch event
   useEffect(() => {
@@ -71,11 +201,16 @@ export default function DoormanPage() {
       .catch(() => setEvent(null));
   }, [eventId]);
 
-  // Auth + access check
+  // Auth + access check. login() may only fire once — this effect re-runs
+  // when the event fetch resolves, and re-invoking login() mid-flow resets
+  // the Privy modal so the e-mail code step never appears.
   useEffect(() => {
     if (!ready) return;
     if (!authenticated) {
-      login();
+      if (!loginPromptedRef.current) {
+        loginPromptedRef.current = true;
+        login();
+      }
       return;
     }
     if (!event) return;
@@ -110,6 +245,7 @@ export default function DoormanPage() {
 
       if (data.valid) {
         setScannedToday((n) => n + 1);
+        setLastScan(new Date().toISOString());
         setPhase({ tag: 'result-valid', assetId: data.assetId, eventName: data.eventName, redeemedAt: data.redeemedAt });
       } else if (data.reason === 'Already redeemed') {
         setPhase({ tag: 'result-used', redeemedAt: data.redeemedAt ?? '' });
@@ -117,7 +253,7 @@ export default function DoormanPage() {
         setPhase({ tag: 'result-invalid', reason: data.reason });
       }
     } catch {
-      setPhase({ tag: 'result-invalid', reason: 'Network error. Try again.' });
+      setPhase({ tag: 'result-invalid', reason: 'Netzwerkfehler. Bitte erneut versuchen.' });
     }
 
     setTimeout(() => {
@@ -184,7 +320,7 @@ export default function DoormanPage() {
         requestAnimationFrame(scanFrame);
       } catch (err) {
         if (!abortController.signal.aborted) {
-          const msg = err instanceof Error ? err.message : 'Camera unavailable';
+          const msg = err instanceof Error ? err.message : 'Kamera nicht verfügbar';
           setPhase({ tag: 'camera-error', message: msg });
         }
       }
@@ -199,419 +335,141 @@ export default function DoormanPage() {
   }, [phase.tag, handleQrResult]);
 
   const isResult = phase.tag === 'result-valid' || phase.tag === 'result-used' || phase.tag === 'result-invalid';
-  const overlayColor =
-    phase.tag === 'result-valid' ? 'oklch(0.38 0.14 148)' :
-    phase.tag === 'result-used'  ? 'oklch(0.48 0.14 60)'  :
-    phase.tag === 'result-invalid' ? 'oklch(0.38 0.18 28)' : 'transparent';
 
   return (
     <>
-      <style>{`
-        :root {
-          --color-bg:         oklch(0.10 0.014 258);
-          --color-surface:    oklch(0.14 0.014 258);
-          --color-border:     oklch(0.22 0.016 258);
-          --color-text:       oklch(0.96 0.008 95);
-          --color-text-muted: oklch(0.48 0.012 250);
-          --color-accent:     oklch(0.72 0.118 148);
-        }
+      <style>{PAGE_CSS}</style>
 
-        html, body { margin: 0; padding: 0; background: #000; }
-
-        .doorman-root {
-          font-family: var(--font-body);
-          background: #000;
-          color: var(--color-text);
-          min-height: 100dvh;
-          display: flex;
-          flex-direction: column;
-        }
-
-        /* ── Header ─────────────────────────────────────────── */
-        .doorman-header {
-          background: oklch(0.10 0.014 258 / 0.92);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border-bottom: 1px solid var(--color-border);
-          padding: 16px 24px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-shrink: 0;
-          z-index: 10;
-        }
-
-        .doorman-header-left {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .doorman-eyebrow {
-          font-family: var(--font-display);
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.20em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-        }
-
-        .doorman-event-name {
-          font-family: var(--font-display);
-          font-size: 16px;
-          font-weight: 900;
-          letter-spacing: -0.01em;
-          color: var(--color-text);
-        }
-
-        .doorman-event-date {
-          font-family: var(--font-body);
-          font-size: 12px;
-          color: var(--color-text-muted);
-        }
-
-        .doorman-counter {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 2px;
-        }
-
-        .doorman-counter-num {
-          font-family: var(--font-display);
-          font-size: 28px;
-          font-weight: 900;
-          letter-spacing: -0.03em;
-          line-height: 1;
-          color: var(--color-accent);
-        }
-
-        .doorman-counter-label {
-          font-family: var(--font-body);
-          font-size: 10px;
-          color: var(--color-text-muted);
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-
-        /* ── Scanner area ────────────────────────────────────── */
-        .scanner-wrap {
-          flex: 1;
-          position: relative;
-          background: #000;
-          overflow: hidden;
-          min-height: 0;
-        }
-
-        .scanner-video {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-
-        /* Scanning guide frame */
-        .scan-frame {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          pointer-events: none;
-        }
-
-        .scan-box {
-          width: min(260px, 60vw);
-          height: min(260px, 60vw);
-          position: relative;
-        }
-
-        .scan-box::before,
-        .scan-box::after,
-        .scan-box-inner::before,
-        .scan-box-inner::after {
-          content: '';
-          position: absolute;
-          width: 28px;
-          height: 28px;
-          border-color: var(--color-accent);
-          border-style: solid;
-        }
-
-        .scan-box::before    { top: 0;    left: 0;  border-width: 2px 0 0 2px; }
-        .scan-box::after     { top: 0;    right: 0; border-width: 2px 2px 0 0; }
-        .scan-box-inner::before { bottom: 0; left: 0;  border-width: 0 0 2px 2px; }
-        .scan-box-inner::after  { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
-
-        .scan-line {
-          position: absolute;
-          left: 4px;
-          right: 4px;
-          height: 2px;
-          background: var(--color-accent);
-          opacity: 0.7;
-          animation: scanLine 2s ease-in-out infinite;
-        }
-
-        @keyframes scanLine {
-          0%   { top: 8px;  opacity: 0; }
-          10%  { opacity: 0.7; }
-          90%  { opacity: 0.7; }
-          100% { top: calc(100% - 10px); opacity: 0; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .scan-line { animation: none; top: 50%; }
-        }
-
-        /* ── Result overlay ──────────────────────────────────── */
-        .result-overlay {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 16px;
-          padding: 32px;
-          text-align: center;
-          animation: overlayIn 0.18s ease both;
-        }
-
-        @keyframes overlayIn {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-
-        .result-icon {
-          font-size: 64px;
-          line-height: 1;
-        }
-
-        .result-status {
-          font-family: var(--font-display);
-          font-size: 28px;
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          color: #fff;
-          margin: 0;
-        }
-
-        .result-detail {
-          font-family: var(--font-body);
-          font-size: 15px;
-          color: rgba(255, 255, 255, 0.80);
-          line-height: 1.5;
-          margin: 0;
-        }
-
-        .result-meta {
-          font-family: var(--font-display);
-          font-size: 11px;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: rgba(255, 255, 255, 0.55);
-          margin-top: 4px;
-        }
-
-        /* ── Verifying overlay ───────────────────────────────── */
-        .verifying-overlay {
-          position: absolute;
-          inset: 0;
-          background: oklch(0.10 0.014 258 / 0.80);
-          backdrop-filter: blur(8px);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 16px;
-        }
-
-        .spinner {
-          width: 32px;
-          height: 32px;
-          border: 2.5px solid var(--color-border);
-          border-top-color: var(--color-accent);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .verifying-text {
-          font-family: var(--font-display);
-          font-size: 13px;
-          font-weight: 600;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
-
-        /* ── Footer ──────────────────────────────────────────── */
-        .doorman-footer {
-          background: oklch(0.10 0.014 258 / 0.92);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          border-top: 1px solid var(--color-border);
-          padding: 14px 24px;
-          text-align: center;
-          flex-shrink: 0;
-        }
-
-        .doorman-footer-text {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-        }
-
-        /* ── Full-screen states ──────────────────────────────── */
-        .center-screen {
-          min-height: 100dvh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 16px;
-          padding: 48px 24px;
-          background-color: var(--color-bg);
-          background-image: radial-gradient(circle, oklch(0.23 0.014 258 / 0.45) 1px, transparent 1px);
-          background-size: 28px 28px;
-          text-align: center;
-        }
-
-        .state-eyebrow {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-        }
-
-        .state-title {
-          font-family: var(--font-display);
-          font-size: 22px;
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        .state-body {
-          font-family: var(--font-body);
-          font-size: 14px;
-          color: var(--color-text-muted);
-          line-height: 1.6;
-          max-width: 320px;
-          margin: 0;
-        }
-      `}</style>
-
-      <div className={`${unbounded.variable} ${epilogue.variable}`}>
-        {/* Loading / auth / access denied states */}
-        {(phase.tag === 'loading' || !event) && (
-          <div className="center-screen">
-            <div className="spinner" style={{ borderTopColor: 'var(--color-accent)', borderColor: 'var(--color-border)', width: 28, height: 28 }} />
-            <div className="state-eyebrow">Doorman</div>
-            <h1 className="state-title">Loading…</h1>
+      {/* Loading / auth / access denied states */}
+      {(phase.tag === 'loading' || !event) && phase.tag !== 'denied' && phase.tag !== 'camera-error' && (
+        <div className="center-screen">
+          <div className="card" style={{ padding: 32, textAlign: 'center', maxWidth: 340 }}>
+            <div className="spinner" style={{ margin: '0 auto 14px' }} />
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Einlass</div>
+            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 4 }}>Wird geladen …</div>
           </div>
-        )}
+        </div>
+      )}
 
-        {phase.tag === 'denied' && (
-          <div className="center-screen">
-            <div className="state-eyebrow">Access denied</div>
-            <h1 className="state-title">Not authorized</h1>
-            <p className="state-body">
-              Your wallet is not the organizer of this event.<br />
-              Connect the correct wallet to access doorman mode.
+      {phase.tag === 'denied' && (
+        <div className="center-screen">
+          <div className="card" style={{ padding: 32, textAlign: 'center', maxWidth: 380 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--bad-wash)', border: '1px solid oklch(0.86 0.10 25)', display: 'grid', placeItems: 'center', margin: '0 auto 12px', color: 'var(--bad)' }}>
+              <Icon name="x" size={20} />
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 600 }}>Kein Zugriff</div>
+            <p style={{ fontSize: 13.5, color: 'var(--ink-3)', lineHeight: 1.55, marginTop: 8 }}>
+              Dieses Konto ist nicht der Veranstalter dieses Events.
+              Melde dich mit dem Veranstalter-Konto an, um den Einlass-Modus zu öffnen.
             </p>
           </div>
-        )}
+        </div>
+      )}
 
-        {phase.tag === 'camera-error' && (
-          <div className="center-screen">
-            <div className="state-eyebrow">Camera error</div>
-            <h1 className="state-title">Camera unavailable</h1>
-            <p className="state-body">{phase.message}</p>
+      {phase.tag === 'camera-error' && (
+        <div className="center-screen">
+          <div className="card" style={{ padding: 32, textAlign: 'center', maxWidth: 380 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--warn-wash)', border: '1px solid oklch(0.86 0.09 70)', display: 'grid', placeItems: 'center', margin: '0 auto 12px', color: 'var(--warn)' }}>
+              <Icon name="camera" size={20} />
+            </div>
+            <div style={{ fontSize: 17, fontWeight: 600 }}>Kamera nicht verfügbar</div>
+            <p style={{ fontSize: 13.5, color: 'var(--ink-3)', lineHeight: 1.55, marginTop: 8 }}>{phase.message}</p>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Main scanner UI */}
-        {event && phase.tag !== 'denied' && phase.tag !== 'camera-error' && phase.tag !== 'loading' && (
-          <div className="doorman-root">
-            <header className="doorman-header">
-              <div className="doorman-header-left">
-                <div className="doorman-eyebrow">Doorman</div>
-                <div className="doorman-event-name">{event.name}</div>
-                <div className="doorman-event-date">{event.date}</div>
+      {/* Main scanner UI */}
+      {event && phase.tag !== 'denied' && phase.tag !== 'camera-error' && phase.tag !== 'loading' && (
+        <div className="door-root">
+          <header className="door-header">
+            <div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Einlass</div>
+              <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{event.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{formatDate(event.date)}</div>
+            </div>
+            <span className="chip ok"><span className="d" />Live</span>
+          </header>
+
+          <div className="door-counters">
+            <div className="door-counter">
+              <div className="l">Eingelassen</div>
+              <div className="v">{scannedToday}</div>
+            </div>
+            <div className="door-counter">
+              <div className="l">Letzter Einlass</div>
+              <div className="v">{lastScan ? formatTime(lastScan) : '—'}</div>
+            </div>
+          </div>
+
+          <div className="scanner-wrap">
+            <video ref={videoRef} className="scanner-video" muted playsInline />
+            <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+            {phase.tag === 'scanning' && (
+              <>
+                <div className="corners">
+                  <span className="tl" /><span className="tr" /><span className="bl" /><span className="br" />
+                </div>
+                <div className="beam" />
+              </>
+            )}
+
+            {phase.tag === 'verifying' && (
+              <div className="result-overlay" style={{ background: 'color-mix(in oklab, var(--ink) 55%, transparent)', backdropFilter: 'blur(6px)' }}>
+                <div>
+                  <div className="spinner" style={{ margin: '0 auto 12px', borderTopColor: 'white', borderColor: 'rgba(255,255,255,0.3)' }} />
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Wird geprüft …</div>
+                </div>
               </div>
-              <div className="doorman-counter">
-                <div className="doorman-counter-num">{scannedToday}</div>
-                <div className="doorman-counter-label">scanned today</div>
+            )}
+
+            {phase.tag === 'result-valid' && (
+              <div className="result-overlay" style={{ background: 'oklch(0.40 0.14 150)' }}>
+                <div>
+                  <div className="result-circle" style={{ color: 'var(--ok)' }}>
+                    <Icon name="check" size={40} strokeWidth={3} />
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>Willkommen!</div>
+                  <div style={{ fontSize: 13, marginTop: 4, opacity: 0.85 }}>{phase.eventName} · {shortId(phase.assetId)}</div>
+                </div>
               </div>
-            </header>
+            )}
 
-            <div className="scanner-wrap">
-              <video ref={videoRef} className="scanner-video" muted playsInline />
-              <canvas ref={canvasRef} style={{ display: 'none' }} />
-
-              {/* Scan guide frame — visible while scanning */}
-              {(phase.tag === 'scanning') && (
-                <div className="scan-frame">
-                  <div className="scan-box">
-                    <div className="scan-box-inner" />
-                    <div className="scan-line" />
+            {phase.tag === 'result-used' && (
+              <div className="result-overlay" style={{ background: 'oklch(0.48 0.14 70)' }}>
+                <div>
+                  <div className="result-circle" style={{ color: 'var(--warn)' }}>
+                    <Icon name="clock" size={36} strokeWidth={2.5} />
+                  </div>
+                  <div style={{ fontSize: 17, fontWeight: 600 }}>Bereits eingelöst</div>
+                  <div style={{ fontSize: 12.5, marginTop: 4, opacity: 0.88 }}>
+                    Dieses Ticket wurde schon gescannt{phase.redeemedAt ? ` — um ${formatTime(phase.redeemedAt)} Uhr` : ''}.
                   </div>
                 </div>
-              )}
-
-              {/* Verifying overlay */}
-              {phase.tag === 'verifying' && (
-                <div className="verifying-overlay">
-                  <div className="spinner" />
-                  <div className="verifying-text">Verifying…</div>
-                </div>
-              )}
-
-              {/* Result overlays */}
-              {phase.tag === 'result-valid' && (
-                <div className="result-overlay" style={{ background: overlayColor }}>
-                  <div className="result-icon">✓</div>
-                  <h2 className="result-status">Ticket redeemed</h2>
-                  <p className="result-detail">{phase.eventName}</p>
-                  <div className="result-meta">{shortId(phase.assetId)}</div>
-                </div>
-              )}
-
-              {phase.tag === 'result-used' && (
-                <div className="result-overlay" style={{ background: overlayColor }}>
-                  <div className="result-icon">⚠</div>
-                  <h2 className="result-status">Already redeemed</h2>
-                  <p className="result-detail">
-                    This ticket was already scanned at {formatTime(phase.redeemedAt)}.
-                  </p>
-                </div>
-              )}
-
-              {phase.tag === 'result-invalid' && (
-                <div className="result-overlay" style={{ background: overlayColor }}>
-                  <div className="result-icon">✕</div>
-                  <h2 className="result-status">Invalid ticket</h2>
-                  <p className="result-detail">{phase.reason}</p>
-                </div>
-              )}
-            </div>
-
-            <footer className="doorman-footer">
-              <div className="doorman-footer-text">
-                {phase.tag === 'scanning'    ? 'Point camera at ticket QR code'    : ''}
-                {phase.tag === 'verifying'   ? 'Checking ticket…'                  : ''}
-                {isResult                    ? 'Resuming in 3 seconds…'            : ''}
               </div>
-            </footer>
+            )}
+
+            {phase.tag === 'result-invalid' && (
+              <div className="result-overlay" style={{ background: 'oklch(0.42 0.18 25)' }}>
+                <div>
+                  <div className="result-circle" style={{ color: 'var(--bad)' }}>
+                    <Icon name="x" size={40} strokeWidth={3} />
+                  </div>
+                  <div style={{ fontSize: 17, fontWeight: 600 }}>Ungültig</div>
+                  <div style={{ fontSize: 12.5, marginTop: 4, opacity: 0.88 }}>{reasonDe(phase.reason)}</div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          <div className="door-foot">
+            {phase.tag === 'scanning' && 'QR-Code in den Rahmen halten'}
+            {phase.tag === 'verifying' && 'Wird geprüft …'}
+            {isResult && 'Scanner startet gleich wieder …'}
+          </div>
+          <LegalLinks style={{ marginTop: 10, opacity: 0.75 }} />
+        </div>
+      )}
     </>
   );
 }

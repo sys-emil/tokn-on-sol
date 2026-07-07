@@ -2,24 +2,12 @@
 
 import { usePrivy, getAccessToken } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
-import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-
-const unbounded = Unbounded({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['400', '600', '900'],
-  display: 'swap',
-});
-
-const epilogue = Epilogue({
-  subsets: ['latin'],
-  variable: '--font-body',
-  weight: ['400', '500'],
-  display: 'swap',
-});
+import { LegalLinks } from '@/app/components/LegalLinks';
+import { PasslyLogo } from '@/app/components/PasslyLogo';
+import { Icon } from '@/app/components/passlyUi';
 
 interface ClaimPreview {
   found: boolean;
@@ -47,8 +35,53 @@ function formatDate(iso: string): string {
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
+
+const PAGE_CSS = `
+  .claim-page {
+    min-height: 100vh;
+    background: radial-gradient(1000px 500px at 50% -10%, var(--accent-wash), transparent 60%), var(--surface-2);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 20px 56px;
+  }
+  .claim-card {
+    width: 100%; max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 26px 26px 24px;
+    display: flex; flex-direction: column; gap: 16px;
+    margin-top: 28px;
+  }
+  .claim-card h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+  .claim-event {
+    border: 1px solid var(--accent-line);
+    background: var(--accent-wash);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .claim-event .name { font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; color: var(--accent-ink); }
+  .claim-event .date { font-size: 13px; color: var(--ink-3); margin-top: 3px; }
+  .claim-text { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; }
+  .claim-spinner {
+    width: 22px; height: 22px;
+    border: 2px solid var(--line-2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 8px auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .claim-spinner { animation-duration: 1.6s; } }
+  .claim-success-icon {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--ok); color: white;
+    display: grid; place-items: center;
+    margin: 4px auto 0;
+  }
+`;
 
 export default function ClaimPage() {
   const params = useParams();
@@ -96,10 +129,10 @@ export default function ClaimPage() {
       } else if (data.error === 'Already claimed') {
         setPhase({ tag: 'already-claimed', claimedAt: new Date().toISOString() });
       } else {
-        setPhase({ tag: 'error', message: data.error ?? 'Something went wrong.' });
+        setPhase({ tag: 'error', message: data.error ?? 'Etwas ist schiefgelaufen.' });
       }
     } catch {
-      setPhase({ tag: 'error', message: 'Network error. Please try again.' });
+      setPhase({ tag: 'error', message: 'Netzwerkfehler. Bitte versuch es erneut.' });
     }
   }
 
@@ -122,252 +155,82 @@ export default function ClaimPage() {
 
   return (
     <>
-      <style>{`
-        :root {
-          --color-bg:         oklch(0.10 0.014 258);
-          --color-surface:    oklch(0.14 0.014 258);
-          --color-border:     oklch(0.22 0.016 258);
-          --color-text:       oklch(0.96 0.008 95);
-          --color-text-muted: oklch(0.48 0.012 250);
-          --color-accent:     oklch(0.72 0.118 148);
-        }
+      <style>{PAGE_CSS}</style>
+      <div className="claim-page">
+        <PasslyLogo height={24} />
 
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: var(--color-bg);
-        }
+        <div className="claim-card">
+          <span className="chip accent" style={{ alignSelf: 'flex-start' }}>
+            <span className="d" />Ticket übernehmen
+          </span>
 
-        .page {
-          font-family: var(--font-body);
-          background-color: var(--color-bg);
-          background-image: radial-gradient(circle, oklch(0.23 0.014 258 / 0.45) 1px, transparent 1px);
-          background-size: 28px 28px;
-          color: var(--color-text);
-          min-height: 100dvh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 48px 24px;
-          box-sizing: border-box;
-        }
-
-        .card {
-          background: var(--color-surface);
-          border: 1px solid var(--color-border);
-          padding: 40px 36px 32px;
-          width: 100%;
-          max-width: 440px;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
-
-        .eyebrow {
-          font-family: var(--font-display);
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.22em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-        }
-
-        .title {
-          font-family: var(--font-display);
-          font-size: 22px;
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        .event-name {
-          font-family: var(--font-display);
-          font-size: 18px;
-          font-weight: 900;
-          letter-spacing: -0.01em;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        .event-date {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-        }
-
-        .divider {
-          height: 1px;
-          background: var(--color-border);
-        }
-
-        .body-text {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-          line-height: 1.6;
-          margin: 0;
-        }
-
-        .btn {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          padding: 12px 24px;
-          cursor: pointer;
-          border: none;
-          width: 100%;
-          transition: background 0.16s ease;
-        }
-
-        .btn-primary {
-          background: var(--color-accent);
-          color: oklch(0.10 0.014 258);
-        }
-
-        .btn-primary:hover:not(:disabled) {
-          background: oklch(0.80 0.118 148);
-        }
-
-        .btn-primary:disabled {
-          opacity: 0.55;
-          cursor: default;
-        }
-
-        .btn-ghost {
-          background: transparent;
-          border: 1px solid var(--color-border);
-          color: var(--color-text-muted);
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .btn-ghost:hover {
-          color: var(--color-text);
-          border-color: oklch(0.40 0.016 258);
-        }
-
-        .spinner {
-          width: 20px;
-          height: 20px;
-          border: 2px solid var(--color-border);
-          border-top-color: var(--color-accent);
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-          margin: 0 auto;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .success-icon {
-          font-size: 40px;
-          line-height: 1;
-          text-align: center;
-        }
-
-        .logo {
-          font-family: var(--font-display);
-          font-size: 13px;
-          font-weight: 900;
-          letter-spacing: 0.10em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-          text-decoration: none;
-          text-align: center;
-        }
-
-        .logo-dot { color: var(--color-accent); }
-      `}</style>
-
-      <div className={`page ${unbounded.variable} ${epilogue.variable}`}>
-        <div className="card">
-
-          {phase.tag === 'loading' && (
-            <>
-              <div className="eyebrow">Claim ticket</div>
-              <div className="spinner" />
-            </>
-          )}
+          {phase.tag === 'loading' && <div className="claim-spinner" />}
 
           {phase.tag === 'not-found' && (
             <>
-              <div className="eyebrow">Claim ticket</div>
-              <h1 className="title">Link not found</h1>
-              <p className="body-text">This claim link is invalid or has expired.</p>
-              <Link href="/" className="btn btn-ghost">Go home</Link>
+              <h1>Link nicht gefunden</h1>
+              <p className="claim-text">Dieser Link ist ungültig oder abgelaufen.</p>
+              <Link href="/" className="btn ghost" style={{ justifyContent: 'center' }}>Zur Startseite</Link>
             </>
           )}
 
           {phase.tag === 'already-claimed' && (
             <>
-              <div className="eyebrow">Claim ticket</div>
-              <h1 className="title">Already claimed</h1>
-              <p className="body-text">
-                This ticket was already claimed{phase.claimedAt ? ` at ${formatTime(phase.claimedAt)}` : ''}.
+              <h1>Schon übernommen</h1>
+              <p className="claim-text">
+                Dieses Ticket wurde bereits übernommen{phase.claimedAt ? ` (um ${formatTime(phase.claimedAt)} Uhr)` : ''}.
               </p>
-              <Link href="/" className="btn btn-ghost">Go home</Link>
+              <Link href="/" className="btn ghost" style={{ justifyContent: 'center' }}>Zur Startseite</Link>
             </>
           )}
 
           {phase.tag === 'ready' && preview && (
             <>
-              <div className="eyebrow">Claim ticket</div>
-              <div className="divider" />
-              <div>
-                <div className="event-name">{preview.eventName}</div>
-                <div className="event-date">{formatDate(preview.eventDate ?? '')}</div>
+              <h1>Ein Ticket für dich</h1>
+              <div className="claim-event">
+                <div className="name">{preview.eventName}</div>
+                <div className="date">{formatDate(preview.eventDate ?? '')}</div>
               </div>
-              <div className="divider" />
-              <p className="body-text">
-                Claim this ticket to add it to your Passly account. Once claimed, it&apos;s yours — the original link becomes invalid.
+              <p className="claim-text">
+                Übernimm dieses Ticket in dein Passly-Konto. Danach gehört es dir — der ursprüngliche Link wird ungültig.
               </p>
-              <button className="btn btn-primary" onClick={handleClaimClick}>
-                Claim this ticket
+              <button className="btn primary lg" style={{ justifyContent: 'center' }} onClick={handleClaimClick}>
+                Ticket übernehmen
               </button>
             </>
           )}
 
           {phase.tag === 'claiming' && (
             <>
-              <div className="eyebrow">Claim ticket</div>
-              <div className="spinner" />
-              <p className="body-text" style={{ textAlign: 'center' }}>Transferring ticket to your wallet…</p>
+              <div className="claim-spinner" />
+              <p className="claim-text" style={{ textAlign: 'center' }}>Das Ticket wird auf dein Konto übertragen …</p>
             </>
           )}
 
           {phase.tag === 'success' && (
             <>
-              <div className="eyebrow">Claim ticket</div>
-              <div className="success-icon">✓</div>
-              <h1 className="title">Ticket claimed</h1>
-              <p className="body-text">The ticket is now in your wallet and will appear on your tickets page.</p>
-              <Link href="/my-tickets" className="btn btn-primary" style={{ textDecoration: 'none', textAlign: 'center' }}>
-                View my tickets
+              <div className="claim-success-icon"><Icon name="check" size={20} strokeWidth={2.4} /></div>
+              <h1 style={{ textAlign: 'center' }}>Das Ticket gehört jetzt dir</h1>
+              <p className="claim-text" style={{ textAlign: 'center' }}>
+                Du findest es ab sofort in deiner Ticketübersicht.
+              </p>
+              <Link href="/my-tickets" className="btn primary lg" style={{ justifyContent: 'center' }}>
+                Zu meinen Tickets
               </Link>
             </>
           )}
 
           {phase.tag === 'error' && (
             <>
-              <div className="eyebrow">Claim ticket</div>
-              <h1 className="title">Something went wrong</h1>
-              <p className="body-text">{phase.message}</p>
-              <button className="btn btn-ghost" onClick={() => setPhase({ tag: 'ready', preview: {} as ClaimPreview })}>
-                Try again
+              <h1>Etwas ist schiefgelaufen</h1>
+              <p className="claim-text">{phase.message}</p>
+              <button className="btn ghost" style={{ justifyContent: 'center' }} onClick={handleClaimClick}>
+                Erneut versuchen
               </button>
             </>
           )}
-
         </div>
-
-        <Link href="/" className="logo" style={{ marginTop: 24 }}>
-          Passly<span className="logo-dot">.</span>
-        </Link>
+        <LegalLinks style={{ marginTop: 22 }} />
       </div>
     </>
   );

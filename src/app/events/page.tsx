@@ -1,23 +1,9 @@
-import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
 import { supabaseAdmin } from '@/lib/supabase';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
+import { Icon } from '@/app/components/passlyUi';
 
 export const dynamic = 'force-dynamic';
-
-const unbounded = Unbounded({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['400', '600', '900'],
-  display: 'swap',
-});
-
-const epilogue = Epilogue({
-  subsets: ['latin'],
-  variable: '--font-body',
-  weight: ['400', '500'],
-  display: 'swap',
-});
 
 interface EventRow {
   id: string;
@@ -27,21 +13,26 @@ interface EventRow {
   capacity: number;
   tickets_sold: number;
   tickets_reserved: number;
+  image_url: string | null;
+  venue: string | null;
 }
 
-function formatDateShort(iso: string): string {
-  const [year, month, day] = iso.split('-');
-  return new Date(Number(year), Number(month) - 1, Number(day))
-    .toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+// Same generative recipe as before — one visual language for events
+// without an uploaded image.
+function eventHue(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return h;
 }
 
-function formatDateLong(iso: string): string {
-  const [year, month, day] = iso.split('-');
-  return new Date(Number(year), Number(month) - 1, Number(day))
-    .toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-}
+const monthShort = (iso: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
+const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
+const formatDate = (iso: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
 
 function formatPrice(cents: number): string {
+  if (cents === 0) return 'Kostenlos';
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 }
 
@@ -51,384 +42,66 @@ function daysUntil(iso: string): number {
   return Math.ceil((new Date(iso + 'T00:00:00').getTime() - today.getTime()) / 86400000);
 }
 
-const CSS = `
-  :root {
-    --color-bg:         oklch(0.10 0.014 258);
-    --color-surface:    oklch(0.14 0.014 258);
-    --color-border:     oklch(0.22 0.016 258);
-    --color-text:       oklch(0.96 0.008 95);
-    --color-text-muted: oklch(0.48 0.012 250);
-    --color-accent:     oklch(0.72 0.118 148);
-    --color-accent-dim: oklch(0.18 0.04 148);
-    --color-warn:       oklch(0.72 0.14 60);
-    --color-warn-dim:   oklch(0.18 0.06 60);
-  }
-
-  html, body { margin: 0; padding: 0; background: var(--color-bg); }
-
-  .page-root {
-    font-family: var(--font-body);
-    background-color: var(--color-bg);
-    background-image: radial-gradient(circle, oklch(0.23 0.014 258 / 0.45) 1px, transparent 1px);
-    background-size: 28px 28px;
-    color: var(--color-text);
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* ── Nav ─────────────────────────────────────────────────── */
-  .nav {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 20;
-    padding: 0 48px;
-    height: 68px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: oklch(0.10 0.014 258 / 0.88);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .nav-left { display: flex; align-items: center; gap: 32px; }
-
-  .logo {
-    font-family: var(--font-display);
-    font-size: 14px;
-    font-weight: 900;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--color-text);
-    text-decoration: none;
-  }
-
-  .logo-dot { color: var(--color-accent); }
-
-  .nav-divider { width: 1px; height: 18px; background: var(--color-border); }
-
-  .nav-section {
-    font-family: var(--font-body);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-
-  .nav-chain {
-    font-family: var(--font-body);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-
-  /* ── Layout ──────────────────────────────────────────────── */
-  .main {
-    flex: 1;
-    max-width: 860px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 108px 48px 96px;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    gap: 56px;
-  }
-
-  /* ── Page heading ────────────────────────────────────────── */
-  .page-heading {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
-  }
-
-  .page-label {
-    font-family: var(--font-body);
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.20em;
-    text-transform: uppercase;
-    color: var(--color-accent);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .page-label-line {
-    display: block;
-    width: 24px;
-    height: 1px;
-    background: var(--color-accent);
-    flex-shrink: 0;
-  }
-
-  .page-title {
-    font-family: var(--font-display);
-    font-size: clamp(28px, 3.2vw, 42px);
-    font-weight: 900;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
-    color: var(--color-text);
-    margin: 0;
-  }
-
-  .page-sub {
-    font-family: var(--font-body);
-    font-size: 14px;
-    color: var(--color-text-muted);
-    margin: 6px 0 0;
-  }
-
-  /* ── Column header ───────────────────────────────────────── */
-  .col-header {
-    display: grid;
-    grid-template-columns: 64px 1fr 80px 100px 130px;
-    gap: 16px;
-    padding: 0 0 10px;
-    border-bottom: 1px solid var(--color-border);
-    animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.10s both;
-  }
-
-  .col-label {
-    font-family: var(--font-display);
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 0.20em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-
-  .col-label-right { text-align: right; }
-
-  /* ── Event rows ──────────────────────────────────────────── */
-  .events-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
-  }
-
-  .event-row {
-    display: grid;
-    grid-template-columns: 64px 1fr 80px 100px 130px;
-    gap: 16px;
-    align-items: center;
-    padding: 16px 0;
-    border-bottom: 1px solid oklch(0.22 0.016 258 / 0.5);
-    transition: background 0.12s ease;
-  }
-
-  .event-row:last-child { border-bottom: none; }
-
-  .event-row.available:hover {
-    background: oklch(0.14 0.014 258 / 0.6);
-    margin: 0 -12px;
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-
-  .event-date {
-    font-family: var(--font-display);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-  }
-
-  .event-name {
-    font-family: var(--font-body);
-    font-size: 15px;
-    color: var(--color-text);
-    white-space: nowrap;
+const PAGE_CSS = `
+  .event-card.listing { padding: 0; }
+  .event-card .art {
+    aspect-ratio: 5 / 3;
+    position: relative;
     overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-3);
   }
-
-  .event-price {
-    font-family: var(--font-display);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--color-text);
-    text-align: right;
-    white-space: nowrap;
+  .event-card .art img, .event-card .art .art-bg {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
   }
-
-  .stock-cell { display: flex; justify-content: flex-end; align-items: center; }
-
-  .stock-badge {
-    font-family: var(--font-display);
-    font-size: 8px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    padding: 3px 7px;
-    white-space: nowrap;
+  .event-card:hover .art img, .event-card:hover .art .art-bg { transform: scale(1.03); }
+  .event-card .art .art-chip { position: absolute; top: 12px; left: 12px; }
+  .event-card .body { padding: 16px 18px 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+  .event-card.sold-out { cursor: default; }
+  .event-card.sold-out:hover { transform: none; box-shadow: var(--shadow); border-color: var(--line); }
+  .event-card.sold-out .art img, .event-card.sold-out .art .art-bg { filter: grayscale(0.7); opacity: 0.6; }
+  .event-card .price-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: auto;
   }
-
-  .stock-low {
-    background: var(--color-warn-dim);
-    color: var(--color-warn);
+  .event-card .price {
+    font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
   }
-
-  .stock-sold {
-    background: oklch(0.16 0.01 258);
-    color: oklch(0.36 0.012 258);
+  .event-card .go {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; font-weight: 500; color: var(--accent);
   }
-
-  .action-cell { display: flex; justify-content: flex-end; }
-
-  .btn-get {
-    font-family: var(--font-display);
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    padding: 8px 14px;
-    color: oklch(0.10 0.014 258);
-    background: var(--color-accent);
-    border: 1px solid var(--color-accent);
-    text-decoration: none;
-    white-space: nowrap;
-    transition: opacity 0.15s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .btn-get:hover { opacity: 0.85; }
-
-  /* ── Sold-out section ────────────────────────────────────── */
-  .soldout-divider {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-top: 8px;
-    animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.20s both;
-  }
-
-  .soldout-label {
-    font-family: var(--font-display);
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 0.20em;
-    text-transform: uppercase;
-    color: oklch(0.32 0.012 258);
-    white-space: nowrap;
-  }
-
-  .soldout-line {
-    flex: 1;
-    height: 1px;
-    background: oklch(0.22 0.016 258 / 0.5);
-  }
-
-  .events-list-soldout {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    opacity: 0.38;
-    pointer-events: none;
-    animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
-  }
-
-  .event-row.sold-out .event-name { color: var(--color-text-muted); }
-  .event-row.sold-out .event-price { color: var(--color-text-muted); }
-  .event-row.sold-out .event-date { color: oklch(0.32 0.012 258); }
-
-  /* ── Empty state ─────────────────────────────────────────── */
-  .empty {
-    border: 1px dashed var(--color-border);
-    padding: 48px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.10s both;
-  }
-
-  .empty-text {
-    font-family: var(--font-body);
-    font-size: 14px;
-    color: var(--color-text-muted);
-    text-align: center;
-    line-height: 1.6;
-    margin: 0;
-  }
-
-  /* ── Animations ──────────────────────────────────────────── */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .page-heading, .col-header, .events-list,
-    .soldout-divider, .events-list-soldout, .empty { animation: none; }
-  }
-
-  /* ── Responsive ──────────────────────────────────────────── */
-  @media (max-width: 700px) {
-    .nav { padding: 0 20px; }
-    .main { padding: 96px 20px 64px; }
-
-    .col-header { display: none; }
-
-    .event-row {
-      grid-template-columns: 1fr auto;
-      grid-template-rows: auto auto;
-      gap: 6px 12px;
-      padding: 14px 0;
-    }
-
-    .event-date {
-      grid-column: 1;
-      grid-row: 2;
-      font-size: 10px;
-    }
-
-    .event-name {
-      grid-column: 1;
-      grid-row: 1;
-      font-size: 14px;
-    }
-
-    .event-price {
-      grid-column: 2;
-      grid-row: 1;
-      text-align: right;
-    }
-
-    .stock-cell {
-      grid-column: 2;
-      grid-row: 2;
-      justify-content: flex-end;
-    }
-
-    .action-cell {
-      grid-column: 1 / -1;
-      grid-row: 3;
-      justify-content: flex-start;
-    }
-
-    .btn-get { width: 100%; justify-content: center; padding: 10px 14px; }
+    .event-card .art img, .event-card .art .art-bg { transition: none; }
   }
 `;
+
+function EventArt({ name, imageUrl }: { name: string; imageUrl: string | null }) {
+  if (imageUrl) {
+    // eslint-disable-next-line @next/next/no-img-element -- storage host is env-dependent, skip next/image remotePatterns
+    return <img src={imageUrl} alt="" loading="lazy" />;
+  }
+  const hue = eventHue(name);
+  const hue2 = (hue + 50) % 360;
+  return (
+    <div
+      className="art-bg"
+      style={{
+        background: `radial-gradient(ellipse at 30% 40%, oklch(0.88 0.09 ${hue}), transparent 60%), radial-gradient(ellipse at 70% 65%, oklch(0.90 0.07 ${hue2}), transparent 55%), oklch(0.95 0.02 ${hue})`,
+      }}
+    />
+  );
+}
 
 export default async function EventsPage() {
   const today = new Date().toISOString().slice(0, 10);
 
   const { data } = await supabaseAdmin
     .from('events')
-    .select('id, name, date, price_eur, capacity, tickets_sold, tickets_reserved')
+    .select('id, name, date, price_eur, capacity, tickets_sold, tickets_reserved, image_url, venue')
     .gte('date', today)
     .eq('is_private', false)
     .order('date', { ascending: true });
@@ -437,110 +110,138 @@ export default async function EventsPage() {
   const taken = (e: EventRow) => e.tickets_sold + (e.tickets_reserved ?? 0);
   const available = all.filter((e) => taken(e) < e.capacity);
   const soldOut = all.filter((e) => taken(e) >= e.capacity);
+  const totalCount = all.length;
 
-  const totalCount = available.length + soldOut.length;
+  const card = (e: EventRow, isSoldOut: boolean) => {
+    const remaining = e.capacity - taken(e);
+    const isLow = !isSoldOut && remaining / e.capacity <= 0.15;
+    const days = daysUntil(e.date);
+    const soonLabel = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : null;
+
+    const inner = (
+      <>
+        <div className="art">
+          <EventArt name={e.name} imageUrl={e.image_url} />
+          {isSoldOut ? (
+            <span className="chip bad art-chip"><span className="d" />Ausverkauft</span>
+          ) : soonLabel ? (
+            <span className="chip accent art-chip"><span className="d" />{soonLabel}</span>
+          ) : isLow ? (
+            <span className="chip warn art-chip"><span className="d" />Nur noch {remaining}</span>
+          ) : null}
+        </div>
+        <div className="body">
+          <div className="row gap-3">
+            <div className="date-chip">
+              <div className="m">{monthShort(e.date)}</div>
+              <div className="d">{dayNum(e.date)}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="title">{e.name}</div>
+              <div className="meta">
+                {formatDate(e.date)}
+                {e.venue && (<><span className="dot" />{e.venue}</>)}
+              </div>
+            </div>
+          </div>
+          <div className="price-row">
+            <div className="price">{formatPrice(e.price_eur)}</div>
+            {isSoldOut ? (
+              <span className="muted" style={{ fontSize: 12.5 }}>Ausverkauft</span>
+            ) : (
+              <span className="go">Tickets sichern <Icon name="arrow" size={13} /></span>
+            )}
+          </div>
+        </div>
+      </>
+    );
+
+    if (isSoldOut) {
+      return <div key={e.id} className="event-card listing sold-out">{inner}</div>;
+    }
+    return <Link key={e.id} href={`/shop/${e.id}`} className="event-card listing">{inner}</Link>;
+  };
 
   return (
     <>
-      <style>{CSS}</style>
-      <div className={`page-root ${unbounded.variable} ${epilogue.variable}`}>
+      <style>{PAGE_CSS}</style>
+      <div className="app">
 
-        <nav className="nav">
-          <div className="nav-left">
-            <PasslyLogo />
-            <div className="nav-divider" />
-            <div className="nav-section">Events</div>
-          </div>
-          <div className="nav-chain">Solana</div>
-        </nav>
-
-        <main className="main">
-
-          <div className="page-heading">
-            <div className="page-label">
-              <span className="page-label-line" />
-              Discover
+        <div className="topbar">
+          <div className="topbar-inner">
+            <PasslyLogo height={24} />
+            <div className="nav">
+              <Link href="/events" className="active">Events</Link>
+              <Link href="/my-tickets">Meine Tickets</Link>
             </div>
-            <h1 className="page-title">Events</h1>
-            {totalCount > 0 && (
-              <p className="page-sub">{totalCount} upcoming event{totalCount !== 1 ? 's' : ''}</p>
-            )}
-          </div>
-
-          {totalCount === 0 ? (
-            <div className="empty">
-              <p className="empty-text">No events scheduled yet.<br />Check back soon.</p>
+            <div className="topbar-right">
+              <Link href="/become-organizer" className="btn subtle sm">Event veranstalten</Link>
             </div>
-          ) : (
-            <>
-              {/* Column headers (desktop) */}
-              <div className="col-header">
-                <div className="col-label">Date</div>
-                <div className="col-label">Event</div>
-                <div className="col-label col-label-right">Price</div>
-                <div className="col-label col-label-right">Availability</div>
-                <div className="col-label" />
-              </div>
+          </div>
+        </div>
 
-              {/* Available events */}
-              {available.length > 0 && (
-                <div className="events-list">
-                  {available.map((e) => {
-                    const remaining = e.capacity - taken(e);
-                    const isLow = remaining / e.capacity <= 0.15;
-                    const days = daysUntil(e.date);
-                    const dateLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : formatDateShort(e.date);
+        <div className="main">
+          <div className="aurora" aria-hidden="true" />
+          <div className="container">
 
-                    return (
-                      <div className="event-row available" key={e.id} title={formatDateLong(e.date)}>
-                        <div className="event-date">{dateLabel}</div>
-                        <div className="event-name">{e.name}</div>
-                        <div className="event-price">{formatPrice(e.price_eur)}</div>
-                        <div className="stock-cell">
-                          {isLow && (
-                            <div className="stock-badge stock-low">Only {remaining} left</div>
-                          )}
-                        </div>
-                        <div className="action-cell">
-                          <Link href={`/shop/${e.id}`} className="btn-get">
-                            Get Tickets
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M2 5h6M5 2l3 3-3 3" />
-                            </svg>
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
+            <div className="hero">
+              <div className="eyebrow"><span className="pulse" />Entdecken</div>
+              <h1>Bevorstehende Events</h1>
+              <p className="lead">
+                {totalCount > 0
+                  ? `${totalCount} Event${totalCount !== 1 ? 's' : ''} mit fälschungssicheren Tickets — kaufen, teilen, am Einlass vorzeigen.`
+                  : 'Fälschungssichere Tickets — kaufen, teilen, am Einlass vorzeigen.'}
+              </p>
+            </div>
+
+            {totalCount === 0 ? (
+              <div className="card">
+                <div className="empty">
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', margin: '0 auto 12px', color: 'var(--accent)' }}>
+                    <Icon name="calendar" size={20} />
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Gerade ist nichts angekündigt.</div>
+                  <div style={{ fontSize: 13, marginTop: 4 }}>Schau bald wieder vorbei — neue Events erscheinen hier zuerst.</div>
                 </div>
-              )}
+              </div>
+            ) : (
+              <>
+                {available.length > 0 && (
+                  <section>
+                    <div className="events-grid">
+                      {available.map((e) => card(e, false))}
+                    </div>
+                  </section>
+                )}
 
-              {/* Sold-out events */}
-              {soldOut.length > 0 && (
-                <>
-                  <div className="soldout-divider">
-                    <div className="soldout-label">Sold Out</div>
-                    <div className="soldout-line" />
-                  </div>
-                  <div className="events-list-soldout">
-                    {soldOut.map((e) => (
-                      <div className="event-row sold-out" key={e.id}>
-                        <div className="event-date">{formatDateShort(e.date)}</div>
-                        <div className="event-name">{e.name}</div>
-                        <div className="event-price">{formatPrice(e.price_eur)}</div>
-                        <div className="stock-cell">
-                          <div className="stock-badge stock-sold">Sold Out</div>
-                        </div>
-                        <div className="action-cell" />
+                {soldOut.length > 0 && (
+                  <section>
+                    <div className="section-head">
+                      <div>
+                        <h2>Ausverkauft</h2>
+                        <div className="sub">Vielleicht klappt&rsquo;s beim nächsten Mal</div>
                       </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
+                    </div>
+                    <div className="events-grid">
+                      {soldOut.map((e) => card(e, true))}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
 
-        </main>
+            <footer style={{ borderTop: '1px solid var(--line)', marginTop: 64, padding: '28px 0 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--ink-3)' }}>
+              <div>© 2026 Passly · Digitale Tickets</div>
+              <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+                <Link href="/so-funktionierts">So funktioniert&rsquo;s</Link>
+                <Link href="/impressum">Impressum</Link>
+                <Link href="/datenschutz">Datenschutz</Link>
+                <Link href="/agb">AGB</Link>
+              </div>
+            </footer>
+
+          </div>
+        </div>
       </div>
     </>
   );

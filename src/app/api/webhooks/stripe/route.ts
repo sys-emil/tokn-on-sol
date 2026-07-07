@@ -135,7 +135,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { data: payout } = await supabaseAdmin
       .from("payouts")
-      .select("id, status, stripe_session_id, currency")
+      .select("id, status, stripe_session_id, currency, gross_cents, fee_cents")
       .eq("charge_id", charge.id)
       .maybeSingle();
 
@@ -187,7 +187,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           .eq("stripe_session_id", payout.stripe_session_id)
           .eq("status", "queued");
       } else {
-        const { feeCents, netCents } = computeFeeSplit(remainingCents);
+        // Scale fee and net by the row's own fee ratio so the split survives
+        // both fee models (legacy 3% rows and buyer-side service-fee rows) and
+        // successive partial refunds. Falls back to the legacy split if the
+        // row has no usable ratio.
+        const { feeCents, netCents } = payout.gross_cents > 0 && payout.fee_cents >= 0
+          ? (() => {
+              const fee = Math.min(
+                remainingCents,
+                Math.round((remainingCents * payout.fee_cents) / payout.gross_cents),
+              );
+              return { feeCents: fee, netCents: remainingCents - fee };
+            })()
+          : computeFeeSplit(remainingCents);
         const { error: payoutError } = await supabaseAdmin
           .from("payouts")
           .update({
@@ -288,6 +300,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .eq("wallet_address", event.organizer_wallet)
         .maybeSingle();
 
+      // Buyer-side service fee recorded at checkout creation; absent on
+      // sessions from before the fee existed → legacy 3% split inside
+      // buildPayoutRow.
+      const serviceFeeRaw = session.metadata?.serviceFeeCents;
+      const serviceFeeCents = serviceFeeRaw != null && /^\d+$/.test(serviceFeeRaw)
+        ? parseInt(serviceFeeRaw, 10)
+        : null;
+
       const payoutRow = buildPayoutRow({
         session,
         chargeId,
@@ -296,6 +316,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         organizerWallet: event.organizer_wallet,
         stripeAccountId: (organizer?.stripe_account_id as string | null) ?? null,
         holdDays: event.payout_hold_days ?? 0,
+        serviceFeeCents,
       });
       if (payoutRow) {
         const { error: payoutError } = await supabaseAdmin

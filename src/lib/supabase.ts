@@ -39,6 +39,10 @@ export type Event = {
   tickets_reserved: number;
   is_private: boolean;
   payout_hold_days: number;
+  image_url: string | null;
+  metadata_uri: string | null;
+  venue: string | null;
+  description: string | null;
   created_at: string;
 };
 

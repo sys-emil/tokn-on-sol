@@ -12,8 +12,7 @@ interface PasslyLogoProps {
 }
 
 export function PasslyLogo({ height = 30, variant = 'default', asLink = true }: PasslyLogoProps) {
-  const width = Math.round(height * (500 / 120));
-  const borderRadius = variant === 'on-accent' ? 8 : undefined;
+  const width = Math.round(height * (330 / 92));
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -21,7 +20,7 @@ export function PasslyLogo({ height = 30, variant = 'default', asLink = true }: 
       alt="Passly"
       height={height}
       width={width}
-      style={{ display: 'block', borderRadius }}
+      style={{ display: 'block' }}
     />
   );
   if (!asLink) return img;

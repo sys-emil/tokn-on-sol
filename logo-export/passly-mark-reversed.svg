@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="92" height="92" viewBox="0 0 92 92"><g fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5,33.5 L3.5,17.5 A14,14 0 0 1 17.5,3.5 L33.5,3.5"></path>
+    <path d="M58.5,3.5 L74.5,3.5 A14,14 0 0 1 88.5,17.5 L88.5,33.5"></path>
+    <path d="M3.5,58.5 L3.5,74.5 A14,14 0 0 0 17.5,88.5 L33.5,88.5"></path>
+    <path d="M58.5,88.5 L74.5,88.5 A14,14 0 0 0 88.5,74.5 L88.5,58.5"></path></g><text x="46" y="47" text-anchor="middle" dominant-baseline="central" font-size="52" fill="#ffffff" font-family="&#39;Geist&#39;,&#39;Helvetica Neue&#39;,Arial,sans-serif" font-weight="800" letter-spacing="-1.5">P</text></svg>

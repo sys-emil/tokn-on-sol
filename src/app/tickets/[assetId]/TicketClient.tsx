@@ -35,10 +35,10 @@ export default function TicketClient({ assetId }: { assetId: string }) {
 
         if (!cancelled && canvasRef.current) {
           await QRCode.toCanvas(canvasRef.current, payload, {
-            width: 260,
+            width: 240,
             margin: 2,
             errorCorrectionLevel: 'M',
-            color: { dark: '#1a1c26', light: '#f5f3ee' },
+            color: { dark: '#23263c', light: '#ffffff' },
           });
           hadQr.current = true;
           setStatus('ready');
@@ -61,27 +61,27 @@ export default function TicketClient({ assetId }: { assetId: string }) {
   }, [wallet, assetId]);
 
   return (
-    <div style={{ position: 'relative', width: 260, height: 260 }}>
+    <div style={{ position: 'relative', width: 240, height: 240 }}>
       <canvas
         ref={canvasRef}
-        width={260}
-        height={260}
+        width={240}
+        height={240}
         style={{ display: 'block', opacity: status === 'loading' ? 0 : 1 }}
       />
       {status !== 'ready' && (
         <div style={{
           position: 'absolute',
           inset: 0,
-          background: '#f5f3ee',
+          background: '#ffffff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 11,
           fontFamily: 'inherit',
-          color: '#1a1c26',
+          color: '#23263c',
           letterSpacing: '0.08em',
         }}>
-          {status === 'refreshing' ? 'refreshing…' : 'generating…'}
+          {status === 'refreshing' ? 'wird aktualisiert …' : 'wird erstellt …'}
         </div>
       )}
     </div>

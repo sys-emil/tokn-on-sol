@@ -2,28 +2,39 @@
 
 import { useLogout, usePrivy, useLinkAccount } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
-import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-
-const unbounded = Unbounded({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['400', '600', '900'],
-  display: 'swap',
-});
-
-const epilogue = Epilogue({
-  subsets: ['latin'],
-  variable: '--font-body',
-  weight: ['400', '500'],
-  display: 'swap',
-});
+import { Icon } from '@/app/components/passlyUi';
 
 type OrgType = 'private' | 'business';
 type PageState = 'loading' | 'form';
+
+const PAGE_CSS = `
+  .narrow { max-width: 620px; margin: 0 auto; }
+  .type-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 480px) { .type-cards { grid-template-columns: 1fr; } }
+  .type-card {
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 3px;
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  }
+  .type-card:hover { border-color: var(--ink-4); }
+  .type-card.selected {
+    border-color: var(--accent);
+    background: var(--accent-wash);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent);
+  }
+  .type-card .name { font-size: 13.5px; font-weight: 600; }
+  .type-card.selected .name { color: var(--accent-ink); }
+  .type-card .sub { font-size: 12px; color: var(--ink-3); }
+`;
 
 export default function BecomeOrganizer() {
   const router = useRouter();
@@ -42,10 +53,16 @@ export default function BecomeOrganizer() {
 
   const walletAddress = solanaWallets[0]?.address;
 
-  // If not authenticated, trigger login
+  // If not authenticated, trigger login — but at most once. Re-invoking
+  // login() from effect re-runs (Privy re-renders during the modal flow)
+  // resets the modal to the e-mail step, so the code input never shows.
+  const loginPrompted = useRef(false);
   useEffect(() => {
     if (!ready) return;
-    if (!authenticated) login();
+    if (!authenticated && !loginPrompted.current) {
+      loginPrompted.current = true;
+      login();
+    }
   }, [ready, authenticated, login]);
 
   // Check existing application status — if already approved, go straight to dashboard
@@ -68,18 +85,18 @@ export default function BecomeOrganizer() {
 
   async function handleSubmit(): Promise<void> {
     if (!walletAddress) return;
-    if (!name.trim()) { setFormError('Full name is required.'); return; }
-    if (!effectiveEmail.trim()) { setFormError('Email is required.'); return; }
-    if (!orgType) { setFormError('Please select an organizer type.'); return; }
+    if (!name.trim()) { setFormError('Bitte gib deinen Namen an.'); return; }
+    if (!effectiveEmail.trim()) { setFormError('Bitte gib deine E-Mail-Adresse an.'); return; }
+    if (!orgType) { setFormError('Bitte wähle aus, wie du Events veranstaltest.'); return; }
     if (orgType === 'business' && !businessName.trim()) {
-      setFormError('Business name is required.'); return;
+      setFormError('Bitte gib den Namen deines Unternehmens an.'); return;
     }
 
     setFormError(null);
     setSubmitting(true);
     try {
       const token = await getAccessToken();
-      if (!token) { setFormError('Authentication error. Please log in again.'); return; }
+      if (!token) { setFormError('Anmeldung abgelaufen. Bitte melde dich erneut an.'); return; }
       const res = await fetch('/api/organizers/apply', {
         method: 'POST',
         headers: {
@@ -99,13 +116,13 @@ export default function BecomeOrganizer() {
         if (data.error === 'email_required') {
           setFormError('email_required');
         } else {
-          setFormError(data.error ?? 'Something went wrong.');
+          setFormError(data.error ?? 'Etwas ist schiefgelaufen. Bitte versuch es erneut.');
         }
         return;
       }
       router.push('/dashboard');
     } catch {
-      setFormError('Network error. Please try again.');
+      setFormError('Netzwerkfehler. Bitte versuch es erneut.');
     } finally {
       setSubmitting(false);
     }
@@ -115,493 +132,137 @@ export default function BecomeOrganizer() {
 
   return (
     <>
-      <style>{`
-        :root {
-          --color-bg:          oklch(0.09 0.028 305);
-          --color-surface:     oklch(0.15 0.024 308);
-          --color-border:      oklch(0.26 0.022 305);
-          --color-text:        oklch(0.96 0.008 75);
-          --color-text-muted:  oklch(0.56 0.012 305);
-          --color-accent:      oklch(0.79 0.19 48);
-          --color-accent-2:    oklch(0.67 0.24 295);
-          --color-accent-3:    oklch(0.72 0.22 350);
-        }
+      <style>{PAGE_CSS}</style>
+      <div className="app">
 
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: var(--color-bg);
-        }
-
-        .page-root {
-          font-family: var(--font-body);
-          background-color: var(--color-bg);
-          background-image: radial-gradient(
-            circle,
-            oklch(0.28 0.026 308 / 0.38) 1px,
-            transparent 1px
-          );
-          background-size: 28px 28px;
-          color: var(--color-text);
-          min-height: 100dvh;
-          display: flex;
-          flex-direction: column;
-        }
-
-        /* ── Nav ─────────────────────────────────────────────── */
-        .nav {
-          position: fixed;
-          top: 0; left: 0; right: 0;
-          z-index: 20;
-          padding: 0 48px;
-          height: 68px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: oklch(0.09 0.028 305 / 0.88);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .nav-left {
-          display: flex;
-          align-items: center;
-          gap: 32px;
-        }
-
-        .logo {
-          font-family: var(--font-display);
-          font-size: 14px;
-          font-weight: 900;
-          letter-spacing: 0.10em;
-          text-transform: uppercase;
-          color: var(--color-text);
-          text-decoration: none;
-        }
-
-        .logo-dot { color: var(--color-accent); }
-
-        .nav-divider {
-          width: 1px;
-          height: 18px;
-          background: var(--color-border);
-        }
-
-        .nav-section {
-          font-family: var(--font-body);
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
-
-        .nav-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .btn-nav {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-          background: transparent;
-          border: 1px solid var(--color-border);
-          padding: 8px 16px;
-          cursor: pointer;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          transition: color 0.15s ease, border-color 0.15s ease;
-        }
-
-        .btn-nav:hover {
-          color: var(--color-text);
-          border-color: oklch(0.42 0.022 305);
-        }
-
-        /* ── Main ────────────────────────────────────────────── */
-        .main {
-          flex: 1;
-          max-width: 640px;
-          width: 100%;
-          margin: 0 auto;
-          padding: 108px 48px 96px;
-          box-sizing: border-box;
-          display: flex;
-          flex-direction: column;
-          gap: 40px;
-        }
-
-        /* ── Heading ─────────────────────────────────────────── */
-        .page-heading {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          animation: fadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
-        }
-
-        .page-label {
-          font-family: var(--font-body);
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.20em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .page-label-line {
-          display: block;
-          width: 24px;
-          height: 1px;
-          background: var(--color-accent);
-          flex-shrink: 0;
-        }
-
-        .page-title {
-          font-family: var(--font-display);
-          font-size: clamp(24px, 3vw, 36px);
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          line-height: 1.1;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        .page-sub {
-          font-family: var(--font-body);
-          font-size: 14px;
-          color: var(--color-text-muted);
-          line-height: 1.6;
-          margin: 4px 0 0;
-        }
-
-        /* ── Form card ───────────────────────────────────────── */
-        .form-card {
-          background: var(--color-surface);
-          border: 1px solid var(--color-border);
-          padding: 32px 36px;
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-          animation: fadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
-          box-sizing: border-box;
-        }
-
-        /* ── Field ───────────────────────────────────────────── */
-        .field {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .field-label {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
-
-        .field-input {
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          color: var(--color-text);
-          font-family: var(--font-body);
-          font-size: 14px;
-          padding: 11px 14px;
-          outline: none;
-          transition: border-color 0.15s ease;
-          box-sizing: border-box;
-          width: 100%;
-        }
-
-        .field-input:focus {
-          border-color: var(--color-accent);
-        }
-
-        .field-input::placeholder {
-          color: var(--color-text-muted);
-          opacity: 0.6;
-        }
-
-        /* ── Type toggle cards ───────────────────────────────── */
-        .type-cards {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-        }
-
-        .type-card {
-          border: 1px solid var(--color-border);
-          background: var(--color-bg);
-          padding: 16px 18px;
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          transition: border-color 0.15s ease, background 0.15s ease;
-          text-align: left;
-        }
-
-        .type-card:hover {
-          border-color: oklch(0.42 0.022 305);
-        }
-
-        .type-card.selected {
-          border-color: var(--color-accent);
-          background: var(--color-accent-bg);
-        }
-
-        .type-card-name {
-          font-family: var(--font-display);
-          font-size: 12px;
-          font-weight: 600;
-          letter-spacing: 0.06em;
-          color: var(--color-text);
-        }
-
-        .type-card.selected .type-card-name {
-          color: var(--color-accent);
-        }
-
-        .type-card-sub {
-          font-family: var(--font-body);
-          font-size: 12px;
-          color: var(--color-text-muted);
-        }
-
-        /* ── Submit button ───────────────────────────────────── */
-        .btn-submit {
-          font-family: var(--font-display);
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: oklch(0.09 0.028 305);
-          background: var(--color-accent);
-          border: 1px solid var(--color-accent);
-          padding: 14px 28px;
-          cursor: pointer;
-          align-self: flex-start;
-          transition: background 0.15s ease;
-        }
-
-        .btn-submit:hover:not(:disabled) {
-          background: oklch(0.84 0.17 48);
-          border-color: oklch(0.84 0.17 48);
-        }
-
-        .btn-submit:disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
-        }
-
-        /* ── Error ───────────────────────────────────────────── */
-        .form-error {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: oklch(0.72 0.15 25);
-          margin: 0;
-        }
-
-        /* ── States (pending / submitted) ────────────────────── */
-        .state-card {
-          background: var(--color-surface);
-          border: 1px solid var(--color-border);
-          padding: 48px 36px;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-          gap: 12px;
-          animation: fadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
-        }
-
-        .state-label {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-        }
-
-        .state-title {
-          font-family: var(--font-display);
-          font-size: 20px;
-          font-weight: 900;
-          letter-spacing: -0.01em;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        .state-body {
-          font-family: var(--font-body);
-          font-size: 14px;
-          color: var(--color-text-muted);
-          line-height: 1.6;
-          margin: 0;
-          max-width: 42ch;
-        }
-
-        /* ── Animations ──────────────────────────────────────── */
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .page-heading, .form-card, .state-card { animation: none; }
-        }
-
-        /* ── Responsive ──────────────────────────────────────── */
-        @media (max-width: 900px) {
-          .nav { padding: 0 24px; }
-          .main { padding: 96px 24px 64px; }
-        }
-
-        @media (max-width: 480px) {
-          .nav { padding: 0 16px; }
-          .main { padding: 88px 16px 64px; }
-          .form-card { padding: 24px 20px; }
-          .type-cards { grid-template-columns: 1fr; }
-        }
-      `}</style>
-
-      <div className={`page-root ${unbounded.variable} ${epilogue.variable}`}>
-
-        <nav className="nav">
-          <div className="nav-left">
-            <PasslyLogo />
-            <div className="nav-divider" />
-            <div className="nav-section">Host Events</div>
-          </div>
-          <div className="nav-right">
-            <Link href="/my-tickets" className="btn-nav" style={{ textDecoration: 'none' }}>My Tickets</Link>
-            <button className="btn-nav" onClick={() => logout()}>Log out</button>
-          </div>
-        </nav>
-
-        <main className="main">
-
-          <div className="page-heading">
-            <div className="page-label">
-              <span className="page-label-line" />
-              Organizer
+        <div className="topbar">
+          <div className="topbar-inner">
+            <PasslyLogo height={24} />
+            <div className="nav">
+              <Link href="/events">Events</Link>
+              <Link href="/my-tickets">Meine Tickets</Link>
             </div>
-            <h1 className="page-title">Become an organizer</h1>
-            {pageState === 'form' && (
-              <p className="page-sub">
-                Tell us about yourself. We&rsquo;ll review your application and get back to you.
-              </p>
-            )}
+            <div className="topbar-right">
+              <button className="btn subtle sm" onClick={() => logout()}>Abmelden</button>
+            </div>
           </div>
+        </div>
 
-          {/* Form */}
-          {pageState === 'form' && (
-            <div className="form-card">
+        <div className="main">
+          <div className="aurora" aria-hidden="true" />
+          <div className="container">
+            <div className="narrow">
 
-              <div className="field">
-                <label className="field-label" htmlFor="org-name">Full name</label>
-                <input
-                  id="org-name"
-                  className="field-input"
-                  type="text"
-                  placeholder="Your full name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-
-              <div className="field">
-                <label className="field-label" htmlFor="org-email">Email address</label>
-                <input
-                  id="org-email"
-                  className="field-input"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={effectiveEmail}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="field">
-                <div className="field-label">Organizer type</div>
-                <div className="type-cards">
-                  <button
-                    className={`type-card${orgType === 'private' ? ' selected' : ''}`}
-                    onClick={() => setOrgType('private')}
-                    type="button"
-                  >
-                    <div className="type-card-name">Private</div>
-                    <div className="type-card-sub">Individuals, personal events</div>
-                  </button>
-                  <button
-                    className={`type-card${orgType === 'business' ? ' selected' : ''}`}
-                    onClick={() => setOrgType('business')}
-                    type="button"
-                  >
-                    <div className="type-card-name">Business</div>
-                    <div className="type-card-sub">Companies, brands, recurring events</div>
-                  </button>
-                </div>
-              </div>
-
-              {orgType === 'business' && (
-                <div className="field">
-                  <label className="field-label" htmlFor="org-business-name">Business name</label>
-                  <input
-                    id="org-business-name"
-                    className="field-input"
-                    type="text"
-                    placeholder="Your company or brand name"
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                  />
-                </div>
-              )}
-
-              {formError && formError !== 'email_required' && (
-                <p className="form-error">{formError}</p>
-              )}
-              {formError === 'email_required' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <p className="form-error">
-                    To become an organizer, please verify your email address first.
+              <div className="hero" style={{ padding: '32px 0 28px', marginBottom: 8 }}>
+                <div className="eyebrow"><span className="pulse" />Für Veranstalter</div>
+                <h1 style={{ fontSize: 32 }}>Eigene Events veranstalten</h1>
+                {pageState === 'form' && (
+                  <p className="lead" style={{ fontSize: 14.5 }}>
+                    Erzähl uns kurz, wer du bist — danach kannst du sofort dein erstes Event anlegen.
                   </p>
+                )}
+              </div>
+
+              {pageState === 'form' && (
+                <div className="card" style={{ padding: '24px 24px 22px' }}>
+
+                  <div className="field">
+                    <label htmlFor="org-name">Vollständiger Name</label>
+                    <input
+                      id="org-name"
+                      className="input"
+                      type="text"
+                      placeholder="Dein Name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="org-email">E-Mail-Adresse</label>
+                    <input
+                      id="org-email"
+                      className="input"
+                      type="email"
+                      placeholder="du@beispiel.de"
+                      value={effectiveEmail}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label>Du veranstaltest als</label>
+                    <div className="type-cards">
+                      <button
+                        className={`type-card${orgType === 'private' ? ' selected' : ''}`}
+                        onClick={() => setOrgType('private')}
+                        type="button"
+                      >
+                        <div className="name">Privatperson</div>
+                        <div className="sub">Private Feiern, einzelne Events</div>
+                      </button>
+                      <button
+                        className={`type-card${orgType === 'business' ? ' selected' : ''}`}
+                        onClick={() => setOrgType('business')}
+                        type="button"
+                      >
+                        <div className="name">Unternehmen</div>
+                        <div className="sub">Firmen, Marken, regelmäßige Events</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {orgType === 'business' && (
+                    <div className="field">
+                      <label htmlFor="org-business-name">Name des Unternehmens</label>
+                      <input
+                        id="org-business-name"
+                        className="input"
+                        type="text"
+                        placeholder="Firmen- oder Markenname"
+                        value={businessName}
+                        onChange={(e) => setBusinessName(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  {formError && formError !== 'email_required' && (
+                    <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--bad-wash)', border: '1px solid oklch(0.86 0.10 25)', fontSize: 12.5, color: 'var(--bad)', marginBottom: 14 }}>
+                      {formError}
+                    </div>
+                  )}
+                  {formError === 'email_required' && (
+                    <div style={{ padding: '12px 14px', borderRadius: 8, background: 'var(--warn-wash)', border: '1px solid oklch(0.86 0.09 70)', marginBottom: 14 }}>
+                      <div style={{ fontSize: 12.5, color: 'oklch(0.42 0.13 70)', marginBottom: 10 }}>
+                        Um Events zu veranstalten, bestätige bitte zuerst deine E-Mail-Adresse.
+                      </div>
+                      <button type="button" className="btn ghost sm" onClick={() => linkEmail()}>
+                        <Icon name="mail" size={13} /> E-Mail bestätigen
+                      </button>
+                    </div>
+                  )}
+
                   <button
-                    type="button"
-                    className="btn-submit"
-                    style={{ alignSelf: 'flex-start' }}
-                    onClick={() => linkEmail()}
+                    className="btn primary lg"
+                    style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
+                    onClick={() => void handleSubmit()}
+                    disabled={submitting}
                   >
-                    Verify email
+                    {submitting ? 'Wird gesendet …' : 'Loslegen'}
                   </button>
+
                 </div>
               )}
 
-              <button
-                className="btn-submit"
-                onClick={() => void handleSubmit()}
-                disabled={submitting}
-              >
-                {submitting ? 'Submitting…' : 'Submit application'}
-              </button>
+              {pageState === 'loading' && (
+                <div className="card"><div className="empty">Einen Moment …</div></div>
+              )}
+
+              <LegalLinks style={{ marginTop: 40 }} />
 
             </div>
-          )}
-
-        </main>
-
+          </div>
+        </div>
       </div>
     </>
   );

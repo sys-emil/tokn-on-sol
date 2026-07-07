@@ -1,7 +1,11 @@
 import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export const PLATFORM_FEE_BPS = 300; // 3 % platform fee
+// LEGACY: organizer-side 3% fee. Only used for checkout sessions created
+// before the buyer-side service fee existed (no serviceFeeCents in the session
+// metadata). New sessions: see src/lib/fees.ts — the buyer pays €1 + 4% per
+// ticket on top and the organizer nets 100% of the face price.
+export const PLATFORM_FEE_BPS = 300;
 
 /*
  * Payout architecture: Separate Charges & Transfers (NOT Destination Charges).
@@ -51,8 +55,9 @@ export type PayoutRow = {
 };
 
 /**
- * Split a gross amount (cents) into platform fee and organizer net.
- * Fee is rounded to the nearest cent; net + fee always equals gross.
+ * LEGACY split: 3% organizer-side fee on the gross amount. Fallback for
+ * sessions without serviceFeeCents metadata; also the historical ratio baked
+ * into old payout rows. Fee is rounded; net + fee always equals gross.
  */
 export function computeFeeSplit(grossCents: number): { feeCents: number; netCents: number } {
   if (!Number.isInteger(grossCents) || grossCents < 0) {
@@ -90,6 +95,11 @@ export function computeAvailableAt(eventDate: string, holdDays: number, now: Dat
 /**
  * Build the payouts-table row for a completed, paid checkout session.
  * Returns null for free sessions (nothing to pay out).
+ *
+ * `serviceFeeCents` is the buyer-side service fee recorded in the session
+ * metadata at checkout creation: fee_cents = serviceFeeCents and the organizer
+ * nets the full face price (gross − fee). Sessions without it (created before
+ * the service fee existed) fall back to the legacy organizer-side 3% split.
  */
 export function buildPayoutRow(params: {
   session: Pick<Stripe.Checkout.Session, "id" | "amount_total" | "currency" | "payment_intent">;
@@ -99,13 +109,20 @@ export function buildPayoutRow(params: {
   organizerWallet: string;
   stripeAccountId: string | null;
   holdDays: number;
+  serviceFeeCents?: number | null;
   now?: Date;
 }): Omit<PayoutRow, "id" | "created_at" | "updated_at" | "transfer_id" | "dispute_id" | "failure_reason" | "status"> | null {
-  const { session, chargeId, eventId, eventDate, organizerWallet, stripeAccountId, holdDays, now } = params;
+  const { session, chargeId, eventId, eventDate, organizerWallet, stripeAccountId, holdDays, serviceFeeCents, now } = params;
   const grossCents = session.amount_total ?? 0;
   if (grossCents <= 0) return null;
 
-  const { feeCents, netCents } = computeFeeSplit(grossCents);
+  const hasServiceFee = typeof serviceFeeCents === "number"
+    && Number.isInteger(serviceFeeCents)
+    && serviceFeeCents >= 0
+    && serviceFeeCents <= grossCents;
+  const { feeCents, netCents } = hasServiceFee
+    ? { feeCents: serviceFeeCents, netCents: grossCents - serviceFeeCents }
+    : computeFeeSplit(grossCents);
   return {
     stripe_session_id: session.id,
     payment_intent_id: typeof session.payment_intent === "string"

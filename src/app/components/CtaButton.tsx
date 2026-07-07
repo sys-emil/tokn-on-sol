@@ -1,20 +1,21 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
+import { useLogin, usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 interface CtaButtonProps {
   className?: string;
 }
 
+// Deliberately no auto-redirect for authenticated visitors — logged-in users
+// must be able to browse the landing page (logo links back to "/"). Only an
+// actively completed login (onComplete) navigates to the ticket overview.
 export default function CtaButton({ className }: CtaButtonProps) {
-  const { ready, authenticated, login } = usePrivy();
+  const { ready, authenticated } = usePrivy();
   const router = useRouter();
-
-  useEffect(() => {
-    if (authenticated) router.push('/my-tickets');
-  }, [authenticated]);
+  const { login } = useLogin({
+    onComplete: () => router.push('/my-tickets'),
+  });
 
   function handleClick() {
     if (authenticated) {
@@ -26,7 +27,7 @@ export default function CtaButton({ className }: CtaButtonProps) {
 
   return (
     <button className={className} onClick={handleClick} disabled={!ready}>
-      Get Started
+      Loslegen
       <span className="cta-arrow">→</span>
     </button>
   );

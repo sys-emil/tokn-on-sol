@@ -22,6 +22,8 @@ export interface MintTicketParams {
   eventDate: string;
   ownerWallet: string;
   baseUrl: string;
+  /** Static per-event metadata JSON (Supabase Storage). Falls back to the legacy dynamic route when absent (pre-existing events). */
+  metadataUri?: string | null;
 }
 
 export interface MintBadgeParams {
@@ -58,7 +60,8 @@ async function parseLeafWithRetry(umi: Umi, signature: TransactionSignature) {
 export async function mintTicket(params: MintTicketParams): Promise<MintTicketResult> {
   const { eventName, eventDate, ownerWallet, baseUrl } = params;
 
-  const metadataUri = `${baseUrl}/api/tickets/metadata?name=${encodeURIComponent(eventName)}&date=${encodeURIComponent(eventDate)}`;
+  const metadataUri = params.metadataUri
+    ?? `${baseUrl}/api/tickets/metadata?name=${encodeURIComponent(eventName)}&date=${encodeURIComponent(eventDate)}`;
 
   const operatorKeypair = getOperatorKeypair();
   const umi = createUmi(heliusRpcUrl())

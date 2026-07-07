@@ -2,32 +2,52 @@
 
 import { useLogout, usePrivy } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
-import { Epilogue, Unbounded } from 'next/font/google';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
+import { Icon, Spark } from '@/app/components/passlyUi';
 import { useEffect, useState } from 'react';
 
-const unbounded = Unbounded({
-  subsets: ['latin'],
-  variable: '--font-display',
-  weight: ['400', '600', '900'],
-  display: 'swap',
-});
-
-const epilogue = Epilogue({
-  subsets: ['latin'],
-  variable: '--font-body',
-  weight: ['400', '500'],
-  display: 'swap',
-});
-
 interface EventRow {
+  id: string;
   name: string;
   date: string;
-  count: number;
-  id?: string;
-  is_private?: boolean;
+  venue: string | null;
+  price_eur: number;
+  capacity: number;
+  tickets_sold: number;
+  is_private: boolean;
+}
+
+interface ActivityItem {
+  eventName: string;
+  quantity: number;
+  when: string;
+  kind: 'sale' | 'redemption';
+}
+
+const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+const monthShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
+const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
+const shortDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'gerade eben';
+  if (mins < 60) return `vor ${mins} Min.`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `vor ${hours} Std.`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'gestern';
+  return `vor ${days} Tagen`;
+}
+
+function isUpcoming(iso: string): boolean {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(iso + 'T00:00:00').getTime() >= today.getTime();
 }
 
 export default function Dashboard() {
@@ -36,20 +56,26 @@ export default function Dashboard() {
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
 
-  const [modalOpen, setModalOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [venue, setVenue] = useState('');
+  const [description, setDescription] = useState('');
   const [priceEur, setPriceEur] = useState(0);
   const [capacity, setCapacity] = useState(100);
   const [isPrivate, setIsPrivate] = useState(false);
   const [payoutHoldDays, setPayoutHoldDays] = useState(0);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [shopLink, setShopLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [copiedRowId, setCopiedRowId] = useState<string | null>(null);
-  const [copiedDoormanId, setCopiedDoormanId] = useState<string | null>(null);
+
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [sparkline, setSparkline] = useState<number[]>([]);
+  const [soldLast7, setSoldLast7] = useState(0);
+  const [soldPrev7, setSoldPrev7] = useState(0);
   const [ticketsIssued, setTicketsIssued] = useState(0);
   const [eventsLoaded, setEventsLoaded] = useState(false);
   const [orgStatus, setOrgStatus] = useState<'loading' | 'none' | 'approved'>('loading');
@@ -95,9 +121,20 @@ export default function Dashboard() {
       try {
         const res = await fetch(`/api/events/list?organizerWallet=${solanaWalletAddress}`);
         if (res.ok) {
-          const data = (await res.json()) as { events: EventRow[]; totalTickets: number };
+          const data = (await res.json()) as {
+            events: EventRow[];
+            totalTickets: number;
+            activity: ActivityItem[];
+            sparkline: number[];
+            soldLast7: number;
+            soldPrev7: number;
+          };
           setEvents(data.events);
           setTicketsIssued(data.totalTickets);
+          setActivity(data.activity ?? []);
+          setSparkline(data.sparkline ?? []);
+          setSoldLast7(data.soldLast7 ?? 0);
+          setSoldPrev7(data.soldPrev7 ?? 0);
         }
       } finally {
         setEventsLoaded(true);
@@ -127,26 +164,39 @@ export default function Dashboard() {
 
   if (!ready || !authenticated) return null;
 
-  const solanaWallet = solanaWallets[0];
   const ownerWallet = solanaWalletAddress;
-  const displayName = user?.email?.address ?? 'Organizer';
+  const email = user?.email?.address ?? '';
+  const displayName = email ? email.split('@')[0] : 'Organizer';
+  const initials = displayName.slice(0, 2).toUpperCase();
   const loadingEvents = !!ownerWallet && !eventsLoaded;
+
+  const totalRevenueCents = events.reduce((a, e) => a + e.tickets_sold * e.price_eur, 0);
+  const activeEvents = events.filter((e) => isUpcoming(e.date)).length;
+  const nextEvent = [...events]
+    .filter((e) => isUpcoming(e.date))
+    .sort((a, b) => a.date.localeCompare(b.date))[0];
+  const deltaPct = soldPrev7 > 0
+    ? Math.round(((soldLast7 - soldPrev7) / soldPrev7) * 1000) / 10
+    : null;
 
   function resetForm(): void {
     setEventName('');
     setEventDate('');
+    setVenue('');
+    setDescription('');
     setPriceEur(0);
     setCapacity(100);
     setIsPrivate(false);
     setPayoutHoldDays(0);
+    setImageFile(null);
     setFormError(null);
     setShopLink(null);
     setCopied(false);
   }
 
-  function closeModal(): void {
+  function closeDrawer(): void {
     if (creating) return;
-    setModalOpen(false);
+    setDrawerOpen(false);
     resetForm();
   }
 
@@ -155,7 +205,7 @@ export default function Dashboard() {
     setStripeError(null);
     const token = await getAccessToken();
     if (!token) {
-      setStripeError('Not authenticated. Please log out and back in.');
+      setStripeError('Nicht angemeldet. Bitte melde dich ab und wieder an.');
       return;
     }
     setConnectingStripe(true);
@@ -170,16 +220,16 @@ export default function Dashboard() {
       try {
         data = JSON.parse(text) as { success: boolean; url?: string; error?: string };
       } catch {
-        setStripeError(`Server error (${res.status}): ${text.slice(0, 120) || 'empty response'}`);
+        setStripeError(`Serverfehler (${res.status}): ${text.slice(0, 120) || 'leere Antwort'}`);
         return;
       }
       if (data.success && data.url) {
         window.location.href = data.url;
       } else {
-        setStripeError(data.error ?? 'Failed to start Stripe onboarding.');
+        setStripeError(data.error ?? 'Stripe-Onboarding konnte nicht gestartet werden.');
       }
     } catch (err) {
-      setStripeError(err instanceof Error ? err.message : 'Failed to start Stripe onboarding.');
+      setStripeError(err instanceof Error ? err.message : 'Stripe-Onboarding konnte nicht gestartet werden.');
     } finally {
       setConnectingStripe(false);
     }
@@ -187,24 +237,32 @@ export default function Dashboard() {
 
   async function handleCreateEvent(): Promise<void> {
     if (!ownerWallet) {
-      setFormError('No Solana wallet connected.');
+      setFormError('Dein Konto ist noch nicht bereit. Bitte versuche es gleich noch einmal.');
       return;
     }
     const trimmedName = eventName.trim();
     if (!trimmedName || !eventDate) {
-      setFormError('Event name and date are required.');
+      setFormError('Name und Datum sind Pflichtfelder.');
       return;
     }
     if (priceEur < 0) {
-      setFormError('Ticket price must be 0 or greater.');
+      setFormError('Der Ticketpreis muss 0 oder größer sein.');
       return;
     }
     if (capacity < 1 || capacity > 10000) {
-      setFormError('Capacity must be between 1 and 10,000.');
+      setFormError('Die Ticketanzahl muss zwischen 1 und 10.000 liegen.');
       return;
     }
     if (!Number.isInteger(payoutHoldDays) || payoutHoldDays < 0 || payoutHoldDays > 90) {
-      setFormError('Payout hold must be between 0 and 90 days.');
+      setFormError('Der Auszahlungs-Puffer muss zwischen 0 und 90 Tagen liegen.');
+      return;
+    }
+    if (imageFile && !['image/jpeg', 'image/png', 'image/webp'].includes(imageFile.type)) {
+      setFormError('Das Event-Bild muss ein JPEG, PNG oder WebP sein.');
+      return;
+    }
+    if (imageFile && imageFile.size > 4 * 1024 * 1024) {
+      setFormError('Das Event-Bild darf höchstens 4 MB groß sein.');
       return;
     }
 
@@ -216,9 +274,31 @@ export default function Dashboard() {
     try {
       const token = await getAccessToken();
       if (!token) {
-        setFormError('Not authenticated. Please log out and back in.');
+        setFormError('Nicht angemeldet. Bitte melde dich ab und wieder an.');
         return;
       }
+
+      let imageUrl: string | undefined;
+      if (imageFile) {
+        const form = new FormData();
+        form.append('organizer_wallet', ownerWallet);
+        form.append('file', imageFile);
+        const uploadRes = await fetch('/api/events/upload-image', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        });
+        const uploadData = (await uploadRes.json()) as
+          | { success: true; url: string }
+          | { success: false; error: string };
+        if (!uploadRes.ok || !uploadData.success) {
+          const message = !uploadData.success ? uploadData.error : `HTTP ${uploadRes.status}`;
+          setFormError(`Bild-Upload fehlgeschlagen: ${message}`);
+          return;
+        }
+        imageUrl = uploadData.url;
+      }
+
       const createRes = await fetch('/api/events/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -230,6 +310,9 @@ export default function Dashboard() {
           capacity,
           is_private: isPrivate,
           payout_hold_days: payoutHoldDays,
+          ...(venue.trim() ? { venue: venue.trim() } : {}),
+          ...(description.trim() ? { description: description.trim() } : {}),
+          ...(imageUrl ? { image_url: imageUrl } : {}),
         }),
       });
       const createData = (await createRes.json()) as
@@ -237,1224 +320,379 @@ export default function Dashboard() {
         | { success: false; error: string };
       if (!createRes.ok || !createData.success) {
         const message = !createData.success ? createData.error : `HTTP ${createRes.status}`;
-        setFormError(`Failed to save event: ${message}`);
+        setFormError(`Speichern fehlgeschlagen: ${message}`);
         return;
       }
       const eventId = createData.id;
       const link = `${window.location.origin}/shop/${eventId}`;
       setShopLink(link);
       setEvents((prev) => [
+        {
+          id: eventId,
+          name: trimmedName,
+          date: eventDate,
+          venue: venue.trim() || null,
+          price_eur: Math.round(priceEur * 100),
+          capacity,
+          tickets_sold: 0,
+          is_private: isPrivate,
+        },
         ...prev,
-        { name: trimmedName, date: eventDate, count: 0, id: eventId, is_private: isPrivate },
       ]);
-      setTimeout(() => {
-        setModalOpen(false);
-        resetForm();
-      }, 3000);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Failed to save event.');
+      setFormError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
     } finally {
       setCreating(false);
     }
   }
 
+  const canSave = !!eventName.trim() && !!eventDate && capacity > 0 && !creating && !shopLink;
+
   return (
     <>
-      <style>{`
-        :root {
-          --color-bg:          oklch(0.09 0.028 305);
-          --color-surface:     oklch(0.15 0.024 308);
-          --color-border:      oklch(0.26 0.022 305);
-          --color-text:        oklch(0.96 0.008 75);
-          --color-text-muted:  oklch(0.56 0.012 305);
-          --color-accent:      oklch(0.79 0.19 48);
-          --color-accent-bg:   oklch(0.18 0.048 48);
-          --color-accent-2:    oklch(0.67 0.24 295);
-          --color-accent-2-bg: oklch(0.16 0.040 295);
-          --color-accent-3:    oklch(0.72 0.22 350);
-          --color-accent-3-bg: oklch(0.17 0.040 350);
-        }
-
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: var(--color-bg);
-        }
-
-        .dash-root {
-          font-family: var(--font-body);
-          background-color: var(--color-bg);
-          background-image: radial-gradient(
-            circle,
-            oklch(0.28 0.026 308 / 0.38) 1px,
-            transparent 1px
-          );
-          background-size: 28px 28px;
-          color: var(--color-text);
-          min-height: 100dvh;
-          display: flex;
-          flex-direction: column;
-        }
-
-        /* ── Nav ─────────────────────────────────────────────── */
-        .nav {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          z-index: 20;
-          padding: 0 48px;
-          height: 68px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: oklch(0.09 0.028 305 / 0.88);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border-bottom: 1px solid var(--color-border);
-        }
-
-        .nav-left {
-          display: flex;
-          align-items: center;
-          gap: 32px;
-        }
-
-        .logo {
-          font-family: var(--font-display);
-          font-size: 14px;
-          font-weight: 900;
-          letter-spacing: 0.10em;
-          text-transform: uppercase;
-          color: var(--color-text);
-        }
-
-        .logo-dot { color: var(--color-accent); }
-
-        .nav-divider {
-          width: 1px;
-          height: 18px;
-          background: var(--color-border);
-        }
-
-        .nav-section {
-          font-family: var(--font-body);
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
-
-        .nav-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .nav-email {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-          max-width: 240px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .btn-logout {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-          background: transparent;
-          border: 1px solid var(--color-border);
-          padding: 8px 16px;
-          cursor: pointer;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          transition: color 0.15s ease, border-color 0.15s ease;
-        }
-
-        .btn-logout:hover {
-          color: var(--color-text);
-          border-color: oklch(0.42 0.022 305);
-        }
-
-        /* ── Main ────────────────────────────────────────────── */
-        .main {
-          flex: 1;
-          max-width: 1280px;
-          width: 100%;
-          margin: 0 auto;
-          padding: 108px 48px 96px;
-          box-sizing: border-box;
-          display: flex;
-          flex-direction: column;
-          gap: 48px;
-        }
-
-        .page-heading {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .page-label {
-          font-family: var(--font-body);
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.20em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .page-label-line {
-          display: block;
-          width: 24px;
-          height: 1px;
-          background: var(--color-accent);
-          flex-shrink: 0;
-        }
-
-        .page-title {
-          font-family: var(--font-display);
-          font-size: clamp(28px, 3.2vw, 42px);
-          font-weight: 900;
-          letter-spacing: -0.02em;
-          line-height: 1.1;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        /* ── Cards grid ──────────────────────────────────────── */
-        .cards {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 1px;
-          background: var(--color-border);
-          border: 1px solid var(--color-border);
-        }
-
-        .card {
-          background: var(--color-surface);
-          padding: 32px 36px;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          box-sizing: border-box;
-        }
-
-        .card-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-        }
-
-        .card-label {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
-
-        .card-num {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.16em;
-          color: var(--color-accent);
-        }
-
-        /* ── My Events card ──────────────────────────────────── */
-        .events-empty {
-          border: 1px dashed var(--color-border);
-          padding: 36px 24px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 16px;
-          flex: 1;
-        }
-
-        .events-empty-text {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-          text-align: center;
-          line-height: 1.6;
-          margin: 0;
-        }
-
-        .btn-create {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          padding: 11px 22px;
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-          background: transparent;
-          border: 1.5px solid var(--color-accent);
-          cursor: pointer;
-          transition: background 0.16s ease, color 0.16s ease;
-        }
-
-        .btn-create:hover {
-          background: oklch(0.84 0.17 48);
-          color: oklch(0.09 0.028 305);
-        }
-
-        /* ── Stat card (Tickets Issued) ──────────────────────── */
-        .stat-value {
-          font-family: var(--font-display);
-          font-size: clamp(42px, 5vw, 64px);
-          font-weight: 900;
-          letter-spacing: -0.03em;
-          line-height: 1;
-          color: var(--color-text);
-        }
-
-        .stat-unit {
-          font-family: var(--font-body);
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-          margin-top: -8px;
-        }
-
-        /* ── Wallet card ─────────────────────────────────────── */
-        .wallet-status {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 14px 16px;
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-        }
-
-        .wallet-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: var(--color-accent);
-          flex-shrink: 0;
-        }
-
-        .wallet-connected {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text);
-        }
-
-        .wallet-none {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text-muted);
-          padding: 14px 0;
-        }
-
-        .wallet-chain {
-          font-family: var(--font-body);
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-          margin-top: auto;
-        }
-
-        /* ── Payouts card ────────────────────────────────────── */
-        .payouts-status {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 14px 16px;
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-        }
-
-        .payouts-dot {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        .payouts-dot.connected { background: var(--color-accent); }
-        .payouts-dot.pending   { background: var(--color-accent-2); }
-
-        .payouts-label {
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text);
-        }
-
-        .payouts-account {
-          font-family: var(--font-display);
-          font-size: 10px;
-          letter-spacing: 0.10em;
-          color: var(--color-text-muted);
-          margin-top: auto;
-        }
-
-        .btn-stripe-connect {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          padding: 11px 22px;
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-accent-2);
-          background: transparent;
-          border: 1.5px solid var(--color-accent-2);
-          cursor: pointer;
-          transition: background 0.16s ease, color 0.16s ease;
-          align-self: flex-start;
-        }
-
-        .btn-stripe-connect:hover:not(:disabled) {
-          background: var(--color-accent-2);
-          color: oklch(0.09 0.028 305);
-        }
-
-        .btn-stripe-connect:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .connect-hint {
-          font-family: var(--font-body);
-          font-size: 11px;
-          color: var(--color-text-muted);
-          line-height: 1.5;
-        }
-
-        /* ── Entrance animation ──────────────────────────────── */
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to   { opacity: 1; transform: translateY(0);    }
-        }
-
-        .a1 { animation: fadeUp 0.50s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
-        .a2 { animation: fadeUp 0.50s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
-
-        @media (prefers-reduced-motion: reduce) {
-          .a1, .a2 { animation: none; }
-        }
-
-        /* ── Event rows ──────────────────────────────────────── */
-        .events-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
-          background: var(--color-border);
-          border: 1px solid var(--color-border);
-          flex: 1;
-        }
-
-        .event-row {
-          background: var(--color-bg);
-          padding: 12px 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          font-family: var(--font-body);
-          font-size: 13px;
-          color: var(--color-text);
-        }
-
-        .event-row-name {
-          font-family: var(--font-display);
-          font-weight: 600;
-          letter-spacing: 0.02em;
-          color: var(--color-text);
-          line-height: 1.3;
-        }
-
-        .event-row-bottom {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .event-row-meta {
-          font-family: var(--font-body);
-          font-size: 12px;
-          color: var(--color-text-muted);
-          letter-spacing: 0.04em;
-          flex-shrink: 0;
-        }
-
-        .event-row-meta + .event-row-meta::before {
-          content: '·';
-          margin-right: 10px;
-          color: var(--color-border);
-        }
-
-        .events-list-footer {
-          display: flex;
-          justify-content: flex-end;
-        }
-
-        /* ── Row action buttons ──────────────────────────────── */
-        .btn-row {
-          font-family: var(--font-display);
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          padding: 5px 10px;
-          cursor: pointer;
-          transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
-          flex-shrink: 0;
-          white-space: nowrap;
-        }
-
-        .btn-row-primary {
-          color: oklch(0.09 0.028 305);
-          background: var(--color-accent);
-          border: 1px solid var(--color-accent);
-        }
-
-        .btn-row-primary:hover {
-          background: oklch(0.84 0.17 48);
-          border-color: oklch(0.84 0.17 48);
-        }
-
-        .btn-row-ghost {
-          color: var(--color-text-muted);
-          background: transparent;
-          border: 1px solid var(--color-border);
-        }
-
-        .btn-row-ghost:hover {
-          color: var(--color-text);
-          border-color: oklch(0.42 0.022 305);
-        }
-
-        /* ── Private badge ───────────────────────────────────── */
-        .event-badge-private {
-          font-family: var(--font-display);
-          font-size: 8px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-          border: 1px solid var(--color-border);
-          padding: 2px 6px;
-          flex-shrink: 0;
-        }
-
-        /* ── Visibility toggle ───────────────────────────────── */
-        .vis-cards {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-        }
-
-        .vis-card {
-          border: 1px solid var(--color-border);
-          background: var(--color-bg);
-          padding: 12px 14px;
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          transition: border-color 0.15s ease, background 0.15s ease;
-          text-align: left;
-        }
-
-        .vis-card:hover:not(:disabled) {
-          border-color: oklch(0.42 0.022 305);
-        }
-
-        .vis-card.selected {
-          border-color: var(--color-accent);
-          background: var(--color-accent-bg);
-        }
-
-        .vis-card:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .vis-card-name {
-          font-family: var(--font-display);
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.06em;
-          color: var(--color-text);
-        }
-
-        .vis-card.selected .vis-card-name {
-          color: var(--color-accent);
-        }
-
-        .vis-card-sub {
-          font-family: var(--font-body);
-          font-size: 11px;
-          color: var(--color-text-muted);
-          line-height: 1.4;
-        }
-
-        /* ── Modal ───────────────────────────────────────────── */
-        @keyframes overlayIn {
-          from { opacity: 0; }
-          to   { opacity: 1; }
-        }
-
-        @keyframes modalIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 50;
-          background: oklch(0.05 0.015 305 / 0.85);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 32px;
-          animation: overlayIn 0.20s ease both;
-        }
-
-        .modal-surface {
-          width: 100%;
-          max-width: 460px;
-          background: var(--color-surface);
-          border: 1px solid var(--color-border);
-          padding: 36px;
-          display: flex;
-          flex-direction: column;
-          gap: 28px;
-          box-sizing: border-box;
-          animation: modalIn 0.30s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-
-        .modal-header {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .modal-eyebrow {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-        }
-
-        .modal-title {
-          font-family: var(--font-display);
-          font-size: 22px;
-          font-weight: 900;
-          letter-spacing: -0.01em;
-          color: var(--color-text);
-          margin: 0;
-        }
-
-        .modal-form {
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-        }
-
-        .field {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .field-label {
-          font-family: var(--font-display);
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: var(--color-text-muted);
-        }
-
-        .field-input {
-          font-family: var(--font-body);
-          font-size: 14px;
-          color: var(--color-text);
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          border-radius: 0;
-          padding: 12px 16px;
-          width: 100%;
-          box-sizing: border-box;
-          outline: none;
-          transition: border-color 0.15s ease;
-          -webkit-appearance: none;
-          appearance: none;
-        }
-
-        .field-input:focus {
-          border-color: var(--color-accent);
-        }
-
-        .field-input:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-
-        .field-input::placeholder {
-          color: var(--color-text-muted);
-        }
-
-        /* Force the date picker indicator to render in light mode against our dark bg */
-        .field-input[type="date"]::-webkit-calendar-picker-indicator {
-          filter: invert(0.9);
-          cursor: pointer;
-        }
-
-        .modal-status {
-          font-family: var(--font-body);
-          font-size: 13px;
-          line-height: 1.5;
-          padding: 14px 16px;
-          border: 1px solid var(--color-border);
-          background: var(--color-bg);
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-        }
-
-        .modal-status-dot {
-          width: 6px;
-          height: 6px;
-          flex-shrink: 0;
-          margin-top: 6px;
-        }
-
-        .modal-status-dot.error { background: oklch(0.62 0.18 28); }
-        .modal-status-dot.success { background: var(--color-accent); }
-        .modal-status-dot.progress { background: var(--color-text-muted); }
-
-        .modal-status-text {
-          flex: 1;
-          color: var(--color-text);
-        }
-
-        .modal-status-meta {
-          display: block;
-          margin-top: 6px;
-          font-family: var(--font-display);
-          font-size: 11px;
-          letter-spacing: 0.10em;
-          color: var(--color-text-muted);
-          word-break: break-all;
-        }
-
-        .modal-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-        }
-
-        .btn-create:disabled,
-        .btn-logout:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .btn-copy {
-          font-family: var(--font-display);
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          color: var(--color-accent);
-          background: transparent;
-          border: 1px solid var(--color-accent);
-          padding: 5px 10px;
-          cursor: pointer;
-          transition: background 0.16s ease, color 0.16s ease;
-          flex-shrink: 0;
-        }
-
-        .btn-copy:hover {
-          background: var(--color-accent);
-          color: oklch(0.09 0.028 305);
-        }
-
-        .shop-link-row {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-top: 6px;
-        }
-
-        .shop-link-url {
-          font-family: var(--font-display);
-          font-size: 11px;
-          letter-spacing: 0.08em;
-          color: var(--color-text-muted);
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          flex: 1;
-        }
-
-        /* ── Responsive ──────────────────────────────────────── */
-        @media (max-width: 900px) {
-          .nav { padding: 0 24px; }
-
-          .main { padding: 96px 24px 64px; }
-
-          .cards { grid-template-columns: 1fr; }
-        }
-
-        @media (max-width: 520px) {
-          .modal-surface { padding: 28px 24px; }
-          .modal-actions { flex-direction: column-reverse; }
-          .modal-actions .btn-create,
-          .modal-actions .btn-logout { width: 100%; justify-content: center; }
-        }
-
-        @media (max-width: 480px) {
-          .nav { padding: 0 16px; }
-          .main { padding: 88px 16px 64px; }
-          .nav-email { max-width: 140px; }
-        }
-
-        @media (max-width: 400px) {
-          .modal-surface { padding: 20px 16px; }
-        }
-      `}</style>
-
-      <div className={`dash-root ${unbounded.variable} ${epilogue.variable}`}>
-
-        {/* Nav */}
-        <nav className="nav">
-          <div className="nav-left">
-            <PasslyLogo />
-            <div className="nav-divider" />
-            <div className="nav-section">Dashboard</div>
-          </div>
-
-          <div className="nav-right">
-            <span className="nav-email">{displayName}</span>
-            <Link href="/my-tickets" className="btn-logout" style={{ textDecoration: 'none' }}>
-              My Tickets
-            </Link>
-            <button className="btn-logout" onClick={() => logout()}>
-              Log out
-            </button>
-          </div>
-        </nav>
-
-        {/* Main */}
-        <main className="main">
-
-          {orgStatus === 'approved' && (<>
-
-          {/* Heading */}
-          <div className="page-heading a1">
-            <div className="page-label">
-              <span className="page-label-line" />
-              Organizer
+      <div className="app">
+
+        <div className="topbar">
+          <div className="topbar-inner">
+            <PasslyLogo height={24} />
+            <div className="nav">
+              <Link href="/dashboard" className="active">Übersicht</Link>
+              <Link href="/events">Events</Link>
+              <Link href="/my-tickets">Meine Tickets</Link>
             </div>
-            <h1 className="page-title">Your overview</h1>
+            <div className="topbar-right">
+              <button className="btn subtle sm" onClick={() => logout()}>Abmelden</button>
+              <div className="avatar" title={email}>{initials}</div>
+            </div>
           </div>
+        </div>
 
-          {/* Cards */}
-          <div className="cards a2">
+        <div className="main">
+          {orgStatus === 'approved' && (
+            <>
+              <div className="aurora" />
+              <div className="container">
 
-            {/* My Events */}
-            <div className="card">
-              <div className="card-header">
-                <div className="card-label">My Events</div>
-                <div className="card-num">01</div>
-              </div>
-              {loadingEvents ? (
-                <div className="events-empty">
-                  <p className="events-empty-text">Loading events…</p>
-                </div>
-              ) : events.length === 0 ? (
-                <div className="events-empty">
-                  <p className="events-empty-text">
-                    No events yet.<br />Create your first event.
+                <div className="hero">
+                  <div className="eyebrow"><span className="pulse" /> Willkommen zurück{displayName !== 'Organizer' ? `, ${displayName}` : ''}</div>
+                  <h1>Deine Veranstaltungen <br />auf einen Blick.</h1>
+                  <p className="lead">
+                    Erstelle Tickets, teile sie per Link und prüfe den Einlass — alles fälschungssicher, ohne Papierchaos.
                   </p>
-                  <button
-                    className="btn-create"
-                    onClick={() => setModalOpen(true)}
-                  >
-                    + Create Event
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="events-list">
-                    {events.map((evt, i) => (
-                      <div className="event-row" key={`${evt.name}-${i}`}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div className="event-row-name">{evt.name}</div>
-                          {evt.is_private && <span className="event-badge-private">Private</span>}
-                        </div>
-                        <div className="event-row-bottom">
-                          <div className="event-row-meta">{evt.date}</div>
-                          <div className="event-row-meta">{evt.count} tickets</div>
-                          {evt.id && (
-                            <button
-                              type="button"
-                              className="btn-row btn-row-primary"
-                              onClick={() => {
-                                void navigator.clipboard.writeText(
-                                  `${window.location.origin}/shop/${evt.id}`
-                                ).then(() => {
-                                  setCopiedRowId(evt.id ?? null);
-                                  setTimeout(() => setCopiedRowId(null), 2000);
-                                });
-                              }}
-                            >
-                              {copiedRowId === evt.id ? 'Copied!' : 'Shop Link'}
-                            </button>
-                          )}
-                          {evt.id && (
-                            <button
-                              type="button"
-                              className="btn-row btn-row-ghost"
-                              onClick={() => {
-                                void navigator.clipboard.writeText(
-                                  `${window.location.origin}/doorman/${evt.id}`
-                                ).then(() => {
-                                  setCopiedDoormanId(evt.id ?? null);
-                                  setTimeout(() => setCopiedDoormanId(null), 2000);
-                                });
-                              }}
-                            >
-                              {copiedDoormanId === evt.id ? 'Copied!' : 'Doorman'}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="events-list-footer">
-                    <button
-                      className="btn-create"
-                      onClick={() => setModalOpen(true)}
-                    >
-                      + Create Event
+                  <div className="row gap-2" style={{ marginTop: 22 }}>
+                    <button className="btn primary lg" onClick={() => setDrawerOpen(true)}>
+                      <Icon name="plus" size={15} /> Veranstaltung erstellen
                     </button>
                   </div>
-                </>
-              )}
-            </div>
-
-            {/* Tickets Issued */}
-            <div className="card">
-              <div className="card-header">
-                <div className="card-label">Tickets Issued</div>
-                <div className="card-num">02</div>
-              </div>
-              <div className="stat-value">{ticketsIssued}</div>
-              <div className="stat-unit">tickets sold</div>
-            </div>
-
-            {/* Wallet */}
-            <div className="card">
-              <div className="card-header">
-                <div className="card-label">Wallet</div>
-                <div className="card-num">03</div>
-              </div>
-              {solanaWallet ? (
-                <div className="wallet-status">
-                  <div className="wallet-dot" />
-                  <span className="wallet-connected">Connected</span>
                 </div>
-              ) : (
-                <div className="wallet-none">No wallet connected.</div>
-              )}
-              <div className="wallet-chain">Solana</div>
-            </div>
 
-            {/* Payouts */}
-            <div className="card">
-              <div className="card-header">
-                <div className="card-label">Payouts</div>
-                <div className="card-num">04</div>
-              </div>
-              {stripeStatus === 'connected' && (
-                <>
-                  <div className="payouts-status">
-                    <div className="payouts-dot connected" />
-                    <span className="payouts-label">Connected</span>
+                <div className="kpis">
+                  <div className="kpi">
+                    <div className="label">Verkaufte Tickets</div>
+                    <div className="value">{ticketsIssued.toLocaleString('de-DE')}</div>
+                    {deltaPct !== null ? (
+                      <div className={`delta${deltaPct < 0 ? ' neg' : ''}`}>
+                        <Icon name="arrow" size={12} strokeWidth={2.2} /> {deltaPct >= 0 ? '+' : ''}{deltaPct.toLocaleString('de-DE')} % zu letzter Woche
+                      </div>
+                    ) : (
+                      <div className="delta" style={{ color: 'var(--ink-3)' }}>{soldLast7} in den letzten 7 Tagen</div>
+                    )}
+                    {sparkline.length > 1 && <div className="spark"><Spark data={sparkline} /></div>}
                   </div>
-                  <div className="payouts-account">3% platform fee · Stripe Express</div>
-                </>
-              )}
-              {stripeStatus === 'pending' && (
-                <>
-                  <div className="payouts-status">
-                    <div className="payouts-dot pending" />
-                    <span className="payouts-label">Onboarding incomplete</span>
+                  <div className="kpi">
+                    <div className="label">Einnahmen</div>
+                    <div className="value">{eur(totalRevenueCents)}</div>
+                    <div className="delta" style={{ color: 'var(--ink-3)' }}>Ticketumsatz gesamt · 100 % für dich</div>
+                    {sparkline.length > 1 && <div className="spark"><Spark data={sparkline} color="var(--ok)" /></div>}
                   </div>
-                  <div className="connect-hint">
-                    You can create events, but paid ticket sales are disabled until Stripe
-                    verification is complete.
+                  <div className="kpi">
+                    <div className="label">Aktive Events</div>
+                    <div className="value">{activeEvents}</div>
+                    <div className="delta" style={{ color: 'var(--ink-3)' }}>
+                      {events.length - activeEvents} vorbei
+                    </div>
                   </div>
-                  <button
-                    className="btn-stripe-connect"
-                    onClick={() => void handleConnectStripe()}
-                    disabled={connectingStripe}
-                  >
-                    {connectingStripe ? 'Redirecting…' : 'Continue setup'}
-                  </button>
-                  {stripeError && (
-                    <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'oklch(0.62 0.18 28)', lineHeight: 1.5 }}>
-                      {stripeError}
+                  <div className="kpi">
+                    <div className="label">Nächstes Event</div>
+                    <div className="value" style={{ fontSize: 20, letterSpacing: '-0.02em' }}>
+                      {nextEvent ? shortDate(nextEvent.date) : '—'}
+                    </div>
+                    <div className="delta" style={{ color: 'var(--ink-3)' }}>
+                      {nextEvent ? nextEvent.name : 'Keine bevorstehende'}
+                    </div>
+                  </div>
+                </div>
+
+                {stripeStatus !== 'connected' && (
+                  <section>
+                    <div className="card" style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--warn-wash)', border: '1px solid oklch(0.86 0.09 70)', display: 'grid', placeItems: 'center', color: 'var(--warn)', flexShrink: 0 }}>
+                        <Icon name="euro" size={16} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 240 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>
+                          {stripeStatus === 'pending' ? 'Stripe-Verifizierung abschließen' : 'Auszahlungen einrichten'}
+                        </div>
+                        <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
+                          {stripeStatus === 'pending'
+                            ? 'Du kannst Events erstellen, aber bezahlte Ticketverkäufe bleiben deaktiviert, bis die Verifizierung abgeschlossen ist.'
+                            : 'Verbinde Stripe, um Einnahmen ausgezahlt zu bekommen. Du erhältst 100 % deines Ticketpreises — Käufer zahlen eine kleine Servicegebühr obendrauf.'}
+                        </div>
+                        {stripeError && (
+                          <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>{stripeError}</div>
+                        )}
+                      </div>
+                      <button className="btn primary" onClick={() => void handleConnectStripe()} disabled={connectingStripe}>
+                        {connectingStripe ? 'Weiterleitung …' : stripeStatus === 'pending' ? 'Verifizierung fortsetzen' : 'Stripe verbinden'}
+                      </button>
+                    </div>
+                  </section>
+                )}
+
+                <section>
+                  <div className="section-head">
+                    <div>
+                      <h2>Veranstaltungen</h2>
+                      <div className="sub">{events.length} insgesamt · {activeEvents} aktiv</div>
+                    </div>
+                  </div>
+
+                  {loadingEvents ? (
+                    <div className="card"><div className="empty">Lade Veranstaltungen …</div></div>
+                  ) : (
+                    <div className="events-grid">
+                      {events.map((e) => {
+                        const pct = e.capacity > 0 ? Math.round((e.tickets_sold / e.capacity) * 100) : 0;
+                        const upcoming = isUpcoming(e.date);
+                        return (
+                          <Link key={e.id} href={`/dashboard/events/${e.id}`} className="event-card">
+                            <div className="row gap-3">
+                              <div className="date-chip">
+                                <div className="m">{monthShort(e.date)}</div>
+                                <div className="d">{dayNum(e.date)}</div>
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div className="title">{e.name}</div>
+                                <div className="meta">
+                                  {e.venue ? (<><Icon name="location" size={12} /> {e.venue}</>) : (<><Icon name="euro" size={12} /> {e.price_eur === 0 ? 'Kostenlos' : eur(e.price_eur)}</>)}
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="sold">
+                                <span><b>{e.tickets_sold}</b> von {e.capacity} verkauft</span>
+                                <span>{pct}%</span>
+                              </div>
+                              <div className="progress"><span style={{ width: pct + '%' }} /></div>
+                            </div>
+                            <div className="row" style={{ justifyContent: 'space-between' }}>
+                              <span className="row gap-2">
+                                <span className={'chip ' + (upcoming ? 'ok' : '')}>
+                                  <span className="d" />{upcoming ? 'Aktiv' : 'Vorbei'}
+                                </span>
+                                {e.is_private && <span className="chip"><span className="d" />Privat</span>}
+                              </span>
+                              <span className="muted" style={{ fontSize: 12 }}>
+                                {e.price_eur === 0 ? 'Kostenlos' : eur(e.price_eur)}
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                      <button
+                        className="event-card"
+                        onClick={() => setDrawerOpen(true)}
+                        style={{
+                          border: '1.5px dashed var(--line-2)', boxShadow: 'none', background: 'transparent',
+                          display: 'grid', placeItems: 'center', minHeight: 200, color: 'var(--ink-3)',
+                        }}
+                      >
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{
+                            width: 38, height: 38, borderRadius: 10, background: 'var(--accent-wash)',
+                            display: 'grid', placeItems: 'center', margin: '0 auto 8px', color: 'var(--accent)',
+                          }}>
+                            <Icon name="plus" size={18} strokeWidth={2} />
+                          </div>
+                          <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink)' }}>Neue Veranstaltung</div>
+                          <div style={{ fontSize: 12, marginTop: 2 }}>Name, Datum, Ticketanzahl</div>
+                        </div>
+                      </button>
                     </div>
                   )}
-                </>
-              )}
-              {(stripeStatus === 'disconnected' || stripeStatus === 'loading') && (
-                <>
-                  <div className="connect-hint">
-                    Connect Stripe to receive payouts for paid events. Passly retains a 3% platform
-                    fee. You can create events without connecting, but paid ticket sales stay
-                    disabled until onboarding is complete.
-                  </div>
-                  <button
-                    className="btn-stripe-connect"
-                    onClick={() => void handleConnectStripe()}
-                    disabled={connectingStripe}
-                  >
-                    {connectingStripe ? 'Redirecting…' : 'Connect Stripe'}
-                  </button>
-                </>
-              )}
-              {stripeError && (
-                <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'oklch(0.62 0.18 28)', lineHeight: 1.5 }}>
-                  {stripeError}
-                </div>
-              )}
-            </div>
+                </section>
 
-          </div>
+                {activity.length > 0 && (
+                  <section>
+                    <div className="section-head">
+                      <div>
+                        <h2>Letzte Aktivität</h2>
+                        <div className="sub">Was gerade passiert</div>
+                      </div>
+                    </div>
+                    <div className="card">
+                      {activity.map((a, i) => (
+                        <div key={i} style={{
+                          display: 'grid', gridTemplateColumns: '36px 1fr auto',
+                          alignItems: 'center', gap: 14, padding: '14px 20px',
+                          borderTop: i === 0 ? 'none' : '1px solid var(--line)',
+                        }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: 8,
+                            background: a.kind === 'sale' ? 'var(--accent-wash)' : 'var(--ok-wash)',
+                            border: '1px solid ' + (a.kind === 'sale' ? 'var(--accent-line)' : 'oklch(0.86 0.08 150)'),
+                            display: 'grid', placeItems: 'center',
+                            color: a.kind === 'sale' ? 'var(--accent-ink)' : 'var(--ok)',
+                          }}>
+                            <Icon name={a.kind === 'sale' ? 'ticket' : 'doublecheck'} size={14} />
+                          </div>
+                          <div style={{ fontSize: 13.5 }}>
+                            {a.kind === 'sale'
+                              ? `${a.quantity} ${a.quantity === 1 ? 'neues Ticket' : 'neue Tickets'} für ${a.eventName}`
+                              : `Ticket eingelöst bei ${a.eventName}`}
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{relativeTime(a.when)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
 
-          </>)}
+                <LegalLinks style={{ marginTop: 56, justifyContent: 'flex-start' }} />
 
-        </main>
-
-        {modalOpen && (
-          <div
-            className="modal-overlay"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="modal-title"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) closeModal();
-            }}
-          >
-            <div className="modal-surface">
-              <div className="modal-header">
-                <div className="modal-eyebrow">New Event</div>
-                <h2 className="modal-title" id="modal-title">
-                  Create event
-                </h2>
               </div>
+            </>
+          )}
+        </div>
 
-              <form
-                className="modal-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void handleCreateEvent();
-                }}
-              >
-                <div className="field">
-                  <label className="field-label" htmlFor="evt-name">Event Name</label>
-                  <input
-                    id="evt-name"
-                    type="text"
-                    className="field-input"
-                    value={eventName}
-                    onChange={(e) => setEventName(e.target.value)}
-                    required
-                    disabled={creating}
-                    placeholder="Passly Launch Night"
-                    maxLength={120}
-                    autoFocus
-                  />
-                </div>
-
-                <div className="field">
-                  <label className="field-label" htmlFor="evt-date">Event Date</label>
-                  <input
-                    id="evt-date"
-                    type="date"
-                    className="field-input"
-                    value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
-                    required
-                    disabled={creating}
-                  />
-                </div>
-
-                <div className="field">
-                  <label className="field-label" htmlFor="evt-price">Ticket Price (€)</label>
-                  <input
-                    id="evt-price"
-                    type="number"
-                    className="field-input"
-                    value={priceEur}
-                    onChange={(e) => setPriceEur(Number(e.target.value))}
-                    min={0}
-                    step={0.01}
-                    required
-                    disabled={creating}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="field">
-                  <label className="field-label" htmlFor="evt-capacity">Capacity</label>
-                  <input
-                    id="evt-capacity"
-                    type="number"
-                    className="field-input"
-                    value={capacity}
-                    onChange={(e) => setCapacity(Number(e.target.value))}
-                    min={1}
-                    max={10000}
-                    required
-                    disabled={creating}
-                  />
-                </div>
-
-                {priceEur > 0 && (
-                  <div className="field">
-                    <label className="field-label" htmlFor="evt-hold">Payout hold (days after event)</label>
-                    <input
-                      id="evt-hold"
-                      type="number"
-                      className="field-input"
-                      value={payoutHoldDays}
-                      onChange={(e) => setPayoutHoldDays(Math.floor(Number(e.target.value)))}
-                      min={0}
-                      max={90}
-                      step={1}
-                      disabled={creating}
-                    />
-                    <div className="connect-hint">
-                      0 = daily automatic payout. A hold keeps ticket revenue on Passly until N days
-                      after the event as chargeback protection, then pays out automatically.
-                    </div>
-                  </div>
-                )}
-
-                <div className="field">
-                  <div className="field-label">Visibility</div>
-                  <div className="vis-cards">
-                    <button
-                      type="button"
-                      className={`vis-card${!isPrivate ? ' selected' : ''}`}
-                      onClick={() => setIsPrivate(false)}
-                      disabled={creating}
-                    >
-                      <div className="vis-card-name">Public</div>
-                      <div className="vis-card-sub">Listed in upcoming events</div>
-                    </button>
-                    <button
-                      type="button"
-                      className={`vis-card${isPrivate ? ' selected' : ''}`}
-                      onClick={() => setIsPrivate(true)}
-                      disabled={creating}
-                    >
-                      <div className="vis-card-name">Private</div>
-                      <div className="vis-card-sub">Hidden — share only via link</div>
-                    </button>
-                  </div>
-                </div>
-
-                {formError && (
-                  <div className="modal-status">
-                    <div className="modal-status-dot error" />
-                    <div className="modal-status-text">{formError}</div>
-                  </div>
-                )}
-
-                {shopLink && !formError && (
-                  <div className="modal-status">
-                    <div className="modal-status-dot success" />
-                    <div className="modal-status-text">
-                      Event created.
-                      <div className="shop-link-row">
-                        <span className="shop-link-url">{shopLink}</span>
-                        <button
-                          type="button"
-                          className="btn-copy"
-                          onClick={() => {
-                            void navigator.clipboard.writeText(shopLink).then(() => {
-                              setCopied(true);
-                              setTimeout(() => setCopied(false), 2000);
-                            });
-                          }}
-                        >
-                          {copied ? 'Copied!' : 'Copy'}
-                        </button>
+        {drawerOpen && (
+          <>
+            <div className="drawer-backdrop" onClick={closeDrawer} />
+            <div className="drawer" role="dialog" aria-labelledby="drawerTitle">
+              <div className="drawer-head">
+                <h3 id="drawerTitle">Neue Veranstaltung</h3>
+                <p>Wir erstellen automatisch fälschungssichere Tickets mit QR-Code.</p>
+              </div>
+              <div className="drawer-body">
+                {shopLink ? (
+                  <div>
+                    <div style={{
+                      padding: 14, borderRadius: 10,
+                      background: 'var(--ok-wash)', border: '1px solid oklch(0.86 0.08 150)',
+                      display: 'flex', gap: 10, marginBottom: 16,
+                    }}>
+                      <div style={{ color: 'var(--ok)', flexShrink: 0, marginTop: 1 }}><Icon name="check" size={16} /></div>
+                      <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                        <b>Veranstaltung erstellt.</b> Teile diesen Link, damit Gäste Tickets bekommen:
                       </div>
                     </div>
+                    <div className="field">
+                      <label>Ticket-Link</label>
+                      <input className="input mono" readOnly value={shopLink} onFocus={(e) => e.target.select()} style={{ fontSize: 12 }} />
+                    </div>
+                    <button
+                      className="btn ghost"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(shopLink).then(() => {
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        });
+                      }}
+                    >
+                      <Icon name="share" size={13} /> {copied ? 'Kopiert!' : 'Link kopieren'}
+                    </button>
                   </div>
-                )}
-
-                <div className="modal-actions">
-                  <button
-                    type="button"
-                    className="btn-logout"
-                    onClick={closeModal}
-                    disabled={creating}
-                  >
-                    Cancel
-                  </button>
-                  {priceEur > 0 && stripeStatus !== 'connected' && !formError && !shopLink && (
-                    <div className="modal-status" style={{ marginBottom: 0 }}>
-                      <div className="modal-status-dot" style={{ background: 'var(--color-accent-2)', marginTop: 6 }} />
-                      <div className="modal-status-text" style={{ color: 'var(--color-text-muted)', fontSize: 12 }}>
-                        You can create this event now, but paid ticket sales stay disabled until
-                        Stripe payout onboarding (card 04) is complete.
+                ) : (
+                  <>
+                    <div className="field">
+                      <label>Name der Veranstaltung</label>
+                      <input className="input" placeholder="z. B. Sommerkonzert 2026" value={eventName}
+                        onChange={(e) => setEventName(e.target.value)} maxLength={120} disabled={creating} />
+                    </div>
+                    <div className="field-row">
+                      <div className="field">
+                        <label>Datum</label>
+                        <input type="date" className="input" value={eventDate} onChange={(e) => setEventDate(e.target.value)} disabled={creating} />
+                      </div>
+                      <div className="field">
+                        <label>Anzahl Tickets</label>
+                        <input type="number" className="input" value={capacity} min={1} max={10000}
+                          onChange={(e) => setCapacity(Number(e.target.value))} disabled={creating} />
                       </div>
                     </div>
-                  )}
-                  <button
-                    type="submit"
-                    className="btn-create"
-                    disabled={creating || !ownerWallet}
-                  >
-                    {creating ? 'Creating...' : 'Create Event'}
+                    <div className="field">
+                      <label>Veranstaltungsort</label>
+                      <input className="input" placeholder="z. B. Aula der Schule, Augsburg" value={venue}
+                        onChange={(e) => setVenue(e.target.value)} maxLength={200} disabled={creating} />
+                    </div>
+                    <div className="field">
+                      <label>Preis pro Ticket</label>
+                      <input type="number" className="input" value={priceEur} min={0} step={0.5}
+                        onChange={(e) => setPriceEur(Number(e.target.value))} disabled={creating} />
+                      <span className="hint">In Euro. 0 = kostenlos.</span>
+                    </div>
+                    <div className="field">
+                      <label>Beschreibung (optional)</label>
+                      <textarea className="textarea" rows={3} placeholder="Kurzer Hinweis für Gäste …" value={description}
+                        onChange={(e) => setDescription(e.target.value)} maxLength={2000} disabled={creating} />
+                    </div>
+                    <div className="field">
+                      <label>Event-Bild (optional)</label>
+                      <input type="file" className="input" accept="image/jpeg,image/png,image/webp"
+                        onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} disabled={creating} />
+                      <span className="hint">JPEG, PNG oder WebP, max. 4 MB. Erscheint auf der Ticketseite.</span>
+                    </div>
+                    <div className="field">
+                      <label>Sichtbarkeit</label>
+                      <div className="seg">
+                        <button type="button" className={!isPrivate ? 'active' : ''} onClick={() => setIsPrivate(false)} disabled={creating}>Öffentlich</button>
+                        <button type="button" className={isPrivate ? 'active' : ''} onClick={() => setIsPrivate(true)} disabled={creating}>Privat</button>
+                      </div>
+                      <span className="hint">
+                        {isPrivate ? 'Nur über den direkten Link erreichbar.' : 'Erscheint in der öffentlichen Event-Liste.'}
+                      </span>
+                    </div>
+                    {priceEur > 0 && (
+                      <div className="field">
+                        <label>Auszahlungs-Puffer (Tage nach dem Event)</label>
+                        <input type="number" className="input" value={payoutHoldDays} min={0} max={90} step={1}
+                          onChange={(e) => setPayoutHoldDays(Math.floor(Number(e.target.value)))} disabled={creating} />
+                        <span className="hint">
+                          0 = tägliche automatische Auszahlung. Ein Puffer hält Einnahmen als Rückbuchungsschutz, bis N Tage nach dem Event vergangen sind.
+                        </span>
+                      </div>
+                    )}
+
+                    <div style={{
+                      marginTop: 18, padding: 14, borderRadius: 10,
+                      background: 'var(--accent-wash)', border: '1px solid var(--accent-line)',
+                      display: 'flex', gap: 10,
+                    }}>
+                      <div style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 1 }}><Icon name="shield" size={16} /></div>
+                      <div style={{ fontSize: 12.5, color: 'var(--accent-ink)', lineHeight: 1.5 }}>
+                        <b style={{ color: 'var(--accent-ink)' }}>Fälschungsschutz ist aktiv.</b> Jedes Ticket erhält einen einzigartigen QR-Code. Kopien werden beim Einlass automatisch erkannt.
+                      </div>
+                    </div>
+
+                    {formError && (
+                      <div style={{ marginTop: 14, fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{formError}</div>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="drawer-foot">
+                <button className="btn ghost" onClick={closeDrawer} disabled={creating}>
+                  {shopLink ? 'Schließen' : 'Abbrechen'}
+                </button>
+                {!shopLink && (
+                  <button className="btn primary" disabled={!canSave} onClick={() => void handleCreateEvent()}>
+                    {creating ? 'Wird erstellt …' : (<>Veranstaltung erstellen <Icon name="arrow" size={13} /></>)}
                   </button>
-                </div>
-              </form>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         )}
-
       </div>
     </>
   );

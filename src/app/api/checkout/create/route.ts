@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
+import { serviceFeePerTicketCents } from "@/lib/fees";
 
 interface CheckoutBody {
   eventId: string;
@@ -94,6 +95,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const origin = `${protocol}://${host}`;
   const expiresAt = Math.floor(Date.now() / 1000) + 30 * 60; // Stripe minimum session lifetime
 
+  // Buyer-side service fee (€1 + 4% per ticket, src/lib/fees.ts) as its own
+  // line item — the organizer nets 100% of the face price. The total is stored
+  // in the session metadata so the webhook books fee_cents/net_cents from what
+  // the buyer actually agreed to, not from a re-computation that could drift.
+  const feePerTicket = serviceFeePerTicketCents(event.price_eur);
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -107,10 +114,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             product_data: { name: event.name, description: `Ticket for ${event.date}` },
           },
         },
+        ...(feePerTicket > 0
+          ? [
+              {
+                quantity,
+                price_data: {
+                  currency: "eur" as const,
+                  unit_amount: feePerTicket,
+                  product_data: { name: "Service fee", description: "Per ticket" },
+                },
+              },
+            ]
+          : []),
       ],
       success_url: `${origin}/shop/${eventId}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/shop/${eventId}`,
-      metadata: { eventId, buyerWallet, quantity: String(quantity) },
+      metadata: {
+        eventId,
+        buyerWallet,
+        quantity: String(quantity),
+        serviceFeeCents: String(feePerTicket * quantity),
+      },
     });
 
     // Persist the reservation under the session ID so the webhook can convert

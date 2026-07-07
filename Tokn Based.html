@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tokn Based</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script>
+  const TWEAKS = /*EDITMODE-BEGIN*/{
+    "accentHue": 285,
+    "density": "comfortable",
+    "showAurora": true
+  }/*EDITMODE-END*/;
+</script>
+<style>
+  :root {
+    --hue: 285;
+    --ink:        oklch(0.20 0.02 275);
+    --ink-2:      oklch(0.36 0.02 275);
+    --ink-3:      oklch(0.54 0.015 275);
+    --ink-4:      oklch(0.68 0.012 275);
+    --line:       oklch(0.93 0.006 275);
+    --line-2:     oklch(0.88 0.008 275);
+    --surface:    #ffffff;
+    --surface-2:  oklch(0.987 0.004 280);
+    --surface-3:  oklch(0.97 0.008 280);
+    --accent:     oklch(0.54 0.22 var(--hue));
+    --accent-2:   oklch(0.46 0.24 var(--hue));
+    --accent-ink: oklch(0.30 0.18 var(--hue));
+    --accent-wash:oklch(0.97 0.035 var(--hue));
+    --accent-line:oklch(0.90 0.04 var(--hue));
+    --ok:         oklch(0.62 0.15 150);
+    --ok-wash:    oklch(0.96 0.04 150);
+    --warn:       oklch(0.68 0.17 70);
+    --warn-wash:  oklch(0.96 0.05 70);
+    --bad:        oklch(0.56 0.20 25);
+    --bad-wash:   oklch(0.96 0.04 25);
+
+    --radius-sm: 6px;
+    --radius:    10px;
+    --radius-lg: 14px;
+    --shadow-sm: 0 1px 0 oklch(0.88 0.008 275 / 0.6);
+    --shadow:    0 1px 2px rgba(17, 20, 45, 0.04), 0 2px 12px rgba(17,20,45,0.04);
+    --shadow-lg: 0 8px 32px rgba(17,20,45,0.08), 0 2px 6px rgba(17,20,45,0.04);
+
+    --font: 'Geist', ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font);
+    color: var(--ink);
+    background: var(--surface-2);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01","cv11";
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  input, textarea, select { font-family: inherit; color: inherit; }
+  a { color: inherit; text-decoration: none; }
+
+  /* Aurora hero wash (single moment of flair) */
+  .aurora {
+    position: absolute;
+    inset: -40% -10% auto -10%;
+    height: 520px;
+    pointer-events: none;
+    filter: blur(70px) saturate(1.1);
+    opacity: 0.75;
+    z-index: 0;
+  }
+  .aurora::before, .aurora::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+  }
+  .aurora::before {
+    left: 8%; top: 10%;
+    width: 520px; height: 520px;
+    background: radial-gradient(circle at 30% 30%, oklch(0.80 0.18 var(--hue)) 0%, transparent 60%);
+  }
+  .aurora::after {
+    right: 4%; top: -5%;
+    width: 620px; height: 620px;
+    background:
+      radial-gradient(circle at 70% 40%, oklch(0.80 0.16 calc(var(--hue) + 40)) 0%, transparent 55%),
+      radial-gradient(circle at 40% 80%, oklch(0.82 0.14 calc(var(--hue) - 40)) 0%, transparent 55%);
+  }
+
+  /* App shell */
+  .app { min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Top bar */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in oklab, var(--surface) 82%, transparent);
+    backdrop-filter: saturate(1.3) blur(14px);
+    -webkit-backdrop-filter: saturate(1.3) blur(14px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner {
+    max-width: 1240px; margin: 0 auto;
+    padding: 0 24px; height: 60px;
+    display: flex; align-items: center; gap: 24px;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 600; letter-spacing: -0.02em; font-size: 15px;
+  }
+  .logo-mark {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: linear-gradient(135deg, var(--accent) 0%, oklch(0.64 0.22 calc(var(--hue) + 30)) 100%);
+    position: relative;
+    box-shadow: 0 1px 2px rgba(17,20,45,0.2), inset 0 1px 0 rgba(255,255,255,0.25);
+  }
+  .logo-mark::after {
+    content: ""; position: absolute; inset: 5px;
+    border-radius: 3px;
+    background:
+      linear-gradient(white, white) padding-box,
+      repeating-linear-gradient(90deg, white 0 2px, transparent 2px 4px);
+    -webkit-mask: repeating-linear-gradient(90deg, #000 0 2px, transparent 2px 4px);
+            mask: repeating-linear-gradient(90deg, #000 0 2px, transparent 2px 4px);
+    background: white;
+    opacity: 0.95;
+  }
+  .logo b { font-weight: 600; }
+  .logo span { color: var(--ink-3); font-weight: 500; margin-left: 2px; }
+
+  .nav { display: flex; gap: 2px; align-items: center; }
+  .nav button {
+    padding: 7px 12px; font-size: 13px; color: var(--ink-3);
+    font-weight: 500; border-radius: 7px; letter-spacing: -0.005em;
+  }
+  .nav button:hover { color: var(--ink); background: var(--surface-2); }
+  .nav button.active { color: var(--ink); background: var(--surface-2); }
+
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+  /* Role switcher */
+  .role-switcher {
+    display: inline-flex; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 10px; padding: 3px;
+  }
+  .role-switcher button {
+    padding: 6px 12px; font-size: 12.5px; font-weight: 500;
+    color: var(--ink-3); border-radius: 7px;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.15s;
+  }
+  .role-switcher button.active {
+    background: var(--surface); color: var(--ink);
+    box-shadow: 0 1px 2px rgba(17,20,45,0.06), 0 0 0 1px var(--line);
+  }
+  .role-switcher .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--ink-4);
+  }
+  .role-switcher button.active .dot { background: var(--accent); }
+
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, oklch(0.82 0.08 var(--hue)), oklch(0.72 0.14 calc(var(--hue) + 40)));
+    display: grid; place-items: center; color: white; font-size: 11px; font-weight: 600;
+    border: 1px solid var(--line);
+  }
+
+  /* Main */
+  .main { flex: 1; position: relative; }
+  .container { max-width: 1240px; margin: 0 auto; padding: 40px 24px 96px; position: relative; z-index: 1; }
+
+  /* Hero row */
+  .hero {
+    position: relative;
+    padding: 48px 0 40px;
+    margin-bottom: 28px;
+  }
+  .hero h1 {
+    font-size: 40px; letter-spacing: -0.035em; font-weight: 600;
+    line-height: 1.05;
+  }
+  .hero .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--accent-ink); font-weight: 500;
+    background: var(--accent-wash); border: 1px solid var(--accent-line);
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 16px;
+  }
+  .hero .eyebrow .pulse {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 60%, transparent); }
+    70%  { box-shadow: 0 0 0 8px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .hero p.lead {
+    margin-top: 12px; color: var(--ink-3); font-size: 16px; max-width: 560px; line-height: 1.55;
+  }
+
+  /* KPI strip */
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .kpi {
+    padding: 20px 22px;
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 6px;
+    position: relative;
+  }
+  .kpi:last-child { border-right: none; }
+  .kpi .label {
+    font-size: 11.5px; color: var(--ink-3); font-weight: 500;
+    letter-spacing: 0.02em; text-transform: uppercase;
+  }
+  .kpi .value {
+    font-size: 28px; font-weight: 600; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .kpi .delta {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 500; color: var(--ok);
+  }
+  .kpi .delta.neg { color: var(--bad); }
+
+  .spark {
+    position: absolute; right: 14px; top: 14px;
+    width: 80px; height: 28px; opacity: 0.9;
+  }
+
+  /* Section */
+  section + section { margin-top: 36px; }
+  .section-head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 14px; gap: 16px;
+  }
+  .section-head h2 {
+    font-size: 18px; font-weight: 600; letter-spacing: -0.015em;
+  }
+  .section-head .sub { font-size: 13px; color: var(--ink-3); margin-top: 2px; }
+
+  /* Primary button */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 14px; border-radius: 8px;
+    font-size: 13.5px; font-weight: 500; letter-spacing: -0.005em;
+    border: 1px solid transparent; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn.primary {
+    background: var(--accent); color: white;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.18), 0 1px 2px oklch(0.40 0.18 var(--hue) / 0.35);
+  }
+  .btn.primary:hover { background: var(--accent-2); }
+  .btn.ghost {
+    background: var(--surface); color: var(--ink);
+    border-color: var(--line-2);
+    box-shadow: var(--shadow-sm);
+  }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn.subtle { color: var(--ink-3); }
+  .btn.subtle:hover { color: var(--ink); background: var(--surface-2); }
+  .btn.sm { padding: 6px 10px; font-size: 12.5px; }
+  .btn.lg { padding: 12px 18px; font-size: 14.5px; border-radius: 10px; }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+  }
+  .card-header {
+    padding: 18px 22px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .card-header h3 { font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; }
+  .card-header .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+
+  /* Event list */
+  .events-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+  }
+  @media (max-width: 960px) { .events-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 620px) { .events-grid { grid-template-columns: 1fr; } }
+
+  .event-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 18px 20px 16px;
+    cursor: pointer;
+    transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .event-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--line-2);
+  }
+  .event-card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent), var(--shadow);
+  }
+  .event-card .row { display: flex; align-items: center; gap: 10px; }
+  .event-card .date-chip {
+    width: 52px; flex-shrink: 0;
+    border: 1px solid var(--line);
+    border-radius: 9px; overflow: hidden;
+    text-align: center; background: var(--surface);
+  }
+  .event-card .date-chip .m {
+    font-size: 9.5px; letter-spacing: 0.1em; color: white;
+    text-transform: uppercase; font-weight: 600;
+    background: var(--accent); padding: 3px 0;
+  }
+  .event-card .date-chip .d {
+    font-size: 20px; font-weight: 600; padding: 4px 0 5px; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .event-card .title {
+    font-size: 15px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.3;
+  }
+  .event-card .meta { font-size: 12.5px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .event-card .meta .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
+
+  .progress {
+    height: 6px; border-radius: 99px; background: var(--surface-3);
+    overflow: hidden; position: relative;
+  }
+  .progress > span {
+    display: block; height: 100%; background: var(--accent);
+    border-radius: 99px;
+    transition: width 0.4s cubic-bezier(.4,0,.2,1);
+  }
+  .event-card .sold {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--ink-3); margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .event-card .sold b { color: var(--ink); font-weight: 600; }
+
+  /* Chips */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 500; letter-spacing: -0.005em;
+    border: 1px solid var(--line);
+    background: var(--surface-2); color: var(--ink-3);
+  }
+  .chip .d { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-4); }
+  .chip.ok { background: var(--ok-wash); color: oklch(0.38 0.12 150); border-color: oklch(0.86 0.08 150); }
+  .chip.ok .d { background: var(--ok); }
+  .chip.warn { background: var(--warn-wash); color: oklch(0.42 0.13 70); border-color: oklch(0.86 0.09 70); }
+  .chip.warn .d { background: var(--warn); }
+  .chip.bad { background: var(--bad-wash); color: oklch(0.38 0.14 25); border-color: oklch(0.86 0.10 25); }
+  .chip.bad .d { background: var(--bad); }
+  .chip.accent { background: var(--accent-wash); color: var(--accent-ink); border-color: var(--accent-line); }
+  .chip.accent .d { background: var(--accent); }
+
+  /* Detail layout */
+  .detail-grid {
+    display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px;
+    align-items: flex-start;
+  }
+  @media (max-width: 920px) { .detail-grid { grid-template-columns: 1fr; } }
+
+  /* Ticket table */
+  .ticket-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  .ticket-table thead th {
+    text-align: left; padding: 10px 16px;
+    font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 500;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+  }
+  .ticket-table tbody td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  .ticket-table tbody tr:last-child td { border-bottom: none; }
+  .ticket-table tbody tr:hover { background: var(--surface-2); }
+  .ticket-table td.mono { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+  .ticket-table .row-qr {
+    width: 28px; height: 28px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    display: inline-grid; place-items: center;
+    color: var(--ink-3);
+  }
+
+  /* QR modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 100;
+    background: color-mix(in oklab, var(--ink) 40%, transparent);
+    backdrop-filter: blur(4px);
+    display: grid; place-items: center;
+    padding: 24px;
+    animation: fadeIn 0.18s ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .modal {
+    background: var(--surface); border-radius: 16px; border: 1px solid var(--line);
+    max-width: 420px; width: 100%; overflow: hidden;
+    box-shadow: 0 24px 80px rgba(17,20,45,0.24), 0 2px 8px rgba(17,20,45,0.08);
+    animation: slideUp 0.22s cubic-bezier(.2,.8,.2,1);
+  }
+  .modal-head { padding: 18px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+  .modal-head h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .modal-body { padding: 24px 22px; }
+  .modal-foot { padding: 14px 22px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; background: var(--surface-2); }
+
+  .close-btn {
+    width: 30px; height: 30px; border-radius: 8px; color: var(--ink-3);
+    display: grid; place-items: center;
+  }
+  .close-btn:hover { background: var(--surface-2); color: var(--ink); }
+
+  /* Form */
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+  .field .hint { font-size: 11.5px; color: var(--ink-3); }
+  .input, .textarea, .select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    font-size: 13.5px;
+    background: var(--surface);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    font-feature-settings: "ss01";
+  }
+  .input:focus, .textarea:focus, .select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent);
+  }
+  .textarea { resize: vertical; min-height: 72px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Drawer for Create Event */
+  .drawer-backdrop {
+    position: fixed; inset: 0; z-index: 90;
+    background: color-mix(in oklab, var(--ink) 35%, transparent);
+    animation: fadeIn 0.15s ease-out;
+  }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 91;
+    width: 460px; max-width: 100vw;
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    box-shadow: -20px 0 60px rgba(17,20,45,0.12);
+    display: flex; flex-direction: column;
+    animation: slideIn 0.24s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes slideIn { from { transform: translateX(100%); } to { transform: none; } }
+  .drawer-head { padding: 20px 24px; border-bottom: 1px solid var(--line); }
+  .drawer-head h3 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+  .drawer-head p { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+  .drawer-body { padding: 24px; overflow-y: auto; flex: 1; }
+  .drawer-foot { padding: 16px 24px; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; background: var(--surface-2); }
+
+  /* Attendee mobile ticket (in phone frame) */
+  .phone-frame {
+    width: 380px; max-width: 100%;
+    background: var(--ink); border-radius: 44px;
+    padding: 12px;
+    box-shadow: 0 24px 64px rgba(17,20,45,0.22), 0 2px 6px rgba(17,20,45,0.08);
+    margin: 0 auto;
+  }
+  .phone-screen {
+    background: white; border-radius: 32px; overflow: hidden;
+    position: relative;
+    aspect-ratio: 9/19.5;
+    display: flex; flex-direction: column;
+  }
+  .phone-notch {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    width: 100px; height: 26px; border-radius: 999px;
+    background: var(--ink); z-index: 5;
+  }
+  .phone-status {
+    padding: 18px 22px 6px; display: flex; justify-content: space-between;
+    font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+
+  /* Door scanner */
+  .scanner-frame {
+    aspect-ratio: 1; width: 100%;
+    border-radius: 18px; position: relative; overflow: hidden;
+    background: oklch(0.24 0.02 275);
+  }
+  .scanner-frame::before {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 50% 50%, transparent 40%, rgba(0,0,0,0.5) 100%),
+      repeating-linear-gradient(45deg, oklch(0.28 0.02 275) 0 8px, oklch(0.22 0.02 275) 8px 16px);
+    opacity: 0.9;
+  }
+  .scanner-frame .corners span {
+    position: absolute; width: 30px; height: 30px;
+    border: 3px solid white; border-radius: 6px;
+  }
+  .scanner-frame .corners .tl { top: 14%; left: 14%; border-right: none; border-bottom: none; }
+  .scanner-frame .corners .tr { top: 14%; right: 14%; border-left: none; border-bottom: none; }
+  .scanner-frame .corners .bl { bottom: 14%; left: 14%; border-right: none; border-top: none; }
+  .scanner-frame .corners .br { bottom: 14%; right: 14%; border-left: none; border-top: none; }
+  .scanner-frame .beam {
+    position: absolute; left: 14%; right: 14%; top: 14%; bottom: 14%;
+    overflow: hidden; border-radius: 6px;
+  }
+  .scanner-frame .beam::after {
+    content: "";
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, oklch(0.9 0.2 var(--hue)), transparent);
+    box-shadow: 0 0 14px oklch(0.7 0.2 var(--hue));
+    animation: sweep 2.2s ease-in-out infinite;
+    top: 0;
+  }
+  @keyframes sweep {
+    0% { top: 0; }
+    50% { top: calc(100% - 2px); }
+    100% { top: 0; }
+  }
+
+  /* Tweaks panel */
+  .tweaks {
+    position: fixed; right: 20px; bottom: 20px; z-index: 120;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 24px 48px rgba(17,20,45,0.14), 0 2px 6px rgba(17,20,45,0.06);
+    padding: 14px; width: 260px;
+    display: none;
+    animation: slideUp 0.2s ease-out;
+  }
+  .tweaks.visible { display: block; }
+  .tweaks h4 { font-size: 12.5px; font-weight: 600; letter-spacing: -0.005em; margin-bottom: 10px; }
+  .tweaks label { font-size: 11.5px; color: var(--ink-3); display: block; margin-bottom: 4px; }
+  .tweaks .row { margin-bottom: 12px; }
+  .tweaks .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tweaks .swatch {
+    width: 22px; height: 22px; border-radius: 6px;
+    border: 1px solid var(--line); cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .tweaks .swatch.active { transform: scale(1.1); box-shadow: 0 0 0 2px var(--ink); }
+
+  /* Utilities */
+  .row { display: flex; align-items: center; }
+  .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
+  .stack { display: flex; flex-direction: column; }
+  .mono { font-family: var(--mono); }
+  .muted { color: var(--ink-3); }
+  .hidden { display: none !important; }
+
+  /* Mobile page background for Attendee / Doorstaff */
+  .mobile-canvas {
+    min-height: 100vh;
+    display: grid; place-items: center;
+    padding: 40px 20px;
+    background:
+      radial-gradient(1000px 500px at 50% -10%, var(--accent-wash), transparent 60%),
+      var(--surface-2);
+  }
+
+  /* Breadcrumb */
+  .crumbs { font-size: 13px; color: var(--ink-3); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .crumbs a { color: var(--ink-3); }
+  .crumbs a:hover { color: var(--ink); }
+  .crumbs .sep { color: var(--ink-4); }
+
+  /* Segmented */
+  .seg {
+    display: inline-flex; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 2px;
+  }
+  .seg button {
+    padding: 5px 11px; font-size: 12.5px; color: var(--ink-3); font-weight: 500;
+    border-radius: 6px;
+  }
+  .seg button.active {
+    background: var(--surface); color: var(--ink);
+    box-shadow: 0 1px 2px rgba(17,20,45,0.06), 0 0 0 1px var(--line);
+  }
+
+  /* Empty state */
+  .empty {
+    padding: 48px 24px; text-align: center; color: var(--ink-3);
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useMemo, useEffect, useRef } = React;
+
+/* ---------------- Data ---------------- */
+const seedEvents = [
+  {
+    id: "evt_001",
+    title: "Frühlingskonzert 2026",
+    venue: "Aula · Gymnasium Sankt Anna",
+    city: "Augsburg",
+    date: new Date("2026-05-14T19:30:00"),
+    totalTickets: 240,
+    soldTickets: 187,
+    checkedIn: 0,
+    price: 12.00,
+    status: "Aktiv",
+    color: 285,
+  },
+  {
+    id: "evt_002",
+    title: "FC Lindental — Saisonfinale",
+    venue: "Sportplatz Am Wäldchen",
+    city: "Lindental",
+    date: new Date("2026-05-22T15:00:00"),
+    totalTickets: 420,
+    soldTickets: 298,
+    checkedIn: 0,
+    price: 7.50,
+    status: "Aktiv",
+    color: 150,
+  },
+  {
+    id: "evt_003",
+    title: "Theater-AG: Der Besuch",
+    venue: "Kulturzentrum Altbau",
+    city: "Regensburg",
+    date: new Date("2026-06-06T20:00:00"),
+    totalTickets: 120,
+    soldTickets: 42,
+    checkedIn: 0,
+    price: 9.00,
+    status: "Entwurf",
+    color: 45,
+  },
+];
+
+const seedTickets = (eventId, count, sold) => {
+  const guests = [
+    "Anna Bergmann","Lukas Weber","Mira Schulz","Jonas Fischer","Helena Vogt",
+    "Paul Neumann","Clara Hoffmann","David Wagner","Sofia Becker","Maximilian Arndt",
+    "Lea Krüger","Felix Meister","Julia Pfeiffer","Noah Richter","Emilia Braun",
+    "Theo Schwarz","Marie König","Benedikt Frank","Hannah Albrecht","Leon Sommer",
+  ];
+  const statuses = ["valid","valid","valid","valid","checked","valid","valid","valid","valid","valid"];
+  const tickets = [];
+  for (let i = 0; i < sold; i++) {
+    tickets.push({
+      id: `tk_${eventId}_${String(i+1).padStart(4, "0")}`,
+      serial: `${String(i+1).padStart(3, "0")}`,
+      guest: guests[i % guests.length],
+      email: guests[i % guests.length].toLowerCase().replace(/\s+/g,".") + "@mail.de",
+      issued: new Date(Date.now() - (sold - i) * 86400000 / 3),
+      status: statuses[i % statuses.length],
+    });
+  }
+  return tickets.reverse();
+};
+
+const formatDate = (d) => d.toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" });
+const shortDate = (d) => d.toLocaleDateString("de-DE", { day: "2-digit", month: "short" });
+const formatTime = (d) => d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+const monthShort = (d) => d.toLocaleDateString("de-DE", { month: "short" }).replace(".", "");
+const dayNum = (d) => d.getDate();
+const eur = (n) => n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+
+/* ---------------- Icons ---------------- */
+const Icon = ({ name, size = 16, strokeWidth = 1.7 }) => {
+  const paths = {
+    plus: <><path d="M12 5v14"/><path d="M5 12h14"/></>,
+    calendar: <><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9h18"/><path d="M8 3v3"/><path d="M16 3v3"/></>,
+    users: <><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M17 3.13A4 4 0 0 1 17 11"/></>,
+    ticket: <><path d="M2 9a3 3 0 1 1 0 6v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a3 3 0 1 1 0-6V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2"/><path d="M13 11v2"/><path d="M13 17v2"/></>,
+    check: <><path d="M20 6L9 17l-5-5"/></>,
+    doublecheck: <><path d="M16 6 7 15l-3-3"/><path d="m20 10-7.5 7.5"/></>,
+    arrow: <><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></>,
+    download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></>,
+    share: <><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98"/><path d="M15.41 6.51l-6.82 3.98"/></>,
+    x: <><path d="M18 6 6 18"/><path d="M6 6l12 12"/></>,
+    search: <><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></>,
+    dots: <><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></>,
+    qr: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M19 14h2"/><path d="M14 19h3"/><path d="M19 19v2"/></>,
+    scan: <><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></>,
+    clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+    euro: <><path d="M18 7a6.5 6.5 0 1 0 0 10"/><path d="M3 10h9"/><path d="M3 14h9"/></>,
+    mail: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></>,
+    location: <><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0z"/><circle cx="12" cy="10" r="3"/></>,
+    shield: <><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/><path d="m9 12 2 2 4-4"/></>,
+    sparkle: <><path d="M12 3v4"/><path d="M12 17v4"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="m5.6 5.6 2.8 2.8"/><path d="m15.6 15.6 2.8 2.8"/><path d="m5.6 18.4 2.8-2.8"/><path d="m15.6 8.4 2.8-2.8"/></>,
+    camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
+    refresh: <><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 21v-5h5"/><path d="M21 3v5h-5"/></>,
+    chevronRight: <><path d="m9 18 6-6-6-6"/></>,
+    chevronLeft: <><path d="m15 18-6-6 6-6"/></>,
+    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
+    wifi: <><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 15.55a7 7 0 0 1 7 0"/><path d="M12 19.55v0"/></>,
+    bell: <><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      {paths[name]}
+    </svg>
+  );
+};
+
+/* ---------------- QR code placeholder (no external lib) ---------------- */
+const QR = ({ data, size = 180, dark = "currentColor", light = "transparent" }) => {
+  // Deterministic pseudo-random pattern based on string hash — looks like a QR, scales crisply.
+  const cells = 29;
+  const cellSize = size / cells;
+  const grid = useMemo(() => {
+    let seed = 0;
+    for (let i = 0; i < data.length; i++) seed = (seed * 31 + data.charCodeAt(i)) >>> 0;
+    const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return (seed >>> 8) / 0xFFFFFF; };
+    const g = [];
+    for (let y = 0; y < cells; y++) {
+      const r = [];
+      for (let x = 0; x < cells; x++) r.push(rand() > 0.52 ? 1 : 0);
+      g.push(r);
+    }
+    // Finder patterns (3 corners)
+    const place = (ox, oy) => {
+      for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+        const edge = x === 0 || y === 0 || x === 6 || y === 6;
+        const inner = x >= 2 && x <= 4 && y >= 2 && y <= 4;
+        g[oy+y][ox+x] = (edge || inner) ? 1 : 0;
+      }
+      // clear area next to finder
+      for (let i = 0; i < 8; i++) {
+        if (oy + 7 < cells) g[oy+7][ox+i] = 0;
+        if (ox + 7 < cells) g[oy+i] && (g[oy+i][ox+7] = 0);
+      }
+    };
+    place(0,0); place(cells-7, 0); place(0, cells-7);
+    // small alignment
+    for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) {
+      const edge = x === 0 || y === 0 || x === 4 || y === 4;
+      const inner = x === 2 && y === 2;
+      g[cells-7 + y - 1][cells-7 + x - 1] = (edge || inner) ? 1 : 0;
+    }
+    return g;
+  }, [data]);
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges">
+      <rect width={size} height={size} fill={light} />
+      {grid.map((row, y) => row.map((v, x) => v ? (
+        <rect key={`${x}-${y}`} x={x*cellSize} y={y*cellSize} width={cellSize} height={cellSize} fill={dark} />
+      ) : null))}
+    </svg>
+  );
+};
+
+/* ---------------- Sparkline ---------------- */
+const Spark = ({ data, color = "var(--accent)", width = 80, height = 28 }) => {
+  const max = Math.max(...data, 1);
+  const step = width / (data.length - 1);
+  const points = data.map((v, i) => `${i*step},${height - (v/max)*(height-4) - 2}`).join(" ");
+  return (
+    <svg width={width} height={height}>
+      <polyline fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" points={points} />
+    </svg>
+  );
+};
+
+/* ---------------- Organizer Dashboard ---------------- */
+function OrganizerDashboard({ onOpenEvent, events, onCreate }) {
+  const totalSold = events.reduce((a,e) => a + e.soldTickets, 0);
+  const totalRevenue = events.reduce((a,e) => a + e.soldTickets * e.price, 0);
+  const activeEvents = events.filter(e => e.status === "Aktiv").length;
+  const nextEvent = [...events].filter(e => e.date > new Date()).sort((a,b) => a.date - b.date)[0];
+
+  return (
+    <>
+      <div className="aurora" />
+      <div className="container">
+        <div className="hero">
+          <div className="eyebrow"><span className="pulse"/> Willkommen zurück, Martina</div>
+          <h1>Deine Veranstaltungen <br/>auf einen Blick.</h1>
+          <p className="lead">
+            Erstelle Tickets, teile sie per Link und prüfe den Einlass — alles fälschungssicher, ohne Papierchaos.
+          </p>
+          <div className="row gap-2" style={{ marginTop: 22 }}>
+            <button className="btn primary lg" onClick={onCreate}>
+              <Icon name="plus" size={15}/> Veranstaltung erstellen
+            </button>
+            <button className="btn ghost lg">
+              <Icon name="download" size={14}/> Bericht exportieren
+            </button>
+          </div>
+        </div>
+
+        <div className="kpis">
+          <div className="kpi">
+            <div className="label">Verkaufte Tickets</div>
+            <div className="value">{totalSold.toLocaleString("de-DE")}</div>
+            <div className="delta"><Icon name="arrow" size={12} strokeWidth={2.2} /> +12,4 % zu letzter Woche</div>
+            <div className="spark"><Spark data={[2,3,3,5,4,6,7,6,8,9,10,11]} /></div>
+          </div>
+          <div className="kpi">
+            <div className="label">Einnahmen</div>
+            <div className="value">{eur(totalRevenue)}</div>
+            <div className="delta"><Icon name="arrow" size={12} strokeWidth={2.2} /> +{eur(totalRevenue*0.09)} diese Woche</div>
+            <div className="spark"><Spark data={[1,2,2,4,3,5,6,6,7,7,9,10]} color="var(--ok)" /></div>
+          </div>
+          <div className="kpi">
+            <div className="label">Aktive Events</div>
+            <div className="value">{activeEvents}</div>
+            <div className="delta muted" style={{ color: "var(--ink-3)" }}>
+              {events.length - activeEvents} Entwurf
+            </div>
+          </div>
+          <div className="kpi">
+            <div className="label">Nächstes Event</div>
+            <div className="value" style={{ fontSize: 20, letterSpacing: "-0.02em" }}>
+              {nextEvent ? shortDate(nextEvent.date) : "—"}
+            </div>
+            <div className="delta muted" style={{ color: "var(--ink-3)" }}>
+              {nextEvent ? nextEvent.title : "Keine bevorstehende"}
+            </div>
+          </div>
+        </div>
+
+        <section>
+          <div className="section-head">
+            <div>
+              <h2>Veranstaltungen</h2>
+              <div className="sub">{events.length} insgesamt · {activeEvents} aktiv</div>
+            </div>
+            <div className="row gap-2">
+              <div className="seg">
+                <button className="active">Alle</button>
+                <button>Aktiv</button>
+                <button>Entwurf</button>
+                <button>Archiv</button>
+              </div>
+              <button className="btn ghost sm"><Icon name="search" size={13}/> Suchen</button>
+            </div>
+          </div>
+
+          <div className="events-grid">
+            {events.map(e => {
+              const pct = Math.round((e.soldTickets / e.totalTickets) * 100);
+              return (
+                <div key={e.id} className="event-card" onClick={() => onOpenEvent(e.id)}>
+                  <div className="row gap-3">
+                    <div className="date-chip">
+                      <div className="m">{monthShort(e.date)}</div>
+                      <div className="d">{dayNum(e.date)}</div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="title">{e.title}</div>
+                      <div className="meta">
+                        <Icon name="location" size={12} /> {e.venue}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="sold">
+                      <span><b>{e.soldTickets}</b> von {e.totalTickets} verkauft</span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="progress"><span style={{ width: pct + "%" }} /></div>
+                  </div>
+                  <div className="row" style={{ justifyContent: "space-between" }}>
+                    <span className={"chip " + (e.status === "Aktiv" ? "ok" : e.status === "Entwurf" ? "warn" : "")}>
+                      <span className="d"/>{e.status}
+                    </span>
+                    <span className="muted" style={{ fontSize: 12 }}>{formatTime(e.date)} Uhr</span>
+                  </div>
+                </div>
+              );
+            })}
+            <button className="event-card" onClick={onCreate}
+              style={{ border: "1.5px dashed var(--line-2)", boxShadow: "none", background: "transparent",
+                       display: "grid", placeItems: "center", minHeight: 200, color: "var(--ink-3)" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10, background: "var(--accent-wash)",
+                  display: "grid", placeItems: "center", margin: "0 auto 8px", color: "var(--accent)"
+                }}>
+                  <Icon name="plus" size={18} strokeWidth={2}/>
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)" }}>Neue Veranstaltung</div>
+                <div style={{ fontSize: 12, marginTop: 2 }}>Name, Datum, Ticketanzahl</div>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        <section>
+          <div className="section-head">
+            <div>
+              <h2>Letzte Aktivität</h2>
+              <div className="sub">Was gerade passiert</div>
+            </div>
+            <button className="btn subtle sm">Alle anzeigen <Icon name="chevronRight" size={12}/></button>
+          </div>
+          <div className="card">
+            {[
+              { icon: "ticket", text: "14 neue Tickets für Frühlingskonzert 2026", when: "vor 2 Stunden", tone: "accent" },
+              { icon: "doublecheck", text: "Einlass gestartet für FC Lindental — Saisonfinale", when: "vor 4 Stunden", tone: "ok" },
+              { icon: "mail", text: "Ticket an clara.hoffmann@mail.de gesendet", when: "gestern", tone: "" },
+              { icon: "shield", text: "Fälschungsschutz aktiviert für Theater-AG: Der Besuch", when: "vor 2 Tagen", tone: "" },
+            ].map((a, i) => (
+              <div key={i} style={{
+                display: "grid", gridTemplateColumns: "36px 1fr auto",
+                alignItems: "center", gap: 14, padding: "14px 20px",
+                borderTop: i === 0 ? "none" : "1px solid var(--line)"
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  background: a.tone === "accent" ? "var(--accent-wash)" : a.tone === "ok" ? "var(--ok-wash)" : "var(--surface-2)",
+                  border: "1px solid " + (a.tone === "accent" ? "var(--accent-line)" : a.tone === "ok" ? "oklch(0.86 0.08 150)" : "var(--line)"),
+                  display: "grid", placeItems: "center",
+                  color: a.tone === "accent" ? "var(--accent-ink)" : a.tone === "ok" ? "var(--ok)" : "var(--ink-3)"
+                }}>
+                  <Icon name={a.icon} size={14}/>
+                </div>
+                <div style={{ fontSize: 13.5 }}>{a.text}</div>
+                <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{a.when}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
+
+/* ---------------- Event Detail ---------------- */
+function EventDetail({ event, onBack, onOpenTicket }) {
+  const [tickets] = useState(() => seedTickets(event.id, event.totalTickets, event.soldTickets));
+  const [filter, setFilter] = useState("all");
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    return tickets.filter(t => {
+      if (filter === "valid" && t.status !== "valid") return false;
+      if (filter === "checked" && t.status !== "checked") return false;
+      if (query && !(t.guest.toLowerCase().includes(query.toLowerCase()) || t.serial.includes(query))) return false;
+      return true;
+    });
+  }, [tickets, filter, query]);
+
+  const pct = Math.round((event.soldTickets / event.totalTickets) * 100);
+
+  return (
+    <div className="container">
+      <div className="crumbs">
+        <a onClick={onBack} style={{ cursor: "pointer" }}>Veranstaltungen</a>
+        <span className="sep">/</span>
+        <span style={{ color: "var(--ink)" }}>{event.title}</span>
+      </div>
+
+      <div className="row gap-3" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexWrap: "wrap" }}>
+        <div style={{ maxWidth: 640 }}>
+          <div className="row gap-2" style={{ marginBottom: 10 }}>
+            <span className={"chip " + (event.status === "Aktiv" ? "ok" : "warn")}><span className="d"/>{event.status}</span>
+            <span className="chip"><Icon name="shield" size={11}/> Fälschungsgeschützt</span>
+          </div>
+          <h1 style={{ fontSize: 30, letterSpacing: "-0.03em", fontWeight: 600, lineHeight: 1.1 }}>{event.title}</h1>
+          <div className="row gap-3" style={{ marginTop: 10, color: "var(--ink-3)", fontSize: 13.5, flexWrap: "wrap" }}>
+            <span className="row gap-2"><Icon name="calendar" size={14}/>{formatDate(event.date)} · {formatTime(event.date)} Uhr</span>
+            <span className="row gap-2"><Icon name="location" size={14}/>{event.venue}, {event.city}</span>
+            <span className="row gap-2"><Icon name="euro" size={14}/>{eur(event.price)} pro Ticket</span>
+          </div>
+        </div>
+        <div className="row gap-2">
+          <button className="btn ghost"><Icon name="share" size={14}/> Link teilen</button>
+          <button className="btn ghost"><Icon name="download" size={14}/> PDF-Bogen</button>
+          <button className="btn primary"><Icon name="plus" size={14}/> Tickets ausstellen</button>
+        </div>
+      </div>
+
+      <div className="detail-grid">
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h3>Ausgestellte Tickets</h3>
+              <div className="sub">{event.soldTickets} Tickets · {tickets.filter(t => t.status==="checked").length} bereits eingelöst</div>
+            </div>
+            <div className="row gap-2">
+              <div style={{ position: "relative" }}>
+                <Icon name="search" size={13}/>
+                <input
+                  className="input"
+                  placeholder="Name oder Nr."
+                  value={query}
+                  onChange={(e)=>setQuery(e.target.value)}
+                  style={{ padding: "7px 10px 7px 32px", fontSize: 12.5, width: 180 }}
+                />
+                <span style={{ position: "absolute", left: 10, top: 9, color: "var(--ink-3)" }}>
+                  <Icon name="search" size={13}/>
+                </span>
+              </div>
+              <div className="seg">
+                <button className={filter==="all"?"active":""} onClick={()=>setFilter("all")}>Alle</button>
+                <button className={filter==="valid"?"active":""} onClick={()=>setFilter("valid")}>Gültig</button>
+                <button className={filter==="checked"?"active":""} onClick={()=>setFilter("checked")}>Eingelöst</button>
+              </div>
+            </div>
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table className="ticket-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 52 }}></th>
+                  <th style={{ width: 72 }}>Nr.</th>
+                  <th>Gast</th>
+                  <th>Ausgestellt</th>
+                  <th>Status</th>
+                  <th style={{ width: 40 }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.slice(0, 12).map(t => (
+                  <tr key={t.id} onClick={() => onOpenTicket(t)} style={{ cursor: "pointer" }}>
+                    <td>
+                      <div className="row-qr">
+                        <Icon name="qr" size={14}/>
+                      </div>
+                    </td>
+                    <td className="mono">#{t.serial}</td>
+                    <td>
+                      <div style={{ fontWeight: 500 }}>{t.guest}</div>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)" }}>{t.email}</div>
+                    </td>
+                    <td style={{ color: "var(--ink-3)", fontSize: 12.5 }}>
+                      {t.issued.toLocaleDateString("de-DE", { day:"2-digit", month:"short" })}
+                    </td>
+                    <td>
+                      {t.status === "valid" ? (
+                        <span className="chip ok"><span className="d"/>Gültig</span>
+                      ) : (
+                        <span className="chip"><span className="d"/>Eingelöst</span>
+                      )}
+                    </td>
+                    <td><button className="btn subtle sm"><Icon name="dots" size={14}/></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ padding: "12px 20px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12.5, color: "var(--ink-3)" }}>
+              <span>{Math.min(12, filtered.length)} von {filtered.length} Tickets</span>
+              <div className="row gap-2">
+                <button className="btn ghost sm"><Icon name="chevronLeft" size={12}/></button>
+                <button className="btn ghost sm"><Icon name="chevronRight" size={12}/></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div className="card" style={{ padding: 22 }}>
+            <div style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 500, letterSpacing: "0.02em", textTransform: "uppercase" }}>
+              Verkauf
+            </div>
+            <div style={{ fontSize: 34, letterSpacing: "-0.03em", fontWeight: 600, lineHeight: 1.1, marginTop: 4, fontVariantNumeric: "tabular-nums" }}>
+              {event.soldTickets}
+              <span style={{ fontSize: 18, color: "var(--ink-3)", fontWeight: 500 }}> / {event.totalTickets}</span>
+            </div>
+            <div className="progress" style={{ marginTop: 10 }}><span style={{ width: pct + "%" }} /></div>
+            <div className="row" style={{ justifyContent: "space-between", marginTop: 14, fontSize: 12.5 }}>
+              <span className="muted">Einnahmen</span>
+              <span style={{ fontWeight: 600 }}>{eur(event.soldTickets * event.price)}</span>
+            </div>
+            <div className="row" style={{ justifyContent: "space-between", marginTop: 6, fontSize: 12.5 }}>
+              <span className="muted">Einlöse-Quote</span>
+              <span style={{ fontWeight: 600 }}>0%</span>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 22 }}>
+            <div className="row gap-2" style={{ marginBottom: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--accent-wash)", color: "var(--accent)", display: "grid", placeItems: "center", border: "1px solid var(--accent-line)" }}>
+                <Icon name="shield" size={15}/>
+              </div>
+              <h3 style={{ fontSize: 14.5, fontWeight: 600 }}>Fälschungsschutz</h3>
+            </div>
+            <p style={{ fontSize: 13, color: "var(--ink-3)", lineHeight: 1.55 }}>
+              Jedes Ticket trägt einen eindeutigen Code. Kopien werden beim Einlass automatisch erkannt und abgelehnt.
+            </p>
+            <div style={{ borderTop: "1px solid var(--line)", marginTop: 14, paddingTop: 14, display: "grid", gap: 8, fontSize: 12.5 }}>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="muted">Eindeutige Codes</span>
+                <span style={{ fontWeight: 500 }}>{event.soldTickets} ausgestellt</span>
+              </div>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="muted">Doppelte Verwendung</span>
+                <span style={{ fontWeight: 500, color: "var(--ok)" }}>0 blockiert</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 22 }}>
+            <h3 style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 10 }}>Schnellaktionen</h3>
+            <div className="stack" style={{ gap: 6 }}>
+              <button className="btn ghost" style={{ justifyContent: "flex-start" }}>
+                <Icon name="mail" size={14}/> E-Mails an Gäste senden
+              </button>
+              <button className="btn ghost" style={{ justifyContent: "flex-start" }}>
+                <Icon name="scan" size={14}/> Einlass-Modus öffnen
+              </button>
+              <button className="btn ghost" style={{ justifyContent: "flex-start" }}>
+                <Icon name="settings" size={14}/> Veranstaltung bearbeiten
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Create Event Drawer ---------------- */
+function CreateEventDrawer({ onClose, onCreate }) {
+  const [form, setForm] = useState({
+    title: "",
+    date: "",
+    time: "19:30",
+    venue: "",
+    city: "",
+    ticketCount: 100,
+    price: 10.00,
+    description: "",
+  });
+  const upd = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const canSave = form.title && form.date && form.venue && form.ticketCount > 0;
+
+  return (
+    <>
+      <div className="drawer-backdrop" onClick={onClose} />
+      <div className="drawer" role="dialog" aria-labelledby="drawerTitle">
+        <div className="drawer-head">
+          <h3 id="drawerTitle">Neue Veranstaltung</h3>
+          <p>Wir erstellen automatisch fälschungssichere Tickets mit QR-Code.</p>
+        </div>
+        <div className="drawer-body">
+          <div className="field">
+            <label>Name der Veranstaltung</label>
+            <input className="input" placeholder="z. B. Sommerkonzert 2026" value={form.title} onChange={upd("title")} />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Datum</label>
+              <input type="date" className="input" value={form.date} onChange={upd("date")} />
+            </div>
+            <div className="field">
+              <label>Uhrzeit</label>
+              <input type="time" className="input" value={form.time} onChange={upd("time")} />
+            </div>
+          </div>
+          <div className="field">
+            <label>Veranstaltungsort</label>
+            <input className="input" placeholder="z. B. Aula der Schule" value={form.venue} onChange={upd("venue")} />
+          </div>
+          <div className="field">
+            <label>Stadt</label>
+            <input className="input" placeholder="z. B. Augsburg" value={form.city} onChange={upd("city")} />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Anzahl Tickets</label>
+              <input type="number" className="input" value={form.ticketCount} onChange={upd("ticketCount")} min="1"/>
+              <span className="hint">Das Maximum an ausstellbaren Tickets.</span>
+            </div>
+            <div className="field">
+              <label>Preis pro Ticket</label>
+              <input type="number" className="input" value={form.price} onChange={upd("price")} step="0.50"/>
+              <span className="hint">In Euro. 0 = kostenlos.</span>
+            </div>
+          </div>
+          <div className="field">
+            <label>Beschreibung (optional)</label>
+            <textarea className="textarea" rows="3" placeholder="Kurzer Hinweis für Gäste …" value={form.description} onChange={upd("description")} />
+          </div>
+
+          <div style={{
+            marginTop: 18, padding: 14, borderRadius: 10,
+            background: "var(--accent-wash)", border: "1px solid var(--accent-line)",
+            display: "flex", gap: 10
+          }}>
+            <div style={{ color: "var(--accent)", flexShrink: 0, marginTop: 1 }}><Icon name="shield" size={16}/></div>
+            <div style={{ fontSize: 12.5, color: "var(--accent-ink)", lineHeight: 1.5 }}>
+              <b style={{ color: "var(--accent-ink)" }}>Fälschungsschutz ist aktiv.</b> Jedes Ticket erhält einen einzigartigen QR-Code. Kopien werden beim Einlass automatisch erkannt.
+            </div>
+          </div>
+        </div>
+        <div className="drawer-foot">
+          <button className="btn ghost" onClick={onClose}>Abbrechen</button>
+          <button className="btn primary" disabled={!canSave}
+                  onClick={() => { onCreate(form); onClose(); }}
+                  style={{ opacity: canSave ? 1 : 0.5 }}>
+            Veranstaltung erstellen <Icon name="arrow" size={13}/>
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ---------------- QR Modal (organizer view) ---------------- */
+function TicketQrModal({ ticket, event, onClose }) {
+  if (!ticket) return null;
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <h3>Ticket #{ticket.serial}</h3>
+            <div style={{ fontSize: 12.5, color: "var(--ink-3)", marginTop: 2 }}>{ticket.guest}</div>
+          </div>
+          <button className="close-btn" onClick={onClose}><Icon name="x" size={16}/></button>
+        </div>
+        <div className="modal-body" style={{ textAlign: "center" }}>
+          <div style={{ display: "inline-block", padding: 18, border: "1px solid var(--line)", borderRadius: 14, background: "var(--surface)" }}>
+            <QR data={ticket.id} size={210} dark="var(--ink)" />
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 14, fontFamily: "var(--mono)" }}>
+            {ticket.id.toUpperCase()}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 13 }}>
+            <b>{event.title}</b> · {shortDate(event.date)} · {formatTime(event.date)}
+          </div>
+        </div>
+        <div className="modal-foot">
+          <button className="btn ghost"><Icon name="mail" size={13}/> An Gast senden</button>
+          <button className="btn primary"><Icon name="download" size={13}/> Herunterladen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Attendee Mobile Ticket ---------------- */
+function AttendeeView({ events }) {
+  const event = events[0];
+  const ticket = { id: "tk_evt_001_0142", serial: "142", guest: "Anna Bergmann", status: "valid" };
+  return (
+    <div className="mobile-canvas">
+      <div>
+        <div style={{ textAlign: "center", marginBottom: 20, color: "var(--ink-3)", fontSize: 13 }}>
+          Perspektive: Gast · mobile Ansicht
+        </div>
+        <div className="phone-frame">
+          <div className="phone-screen">
+            <div className="phone-notch"/>
+            <div className="phone-status">
+              <span>9:41</span>
+              <span className="row gap-2" style={{ color: "var(--ink)", alignItems: "center" }}>
+                <Icon name="wifi" size={13}/>
+                <span style={{ display: "inline-block", width: 18, height: 10, border: "1.2px solid var(--ink)", borderRadius: 2, position: "relative" }}>
+                  <span style={{ position: "absolute", inset: 1.5, background: "var(--ink)", borderRadius: 1 }} />
+                </span>
+              </span>
+            </div>
+            <div style={{ padding: "12px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div className="logo" style={{ fontSize: 13.5 }}>
+                <span className="logo-mark" style={{ width: 22, height: 22, borderRadius: 6 }} />
+                <b>Tokn</b><span>Based</span>
+              </div>
+              <button className="btn subtle sm" style={{ padding: "4px 6px" }}><Icon name="dots" size={14}/></button>
+            </div>
+
+            <div style={{ padding: "18px 22px 14px" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase" }}>Dein Ticket</div>
+              <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: "-0.015em", lineHeight: 1.25, marginTop: 4 }}>{event.title}</div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-3)", marginTop: 6 }}>
+                {formatDate(event.date)} · {formatTime(event.date)} Uhr
+              </div>
+            </div>
+
+            {/* Ticket body */}
+            <div style={{ margin: "0 18px", padding: 20, borderRadius: 18, background: "var(--accent-wash)", border: "1px solid var(--accent-line)", position: "relative" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <span className="chip ok" style={{ background: "white" }}><span className="d"/>Gültig</span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--accent-ink)" }}>#{ticket.serial}</span>
+              </div>
+              <div style={{ background: "white", padding: 12, borderRadius: 12, boxShadow: "0 1px 2px rgba(17,20,45,0.06)" }}>
+                <QR data={ticket.id} size={220} dark="var(--ink)" />
+              </div>
+              <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "var(--accent-ink)", fontWeight: 500 }}>
+                Beim Einlass einscannen lassen
+              </div>
+              {/* Perforation */}
+              <div style={{ position: "absolute", left: -9, width: 18, height: 18, borderRadius: "50%", background: "white", border: "1px solid var(--accent-line)", top: "50%", transform: "translateY(-50%)" }} />
+              <div style={{ position: "absolute", right: -9, width: 18, height: 18, borderRadius: "50%", background: "white", border: "1px solid var(--accent-line)", top: "50%", transform: "translateY(-50%)" }} />
+            </div>
+
+            <div style={{ padding: "16px 22px 18px", display: "grid", gap: 8, fontSize: 12.5 }}>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="muted">Name</span><span style={{ fontWeight: 500 }}>{ticket.guest}</span>
+              </div>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="muted">Ort</span><span style={{ fontWeight: 500 }}>{event.venue}</span>
+              </div>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="muted">Preis</span><span style={{ fontWeight: 500 }}>{eur(event.price)}</span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "auto", padding: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <button className="btn ghost" style={{ justifyContent: "center" }}><Icon name="download" size={13}/> Wallet</button>
+              <button className="btn primary" style={{ justifyContent: "center" }}><Icon name="share" size={13}/> Teilen</button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: 20, color: "var(--ink-3)", fontSize: 12, maxWidth: 380, marginLeft: "auto", marginRight: "auto" }}>
+          Gäste bekommen einen einfachen Link per E-Mail oder WhatsApp — keine App, kein Login, keine Krypto-Begriffe.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Door staff scanner ---------------- */
+function DoorView({ events }) {
+  const [state, setState] = useState("idle"); // idle, scanning, success, used, invalid
+  const [lastScan, setLastScan] = useState(null);
+  const event = events[0];
+
+  const simulate = (outcome) => {
+    setState("scanning");
+    setTimeout(() => {
+      setState(outcome);
+      if (outcome === "success") {
+        setLastScan({ guest: "Lukas Weber", serial: "087", time: new Date() });
+      } else if (outcome === "used") {
+        setLastScan({ guest: "Mira Schulz", serial: "053", time: new Date() });
+      } else if (outcome === "invalid") {
+        setLastScan({ guest: "—", serial: "???", time: new Date() });
+      }
+    }, 1100);
+  };
+
+  const [log, setLog] = useState([
+    { guest: "Paul Neumann", serial: "112", status: "success", time: "19:24" },
+    { guest: "Clara Hoffmann", serial: "098", status: "success", time: "19:23" },
+    { guest: "Jonas Fischer", serial: "064", status: "used", time: "19:22" },
+    { guest: "Helena Vogt", serial: "077", status: "success", time: "19:21" },
+  ]);
+
+  useEffect(() => {
+    if (state === "success" || state === "used" || state === "invalid") {
+      const t = setTimeout(() => setState("idle"), 2600);
+      return () => clearTimeout(t);
+    }
+  }, [state]);
+
+  return (
+    <div className="mobile-canvas">
+      <div>
+        <div style={{ textAlign: "center", marginBottom: 20, color: "var(--ink-3)", fontSize: 13 }}>
+          Perspektive: Einlass · Tür-Gerät
+        </div>
+        <div className="phone-frame">
+          <div className="phone-screen">
+            <div className="phone-notch"/>
+            <div className="phone-status">
+              <span>19:24</span>
+              <span className="row gap-2" style={{ color: "var(--ink)", alignItems: "center" }}>
+                <Icon name="wifi" size={13}/>
+                <span style={{ display: "inline-block", width: 18, height: 10, border: "1.2px solid var(--ink)", borderRadius: 2 }}>
+                  <span style={{ display: "block", width: "70%", height: "100%", background: "var(--ink)" }}/>
+                </span>
+              </span>
+            </div>
+
+            <div style={{ padding: "12px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase" }}>Einlass</div>
+                <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }}>{event.title}</div>
+              </div>
+              <span className="chip ok"><span className="d"/>Live</span>
+            </div>
+
+            {/* Counter */}
+            <div style={{ padding: "14px 22px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: 10.5, color: "var(--ink-3)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Drin</div>
+                <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>148</div>
+              </div>
+              <div style={{ padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: 10.5, color: "var(--ink-3)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Offen</div>
+                <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>39</div>
+              </div>
+              <div style={{ padding: "10px 12px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: 10.5, color: "var(--ink-3)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Rate</div>
+                <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums" }}>3,2/min</div>
+              </div>
+            </div>
+
+            {/* Scanner area */}
+            <div style={{ padding: "16px 22px 0", position: "relative" }}>
+              <div className="scanner-frame">
+                <div className="corners">
+                  <span className="tl"/><span className="tr"/><span className="bl"/><span className="br"/>
+                </div>
+                {state === "idle" || state === "scanning" ? (
+                  <div className="beam"/>
+                ) : null}
+                {state === "success" && (
+                  <div style={{
+                    position: "absolute", inset: 0, display: "grid", placeItems: "center",
+                    background: "oklch(0.40 0.14 150)", color: "white", animation: "fadeIn 0.2s"
+                  }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{
+                        width: 72, height: 72, borderRadius: "50%",
+                        background: "white", color: "var(--ok)",
+                        display: "grid", placeItems: "center", margin: "0 auto 10px",
+                      }}>
+                        <Icon name="check" size={40} strokeWidth={3}/>
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.02em" }}>Willkommen!</div>
+                      <div style={{ fontSize: 13, marginTop: 4, opacity: 0.85 }}>{lastScan?.guest} · #{lastScan?.serial}</div>
+                    </div>
+                  </div>
+                )}
+                {state === "used" && (
+                  <div style={{
+                    position: "absolute", inset: 0, display: "grid", placeItems: "center",
+                    background: "oklch(0.48 0.14 70)", color: "white", animation: "fadeIn 0.2s"
+                  }}>
+                    <div style={{ textAlign: "center", padding: 16 }}>
+                      <div style={{
+                        width: 72, height: 72, borderRadius: "50%",
+                        background: "white", color: "var(--warn)",
+                        display: "grid", placeItems: "center", margin: "0 auto 10px",
+                      }}>
+                        <Icon name="clock" size={36} strokeWidth={2.5}/>
+                      </div>
+                      <div style={{ fontSize: 17, fontWeight: 600 }}>Bereits eingelöst</div>
+                      <div style={{ fontSize: 12.5, marginTop: 4, opacity: 0.88 }}>Dieses Ticket wurde schon gescannt.</div>
+                    </div>
+                  </div>
+                )}
+                {state === "invalid" && (
+                  <div style={{
+                    position: "absolute", inset: 0, display: "grid", placeItems: "center",
+                    background: "oklch(0.42 0.18 25)", color: "white", animation: "fadeIn 0.2s"
+                  }}>
+                    <div style={{ textAlign: "center", padding: 16 }}>
+                      <div style={{
+                        width: 72, height: 72, borderRadius: "50%",
+                        background: "white", color: "var(--bad)",
+                        display: "grid", placeItems: "center", margin: "0 auto 10px",
+                      }}>
+                        <Icon name="x" size={40} strokeWidth={3}/>
+                      </div>
+                      <div style={{ fontSize: 17, fontWeight: 600 }}>Ungültig</div>
+                      <div style={{ fontSize: 12.5, marginTop: 4, opacity: 0.88 }}>Kein passendes Ticket gefunden.</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{ textAlign: "center", color: "var(--ink-3)", fontSize: 12.5, marginTop: 10 }}>
+                {state === "idle" && "QR-Code in den Rahmen halten"}
+                {state === "scanning" && "Wird geprüft …"}
+              </div>
+            </div>
+
+            {/* Demo buttons */}
+            <div style={{ padding: "10px 22px 6px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+              <button className="btn ghost sm" onClick={()=>simulate("success")}>Gültig</button>
+              <button className="btn ghost sm" onClick={()=>simulate("used")}>Eingelöst</button>
+              <button className="btn ghost sm" onClick={()=>simulate("invalid")}>Ungültig</button>
+            </div>
+
+            {/* Log */}
+            <div style={{ padding: "10px 22px 22px" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 8 }}>
+                Letzte Einlässe
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {log.map((l, i) => (
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "24px 1fr auto", gap: 10, alignItems: "center", fontSize: 12.5 }}>
+                    <div style={{
+                      width: 22, height: 22, borderRadius: "50%",
+                      background: l.status === "success" ? "var(--ok-wash)" : "var(--warn-wash)",
+                      color: l.status === "success" ? "var(--ok)" : "var(--warn)",
+                      display: "grid", placeItems: "center",
+                    }}>
+                      <Icon name={l.status === "success" ? "check" : "clock"} size={11} strokeWidth={2.5}/>
+                    </div>
+                    <div>
+                      <span style={{ fontWeight: 500 }}>{l.guest}</span>
+                      <span style={{ color: "var(--ink-3)", marginLeft: 6 }}>· #{l.serial}</span>
+                    </div>
+                    <div style={{ color: "var(--ink-3)", fontVariantNumeric: "tabular-nums" }}>{l.time}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Top bar ---------------- */
+function TopBar({ role, setRole, page, setPage }) {
+  return (
+    <div className="topbar">
+      <div className="topbar-inner">
+        <div className="logo">
+          <span className="logo-mark"/>
+          <b>Tokn</b><span>Based</span>
+        </div>
+        {role === "organizer" && (
+          <div className="nav">
+            <button className={page==="dashboard" || page==="detail" ? "active" : ""} onClick={()=>setPage("dashboard")}>Übersicht</button>
+            <button>Veranstaltungen</button>
+            <button>Tickets</button>
+            <button>Einlass</button>
+            <button>Einstellungen</button>
+          </div>
+        )}
+        <div className="topbar-right">
+          <div className="role-switcher" role="tablist" aria-label="Rolle">
+            <button className={role==="organizer" ? "active" : ""} onClick={()=>{setRole("organizer"); setPage("dashboard");}}>
+              <span className="dot"/> Organisator
+            </button>
+            <button className={role==="attendee" ? "active" : ""} onClick={()=>setRole("attendee")}>
+              <span className="dot"/> Gast
+            </button>
+            <button className={role==="door" ? "active" : ""} onClick={()=>setRole("door")}>
+              <span className="dot"/> Einlass
+            </button>
+          </div>
+          {role === "organizer" && (
+            <>
+              <button className="btn subtle sm" style={{ padding: 6 }}><Icon name="bell" size={15}/></button>
+              <div className="avatar">MS</div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Tweaks panel ---------------- */
+function Tweaks({ visible, hue, setHue }) {
+  const hues = [
+    { h: 285, name: "Violett" },
+    { h: 255, name: "Indigo" },
+    { h: 200, name: "Ozean" },
+    { h: 150, name: "Wald" },
+    { h: 25,  name: "Terra" },
+    { h: 340, name: "Beere" },
+  ];
+  return (
+    <div className={"tweaks " + (visible ? "visible" : "")}>
+      <h4>Tweaks</h4>
+      <div className="row">
+        <label style={{ marginBottom: 6 }}>Akzent-Farbe</label>
+      </div>
+      <div className="swatches" style={{ marginBottom: 14 }}>
+        {hues.map(c => (
+          <button key={c.h} title={c.name}
+            className={"swatch " + (hue === c.h ? "active" : "")}
+            onClick={()=>setHue(c.h)}
+            style={{ background: `oklch(0.54 0.22 ${c.h})` }} />
+        ))}
+      </div>
+      <div style={{ fontSize: 11, color: "var(--ink-3)", lineHeight: 1.4 }}>
+        Probiere verschiedene Akzentfarben. Andere Tweaks erscheinen hier beim Arbeiten an Details.
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- App root ---------------- */
+function App() {
+  const [role, setRole] = useState(() => localStorage.getItem("tb_role") || "organizer");
+  const [page, setPage] = useState(() => localStorage.getItem("tb_page") || "dashboard");
+  const [events, setEvents] = useState(seedEvents);
+  const [selectedEventId, setSelectedEventId] = useState(() => localStorage.getItem("tb_event") || null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [ticketModal, setTicketModal] = useState(null);
+
+  const [hue, setHue] = useState(TWEAKS.accentHue);
+  const [tweaksVisible, setTweaksVisible] = useState(false);
+
+  useEffect(() => { localStorage.setItem("tb_role", role); }, [role]);
+  useEffect(() => { localStorage.setItem("tb_page", page); }, [page]);
+  useEffect(() => { if (selectedEventId) localStorage.setItem("tb_event", selectedEventId); }, [selectedEventId]);
+  useEffect(() => {
+    document.documentElement.style.setProperty("--hue", hue);
+  }, [hue]);
+
+  // Tweaks host protocol
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === "__activate_edit_mode") setTweaksVisible(true);
+      if (e.data?.type === "__deactivate_edit_mode") setTweaksVisible(false);
+    };
+    window.addEventListener("message", handler);
+    window.parent.postMessage({ type: "__edit_mode_available" }, "*");
+    return () => window.removeEventListener("message", handler);
+  }, []);
+  useEffect(() => {
+    window.parent.postMessage({ type: "__edit_mode_set_keys", edits: { accentHue: hue } }, "*");
+  }, [hue]);
+
+  const openEvent = (id) => { setSelectedEventId(id); setPage("detail"); };
+  const selectedEvent = events.find(e => e.id === selectedEventId);
+
+  const createEvent = (form) => {
+    const [y,m,d] = form.date.split("-").map(Number);
+    const [hh,mm] = form.time.split(":").map(Number);
+    const date = new Date(y, m-1, d, hh, mm);
+    const newEv = {
+      id: "evt_" + String(events.length + 1).padStart(3, "0"),
+      title: form.title,
+      venue: form.venue,
+      city: form.city,
+      date,
+      totalTickets: Number(form.ticketCount),
+      soldTickets: 0,
+      checkedIn: 0,
+      price: Number(form.price) || 0,
+      status: "Entwurf",
+      color: hue,
+    };
+    setEvents([newEv, ...events]);
+  };
+
+  return (
+    <div className="app" data-screen-label={role === "organizer" ? (page === "dashboard" ? "01 Organizer Dashboard" : "02 Event Detail") : role === "attendee" ? "03 Attendee Ticket" : "04 Door Scanner"}>
+      <TopBar role={role} setRole={setRole} page={page} setPage={setPage}/>
+      <div className="main">
+        {role === "organizer" && page === "dashboard" && (
+          <OrganizerDashboard events={events} onOpenEvent={openEvent} onCreate={()=>setShowCreate(true)} />
+        )}
+        {role === "organizer" && page === "detail" && selectedEvent && (
+          <EventDetail event={selectedEvent} onBack={()=>setPage("dashboard")} onOpenTicket={setTicketModal}/>
+        )}
+        {role === "organizer" && page === "detail" && !selectedEvent && (
+          <div className="container"><div className="empty">Veranstaltung nicht gefunden.</div></div>
+        )}
+        {role === "attendee" && <AttendeeView events={events}/>}
+        {role === "door" && <DoorView events={events}/>}
+      </div>
+
+      {showCreate && <CreateEventDrawer onClose={()=>setShowCreate(false)} onCreate={createEvent}/>}
+      {ticketModal && selectedEvent && <TicketQrModal ticket={ticketModal} event={selectedEvent} onClose={()=>setTicketModal(null)}/>}
+
+      <Tweaks visible={tweaksVisible} hue={hue} setHue={setHue}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

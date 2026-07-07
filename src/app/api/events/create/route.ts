@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
+import { uploadEventMetadata, isOwnStorageUrl } from "@/lib/eventMetadata";
 
 interface CreateEventBody {
   organizer_wallet: string;
@@ -10,6 +11,9 @@ interface CreateEventBody {
   capacity: number;
   is_private?: boolean;
   payout_hold_days?: number;
+  image_url?: string;
+  venue?: string;
+  description?: string;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -24,7 +28,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, price_eur, capacity, is_private, payout_hold_days } = body;
+  const { organizer_wallet, name, date, price_eur, capacity, is_private, payout_hold_days, image_url, venue, description } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -47,10 +51,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  if (venue !== undefined && (typeof venue !== "string" || venue.length > 200)) {
+    return NextResponse.json(
+      { success: false, error: "venue must be a string of at most 200 characters" },
+      { status: 400 }
+    );
+  }
+
+  if (description !== undefined && (typeof description !== "string" || description.length > 2000)) {
+    return NextResponse.json(
+      { success: false, error: "description must be a string of at most 2000 characters" },
+      { status: 400 }
+    );
+  }
+
   const holdDays = payout_hold_days ?? 0;
   if (!Number.isInteger(holdDays) || holdDays < 0 || holdDays > 90) {
     return NextResponse.json(
       { success: false, error: "payout_hold_days must be an integer between 0 and 90" },
+      { status: 400 }
+    );
+  }
+
+  // Only URLs from our own upload endpoint end up in on-chain metadata.
+  if (image_url !== undefined && (typeof image_url !== "string" || !isOwnStorageUrl(image_url))) {
+    return NextResponse.json(
+      { success: false, error: "image_url must come from /api/events/upload-image" },
       { status: 400 }
     );
   }
@@ -90,6 +116,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         capacity,
         is_private: is_private === true,
         payout_hold_days: holdDays,
+        image_url: image_url ?? null,
+        venue: venue?.trim() || null,
+        description: description?.trim() || null,
       })
       .select("id")
       .single();
@@ -99,6 +128,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { success: false, error: error.message },
         { status: 500 }
       );
+    }
+
+    // Static metadata JSON for the cNFT mints of this event. Best-effort:
+    // if the upload fails, metadata_uri stays NULL and the mint falls back
+    // to the legacy /api/tickets/metadata route.
+    try {
+      const metadataUri = await uploadEventMetadata({
+        eventId: data.id,
+        name: name.trim(),
+        date,
+        imageUrl: image_url ?? null,
+        venue: venue?.trim() || null,
+        description: description?.trim() || null,
+      });
+      await supabaseAdmin
+        .from("events")
+        .update({ metadata_uri: metadataUri })
+        .eq("id", data.id);
+    } catch (err) {
+      console.error(`Metadata upload for event ${data.id} failed:`, err);
     }
 
     return NextResponse.json({ success: true, id: data.id });

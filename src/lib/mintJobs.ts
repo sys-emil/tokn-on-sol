@@ -119,7 +119,7 @@ async function autoRefundFailedJob(job: MintJob, totalMinted: number): Promise<s
 async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
-    .select("name, date")
+    .select("name, date, metadata_uri")
     .eq("id", job.event_id)
     .single();
   if (eventError || !event) {
@@ -149,6 +149,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           eventDate: event.date,
           ownerWallet: job.buyer_wallet,
           baseUrl,
+          metadataUri: event.metadata_uri,
         });
 
         await supabaseAdmin.from("purchases").insert({

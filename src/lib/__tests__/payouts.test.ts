@@ -7,8 +7,43 @@ import {
   computeAvailableAt,
   computeFeeSplit,
 } from "@/lib/payouts";
+import { serviceFeePerTicketCents, serviceFeeTotalCents } from "@/lib/fees";
 
-describe("computeFeeSplit (3% platform fee)", () => {
+describe("serviceFeePerTicketCents (buyer-side €1 + 4% fee)", () => {
+  it("charges €1 + 4% per ticket", () => {
+    expect(serviceFeePerTicketCents(500)).toBe(120); // €5 → €1.20
+    expect(serviceFeePerTicketCents(1_500)).toBe(160); // €15 → €1.60
+    expect(serviceFeePerTicketCents(5_000)).toBe(300); // €50 → €3.00
+  });
+
+  it("free tickets carry no fee", () => {
+    expect(serviceFeePerTicketCents(0)).toBe(0);
+  });
+
+  it("rounds the percentage part to the nearest cent", () => {
+    // €0.33 → 4% = 1.32 cents → 1 cent + 100 base
+    expect(serviceFeePerTicketCents(33)).toBe(101);
+  });
+
+  it("rejects negative or fractional prices", () => {
+    expect(() => serviceFeePerTicketCents(-1)).toThrow();
+    expect(() => serviceFeePerTicketCents(10.5)).toThrow();
+  });
+});
+
+describe("serviceFeeTotalCents", () => {
+  it("multiplies the per-ticket fee by quantity", () => {
+    expect(serviceFeeTotalCents(500, 4)).toBe(480);
+    expect(serviceFeeTotalCents(0, 4)).toBe(0);
+  });
+
+  it("rejects non-positive quantities", () => {
+    expect(() => serviceFeeTotalCents(500, 0)).toThrow();
+    expect(() => serviceFeeTotalCents(500, 1.5)).toThrow();
+  });
+});
+
+describe("computeFeeSplit (legacy 3% platform fee)", () => {
   it("splits a round amount", () => {
     expect(computeFeeSplit(10_000)).toEqual({ feeCents: 300, netCents: 9_700 }); // €100
   });
@@ -77,7 +112,42 @@ describe("buildPayoutRow (from Stripe test-mode checkout session)", () => {
 
   const now = new Date("2026-07-01T12:00:00Z");
 
-  it("builds a complete row with fee split and hold-based availability", () => {
+  it("uses the buyer-side service fee from the checkout metadata: organizer nets the full face price", () => {
+    // 2 × €25.00 face + 2 × €2.00 service fee (100 + 4% of 2500) = €54.00 gross
+    const row = buildPayoutRow({
+      session: { ...session, amount_total: 5_400 },
+      chargeId: "ch_3QTest123",
+      eventId: "evt-uuid",
+      eventDate: "2026-08-15",
+      organizerWallet: "So1anaWa11etXYZ",
+      stripeAccountId: "acct_1Test",
+      holdDays: 14,
+      serviceFeeCents: 400,
+      now,
+    });
+    expect(row).toMatchObject({
+      gross_cents: 5_400,
+      fee_cents: 400,
+      net_cents: 5_000,
+    });
+  });
+
+  it("ignores an implausible service fee (larger than gross) and falls back to the legacy split", () => {
+    const row = buildPayoutRow({
+      session,
+      chargeId: "ch_3QTest123",
+      eventId: "evt-uuid",
+      eventDate: "2026-08-15",
+      organizerWallet: "So1anaWa11etXYZ",
+      stripeAccountId: "acct_1Test",
+      holdDays: 14,
+      serviceFeeCents: 6_000,
+      now,
+    });
+    expect(row).toMatchObject({ gross_cents: 5_000, fee_cents: 150, net_cents: 4_850 });
+  });
+
+  it("builds a complete legacy row (no service fee metadata) with 3% split and hold-based availability", () => {
     const row = buildPayoutRow({
       session,
       chargeId: "ch_3QTest123",
