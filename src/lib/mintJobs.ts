@@ -23,6 +23,7 @@ export interface MintJob {
   id: string;
   stripe_session_id: string;
   event_id: string;
+  tier_id: string | null;
   buyer_wallet: string;
   buyer_email: string | null;
   quantity: number;
@@ -102,6 +103,7 @@ async function autoRefundFailedJob(job: MintJob, totalMinted: number): Promise<s
       await supabaseAdmin.rpc("release_sold_seats", {
         p_event_id: job.event_id,
         p_quantity: missing,
+        p_tier_id: job.tier_id,
       });
     }
 
@@ -154,6 +156,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
 
         await supabaseAdmin.from("purchases").insert({
           event_id: job.event_id,
+          tier_id: job.tier_id,
           buyer_wallet: job.buyer_wallet,
           asset_id: assetId,
           signature,

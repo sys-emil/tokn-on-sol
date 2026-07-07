@@ -7,6 +7,15 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@/app/components/passlyUi';
 import { LegalLinks } from '@/app/components/LegalLinks';
+import {
+  loadPending,
+  loadSnapshot,
+  savePending,
+  saveSnapshot,
+  verifyOffline,
+  type PendingRedemption,
+  type Snapshot,
+} from './offline';
 
 interface EventData {
   id: string;
@@ -21,7 +30,7 @@ type Phase =
   | { tag: 'camera-error'; message: string }
   | { tag: 'scanning' }
   | { tag: 'verifying' }
-  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string }
+  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string; offline?: boolean }
   | { tag: 'result-used'; redeemedAt: string }
   | { tag: 'result-invalid'; reason: string };
 
@@ -178,7 +187,7 @@ export default function DoormanPage() {
   const params = useParams();
   const eventId = typeof params.eventId === 'string' ? params.eventId : '';
 
-  const { ready, authenticated, login } = usePrivy();
+  const { ready, authenticated, login, getAccessToken } = usePrivy();
   const { wallets: solanaWallets } = useWallets();
   const walletAddress = solanaWallets[0]?.address;
 
@@ -191,6 +200,98 @@ export default function DoormanPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const processingRef = useRef(false);
   const loginPromptedRef = useRef(false);
+
+  // ── Offline buffer ───────────────────────────────────────────────────
+  // Snapshot + pending queue live in refs (and localStorage) so the scan
+  // loop never re-renders; `online`/`pendingCount` drive the UI.
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
+  const [pendingCount, setPendingCount] = useState(0);
+  const [snapshotReady, setSnapshotReady] = useState(false);
+  const snapshotRef = useRef<Snapshot | null>(null);
+  const pendingRef = useRef<PendingRedemption[]>([]);
+  const locallyRedeemedRef = useRef<Set<string>>(new Set());
+  const syncingRef = useRef(false);
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  // Restore snapshot + queue from the last session (page reload in a dead spot).
+  useEffect(() => {
+    if (!eventId) return;
+    snapshotRef.current = loadSnapshot(eventId);
+    if (snapshotRef.current) setSnapshotReady(true);
+    pendingRef.current = loadPending(eventId);
+    locallyRedeemedRef.current = new Set(pendingRef.current.map((p) => p.assetId));
+    setPendingCount(pendingRef.current.length);
+  }, [eventId]);
+
+  const isOrganizer = Boolean(event && walletAddress && walletAddress === event.organizer_wallet);
+
+  // Refresh the snapshot every 60 s while online — the cache the doorman
+  // falls back to is at most a minute old when the connection drops.
+  useEffect(() => {
+    if (!isOrganizer || !online || !eventId) return;
+    let cancelled = false;
+    async function refresh(): Promise<void> {
+      try {
+        const token = await getAccessToken();
+        const res = await fetch(`/api/organizer/event/snapshot?id=${eventId}`, {
+          headers: { Authorization: `Bearer ${token ?? ''}` },
+        });
+        if (!res.ok || cancelled) return;
+        const snap = (await res.json()) as Snapshot;
+        snapshotRef.current = snap;
+        saveSnapshot(eventId, snap);
+        setSnapshotReady(true);
+      } catch {
+        // offline or flaky — the cached snapshot keeps working
+      }
+    }
+    void refresh();
+    const timer = setInterval(() => void refresh(), 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isOrganizer, online, eventId, getAccessToken]);
+
+  // Push queued offline redemptions once the connection is back.
+  useEffect(() => {
+    if (!isOrganizer || !online || !eventId || pendingCount === 0 || syncingRef.current) return;
+    async function sync(): Promise<void> {
+      syncingRef.current = true;
+      try {
+        const token = await getAccessToken();
+        const res = await fetch('/api/tickets/redeem-offline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+          body: JSON.stringify({ eventId, redemptions: pendingRef.current }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { synced: string[]; conflicts: { assetId: string; reason: string }[] };
+        const handled = new Set([...data.synced, ...data.conflicts.map((c) => c.assetId)]);
+        pendingRef.current = pendingRef.current.filter((p) => !handled.has(p.assetId));
+        savePending(eventId, pendingRef.current);
+        setPendingCount(pendingRef.current.length);
+        if (data.conflicts.length > 0) {
+          console.warn('Offline-Scans mit Konflikt (an anderem Gerät bereits eingelöst?):', data.conflicts);
+        }
+      } catch {
+        // still offline — retried on the next online tick
+      } finally {
+        syncingRef.current = false;
+      }
+    }
+    void sync();
+  }, [isOrganizer, online, eventId, pendingCount, getAccessToken]);
 
   // Fetch event
   useEffect(() => {
@@ -234,16 +335,20 @@ export default function DoormanPage() {
     setPhase({ tag: 'verifying' });
 
     try {
+      // 5 s budget for the live check — at the door a hanging request is
+      // worse than falling back to the offline snapshot.
       const res = await fetch('/api/tickets/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: raw }),
+        signal: AbortSignal.timeout(5000),
       });
       const data = (await res.json()) as
         | { valid: true; assetId: string; eventName: string; redeemedAt: string }
         | { valid: false; reason: string; redeemedAt?: string };
 
       if (data.valid) {
+        locallyRedeemedRef.current.add(data.assetId);
         setScannedToday((n) => n + 1);
         setLastScan(new Date().toISOString());
         setPhase({ tag: 'result-valid', assetId: data.assetId, eventName: data.eventName, redeemedAt: data.redeemedAt });
@@ -253,14 +358,30 @@ export default function DoormanPage() {
         setPhase({ tag: 'result-invalid', reason: data.reason });
       }
     } catch {
-      setPhase({ tag: 'result-invalid', reason: 'Netzwerkfehler. Bitte erneut versuchen.' });
+      // Network gone — verify against the cached snapshot instead.
+      setOnline(false);
+      const verdict = await verifyOffline(raw, snapshotRef.current, locallyRedeemedRef.current);
+      if (verdict.valid) {
+        const at = new Date().toISOString();
+        locallyRedeemedRef.current.add(verdict.assetId);
+        pendingRef.current = [...pendingRef.current, { assetId: verdict.assetId, at }];
+        if (eventId) savePending(eventId, pendingRef.current);
+        setPendingCount(pendingRef.current.length);
+        setScannedToday((n) => n + 1);
+        setLastScan(at);
+        setPhase({ tag: 'result-valid', assetId: verdict.assetId, eventName: event?.name ?? '', redeemedAt: at, offline: true });
+      } else if (verdict.reason === 'Already redeemed') {
+        setPhase({ tag: 'result-used', redeemedAt: verdict.redeemedAt ?? '' });
+      } else {
+        setPhase({ tag: 'result-invalid', reason: verdict.reason });
+      }
     }
 
     setTimeout(() => {
       processingRef.current = false;
       setPhase({ tag: 'scanning' });
     }, 3000);
-  }, []);
+  }, [eventId, event?.name]);
 
   // Start / stop camera based on phase
   useEffect(() => {
@@ -387,7 +508,18 @@ export default function DoormanPage() {
               <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{event.name}</div>
               <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{formatDate(event.date)}</div>
             </div>
-            <span className="chip ok"><span className="d" />Live</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+              {online ? (
+                <span className="chip ok"><span className="d" />Live</span>
+              ) : (
+                <span className="chip warn"><span className="d" />Offline{snapshotReady ? '' : ' · keine Liste'}</span>
+              )}
+              {pendingCount > 0 && (
+                <span className="chip" title="Offline gescannte Tickets, die noch synchronisiert werden">
+                  {pendingCount} nicht synchron.
+                </span>
+              )}
+            </div>
           </header>
 
           <div className="door-counters">
@@ -431,6 +563,9 @@ export default function DoormanPage() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>Willkommen!</div>
                   <div style={{ fontSize: 13, marginTop: 4, opacity: 0.85 }}>{phase.eventName} · {shortId(phase.assetId)}</div>
+                  {phase.offline && (
+                    <div style={{ fontSize: 11.5, marginTop: 6, opacity: 0.75 }}>Offline geprüft — wird später synchronisiert</div>
+                  )}
                 </div>
               </div>
             )}

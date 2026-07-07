@@ -109,6 +109,7 @@ export function LegalPageShell({
               <footer className="footer">
                 <div>© 2026 Passly · Digitale Tickets</div>
                 <div className="links">
+                  <Link href="/hilfe">Hilfe</Link>
                   <Link href="/impressum">Impressum</Link>
                   <Link href="/datenschutz">Datenschutz</Link>
                   <Link href="/agb">AGB</Link>

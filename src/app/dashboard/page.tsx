@@ -44,6 +44,10 @@ function relativeTime(iso: string): string {
   return `vor ${days} Tagen`;
 }
 
+type TierDraft = { name: string; priceEur: number; capacity: number };
+
+const MAX_TIERS = 5;
+
 function isUpcoming(iso: string): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -61,8 +65,7 @@ export default function Dashboard() {
   const [eventDate, setEventDate] = useState('');
   const [venue, setVenue] = useState('');
   const [description, setDescription] = useState('');
-  const [priceEur, setPriceEur] = useState(0);
-  const [capacity, setCapacity] = useState(100);
+  const [tiers, setTiers] = useState<TierDraft[]>([{ name: 'Standard', priceEur: 0, capacity: 100 }]);
   const [isPrivate, setIsPrivate] = useState(false);
   const [payoutHoldDays, setPayoutHoldDays] = useState(0);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -184,8 +187,7 @@ export default function Dashboard() {
     setEventDate('');
     setVenue('');
     setDescription('');
-    setPriceEur(0);
-    setCapacity(100);
+    setTiers([{ name: 'Standard', priceEur: 0, capacity: 100 }]);
     setIsPrivate(false);
     setPayoutHoldDays(0);
     setImageFile(null);
@@ -245,12 +247,28 @@ export default function Dashboard() {
       setFormError('Name und Datum sind Pflichtfelder.');
       return;
     }
-    if (priceEur < 0) {
-      setFormError('Der Ticketpreis muss 0 oder größer sein.');
+    for (const t of tiers) {
+      if (!t.name.trim()) {
+        setFormError('Jede Ticketkategorie braucht einen Namen.');
+        return;
+      }
+      if (t.priceEur < 0) {
+        setFormError(`Der Preis für „${t.name.trim()}" muss 0 oder größer sein.`);
+        return;
+      }
+      if (!Number.isInteger(t.capacity) || t.capacity < 1) {
+        setFormError(`Die Ticketanzahl für „${t.name.trim()}" muss mindestens 1 sein.`);
+        return;
+      }
+    }
+    const tierNames = new Set(tiers.map((t) => t.name.trim().toLowerCase()));
+    if (tierNames.size !== tiers.length) {
+      setFormError('Die Namen der Ticketkategorien müssen eindeutig sein.');
       return;
     }
-    if (capacity < 1 || capacity > 10000) {
-      setFormError('Die Ticketanzahl muss zwischen 1 und 10.000 liegen.');
+    const totalCapacity = tiers.reduce((sum, t) => sum + t.capacity, 0);
+    if (totalCapacity > 10000) {
+      setFormError('Insgesamt sind höchstens 10.000 Tickets möglich.');
       return;
     }
     if (!Number.isInteger(payoutHoldDays) || payoutHoldDays < 0 || payoutHoldDays > 90) {
@@ -306,8 +324,11 @@ export default function Dashboard() {
           organizer_wallet: ownerWallet,
           name: trimmedName,
           date: eventDate,
-          price_eur: Math.round(priceEur * 100),
-          capacity,
+          tiers: tiers.map((t) => ({
+            name: t.name.trim(),
+            price_eur: Math.round(t.priceEur * 100),
+            capacity: t.capacity,
+          })),
           is_private: isPrivate,
           payout_hold_days: payoutHoldDays,
           ...(venue.trim() ? { venue: venue.trim() } : {}),
@@ -332,8 +353,8 @@ export default function Dashboard() {
           name: trimmedName,
           date: eventDate,
           venue: venue.trim() || null,
-          price_eur: Math.round(priceEur * 100),
-          capacity,
+          price_eur: Math.round(Math.min(...tiers.map((t) => t.priceEur)) * 100),
+          capacity: tiers.reduce((sum, t) => sum + t.capacity, 0),
           tickets_sold: 0,
           is_private: isPrivate,
         },
@@ -346,7 +367,9 @@ export default function Dashboard() {
     }
   }
 
-  const canSave = !!eventName.trim() && !!eventDate && capacity > 0 && !creating && !shopLink;
+  const canSave = !!eventName.trim() && !!eventDate
+    && tiers.length > 0 && tiers.every((t) => t.name.trim() && t.capacity > 0)
+    && !creating && !shopLink;
 
   return (
     <>
@@ -609,16 +632,9 @@ export default function Dashboard() {
                       <input className="input" placeholder="z. B. Sommerkonzert 2026" value={eventName}
                         onChange={(e) => setEventName(e.target.value)} maxLength={120} disabled={creating} />
                     </div>
-                    <div className="field-row">
-                      <div className="field">
-                        <label>Datum</label>
-                        <input type="date" className="input" value={eventDate} onChange={(e) => setEventDate(e.target.value)} disabled={creating} />
-                      </div>
-                      <div className="field">
-                        <label>Anzahl Tickets</label>
-                        <input type="number" className="input" value={capacity} min={1} max={10000}
-                          onChange={(e) => setCapacity(Number(e.target.value))} disabled={creating} />
-                      </div>
+                    <div className="field">
+                      <label>Datum</label>
+                      <input type="date" className="input" value={eventDate} onChange={(e) => setEventDate(e.target.value)} disabled={creating} />
                     </div>
                     <div className="field">
                       <label>Veranstaltungsort</label>
@@ -626,10 +642,50 @@ export default function Dashboard() {
                         onChange={(e) => setVenue(e.target.value)} maxLength={200} disabled={creating} />
                     </div>
                     <div className="field">
-                      <label>Preis pro Ticket</label>
-                      <input type="number" className="input" value={priceEur} min={0} step={0.5}
-                        onChange={(e) => setPriceEur(Number(e.target.value))} disabled={creating} />
-                      <span className="hint">In Euro. 0 = kostenlos.</span>
+                      <label>Ticketkategorien</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {tiers.map((t, i) => (
+                          <div key={i} style={{
+                            padding: 12, borderRadius: 10,
+                            border: '1px solid var(--line-2)', background: 'var(--surface)',
+                            display: 'flex', flexDirection: 'column', gap: 8,
+                          }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <input className="input" placeholder="z. B. Early Bird, VIP" value={t.name} maxLength={80}
+                                onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                                disabled={creating} />
+                              {tiers.length > 1 && (
+                                <button type="button" className="close-btn" aria-label="Kategorie entfernen"
+                                  onClick={() => setTiers((prev) => prev.filter((_, j) => j !== i))} disabled={creating}>
+                                  <Icon name="x" size={14} />
+                                </button>
+                              )}
+                            </div>
+                            <div className="field-row" style={{ marginBottom: 0 }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <span className="hint">Preis pro Ticket (€)</span>
+                                <input type="number" className="input" value={t.priceEur} min={0} step={0.5}
+                                  onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, priceEur: Number(e.target.value) } : x))}
+                                  disabled={creating} />
+                              </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <span className="hint">Anzahl Tickets</span>
+                                <input type="number" className="input" value={t.capacity} min={1} max={10000}
+                                  onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, capacity: Math.floor(Number(e.target.value)) } : x))}
+                                  disabled={creating} />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {tiers.length < MAX_TIERS && (
+                          <button type="button" className="btn ghost sm" style={{ alignSelf: 'flex-start' }}
+                            onClick={() => setTiers((prev) => [...prev, { name: '', priceEur: 0, capacity: 50 }])}
+                            disabled={creating}>
+                            + Kategorie hinzufügen
+                          </button>
+                        )}
+                      </div>
+                      <span className="hint">Preis 0 = kostenlos. Mit mehreren Kategorien (z. B. Early Bird, VIP) wählen Gäste beim Kauf.</span>
                     </div>
                     <div className="field">
                       <label>Beschreibung (optional)</label>
@@ -652,7 +708,7 @@ export default function Dashboard() {
                         {isPrivate ? 'Nur über den direkten Link erreichbar.' : 'Erscheint in der öffentlichen Event-Liste.'}
                       </span>
                     </div>
-                    {priceEur > 0 && (
+                    {tiers.some((t) => t.priceEur > 0) && (
                       <div className="field">
                         <label>Auszahlungs-Puffer (Tage nach dem Event)</label>
                         <input type="number" className="input" value={payoutHoldDays} min={0} max={90} step={1}

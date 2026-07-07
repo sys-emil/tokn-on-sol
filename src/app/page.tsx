@@ -477,6 +477,7 @@ export default function Home() {
                 <Link href="/events">Events</Link>
                 <Link href="/so-funktionierts">So funktioniert&rsquo;s</Link>
                 <Link href="/fuer-veranstalter">Für Veranstalter</Link>
+                <Link href="/hilfe">Hilfe</Link>
                 <Link href="/impressum">Impressum</Link>
                 <Link href="/datenschutz">Datenschutz</Link>
                 <Link href="/agb">AGB</Link>

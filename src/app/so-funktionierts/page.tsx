@@ -330,7 +330,8 @@ export default function SoFunktioniertsPage() {
               <div className="links">
                 <Link href="/events">Events</Link>
                 <Link href="/fuer-veranstalter">Für Veranstalter</Link>
-                <Link href="/impressum">Impressum</Link>
+                <Link href="/hilfe">Hilfe</Link>
+          <Link href="/impressum">Impressum</Link>
                 <Link href="/datenschutz">Datenschutz</Link>
                 <Link href="/agb">AGB</Link>
               </div>

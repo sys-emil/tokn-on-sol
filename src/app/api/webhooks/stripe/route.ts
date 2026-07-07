@@ -5,6 +5,12 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildPayoutRow, claimWebhookEvent, computeFeeSplit } from "@/lib/payouts";
 import { processMintJobs } from "@/lib/mintJobs";
+import { sendAdminAlert } from "@/lib/email";
+
+// Fire-and-forget admin alert — webhook latency must not depend on Resend.
+function alertAdmin(subject: string, text: string): void {
+  void sendAdminAlert({ subject, text }).catch((err) => console.error("Admin alert failed:", err));
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // seconds — minting continues in after() once the response is sent
@@ -108,6 +114,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.error(
         `Connect payout failed for account ${stripeEvent.account}: ${payout.id} (${payout.failure_message ?? payout.failure_code ?? "unknown"})`,
       );
+      alertAdmin(
+        `Bank-Auszahlung eines Organizers fehlgeschlagen — ${payout.id}`,
+        `Connected Account ${stripeEvent.account ?? "?"}: ${payout.failure_message ?? payout.failure_code ?? "unknown"}.\n`
+          + `Weitere Transfers an diesen Organizer wurden auf 'held' gesetzt.`,
+      );
       // Surface on held/failed transfers list: flag any still-pending payouts
       // for this organizer so the cron pauses transfers until resolved.
       if (stripeEvent.account) {
@@ -157,6 +168,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             updated_at: now,
           })
           .eq("id", payout.id);
+        alertAdmin(
+          `Refund NACH Auszahlung — manuelle Klärung (Session ${payout.stripe_session_id})`,
+          `Charge ${charge.id} wurde um ${charge.amount_refunded} ${payout.currency} erstattet, `
+            + `aber der Organizer-Transfer ist bereits gelaufen. Betrag muss manuell zurückgeholt werden.\n`
+            + `Payout-Row: ${payout.id}`,
+        );
       } else if (fullyRefunded) {
         const { error: payoutError } = await supabaseAdmin
           .from("payouts")
@@ -214,6 +231,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     } catch (err) {
       console.error(`Failed to process refund for charge ${charge.id}:`, err);
+      alertAdmin(
+        `Refund-Verarbeitung fehlgeschlagen — Charge ${charge.id}`,
+        `Der charge.refunded-Webhook ist fehlgeschlagen und wird von Stripe erneut zugestellt.\n`
+          + `Fehler: ${err instanceof Error ? err.message : String(err)}`,
+      );
       await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
       return NextResponse.json({ error: "Failed to process refund" }, { status: 500 });
     }
@@ -245,6 +267,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         update.failure_reason = `Chargeback ${dispute.id} received AFTER transfer — manual recovery needed`;
       }
       await supabaseAdmin.from("payouts").update(update).eq("id", payout.id);
+      alertAdmin(
+        `Chargeback eingegangen — ${dispute.id}`,
+        `Dispute über ${dispute.amount} ${dispute.currency} auf Charge ${chargeId}.\n`
+          + (update.status === "disputed"
+            ? `Der Organizer-Transfer wurde blockiert (Payout ${payout.id}).`
+            : `ACHTUNG: Der Transfer ist bereits gelaufen — manuelle Klärung nötig (Payout ${payout.id}).`)
+          + `\nFrist & Evidence im Stripe-Dashboard.`,
+      );
     } else {
       console.error(`Dispute ${dispute.id} for unknown charge ${chargeId}`);
     }
@@ -252,7 +282,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const session = stripeEvent.data.object as Stripe.Checkout.Session;
-  const { eventId, buyerWallet, quantity: quantityStr } = session.metadata ?? {};
+  const { eventId, buyerWallet, quantity: quantityStr, tierId } = session.metadata ?? {};
   const quantity = Math.max(1, Math.min(10, parseInt(quantityStr ?? "1", 10) || 1));
 
   if (!eventId || !buyerWallet) {
@@ -276,6 +306,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     p_session_id: session.id,
     p_event_id: eventId,
     p_quantity: quantity,
+    p_tier_id: tierId ?? null,
   });
   if (finalizeError) {
     console.error(`Failed to finalize ticket sale for session ${session.id}:`, finalizeError.message);
@@ -328,6 +359,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // Without a payout row the organizer would never be paid — release the
       // idempotency claim and let Stripe retry the whole event.
       console.error(`Failed to record payout for session ${session.id}:`, err);
+      alertAdmin(
+        `Payout-Row konnte nicht geschrieben werden — Session ${session.id}`,
+        `checkout.session.completed schlug beim Anlegen der Payout-Zeile fehl; Stripe stellt erneut zu.\n`
+          + `Fehler: ${err instanceof Error ? err.message : String(err)}`,
+      );
       await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
       return NextResponse.json({ error: "Failed to record payout" }, { status: 500 });
     }
@@ -341,6 +377,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     {
       stripe_session_id: session.id,
       event_id: eventId,
+      tier_id: tierId ?? null,
       buyer_wallet: buyerWallet,
       buyer_email: session.customer_details?.email ?? null,
       quantity,

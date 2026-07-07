@@ -524,7 +524,8 @@ export default function FuerVeranstalterPage() {
               <div className="links">
                 <Link href="/events">Events</Link>
                 <Link href="/so-funktionierts">Für Gäste</Link>
-                <Link href="/impressum">Impressum</Link>
+                <Link href="/hilfe">Hilfe</Link>
+          <Link href="/impressum">Impressum</Link>
                 <Link href="/datenschutz">Datenschutz</Link>
                 <Link href="/agb">AGB</Link>
               </div>

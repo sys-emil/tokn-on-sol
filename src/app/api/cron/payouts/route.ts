@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
+import { sendAdminAlert } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -48,6 +49,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   let paid = 0;
   let held = 0;
+  const heldDetails: string[] = [];
 
   for (const payout of due ?? []) {
     // Resolve the destination account at transfer time — onboarding may have
@@ -70,6 +72,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         })
         .eq("id", payout.id);
       held++;
+      heldDetails.push(`${payout.id} (${payout.net_cents} ${payout.currency ?? "eur"} → ${payout.organizer_wallet}): no Connect account`);
       continue;
     }
 
@@ -115,7 +118,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         })
         .eq("id", payout.id);
       held++;
+      heldDetails.push(`${payout.id} (${payout.net_cents} ${payout.currency ?? "eur"} → ${payout.organizer_wallet}): ${message}`);
     }
+  }
+
+  // A held transfer means an organizer is waiting for money — that must not
+  // sit silently until someone happens to open /admin/payouts.
+  if (heldDetails.length > 0) {
+    void sendAdminAlert({
+      subject: `${heldDetails.length} Auszahlung(en) fehlgeschlagen → held`,
+      text: `Der Payout-Cron konnte ${heldDetails.length} Transfer(s) nicht ausführen.\n`
+        + `Auflösung unter /admin/payouts (retry / release / cancel).\n\n`
+        + heldDetails.join("\n"),
+    }).catch((err) => console.error("Admin alert failed:", err));
   }
 
   return NextResponse.json({

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
+import type { TicketTier } from "@/lib/supabase";
 import { serviceFeePerTicketCents } from "@/lib/fees";
 
 interface CheckoutBody {
   eventId: string;
   buyerWallet: string;
   quantity?: number;
+  tierId?: string;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -18,7 +20,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { eventId, buyerWallet, quantity: rawQty } = body;
+  const { eventId, buyerWallet, quantity: rawQty, tierId } = body;
   const quantity = Math.max(1, Math.min(10, Math.floor(rawQty ?? 1)));
 
   if (!eventId || !buyerWallet) {
@@ -38,15 +40,50 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Event not found" }, { status: 404 });
   }
 
+  if (event.cancelled_at) {
+    return NextResponse.json(
+      { success: false, error: "Das Event wurde abgesagt." },
+      { status: 410 }
+    );
+  }
+
+  // Every event has at least one tier (backfilled 'Standard' for legacy
+  // events). The tier is the price authority — the client only sends an ID,
+  // never a price.
+  const { data: tiers, error: tiersError } = await supabaseAdmin
+    .from("ticket_tiers")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("sort")
+    .order("created_at");
+  if (tiersError || !tiers || tiers.length === 0) {
+    return NextResponse.json(
+      { success: false, error: "Event has no ticket tiers" },
+      { status: 500 }
+    );
+  }
+
+  const tier: TicketTier | undefined = tierId
+    ? (tiers as TicketTier[]).find((t) => t.id === tierId)
+    : tiers.length === 1
+    ? (tiers[0] as TicketTier)
+    : undefined;
+  if (!tier) {
+    return NextResponse.json(
+      { success: false, error: tierId ? "Unknown ticket tier" : "tierId is required" },
+      { status: 400 }
+    );
+  }
+
   // Paid tickets require completed Connect onboarding — the KYC gate. Organizers
   // can create events without Stripe, but nobody can pay them until onboarding
-  // is done. Free events pass through unconditionally.
+  // is done. Free tiers pass through unconditionally.
   //
   // The charge itself is a plain platform charge (Separate Charges & Transfers,
   // NOT a destination charge) — see the rationale in src/lib/payouts.ts. The
   // webhook records a payouts row; a daily cron transfers the organizer's share
   // once the event's payout hold period has elapsed.
-  if (event.price_eur > 0) {
+  if (tier.price_eur > 0) {
     const { data: organizer } = await supabaseAdmin
       .from("organizers")
       .select("stripe_account_id, stripe_charges_enabled")
@@ -62,24 +99,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Claim capacity atomically before creating the Stripe session — the SQL
-  // function only increments tickets_reserved when sold + reserved + quantity
-  // still fits, so concurrent checkouts can never oversell. The reservation is
-  // converted to a sale by the webhook (checkout.session.completed) or freed
-  // again when the session expires (checkout.session.expired, 30 min).
+  // function claims the tier first and the event-level total as the hard
+  // overselling gate, so concurrent checkouts can never oversell either. The
+  // reservation is converted to a sale by the webhook (checkout.session.completed)
+  // or freed again when the session expires (checkout.session.expired, 30 min).
   const { data: reserved, error: reserveError } = await supabaseAdmin.rpc("reserve_tickets", {
     p_event_id: eventId,
     p_quantity: quantity,
+    p_tier_id: tier.id,
   });
   if (reserveError) {
     return NextResponse.json({ success: false, error: reserveError.message }, { status: 500 });
   }
   if (!reserved) {
-    const available = Math.max(0, event.capacity - event.tickets_sold - (event.tickets_reserved ?? 0));
+    const available = Math.max(0, tier.capacity - tier.tickets_sold - tier.tickets_reserved);
     return NextResponse.json(
       {
         success: false,
         error: available <= 0
-          ? "Event is sold out"
+          ? tiers.length > 1
+            ? `Kategorie „${tier.name}" ist ausverkauft`
+            : "Event is sold out"
           : `Only ${available} ticket${available === 1 ? "" : "s"} remaining`,
       },
       { status: 409 }
@@ -87,7 +127,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const releaseClaim = async (): Promise<void> => {
-    await supabaseAdmin.rpc("unreserve_tickets", { p_event_id: eventId, p_quantity: quantity });
+    await supabaseAdmin.rpc("unreserve_tickets", {
+      p_event_id: eventId,
+      p_quantity: quantity,
+      p_tier_id: tier.id,
+    });
   };
 
   const host = req.headers.get("host") ?? "";
@@ -99,7 +143,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // line item — the organizer nets 100% of the face price. The total is stored
   // in the session metadata so the webhook books fee_cents/net_cents from what
   // the buyer actually agreed to, not from a re-computation that could drift.
-  const feePerTicket = serviceFeePerTicketCents(event.price_eur);
+  const feePerTicket = serviceFeePerTicketCents(tier.price_eur);
+  const lineItemName = tiers.length > 1 ? `${event.name} — ${tier.name}` : event.name;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -110,8 +155,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           quantity,
           price_data: {
             currency: "eur",
-            unit_amount: event.price_eur,
-            product_data: { name: event.name, description: `Ticket for ${event.date}` },
+            unit_amount: tier.price_eur,
+            product_data: { name: lineItemName, description: `Ticket for ${event.date}` },
           },
         },
         ...(feePerTicket > 0
@@ -133,6 +178,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         eventId,
         buyerWallet,
         quantity: String(quantity),
+        tierId: tier.id,
         serviceFeeCents: String(feePerTicket * quantity),
       },
     });
@@ -143,6 +189,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const { error: reservationError } = await supabaseAdmin.from("ticket_reservations").insert({
       stripe_session_id: session.id,
       event_id: eventId,
+      tier_id: tier.id,
       quantity,
       expires_at: new Date(expiresAt * 1000).toISOString(),
     });

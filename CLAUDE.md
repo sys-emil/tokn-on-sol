@@ -66,14 +66,17 @@ Root layout wraps everything in `PrivyProvider`. Login method is **email only** 
 ### Database (Supabase)
 
 Tables:
-- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, image_url, metadata_uri, venue, description, created_at`
+- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, image_url, metadata_uri, venue, description, cancelled_at, created_at`
   - `is_private boolean default false` — private events are excluded from `/api/events/public` but still purchasable via direct link.
   - `image_url` / `metadata_uri` — public Supabase Storage URLs (bucket `event-assets`); `metadata_uri` is stamped on-chain at mint, NULL for pre-existing events (mint falls back to the legacy dynamic metadata route).
   - `payout_hold_days int default 0 (0–90)` — days after the event date before ticket revenue is transferred to the organizer (chargeback protection). 0 = transferred by the next daily payout cron.
   - `tickets_reserved int default 0` — capacity claimed by open checkout sessions. Available = `capacity - tickets_sold - tickets_reserved`. Never update `tickets_sold`/`tickets_reserved` directly from code — always go through the SQL functions `reserve_tickets`, `unreserve_tickets`, `finalize_ticket_sale`, `release_reservation`, `release_expired_reservations` (atomic, race-free).
-- `ticket_reservations`: one row per checkout session — `stripe_session_id (PK), event_id, quantity, status (reserved|finalized|released), expires_at`. State transitions happen only inside the SQL functions above.
-- `mint_jobs`: async mint queue — `stripe_session_id (unique), event_id, buyer_wallet, buyer_email, quantity, status (queued|processing|done|failed), attempts, last_error, refund_id`. Claimed via `claim_mint_jobs(limit, max_attempts)` (FOR UPDATE SKIP LOCKED). `refund_id` is the once-only gate for the auto-refund on permanent failure. Worker: `src/lib/mintJobs.ts`.
-- `purchases`: `event_id, buyer_wallet, asset_id, stripe_session_id, redeemed_at, revoked_at` — `revoked_at` is set when the charge is fully refunded; the doorman verify route rejects revoked tickets.
+  - `capacity` / `price_eur` are the **aggregate** over the event's tiers since 2026-07-07: capacity = sum of tier capacities, price_eur = min tier price ("ab"-price for listings). The tier is the price authority at checkout.
+  - `cancelled_at` — set once via `/api/events/update` (action `cancel`): sales stop (checkout 410), event leaves the public listing, every not-yet-transferred charge is refunded in full (the `charge.refunded` webhook does revoke + seats), free-ticket purchases revoked directly, open sessions expired. Payouts in `paid`/`disputed` are reported for manual handling, not auto-refunded.
+- `ticket_tiers`: price categories per event — `id, event_id, name, price_eur, capacity, tickets_sold, tickets_reserved, sort`. Every event has ≥1 tier (legacy events got a backfilled 'Standard' tier); max 5, names unique per event. Tier counters follow the same rule as event counters: only via the SQL functions (all take an optional `p_tier_id` and keep tier + event aggregate in sync; the event-level total remains the hard overselling gate). Editing: capacity can't drop below sold+reserved, tiers with sales can't be deleted.
+- `ticket_reservations`: one row per checkout session — `stripe_session_id (PK), event_id, tier_id, quantity, status (reserved|finalized|released|refunded), expires_at`. State transitions happen only inside the SQL functions above.
+- `mint_jobs`: async mint queue — `stripe_session_id (unique), event_id, tier_id, buyer_wallet, buyer_email, quantity, status (queued|processing|done|failed), attempts, last_error, refund_id`. Claimed via `claim_mint_jobs(limit, max_attempts)` (FOR UPDATE SKIP LOCKED). `refund_id` is the once-only gate for the auto-refund on permanent failure. Worker: `src/lib/mintJobs.ts`.
+- `purchases`: `event_id, tier_id, buyer_wallet, asset_id, stripe_session_id, redeemed_at, revoked_at` — `revoked_at` is set when the charge is fully refunded; the doorman verify route rejects revoked tickets.
 - `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, created_at`
 - `payouts`: one row per paid checkout session — `stripe_session_id (unique), payment_intent_id, charge_id, event_id, organizer_wallet, stripe_account_id, gross_cents, fee_cents, net_cents, currency, available_at, status (pending|paid|held|disputed|failed|refunded), transfer_id, dispute_id, failure_reason`
 - `stripe_webhook_events`: processed Stripe event IDs (`id` = evt_… primary key) — the webhook idempotency gate.
@@ -87,6 +90,16 @@ Tables:
 - **Webhook idempotency**: every handled event ID is claimed via PK insert into `stripe_webhook_events` before processing. On payout-row/finalize/enqueue failures the claim is released and a 500 returned so Stripe retries. Mint retries are handled by the `mint_jobs` queue, not by Stripe redelivery.
 - **Refunds** (`charge.refunded`): full refund before transfer → payout `refunded` (terminal), tickets revoked (`purchases.revoked_at`), seats freed via `refund_ticket_sale`; partial refund → organizer share recomputed from the remaining amount; refund after transfer → flagged for manual recovery.
 - The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `checkout.session.expired`, `account.updated`, `charge.dispute.created`, `charge.refunded` and (Connect) `payout.paid`, `payout.failed`.
+- **Alerting**: operational failures e-mail `ADMIN_ALERT_EMAIL` via `sendAdminAlert` (src/lib/email.ts) — held transfers (payout cron), refund-after-transfer, dispute created, refund/payout-row webhook failures, Connect bank-payout failures, unresolved refunds on event cancellation, permanently failed mint jobs. Always fire-and-forget (`void …().catch(…)`), never block the money path on Resend.
+
+### Doorman offline buffer
+
+`/doorman/[eventId]` keeps admitting guests without connectivity: while online it refreshes a ticket snapshot every 60 s (`/api/organizer/event/snapshot`, cached in localStorage). When the live verify call fails (5 s timeout), verification runs locally (`src/app/doorman/[eventId]/offline.ts`): same Ed25519 challenge + minute window as the server, ownership against `purchases.buyer_wallet` (kept current by claims), once-only redemption against snapshot + local queue. Queued offline scans sync via `/api/tickets/redeem-offline` (atomic redeem; conflicts reported when another device was first). Known trade-off: two offline devices can't see each other's scans.
+
+### Support
+
+- `/hilfe` — public FAQ + support address (`NEXT_PUBLIC_SUPPORT_EMAIL`, default support@getpassly.de), linked from all footers.
+- **Ticket re-issue** (buyer lost e-mail access): verify identity out-of-band (Stripe receipt), then `POST /api/admin/reissue` (`x-admin-secret`, body `{"assetId"}`) → returns a one-time claim link for the buyer's new account. Uses the existing claims/escrow flow; blocked for redeemed/revoked tickets.
 
 **Security model** — intentional, don't change:
 - All Supabase reads/writes go through the service-role admin client (bypasses RLS).
@@ -118,6 +131,7 @@ STRIPE_CONNECT_WEBHOOK_SECRET  # Signing secret of the second (Connect) webhook 
 CRON_SECRET            # Auth for /api/cron/payouts + /api/cron/mint (Vercel Cron sends it as Bearer token)
 ADMIN_ALERT_EMAIL      # Recipient for operational alerts (permanently failed mint jobs); alerts are skipped when unset
 ADMIN_SECRET           # Auth for /admin/payouts + /api/admin/payouts (x-admin-secret header)
+NEXT_PUBLIC_SUPPORT_EMAIL  # Shown on /hilfe; defaults to support@getpassly.de when unset
 NEXTAUTH_SECRET        # Legacy name — no longer used for QR signing; do not remove
 VERCEL_URL             # Auto-set by Vercel; fallback for building absolute URLs
 APP_URL                # Stable production domain (e.g. https://passly.app); takes priority over VERCEL_URL for metadata URIs, claim links, and email links

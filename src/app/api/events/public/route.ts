@@ -11,6 +11,7 @@ export async function GET(): Promise<NextResponse> {
     .select("id, name, date, price_eur, capacity, tickets_sold, tickets_reserved")
     .gte("date", today)
     .eq("is_private", false)
+    .is("cancelled_at", null)
     .order("date", { ascending: true });
 
   if (error) {

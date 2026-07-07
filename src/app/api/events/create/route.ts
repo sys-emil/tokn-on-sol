@@ -3,17 +3,63 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
 import { uploadEventMetadata, isOwnStorageUrl } from "@/lib/eventMetadata";
 
+interface TierInput {
+  name: string;
+  price_eur: number;
+  capacity: number;
+}
+
 interface CreateEventBody {
   organizer_wallet: string;
   name: string;
   date: string;
-  price_eur: number;
-  capacity: number;
+  /** Legacy single-price form — used when `tiers` is absent. */
+  price_eur?: number;
+  capacity?: number;
+  /** 1–5 price categories; event capacity = sum, display price = min. */
+  tiers?: TierInput[];
   is_private?: boolean;
   payout_hold_days?: number;
   image_url?: string;
   venue?: string;
   description?: string;
+}
+
+const MAX_TIERS = 5;
+
+function normalizeTiers(body: CreateEventBody): TierInput[] | { error: string } {
+  const raw = body.tiers && body.tiers.length > 0
+    ? body.tiers
+    : [{ name: "Standard", price_eur: body.price_eur ?? NaN, capacity: body.capacity ?? NaN }];
+
+  if (raw.length > MAX_TIERS) {
+    return { error: `at most ${MAX_TIERS} ticket tiers are allowed` };
+  }
+
+  const tiers: TierInput[] = [];
+  for (const t of raw) {
+    const name = typeof t.name === "string" ? t.name.trim() : "";
+    if (!name || name.length > 80) {
+      return { error: "each tier needs a name of 1–80 characters" };
+    }
+    if (!Number.isInteger(t.price_eur) || t.price_eur < 0) {
+      return { error: "tier price_eur must be a non-negative integer (cents)" };
+    }
+    if (!Number.isInteger(t.capacity) || t.capacity < 1) {
+      return { error: "tier capacity must be a positive integer" };
+    }
+    tiers.push({ name, price_eur: t.price_eur, capacity: t.capacity });
+  }
+
+  const names = new Set(tiers.map((t) => t.name.toLowerCase()));
+  if (names.size !== tiers.length) {
+    return { error: "tier names must be unique" };
+  }
+  const totalCapacity = tiers.reduce((sum, t) => sum + t.capacity, 0);
+  if (totalCapacity > 10000) {
+    return { error: "total capacity must be at most 10000" };
+  }
+  return tiers;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -28,7 +74,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, price_eur, capacity, is_private, payout_hold_days, image_url, venue, description } = body;
+  const { organizer_wallet, name, date, is_private, payout_hold_days, image_url, venue, description } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -37,19 +83,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (typeof price_eur !== "number" || price_eur < 0) {
-    return NextResponse.json(
-      { success: false, error: "price_eur must be a non-negative number" },
-      { status: 400 }
-    );
+  const tiersOrError = normalizeTiers(body);
+  if ("error" in tiersOrError) {
+    return NextResponse.json({ success: false, error: tiersOrError.error }, { status: 400 });
   }
-
-  if (typeof capacity !== "number" || capacity < 1 || capacity > 10000) {
-    return NextResponse.json(
-      { success: false, error: "capacity must be between 1 and 10000" },
-      { status: 400 }
-    );
-  }
+  const tiers = tiersOrError;
+  const capacity = tiers.reduce((sum, t) => sum + t.capacity, 0);
+  const price_eur = Math.min(...tiers.map((t) => t.price_eur));
 
   if (venue !== undefined && (typeof venue !== "string" || venue.length > 200)) {
     return NextResponse.json(
@@ -126,6 +166,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (error) {
       return NextResponse.json(
         { success: false, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    // Tiers are the price authority at checkout — without them the event is
+    // unsellable, so a failed insert removes the event again.
+    const { error: tierError } = await supabaseAdmin.from("ticket_tiers").insert(
+      tiers.map((t, i) => ({
+        event_id: data.id,
+        name: t.name,
+        price_eur: t.price_eur,
+        capacity: t.capacity,
+        sort: i,
+      })),
+    );
+    if (tierError) {
+      await supabaseAdmin.from("events").delete().eq("id", data.id);
+      return NextResponse.json(
+        { success: false, error: tierError.message },
         { status: 500 }
       );
     }

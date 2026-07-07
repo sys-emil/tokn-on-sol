@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
-import type { Event } from '@/lib/supabase';
+import type { Event, TicketTier } from '@/lib/supabase';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import ShopClient from './ShopClient';
+import type { TierView } from './ShopClient';
 
 async function getEvent(id: string): Promise<Event | null> {
   const { data, error } = await supabaseAdmin
@@ -14,6 +15,16 @@ async function getEvent(id: string): Promise<Event | null> {
     .single();
   if (error || !data) return null;
   return data as Event;
+}
+
+async function getTiers(eventId: string): Promise<TicketTier[]> {
+  const { data } = await supabaseAdmin
+    .from('ticket_tiers')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('sort')
+    .order('created_at');
+  return (data ?? []) as TicketTier[];
 }
 
 const monthShort = (iso: string) =>
@@ -72,11 +83,29 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
 
   if (!event) notFound();
 
-  const priceFormatted = event.price_eur === 0
-    ? 'Kostenlos'
-    : (event.price_eur / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+  const tiers = await getTiers(id);
+  const cancelled = Boolean((event as Event & { cancelled_at?: string | null }).cancelled_at);
 
-  const available = event.capacity - event.tickets_sold - (event.tickets_reserved ?? 0);
+  // Per-tier availability, additionally capped by the event-level counters —
+  // the hard overselling gate in reserve_tickets uses the same numbers.
+  const eventAvailable = Math.max(0, event.capacity - event.tickets_sold - (event.tickets_reserved ?? 0));
+  const tierViews: TierView[] = tiers.map((t) => ({
+    id: t.id,
+    name: t.name,
+    priceEur: t.price_eur,
+    available: Math.min(eventAvailable, Math.max(0, t.capacity - t.tickets_sold - t.tickets_reserved)),
+  }));
+
+  const prices = tierViews.map((t) => t.priceEur);
+  const minPrice = prices.length > 0 ? Math.min(...prices) : event.price_eur;
+  const uniformPrice = prices.length > 0 && prices.every((p) => p === minPrice);
+  const priceFormatted = minPrice === 0 && uniformPrice
+    ? 'Kostenlos'
+    : `${uniformPrice ? '' : 'ab '}${(minPrice / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}`;
+
+  const available = tierViews.length > 0
+    ? Math.min(eventAvailable, tierViews.reduce((sum, t) => sum + t.available, 0))
+    : eventAvailable;
   const soldOut = available <= 0;
   const venue = (event as Event & { venue?: string | null }).venue ?? null;
   const description = (event as Event & { description?: string | null }).description ?? null;
@@ -118,7 +147,9 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
             </div>
             <div className="shop-row">
               <span className="label">Verfügbarkeit</span>
-              {soldOut ? (
+              {cancelled ? (
+                <span className="chip bad"><span className="d" />Abgesagt</span>
+              ) : soldOut ? (
                 <span className="chip bad"><span className="d" />Ausverkauft</span>
               ) : available <= Math.max(5, Math.floor(event.capacity * 0.1)) ? (
                 <span className="chip warn"><span className="d" />Nur noch {available}</span>
@@ -129,7 +160,14 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div className="shop-foot">
-            <ShopClient eventId={event.id} soldOut={soldOut} priceEur={event.price_eur} available={available} />
+            {cancelled ? (
+              <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--bad-wash)', border: '1px solid oklch(0.86 0.10 25)', fontSize: 13, color: 'var(--bad)', lineHeight: 1.55 }}>
+                Dieses Event wurde vom Veranstalter abgesagt. Bereits gekaufte
+                Tickets werden automatisch erstattet.
+              </div>
+            ) : (
+              <ShopClient eventId={event.id} tiers={tierViews} />
+            )}
           </div>
         </div>
 
@@ -143,6 +181,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
         </Link>
 
         <div style={{ marginTop: 20, display: 'flex', gap: 14, fontSize: 11.5, color: 'var(--ink-4)' }}>
+          <Link href="/hilfe">Hilfe</Link>
           <Link href="/impressum">Impressum</Link>
           <Link href="/datenschutz">Datenschutz</Link>
           <Link href="/agb">AGB</Link>

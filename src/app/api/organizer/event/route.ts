@@ -18,7 +18,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: event, error } = await supabaseAdmin
     .from("events")
-    .select("id, organizer_wallet, name, date, venue, description, price_eur, capacity, tickets_sold, tickets_reserved, is_private, image_url")
+    .select("id, organizer_wallet, name, date, venue, description, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, image_url, cancelled_at")
     .eq("id", id)
     .single();
 
@@ -65,11 +65,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const checkedIn = tickets.filter((t) => t.status === "checked").length;
   const revoked = tickets.filter((t) => t.status === "revoked").length;
 
+  const { data: tiers } = await supabaseAdmin
+    .from("ticket_tiers")
+    .select("id, name, price_eur, capacity, tickets_sold, tickets_reserved, sort")
+    .eq("event_id", id)
+    .order("sort")
+    .order("created_at");
+
   const eventPublic = { ...(event as Record<string, unknown>) };
   delete eventPublic.organizer_wallet;
 
   return NextResponse.json({
     event: eventPublic,
+    tiers: tiers ?? [],
     tickets,
     stats: { checkedIn, revoked },
   });

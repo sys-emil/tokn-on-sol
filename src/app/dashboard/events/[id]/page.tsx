@@ -1,6 +1,7 @@
 'use client';
 
 import { usePrivy } from '@privy-io/react-auth';
+import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
@@ -25,10 +26,30 @@ interface EventData {
   capacity: number;
   tickets_sold: number;
   is_private: boolean;
+  payout_hold_days: number;
   image_url: string | null;
+  cancelled_at: string | null;
+}
+
+interface TierRow {
+  id: string;
+  name: string;
+  price_eur: number;
+  capacity: number;
+  tickets_sold: number;
+  tickets_reserved: number;
+}
+
+interface TierDraft {
+  id?: string;
+  name: string;
+  priceEur: number; // euros in the form, cents on the wire
+  capacity: number;
+  committed: number; // sold + reserved — the capacity floor
 }
 
 const PAGE_SIZE = 12;
+const MAX_TIERS = 5;
 
 const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -44,12 +65,32 @@ export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { ready, authenticated, getAccessToken } = usePrivy();
+  const { wallets: solanaWallets } = useSolanaWallets();
+  const walletAddress = solanaWallets[0]?.address;
 
   const [event, setEvent] = useState<EventData | null>(null);
+  const [tiers, setTiers] = useState<TierRow[]>([]);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [checkedIn, setCheckedIn] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [fName, setFName] = useState('');
+  const [fDate, setFDate] = useState('');
+  const [fVenue, setFVenue] = useState('');
+  const [fDescription, setFDescription] = useState('');
+  const [fIsPrivate, setFIsPrivate] = useState(false);
+  const [fHoldDays, setFHoldDays] = useState(0);
+  const [fTiers, setFTiers] = useState<TierDraft[]>([]);
+
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelConfirmText, setCancelConfirmText] = useState('');
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelResult, setCancelResult] = useState<string | null>(null);
 
   const [filter, setFilter] = useState<'all' | 'valid' | 'checked'>('all');
   const [query, setQuery] = useState('');
@@ -74,10 +115,12 @@ export default function EventDetailPage() {
         }
         const data = (await res.json()) as {
           event: EventData;
+          tiers: TierRow[];
           tickets: TicketRow[];
           stats: { checkedIn: number; revoked: number };
         };
         setEvent(data.event);
+        setTiers(data.tiers ?? []);
         setTickets(data.tickets);
         setCheckedIn(data.stats.checkedIn);
       } catch {
@@ -109,7 +152,9 @@ export default function EventDetailPage() {
 
   const upcoming = event ? isUpcoming(event.date) : false;
   const pct = event && event.capacity > 0 ? Math.round((event.tickets_sold / event.capacity) * 100) : 0;
-  const revenueCents = event ? event.tickets_sold * event.price_eur : 0;
+  const revenueCents = tiers.length > 0
+    ? tiers.reduce((sum, t) => sum + t.tickets_sold * t.price_eur, 0)
+    : event ? event.tickets_sold * event.price_eur : 0;
   const redemptionPct = event && event.tickets_sold > 0 ? Math.round((checkedIn / event.tickets_sold) * 100) : 0;
 
   const copyShopLink = () => {
@@ -119,6 +164,118 @@ export default function EventDetailPage() {
       setTimeout(() => setCopiedShop(false), 2000);
     });
   };
+
+  const cancelled = Boolean(event?.cancelled_at);
+
+  function openEdit(): void {
+    if (!event) return;
+    setFName(event.name);
+    setFDate(event.date);
+    setFVenue(event.venue ?? '');
+    setFDescription(event.description ?? '');
+    setFIsPrivate(event.is_private);
+    setFHoldDays(event.payout_hold_days ?? 0);
+    setFTiers(tiers.map((t) => ({
+      id: t.id,
+      name: t.name,
+      priceEur: t.price_eur / 100,
+      capacity: t.capacity,
+      committed: t.tickets_sold + t.tickets_reserved,
+    })));
+    setEditError(null);
+    setEditOpen(true);
+  }
+
+  async function saveEdit(): Promise<void> {
+    if (!event || editSaving) return;
+    if (!fName.trim() || !fDate) {
+      setEditError('Name und Datum sind Pflichtfelder.');
+      return;
+    }
+    for (const t of fTiers) {
+      if (!t.name.trim()) { setEditError('Jede Ticketkategorie braucht einen Namen.'); return; }
+      if (t.priceEur < 0) { setEditError(`Der Preis für „${t.name.trim()}" muss 0 oder größer sein.`); return; }
+      if (!Number.isInteger(t.capacity) || t.capacity < 1) { setEditError(`Die Ticketanzahl für „${t.name.trim()}" muss mindestens 1 sein.`); return; }
+      if (t.capacity < t.committed) { setEditError(`Kapazität von „${t.name.trim()}" kann nicht unter ${t.committed} (verkauft + reserviert) sinken.`); return; }
+    }
+    if (!walletAddress) {
+      setEditError('Dein Konto ist noch nicht bereit. Bitte versuche es gleich noch einmal.');
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/events/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({
+          eventId: event.id,
+          organizer_wallet: walletAddress,
+          action: 'update',
+          fields: {
+            name: fName.trim(),
+            date: fDate,
+            venue: fVenue.trim() || null,
+            description: fDescription.trim() || null,
+            is_private: fIsPrivate,
+            payout_hold_days: fHoldDays,
+          },
+          tiers: fTiers.map((t) => ({
+            ...(t.id ? { id: t.id } : {}),
+            name: t.name.trim(),
+            price_eur: Math.round(t.priceEur * 100),
+            capacity: t.capacity,
+          })),
+        }),
+      });
+      const data = (await res.json()) as { success: boolean; error?: string };
+      if (!res.ok || !data.success) {
+        setEditError(data.error ?? `Speichern fehlgeschlagen (HTTP ${res.status}).`);
+        return;
+      }
+      setEditOpen(false);
+      setLoaded(false); // reload event + tiers from the server
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function confirmCancel(): Promise<void> {
+    if (!event || cancelBusy || !walletAddress) return;
+    setCancelBusy(true);
+    setCancelError(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/events/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ eventId: event.id, organizer_wallet: walletAddress, action: 'cancel' }),
+      });
+      const data = (await res.json()) as {
+        success: boolean;
+        error?: string;
+        refunded?: number;
+        skipped?: { session: string; reason: string }[];
+        failed?: { session: string; error: string }[];
+      };
+      if (!res.ok || !data.success) {
+        setCancelError(data.error ?? `Absagen fehlgeschlagen (HTTP ${res.status}).`);
+        return;
+      }
+      const parts = [`${data.refunded ?? 0} Zahlung(en) erstattet`];
+      if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} übersprungen (manuell klären)`);
+      if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} fehlgeschlagen`);
+      setCancelResult(parts.join(' · '));
+      setLoaded(false); // reload — event is now cancelled
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Absagen fehlgeschlagen.');
+    } finally {
+      setCancelBusy(false);
+    }
+  }
 
   return (
     <>
@@ -152,7 +309,11 @@ export default function EventDetailPage() {
                 <div className="row gap-3" style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap' }}>
                   <div style={{ maxWidth: 640 }}>
                     <div className="row gap-2" style={{ marginBottom: 10 }}>
-                      <span className={'chip ' + (upcoming ? 'ok' : '')}><span className="d" />{upcoming ? 'Aktiv' : 'Vorbei'}</span>
+                      {cancelled ? (
+                        <span className="chip bad"><span className="d" />Abgesagt</span>
+                      ) : (
+                        <span className={'chip ' + (upcoming ? 'ok' : '')}><span className="d" />{upcoming ? 'Aktiv' : 'Vorbei'}</span>
+                      )}
                       {event.is_private && <span className="chip"><span className="d" />Privat</span>}
                       <span className="chip"><Icon name="shield" size={11} /> Fälschungsgeschützt</span>
                     </div>
@@ -169,6 +330,11 @@ export default function EventDetailPage() {
                     )}
                   </div>
                   <div className="row gap-2">
+                    {!cancelled && (
+                      <button className="btn ghost" onClick={openEdit}>
+                        <Icon name="edit" size={14} /> Bearbeiten
+                      </button>
+                    )}
                     <button className="btn ghost" onClick={copyShopLink}>
                       <Icon name="share" size={14} /> {copiedShop ? 'Kopiert!' : 'Link teilen'}
                     </button>
@@ -271,6 +437,16 @@ export default function EventDetailPage() {
                         <span style={{ fontSize: 18, color: 'var(--ink-3)', fontWeight: 500 }}> / {event.capacity}</span>
                       </div>
                       <div className="progress" style={{ marginTop: 10 }}><span style={{ width: pct + '%' }} /></div>
+                      {tiers.length > 1 && (
+                        <div style={{ borderTop: '1px solid var(--line)', marginTop: 14, paddingTop: 12, display: 'grid', gap: 8 }}>
+                          {tiers.map((t) => (
+                            <div key={t.id} className="row" style={{ justifyContent: 'space-between', fontSize: 12.5 }}>
+                              <span className="muted">{t.name} · {t.price_eur === 0 ? 'kostenlos' : eur(t.price_eur)}</span>
+                              <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{t.tickets_sold} / {t.capacity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="row" style={{ justifyContent: 'space-between', marginTop: 14, fontSize: 12.5 }}>
                         <span className="muted">Einnahmen</span>
                         <span style={{ fontWeight: 600 }}>{eur(revenueCents)}</span>
@@ -306,6 +482,11 @@ export default function EventDetailPage() {
                     <div className="card" style={{ padding: 22 }}>
                       <h3 style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 10 }}>Schnellaktionen</h3>
                       <div className="stack" style={{ gap: 6 }}>
+                        {!cancelled && (
+                          <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={openEdit}>
+                            <Icon name="edit" size={14} /> Event bearbeiten
+                          </button>
+                        )}
                         <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={copyShopLink}>
                           <Icon name="share" size={14} /> {copiedShop ? 'Kopiert!' : 'Ticket-Link kopieren'}
                         </button>
@@ -315,6 +496,15 @@ export default function EventDetailPage() {
                         <Link href={`/shop/${event.id}`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
                           <Icon name="ticket" size={14} /> Shop-Seite ansehen
                         </Link>
+                        {!cancelled && (
+                          <button
+                            className="btn ghost"
+                            style={{ justifyContent: 'flex-start', color: 'var(--bad)' }}
+                            onClick={() => { setCancelConfirmText(''); setCancelError(null); setCancelResult(null); setCancelOpen(true); }}
+                          >
+                            <Icon name="x" size={14} /> Event absagen
+                          </button>
+                        )}
                       </div>
                     </div>
                   </aside>
@@ -324,6 +514,164 @@ export default function EventDetailPage() {
           </div>
         </div>
       </div>
+
+      {editOpen && event && (
+        <>
+          <div className="drawer-backdrop" onClick={() => !editSaving && setEditOpen(false)} />
+          <div className="drawer" role="dialog" aria-label="Event bearbeiten">
+            <div className="drawer-head">
+              <h3>Event bearbeiten</h3>
+              <p>Änderungen gelten sofort — auch auf der Shop-Seite.</p>
+            </div>
+            <div className="drawer-body">
+              <div className="field">
+                <label>Name der Veranstaltung</label>
+                <input className="input" value={fName} maxLength={120} onChange={(e) => setFName(e.target.value)} disabled={editSaving} />
+              </div>
+              <div className="field">
+                <label>Datum</label>
+                <input type="date" className="input" value={fDate} onChange={(e) => setFDate(e.target.value)} disabled={editSaving} />
+              </div>
+              <div className="field">
+                <label>Veranstaltungsort</label>
+                <input className="input" value={fVenue} maxLength={200} onChange={(e) => setFVenue(e.target.value)} disabled={editSaving} />
+              </div>
+              <div className="field">
+                <label>Beschreibung</label>
+                <textarea className="textarea" rows={3} value={fDescription} maxLength={2000} onChange={(e) => setFDescription(e.target.value)} disabled={editSaving} />
+              </div>
+              <div className="field">
+                <label>Ticketkategorien</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {fTiers.map((t, i) => (
+                    <div key={t.id ?? `new-${i}`} style={{
+                      padding: 12, borderRadius: 10,
+                      border: '1px solid var(--line-2)', background: 'var(--surface)',
+                      display: 'flex', flexDirection: 'column', gap: 8,
+                    }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input className="input" placeholder="z. B. Early Bird, VIP" value={t.name} maxLength={80}
+                          onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                          disabled={editSaving} />
+                        {fTiers.length > 1 && t.committed === 0 && (
+                          <button type="button" className="close-btn" aria-label="Kategorie entfernen"
+                            onClick={() => setFTiers((prev) => prev.filter((_, j) => j !== i))} disabled={editSaving}>
+                            <Icon name="x" size={14} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="field-row" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span className="hint">Preis pro Ticket (€)</span>
+                          <input type="number" className="input" value={t.priceEur} min={0} step={0.5}
+                            onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, priceEur: Number(e.target.value) } : x))}
+                            disabled={editSaving} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span className="hint">Anzahl Tickets{t.committed > 0 ? ` (min. ${t.committed})` : ''}</span>
+                          <input type="number" className="input" value={t.capacity} min={Math.max(1, t.committed)}
+                            onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, capacity: Math.floor(Number(e.target.value)) } : x))}
+                            disabled={editSaving} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {fTiers.length < MAX_TIERS && (
+                    <button type="button" className="btn ghost sm" style={{ alignSelf: 'flex-start' }}
+                      onClick={() => setFTiers((prev) => [...prev, { name: '', priceEur: 0, capacity: 50, committed: 0 }])}
+                      disabled={editSaving}>
+                      + Kategorie hinzufügen
+                    </button>
+                  )}
+                </div>
+                <span className="hint">Kapazität kann nicht unter die bereits verkauften/reservierten Tickets sinken. Preisänderungen gelten nur für künftige Käufe.</span>
+              </div>
+              <div className="field">
+                <label>Sichtbarkeit</label>
+                <div className="seg">
+                  <button type="button" className={!fIsPrivate ? 'active' : ''} onClick={() => setFIsPrivate(false)} disabled={editSaving}>Öffentlich</button>
+                  <button type="button" className={fIsPrivate ? 'active' : ''} onClick={() => setFIsPrivate(true)} disabled={editSaving}>Privat</button>
+                </div>
+              </div>
+              {fTiers.some((t) => t.priceEur > 0) && (
+                <div className="field">
+                  <label>Auszahlungs-Puffer (Tage nach dem Event)</label>
+                  <input type="number" className="input" value={fHoldDays} min={0} max={90} step={1}
+                    onChange={(e) => setFHoldDays(Math.floor(Number(e.target.value)))} disabled={editSaving} />
+                </div>
+              )}
+              {editError && (
+                <div style={{ marginTop: 8, fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{editError}</div>
+              )}
+            </div>
+            <div className="drawer-foot">
+              <button className="btn ghost" onClick={() => setEditOpen(false)} disabled={editSaving}>Abbrechen</button>
+              <button className="btn primary" onClick={() => void saveEdit()} disabled={editSaving}>
+                {editSaving ? 'Speichern …' : 'Änderungen speichern'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {cancelOpen && event && (
+        <div className="modal-backdrop" onClick={() => !cancelBusy && setCancelOpen(false)}>
+          <div className="modal" role="dialog" aria-label="Event absagen" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Event absagen</h3>
+              <button className="close-btn" onClick={() => setCancelOpen(false)} disabled={cancelBusy} aria-label="Schließen">
+                <Icon name="x" size={15} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {cancelResult ? (
+                <div style={{
+                  padding: 14, borderRadius: 10,
+                  background: 'var(--ok-wash)', border: '1px solid oklch(0.86 0.08 150)',
+                  fontSize: 13, lineHeight: 1.55,
+                }}>
+                  <b>Event abgesagt.</b> {cancelResult}. Käufer erhalten ihr Geld
+                  automatisch zurück; die Tickets sind ab sofort ungültig.
+                </div>
+              ) : (
+                <>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+                    <b>„{event.name}&ldquo;</b> wird endgültig abgesagt: Der Verkauf stoppt sofort,
+                    alle {event.tickets_sold} verkauften Tickets werden ungültig und jede
+                    noch nicht ausgezahlte Zahlung wird vollständig erstattet. Das lässt
+                    sich nicht rückgängig machen.
+                  </p>
+                  <div className="field" style={{ marginTop: 14 }}>
+                    <label>Zur Bestätigung „absagen&ldquo; eintippen</label>
+                    <input className="input" value={cancelConfirmText} onChange={(e) => setCancelConfirmText(e.target.value)}
+                      placeholder="absagen" disabled={cancelBusy} />
+                  </div>
+                  {cancelError && (
+                    <div style={{ fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{cancelError}</div>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="modal-foot">
+              {cancelResult ? (
+                <button className="btn primary" onClick={() => setCancelOpen(false)}>Schließen</button>
+              ) : (
+                <>
+                  <button className="btn ghost" onClick={() => setCancelOpen(false)} disabled={cancelBusy}>Abbrechen</button>
+                  <button
+                    className="btn primary"
+                    style={{ background: 'var(--bad)' }}
+                    onClick={() => void confirmCancel()}
+                    disabled={cancelBusy || cancelConfirmText.trim().toLowerCase() !== 'absagen'}
+                  >
+                    {cancelBusy ? 'Wird abgesagt …' : 'Endgültig absagen'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

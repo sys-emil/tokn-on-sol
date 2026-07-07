@@ -6,30 +6,48 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { serviceFeePerTicketCents } from '@/lib/fees';
 
-interface Props {
-  eventId: string;
-  soldOut: boolean;
+export interface TierView {
+  id: string;
+  name: string;
   priceEur: number;
   available: number;
+}
+
+interface Props {
+  eventId: string;
+  tiers: TierView[];
 }
 
 function formatPrice(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 }
 
-export default function ShopClient({ eventId, soldOut, priceEur, available }: Props) {
+export default function ShopClient({ eventId, tiers }: Props) {
   const { ready, authenticated, login } = usePrivy();
   const { wallets: solanaWallets } = useWallets();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [tierId, setTierId] = useState<string>(
+    () => (tiers.find((t) => t.available > 0) ?? tiers[0])?.id ?? '',
+  );
   const pendingCheckout = useRef(false);
 
   const walletAddress = solanaWallets[0]?.address;
-  const maxQty = Math.min(10, available);
-  const feePerTicket = serviceFeePerTicketCents(priceEur);
+  const tier = tiers.find((t) => t.id === tierId) ?? tiers[0];
+  const soldOut = tiers.every((t) => t.available <= 0);
+  const tierSoldOut = !tier || tier.available <= 0;
+  const maxQty = tier ? Math.min(10, Math.max(1, tier.available)) : 1;
+  const feePerTicket = tier ? serviceFeePerTicketCents(tier.priceEur) : 0;
   const feeTotal = feePerTicket * quantity;
-  const grandTotal = (priceEur + feePerTicket) * quantity;
+  const grandTotal = tier ? (tier.priceEur + feePerTicket) * quantity : 0;
+
+  function selectTier(id: string) {
+    setTierId(id);
+    setError(null);
+    const next = tiers.find((t) => t.id === id);
+    if (next) setQuantity((q) => Math.min(q, Math.min(10, Math.max(1, next.available))));
+  }
 
   useEffect(() => {
     if (!pendingCheckout.current) return;
@@ -45,7 +63,7 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
       const res = await fetch('/api/checkout/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId, buyerWallet: wallet, quantity }),
+        body: JSON.stringify({ eventId, buyerWallet: wallet, quantity, tierId: tier?.id }),
       });
       const data = (await res.json()) as { success: boolean; url?: string; error?: string };
       if (!res.ok || !data.success || !data.url) {
@@ -61,7 +79,7 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
   }
 
   async function handleBuy() {
-    if (soldOut || loading) return;
+    if (soldOut || tierSoldOut || loading) return;
     if (!ready) return;
 
     if (!authenticated) {
@@ -81,6 +99,31 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
   return (
     <>
       <style>{`
+        .tier-list {
+          display: flex; flex-direction: column; gap: 8px;
+          margin-bottom: 16px;
+        }
+        .tier-option {
+          display: flex; align-items: center; justify-content: space-between; gap: 12px;
+          padding: 12px 14px;
+          background: var(--surface);
+          border: 1px solid var(--line-2); border-radius: 10px;
+          box-shadow: var(--shadow-sm);
+          text-align: left;
+          transition: border-color 0.12s, box-shadow 0.12s;
+          width: 100%;
+        }
+        .tier-option[aria-checked="true"] {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
+        }
+        .tier-option:disabled { opacity: 0.55; cursor: default; }
+        .tier-option .t-name { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; }
+        .tier-option .t-left { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+        .tier-option .t-price {
+          font-size: 14px; font-weight: 600; white-space: nowrap;
+          font-variant-numeric: tabular-nums;
+        }
         .qty-row {
           display: flex; align-items: center; justify-content: space-between;
           gap: 12px; margin-bottom: 14px;
@@ -127,7 +170,35 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
         }
       `}</style>
 
-      {!soldOut && (
+      {!soldOut && tiers.length > 1 && (
+        <div className="tier-list" role="radiogroup" aria-label="Ticketkategorie">
+          {tiers.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="radio"
+              aria-checked={t.id === tier?.id}
+              className="tier-option"
+              disabled={t.available <= 0 || loading}
+              onClick={() => selectTier(t.id)}
+            >
+              <span>
+                <span className="t-name">{t.name}</span>
+                <span className="t-left" style={{ display: 'block' }}>
+                  {t.available <= 0
+                    ? 'Ausverkauft'
+                    : t.available <= 10
+                    ? `Nur noch ${t.available}`
+                    : 'Verfügbar'}
+                </span>
+              </span>
+              <span className="t-price">{t.priceEur === 0 ? 'Kostenlos' : formatPrice(t.priceEur)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!soldOut && !tierSoldOut && (
         <div className="qty-row">
           <div className="qty-label">Anzahl</div>
           <div className="qty-controls">
@@ -152,7 +223,7 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
         </div>
       )}
 
-      {!soldOut && priceEur > 0 && (
+      {!soldOut && !tierSoldOut && tier && tier.priceEur > 0 && (
         <div className="fee-summary">
           <div className="label">Gesamt · inkl. {formatPrice(feeTotal)} Servicegebühr</div>
           <div className="total">{formatPrice(grandTotal)}</div>
@@ -162,11 +233,13 @@ export default function ShopClient({ eventId, soldOut, priceEur, available }: Pr
       <button
         className="btn primary lg"
         style={{ width: '100%', justifyContent: 'center' }}
-        disabled={soldOut || loading || !ready}
+        disabled={soldOut || tierSoldOut || loading || !ready}
         onClick={() => void handleBuy()}
       >
         {soldOut
           ? 'Ausverkauft'
+          : tierSoldOut
+          ? 'Kategorie ausverkauft'
           : loading
           ? 'Weiterleitung …'
           : quantity > 1

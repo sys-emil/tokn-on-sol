@@ -7,7 +7,7 @@ type IconName =
   | 'plus' | 'calendar' | 'users' | 'ticket' | 'check' | 'doublecheck' | 'arrow'
   | 'download' | 'share' | 'x' | 'search' | 'dots' | 'qr' | 'scan' | 'clock'
   | 'euro' | 'mail' | 'location' | 'shield' | 'sparkle' | 'camera' | 'refresh'
-  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell';
+  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell' | 'edit';
 
 const ICON_PATHS: Record<IconName, React.ReactNode> = {
   plus: <><path d="M12 5v14"/><path d="M5 12h14"/></>,
@@ -37,6 +37,7 @@ const ICON_PATHS: Record<IconName, React.ReactNode> = {
   settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
   wifi: <><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 15.55a7 7 0 0 1 7 0"/><path d="M12 19.55v0"/></>,
   bell: <><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>,
+  edit: <><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></>,
 };
 
 export function Icon({ name, size = 16, strokeWidth = 1.7 }: { name: IconName; size?: number; strokeWidth?: number }) {

@@ -28,6 +28,18 @@ export type Organizer = {
   created_at: string;
 };
 
+export type TicketTier = {
+  id: string;
+  event_id: string;
+  name: string;
+  price_eur: number;
+  capacity: number;
+  tickets_sold: number;
+  tickets_reserved: number;
+  sort: number;
+  created_at: string;
+};
+
 export type Event = {
   id: string;
   organizer_wallet: string;
