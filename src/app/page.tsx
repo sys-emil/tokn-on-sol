@@ -76,6 +76,17 @@ const PAGE_CSS = `
     .glow-blue { top: 1700px; }
     .glow-violet-2 { top: 2600px; }
   }
+  @media (max-width: 640px) {
+    /* "Für Veranstalter" bleibt über Hero, Karte und Footer erreichbar */
+    .topbar .btn.subtle { display: none; }
+    .glow { filter: blur(64px); }
+    .glow-violet { width: 340px; height: 340px; left: -120px; }
+    .glow-blue { width: 360px; height: 360px; right: -140px; }
+    .glow-violet-2 { width: 300px; height: 300px; }
+    .landing-hero { padding: 32px 0 40px; }
+    .cta-banner { padding: 40px 22px; }
+    .audience-card { padding: 22px 18px; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .aurora::before, .aurora::after, .glow { animation: none; }
   }
@@ -118,6 +129,7 @@ const PAGE_CSS = `
   .mock-wrap { display: flex; justify-content: center; position: relative; }
   .mock-ticket {
     width: 300px;
+    max-width: 100%;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 18px;
@@ -245,7 +257,7 @@ const PAGE_CSS = `
     font-size: 12.5px; color: var(--ink-3);
     flex-wrap: wrap;
   }
-  .footer .links { display: flex; gap: 18px; }
+  .footer .links { display: flex; gap: 14px 18px; flex-wrap: wrap; }
   .footer a:hover { color: var(--ink); }
 `;
 

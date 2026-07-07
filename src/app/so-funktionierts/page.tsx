@@ -135,8 +135,13 @@ const PAGE_CSS = `
     font-size: 12.5px; color: var(--ink-3);
     flex-wrap: wrap;
   }
-  .footer .links { display: flex; gap: 18px; }
+  .footer .links { display: flex; gap: 14px 18px; flex-wrap: wrap; }
   .footer a:hover { color: var(--ink); }
+
+  @media (max-width: 640px) {
+    /* "Für Veranstalter" bleibt über Inhalt und Footer erreichbar */
+    .topbar .btn.subtle { display: none; }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .faq summary .faq-chev { transition: none; }
