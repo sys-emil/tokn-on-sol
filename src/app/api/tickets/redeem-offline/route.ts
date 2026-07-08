@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
+import { checkRedemptionBadges } from "@/lib/badges";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const nowMs = Date.now();
   const synced: string[] = [];
   const conflicts: { assetId: string; reason: string; redeemedAt?: string }[] = [];
+  const redeemedWallets = new Set<string>();
 
   for (const r of redemptions) {
     if (!r.assetId || typeof r.assetId !== "string") continue;
@@ -68,10 +70,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq("event_id", eventId)
       .is("redeemed_at", null)
       .is("revoked_at", null)
-      .select("id");
+      .select("id, buyer_wallet");
 
     if (updated && updated.length > 0) {
       synced.push(r.assetId);
+      redeemedWallets.add((updated[0] as { buyer_wallet: string }).buyer_wallet);
       continue;
     }
 
@@ -92,6 +95,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         redeemedAt: existing.redeemed_at as string,
       });
     }
+  }
+
+  // Offline scans count toward badges just like live scans — fire-and-forget,
+  // the doorman response must not wait for badge mints.
+  const baseUrl = process.env.APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  for (const wallet of redeemedWallets) {
+    void checkRedemptionBadges(wallet, eventId, baseUrl).catch((err) =>
+      console.error("Badge check after offline sync failed:", err),
+    );
   }
 
   return NextResponse.json({ synced, conflicts });

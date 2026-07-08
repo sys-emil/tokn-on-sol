@@ -3,15 +3,17 @@ import { createClient } from "@supabase/supabase-js";
 export type OrganizerStatus = 'pending' | 'approved' | 'rejected';
 export type OrganizerType = 'private' | 'business';
 
-export type BadgeType = 'first_show' | 'show_5' | 'show_10' | 'loyal_organizer';
+export type { BadgeType } from "@/lib/badgeMeta";
+import type { BadgeType as BadgeTypeImport } from "@/lib/badgeMeta";
 
 export type Badge = {
   id: string;
   wallet_address: string;
-  badge_type: BadgeType;
+  badge_type: BadgeTypeImport;
   asset_id: string | null;
   earned_at: string;
   event_id: string | null;
+  organizer_wallet: string | null;
 };
 
 export type Organizer = {

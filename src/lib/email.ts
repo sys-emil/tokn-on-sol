@@ -41,6 +41,53 @@ export async function sendAdminAlert({ subject, text }: { subject: string; text:
   await resend.emails.send({ from: FROM, to, subject: `[Passly Alert] ${subject}`, text });
 }
 
+/**
+ * Pro feature: an organizer's message to all ticket holders of one event.
+ * Plaintext only (no HTML injection surface); one e-mail per recipient so
+ * addresses never leak to each other. Recipients are chunked through Resend's
+ * batch endpoint.
+ */
+export async function sendOrganizerMessage({
+  recipients,
+  organizerName,
+  eventName,
+  subject,
+  text,
+  baseUrl,
+}: {
+  recipients: string[];
+  organizerName: string;
+  eventName: string;
+  subject: string;
+  text: string;
+  baseUrl: string;
+}): Promise<number> {
+  if (!process.env.RESEND_API_KEY || recipients.length === 0) return 0;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const body = `${text}\n\n—\nDiese Nachricht wurde von ${organizerName} über Passly an die Ticketinhaber von „${eventName}“ gesendet.\n${baseUrl}/my-tickets\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  let sent = 0;
+  const CHUNK = 50;
+  for (let i = 0; i < recipients.length; i += CHUNK) {
+    const chunk = recipients.slice(i, i + CHUNK);
+    const { error } = await resend.batch.send(
+      chunk.map((to) => ({
+        from: FROM,
+        to,
+        subject: `[${eventName}] ${subject}`,
+        text: body,
+      })),
+    );
+    if (error) {
+      console.error("Organizer message batch failed:", error.message);
+      continue;
+    }
+    sent += chunk.length;
+  }
+  return sent;
+}
+
 export async function sendTicketConfirmation({
   to,
   eventName,

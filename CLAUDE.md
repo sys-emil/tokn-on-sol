@@ -77,7 +77,9 @@ Tables:
 - `ticket_reservations`: one row per checkout session — `stripe_session_id (PK), event_id, tier_id, quantity, status (reserved|finalized|released|refunded), expires_at`. State transitions happen only inside the SQL functions above.
 - `mint_jobs`: async mint queue — `stripe_session_id (unique), event_id, tier_id, buyer_wallet, buyer_email, quantity, status (queued|processing|done|failed), attempts, last_error, refund_id`. Claimed via `claim_mint_jobs(limit, max_attempts)` (FOR UPDATE SKIP LOCKED). `refund_id` is the once-only gate for the auto-refund on permanent failure. Worker: `src/lib/mintJobs.ts`.
 - `purchases`: `event_id, tier_id, buyer_wallet, asset_id, stripe_session_id, redeemed_at, revoked_at` — `revoked_at` is set when the charge is fully refunded; the doorman verify route rejects revoked tickets.
-- `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, created_at`
+- `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, plan (free|pro), stripe_customer_id, stripe_subscription_id, plan_period_end, plan_cancel_at_period_end, created_at`
+- `badges`: buyer achievements — `id, wallet_address, badge_type, asset_id, earned_at, event_id, organizer_wallet` (partial unique indexes dedupe awards; see Badges section)
+- `organizer_messages` / `loyalty_programs` / `loyalty_claims` / `analytics_events`: see Dashboard Pro & analytics sections
 - `payouts`: one row per paid checkout session — `stripe_session_id (unique), payment_intent_id, charge_id, event_id, organizer_wallet, stripe_account_id, gross_cents, fee_cents, net_cents, currency, available_at, status (pending|paid|held|disputed|failed|refunded), transfer_id, dispute_id, failure_reason`
 - `stripe_webhook_events`: processed Stripe event IDs (`id` = evt_… primary key) — the webhook idempotency gate.
 
@@ -89,7 +91,29 @@ Tables:
 - **Failure handling**: failed transfers (restricted account etc.) → status `held`, funds stay on the platform balance. `charge.dispute.created` blocks a pending transfer (`disputed`). Admin resolution UI at `/admin/payouts` (gated by `ADMIN_SECRET`, sent as `x-admin-secret`): retry / release / cancel.
 - **Webhook idempotency**: every handled event ID is claimed via PK insert into `stripe_webhook_events` before processing. On payout-row/finalize/enqueue failures the claim is released and a 500 returned so Stripe retries. Mint retries are handled by the `mint_jobs` queue, not by Stripe redelivery.
 - **Refunds** (`charge.refunded`): full refund before transfer → payout `refunded` (terminal), tickets revoked (`purchases.revoked_at`), seats freed via `refund_ticket_sale`; partial refund → organizer share recomputed from the remaining amount; refund after transfer → flagged for manual recovery.
-- The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `checkout.session.expired`, `account.updated`, `charge.dispute.created`, `charge.refunded` and (Connect) `payout.paid`, `payout.failed`.
+- The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `checkout.session.expired`, `account.updated`, `charge.dispute.created`, `charge.refunded`, `customer.subscription.created/updated/deleted` and (Connect) `payout.paid`, `payout.failed`.
+
+### Dashboard Pro (subscription)
+
+- `organizers.plan ('free'|'pro')` + `stripe_customer_id/stripe_subscription_id/plan_period_end/plan_cancel_at_period_end`. **Only the Stripe webhook writes `plan`** (subscription-mode `checkout.session.completed` + `customer.subscription.*`; `active`/`trialing` → pro via `subscriptionPlanFromStatus` in `src/lib/subscription.ts` — pure, unit-tested).
+- The webhook branches on `session.mode === 'subscription'` (or `metadata.purpose === 'pro_subscription'`) right after the idempotency claim — subscription sessions must NEVER fall through to the ticket path (`release_reservation`/finalize).
+- Billing routes: `POST /api/organizer/billing/checkout` (creates/reuses Stripe Customer, subscription-mode Checkout), `POST /api/organizer/billing/portal` (Billing Portal; must be configured once in the Stripe dashboard). Auth: `requestOwnsWallet`.
+- Pro gate for API routes: `requireProOrganizer(req, walletAddress)` in `src/lib/plan.ts` (401/403 `pro_required`); client UI reads `plan` from `/api/organizers/status` (also returns `plan_period_end`, `plan_cancel_at_period_end`).
+- Pro features: `GET /api/organizer/analytics` (cross-event revenue/redemption/repeat-customer stats, top customers), `POST /api/organizer/message` (plaintext e-mail to all ticket holders of an event; max 2/event/24h; audit table `organizer_messages`), loyalty program (below). UI: `/dashboard/analytics` (upsell for free plan) + „Gäste kontaktieren" modal on the event detail page.
+- **Loyalty**: `loyalty_programs` (one per organizer: threshold 2–20, benefit, active) + `loyalty_claims` (one per customer per program, unique 6-char `code`, atomic `redeemed_at`). Qualification = distinct redeemed events at the organizer (`src/lib/loyalty.ts`) — same signal as the Stammgast badge. Buyers see/claim on `/my-tickets` via `GET /api/loyalty/status` + `POST /api/loyalty/claim`; benefits are hidden at read time when the organizer's plan lapses. Organizer config/redeem via `/api/organizer/loyalty[/redeem]`.
+
+### Badges (buyer gamification)
+
+- Single source of truth: `src/lib/badgeMeta.ts` (client-safe — `BadgeType`, `BADGE_META`, `MILESTONES`, thresholds; `supabase.ts` re-exports `BadgeType` from it). Never duplicate badge display maps in pages.
+- Types: `first_show/show_5/show_10` (redeemed-ticket milestones), `loyal_organizer` („Stammgast", 3 distinct redeemed events **per organizer**, `badges.organizer_wallet` set), `sold_out_show` (redeemed at a sold-out event) — all awarded on redemption (`checkRedemptionBadges`, called from ticket verify AND offline-redeem sync); `first_ticket`/`early_bird` (purchase ≤1h after event creation) — awarded at mint time (`checkPurchaseBadges` from `mintJobs`). All calls fire-and-forget.
+- Dedupe via partial unique indexes on `badges` (wallet+type global, wallet+type+organizer for Stammgast); inserts tolerate 23505. Badge cNFT minted async (`mintBadge`), images in `public/badges/<type>.png`, metadata route `/api/badges/metadata` (German, immutable-cached).
+- `/api/my-tickets` returns a `progress` object (attended count, next milestone, best Stammgast candidate by organizer display name) rendered as progress bars on `/my-tickets`.
+
+### First-party analytics (consent-gated)
+
+- Cookies `passly_consent` (`granted|denied`, 12 months) + `passly_cid` (UUID, only while granted) — set client-side by `ConsentBanner` (`src/app/components/ConsentBanner.tsx`, mounted in the root layout with `PageViewTracker`). `track()` in `src/lib/track.ts` is a no-op without consent.
+- `POST /api/track` requires both cookies, enforces an event-name allowlist (`page_view`, `checkout_started`, `purchase_completed`, `ticket_viewed`), caps props at 1 KB, always answers 204. Table `analytics_events` (no wallets/e-mails/IPs — `cid` is the only identifier).
+- `/datenschutz` Ziffer 10 documents the cookie + withdrawal (`ConsentSettingsButton`); the page and any tracking change MUST ship in the same deploy. Doorman pages are never tracked.
 - **Alerting**: operational failures e-mail `ADMIN_ALERT_EMAIL` via `sendAdminAlert` (src/lib/email.ts) — held transfers (payout cron), refund-after-transfer, dispute created, refund/payout-row webhook failures, Connect bank-payout failures, unresolved refunds on event cancellation, permanently failed mint jobs. Always fire-and-forget (`void …().catch(…)`), never block the money path on Resend.
 
 ### Doorman offline buffer
@@ -128,6 +152,7 @@ OPERATOR_PRIVATE_KEY
 MERKLE_TREE_ADDRESSES  # Comma-separated list; legacy MERKLE_TREE_ADDRESS still works as single-tree fallback
 STRIPE_SECRET_KEY / STRIPE_PUBLIC_KEY / STRIPE_WEBHOOK_SECRET
 STRIPE_CONNECT_WEBHOOK_SECRET  # Signing secret of the second (Connect) webhook endpoint
+STRIPE_PRO_PRICE_ID    # Monthly recurring Price for the Dashboard-Pro subscription; billing checkout returns 503 when unset
 CRON_SECRET            # Auth for /api/cron/payouts + /api/cron/mint (Vercel Cron sends it as Bearer token)
 ADMIN_ALERT_EMAIL      # Recipient for operational alerts (permanently failed mint jobs); alerts are skipped when unset
 ADMIN_SECRET           # Auth for /admin/payouts + /api/admin/payouts (x-admin-secret header)

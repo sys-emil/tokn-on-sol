@@ -6,6 +6,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
+import { track } from '@/lib/track';
 
 const PAGE_CSS = `
   .success-page {
@@ -140,6 +141,7 @@ function SuccessInner() {
           setAssetIds(ids);
 
           if (ids.length >= qty) {
+            track('purchase_completed', { quantity: qty });
             setAllDone(true);
             setRedirecting(true);
             await new Promise((r) => setTimeout(r, 2200));

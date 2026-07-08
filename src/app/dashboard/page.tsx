@@ -85,6 +85,11 @@ export default function Dashboard() {
   const [stripeStatus, setStripeStatus] = useState<'loading' | 'disconnected' | 'pending' | 'connected'>('disconnected');
   const [connectingStripe, setConnectingStripe] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
+  const [plan, setPlan] = useState<'free' | 'pro'>('free');
+  const [planCancelAtPeriodEnd, setPlanCancelAtPeriodEnd] = useState(false);
+  const [planPeriodEnd, setPlanPeriodEnd] = useState<string | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   const solanaWalletAddress = solanaWallets[0]?.address;
 
@@ -102,6 +107,9 @@ export default function Dashboard() {
         stripe_account_id: string | null;
         stripe_charges_enabled: boolean;
         stripe_payouts_enabled: boolean;
+        plan?: string;
+        plan_period_end?: string | null;
+        plan_cancel_at_period_end?: boolean;
       };
       const s = data.status;
       setOrgStatus(s === 'approved' ? 'approved' : 'none');
@@ -109,6 +117,9 @@ export default function Dashboard() {
         if (!data.stripe_account_id) setStripeStatus('disconnected');
         else if (!data.stripe_charges_enabled) setStripeStatus('pending');
         else setStripeStatus('connected');
+        setPlan(data.plan === 'pro' ? 'pro' : 'free');
+        setPlanPeriodEnd(data.plan_period_end ?? null);
+        setPlanCancelAtPeriodEnd(data.plan_cancel_at_period_end ?? false);
       }
     }
     void checkOrg();
@@ -200,6 +211,34 @@ export default function Dashboard() {
     if (creating) return;
     setDrawerOpen(false);
     resetForm();
+  }
+
+  async function handleBilling(endpoint: 'checkout' | 'portal'): Promise<void> {
+    if (!ownerWallet || billingBusy) return;
+    setBillingError(null);
+    const token = await getAccessToken();
+    if (!token) {
+      setBillingError('Nicht angemeldet. Bitte melde dich ab und wieder an.');
+      return;
+    }
+    setBillingBusy(true);
+    try {
+      const res = await fetch(`/api/organizer/billing/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ walletAddress: ownerWallet }),
+      });
+      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
+      if (data.success && data.url) {
+        window.location.href = data.url;
+      } else {
+        setBillingError(data.error ?? 'Aktion konnte nicht gestartet werden.');
+      }
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : 'Aktion konnte nicht gestartet werden.');
+    } finally {
+      setBillingBusy(false);
+    }
   }
 
   async function handleConnectStripe(): Promise<void> {
@@ -380,6 +419,7 @@ export default function Dashboard() {
             <PasslyLogo height={24} />
             <div className="nav">
               <Link href="/dashboard" className="active">Übersicht</Link>
+              <Link href="/dashboard/analytics">Pro</Link>
               <Link href="/events">Events</Link>
               <Link href="/my-tickets">Meine Tickets</Link>
             </div>
@@ -471,6 +511,44 @@ export default function Dashboard() {
                     </div>
                   </section>
                 )}
+
+                <section>
+                  <div className="card" style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', color: 'var(--accent)', flexShrink: 0 }}>
+                      <Icon name="sparkle" size={16} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 240 }}>
+                      <div className="row gap-2" style={{ alignItems: 'center' }}>
+                        <div style={{ fontSize: 14, fontWeight: 600 }}>Passly Pro</div>
+                        {plan === 'pro'
+                          ? <span className="chip ok"><span className="d" />Aktiv</span>
+                          : <span className="chip"><span className="d" />Free</span>}
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
+                        {plan === 'pro'
+                          ? planCancelAtPeriodEnd && planPeriodEnd
+                            ? `Dein Abo endet am ${new Date(planPeriodEnd).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}.`
+                            : 'Detaillierte Analytics, Gäste-Nachrichten und dein Treueprogramm sind freigeschaltet.'
+                          : 'Detaillierte Analytics über alle Events, Nachrichten an deine Gäste und ein Treueprogramm für Stammkunden.'}
+                      </div>
+                      {billingError && (
+                        <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>{billingError}</div>
+                      )}
+                    </div>
+                    {plan === 'pro' ? (
+                      <div className="row gap-2">
+                        <Link href="/dashboard/analytics" className="btn ghost">Pro-Bereich</Link>
+                        <button className="btn subtle" onClick={() => void handleBilling('portal')} disabled={billingBusy}>
+                          {billingBusy ? 'Weiterleitung …' : 'Abo verwalten'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="btn primary" onClick={() => void handleBilling('checkout')} disabled={billingBusy}>
+                        {billingBusy ? 'Weiterleitung …' : 'Pro werden'}
+                      </button>
+                    )}
+                  </div>
+                </section>
 
                 <section>
                   <div className="section-head">

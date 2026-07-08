@@ -3,13 +3,7 @@ import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { supabaseAdmin } from '@/lib/supabase';
-
-const BADGE_DISPLAY: Record<string, { name: string; symbol: string; hue: number }> = {
-  first_show:      { name: 'Erste Show', symbol: 'I', hue: 285 },
-  show_5:          { name: '5 Shows',    symbol: 'V', hue: 150 },
-  show_10:         { name: '10 Shows',   symbol: 'X', hue: 220 },
-  loyal_organizer: { name: 'Treuer Fan', symbol: '♥', hue: 340 },
-};
+import { badgeDisplay } from '@/lib/badgeMeta';
 
 function eventHue(name: string): number {
   let h = 0;
@@ -153,7 +147,7 @@ export default async function CollectionPage({
                 </div>
                 <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
                   {badges.map((b) => {
-                    const meta = BADGE_DISPLAY[b.badge_type] ?? { name: b.badge_type, symbol: '◆', hue: 260 };
+                    const meta = badgeDisplay(b.badge_type);
                     return (
                       <div key={b.badge_type} className="card" style={{ padding: '16px 20px', width: 130, textAlign: 'center' }}>
                         <div style={{ fontSize: 24, fontWeight: 600, color: `oklch(0.54 0.20 ${meta.hue})`, lineHeight: 1 }}>{meta.symbol}</div>

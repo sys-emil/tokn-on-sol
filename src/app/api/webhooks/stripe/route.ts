@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildPayoutRow, claimWebhookEvent, computeFeeSplit } from "@/lib/payouts";
+import { subscriptionPlanFromStatus } from "@/lib/subscription";
 import { processMintJobs } from "@/lib/mintJobs";
 import { sendAdminAlert } from "@/lib/email";
 
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     "payout.failed",
     "charge.dispute.created",
     "charge.refunded",
+    "customer.subscription.created",
+    "customer.subscription.updated",
+    "customer.subscription.deleted",
   ]);
   if (!handledTypes.has(stripeEvent.type)) {
     return NextResponse.json({ received: true });
@@ -76,6 +80,73 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   if (!claimed) {
     return NextResponse.json({ received: true, duplicate: true });
+  }
+
+  // Pro-subscription checkout sessions must never reach the ticket path below —
+  // they carry no reservation and no ticket metadata, so falling through would
+  // mean bogus release_reservation calls or 400-retry loops from Stripe.
+  if (stripeEvent.type === "checkout.session.completed" || stripeEvent.type === "checkout.session.expired") {
+    const s = stripeEvent.data.object as Stripe.Checkout.Session;
+    if (s.mode === "subscription" || s.metadata?.purpose === "pro_subscription") {
+      if (stripeEvent.type === "checkout.session.completed") {
+        const organizerWallet = s.metadata?.organizerWallet;
+        if (organizerWallet) {
+          const subscriptionId = typeof s.subscription === "string"
+            ? s.subscription
+            : s.subscription?.id ?? null;
+          await supabaseAdmin
+            .from("organizers")
+            .update({ plan: "pro", stripe_subscription_id: subscriptionId })
+            .eq("wallet_address", organizerWallet);
+        } else {
+          console.error(`Subscription checkout ${s.id} without organizerWallet metadata`);
+        }
+      }
+      return NextResponse.json({ received: true });
+    }
+  }
+
+  // Pro-subscription lifecycle: created/updated set the plan from the current
+  // status (past_due/canceled/unpaid downgrade automatically), deleted resets
+  // to free. Organizer resolved via subscription metadata, customer as fallback.
+  if (
+    stripeEvent.type === "customer.subscription.created"
+    || stripeEvent.type === "customer.subscription.updated"
+    || stripeEvent.type === "customer.subscription.deleted"
+  ) {
+    const sub = stripeEvent.data.object as Stripe.Subscription;
+    const deleted = stripeEvent.type === "customer.subscription.deleted";
+    const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
+    const periodEnd = sub.items?.data?.[0]?.current_period_end ?? null;
+
+    const update = {
+      plan: deleted ? "free" : subscriptionPlanFromStatus(sub.status),
+      stripe_subscription_id: deleted ? null : sub.id,
+      plan_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+      plan_cancel_at_period_end: deleted ? false : (sub.cancel_at_period_end ?? false),
+    };
+
+    const organizerWallet = sub.metadata?.organizerWallet;
+    const query = supabaseAdmin.from("organizers").update(update);
+    const { data: updatedRows, error: subError } = await (organizerWallet
+      ? query.eq("wallet_address", organizerWallet)
+      : query.eq("stripe_customer_id", customerId)
+    ).select("id");
+
+    if (subError) {
+      console.error(`Failed to apply subscription ${sub.id} to organizer:`, subError.message);
+      await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
+      return NextResponse.json({ error: "Failed to update organizer plan" }, { status: 500 });
+    }
+    if (!updatedRows || updatedRows.length === 0) {
+      console.error(`Subscription ${sub.id}: no organizer matched (wallet=${organizerWallet ?? "-"}, customer=${customerId})`);
+      alertAdmin(
+        `Abo-Webhook ohne passenden Organizer — ${sub.id}`,
+        `customer.subscription.${deleted ? "deleted" : "updated"} konnte keinem Organizer zugeordnet werden.\n`
+          + `Wallet-Metadata: ${organizerWallet ?? "fehlt"}, Stripe-Customer: ${customerId}.`,
+      );
+    }
+    return NextResponse.json({ received: true });
   }
 
   // Abandoned checkout: free the capacity that was reserved at session creation.

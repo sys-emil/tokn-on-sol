@@ -5,6 +5,7 @@ import { useWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { serviceFeePerTicketCents } from '@/lib/fees';
+import { track } from '@/lib/track';
 
 export interface TierView {
   id: string;
@@ -59,6 +60,7 @@ export default function ShopClient({ eventId, tiers }: Props) {
   async function startCheckout(wallet: string) {
     setLoading(true);
     setError(null);
+    track('checkout_started', { eventId, quantity });
     try {
       const res = await fetch('/api/checkout/create', {
         method: 'POST',

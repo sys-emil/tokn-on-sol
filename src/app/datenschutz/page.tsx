@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { LegalPageShell } from '@/app/components/LegalPageShell';
+import { ConsentSettingsButton } from '@/app/components/ConsentBanner';
 
 export const metadata: Metadata = {
   title: 'Datenschutzerklärung — Passly',
@@ -13,8 +14,9 @@ export const metadata: Metadata = {
  * Diese Erklärung ist auf den tatsächlichen Stack abgestimmt:
  * Vercel (Hosting), Privy (Login/Konto), Supabase (Datenbank/Storage),
  * Stripe (Zahlungen + Connect-Auszahlungen), Helius/Solana (Ticket-Echtheit),
- * Resend (E-Mail-Versand). Wird ein Dienst ergänzt oder entfernt,
- * MUSS diese Seite angepasst werden.
+ * Resend (E-Mail-Versand), eigene einwilligungsbasierte Reichweitenmessung
+ * (First-Party-Cookie passly_cid, Speicherung in Supabase). Wird ein Dienst
+ * ergänzt oder entfernt, MUSS diese Seite angepasst werden.
  *
  * VOR GO-LIVE: "PLATZHALTER" ausfüllen und mit allen genannten Anbietern
  * Auftragsverarbeitungsverträge (AVV/DPA) abschließen — bei Vercel, Supabase,
@@ -51,8 +53,9 @@ export default function DatenschutzPage() {
         Tickets verkaufen und Gäste diese kaufen, aufbewahren und am Einlass
         vorzeigen. Dafür verarbeiten wir vor allem: deine E-Mail-Adresse (Konto),
         Ticket- und Kaufdaten sowie — abgewickelt durch unseren Zahlungsdienstleister
-        — Zahlungsdaten. Wir betreiben kein Werbetracking, keine Analyse-Cookies und
-        verkaufen keine Daten.
+        — Zahlungsdaten. Wir betreiben kein Werbetracking und verkaufen keine
+        Daten; eine anonyme Reichweitenmessung findet nur mit deiner
+        Einwilligung statt (siehe Ziffer 10).
       </p>
 
       <h2>3. Hosting (Vercel)</h2>
@@ -171,13 +174,31 @@ export default function DatenschutzPage() {
 
       <h2>10. Cookies und lokale Speicherung</h2>
       <p>
-        Passly verwendet ausschließlich technisch notwendige Cookies und Einträge
-        im lokalen Speicher deines Browsers — insbesondere, um deine Anmeldung
-        aufrechtzuerhalten (Sitzungsdaten unseres Login-Dienstes Privy) und den
-        Bezahlvorgang bei Stripe abzusichern. Diese sind für den Betrieb
-        erforderlich; eine Einwilligung ist dafür nicht nötig (§ 25 Abs. 2 Nr. 2
-        TDDDG). Wir setzen keine Analyse-, Tracking- oder Werbe-Cookies ein —
-        deshalb siehst du bei uns auch kein Cookie-Banner.
+        <strong>Technisch notwendige Cookies:</strong> Passly verwendet Cookies
+        und Einträge im lokalen Speicher deines Browsers, um deine Anmeldung
+        aufrechtzuerhalten (Sitzungsdaten unseres Login-Dienstes Privy), den
+        Bezahlvorgang bei Stripe abzusichern und deine Cookie-Entscheidung zu
+        speichern. Diese sind für den Betrieb erforderlich; eine Einwilligung
+        ist dafür nicht nötig (§ 25 Abs. 2 Nr. 2 TDDDG).
+      </p>
+      <p>
+        <strong>Statistik-Cookie (nur mit Einwilligung):</strong> Wenn du im
+        Cookie-Banner „Alle akzeptieren“ wählst, setzen wir zusätzlich einen
+        eigenen Statistik-Cookie (<code>passly_cid</code>, Speicherdauer 12
+        Monate). Er enthält eine zufällig erzeugte, pseudonyme Kennung, über die
+        wir aufgerufene Seiten, Zeitpunkt und grundlegende Nutzungsschritte
+        (z.&nbsp;B. Start eines Ticketkaufs) in unserer eigenen Datenbank
+        (Supabase, siehe Ziffer 5) auswerten. Es findet keine Weitergabe an
+        Dritte und kein Werbetracking statt; IP-Adressen speichern wir dabei
+        nicht. Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO und § 25 Abs. 1
+        TDDDG (Einwilligung).
+      </p>
+      <p>
+        Du kannst deine Einwilligung jederzeit mit Wirkung für die Zukunft
+        widerrufen — dabei wird der Statistik-Cookie sofort gelöscht:
+      </p>
+      <p>
+        <ConsentSettingsButton />
       </p>
 
       <h2>11. Speicherdauer</h2>

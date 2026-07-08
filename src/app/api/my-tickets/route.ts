@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { MILESTONES, STAMMGAST_THRESHOLD } from "@/lib/badgeMeta";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       : Promise.resolve({ data: [] }),
     supabaseAdmin
       .from("badges")
-      .select("badge_type, asset_id, earned_at")
+      .select("badge_type, asset_id, earned_at, organizer_wallet")
       .eq("wallet_address", buyerWallet)
       .order("earned_at", { ascending: true }),
   ]);
@@ -64,15 +65,61 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     };
   });
 
-  const badges = ((badgesResult.data ?? []) as {
+  const badgeRows = (badgesResult.data ?? []) as {
     badge_type: string;
     asset_id: string | null;
     earned_at: string;
-  }[]).map((b) => ({
+    organizer_wallet: string | null;
+  }[];
+
+  const badges = badgeRows.map((b) => ({
     badgeType: b.badge_type,
     assetId: b.asset_id,
     earnedAt: b.earned_at,
   }));
 
-  return NextResponse.json({ tickets, badges });
+  // Progress toward the next badges — the hook that brings buyers back.
+  const redeemedRows = (data ?? []).filter((row) => row.redeemed_at);
+  const attendedCount = redeemedRows.length;
+  const nextMilestone = MILESTONES.find((m) => attendedCount < m.threshold) ?? null;
+
+  // Best Stammgast candidate: distinct redeemed events per organizer, skipping
+  // organizers where the badge is already earned. Shown by name, never wallet.
+  let topOrganizer: { name: string; attendedEvents: number; threshold: number } | null = null;
+  const redeemedEventIds = [...new Set(redeemedRows.map((row) => row.event_id as string))];
+  if (redeemedEventIds.length > 0) {
+    const { data: eventOwners } = await supabaseAdmin
+      .from("events")
+      .select("id, organizer_wallet")
+      .in("id", redeemedEventIds);
+
+    const stammgastEarned = new Set(
+      badgeRows
+        .filter((b) => b.badge_type === "loyal_organizer" && b.organizer_wallet)
+        .map((b) => b.organizer_wallet as string),
+    );
+
+    const perOrganizer = new Map<string, number>();
+    for (const ev of (eventOwners ?? []) as { id: string; organizer_wallet: string }[]) {
+      if (stammgastEarned.has(ev.organizer_wallet)) continue;
+      perOrganizer.set(ev.organizer_wallet, (perOrganizer.get(ev.organizer_wallet) ?? 0) + 1);
+    }
+
+    const best = [...perOrganizer.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (best && best[1] > 0 && best[1] < STAMMGAST_THRESHOLD) {
+      const { data: organizer } = await supabaseAdmin
+        .from("organizers")
+        .select("name, business_name")
+        .eq("wallet_address", best[0])
+        .maybeSingle();
+      const displayName = (organizer?.business_name ?? organizer?.name ?? "") as string;
+      if (displayName) {
+        topOrganizer = { name: displayName, attendedEvents: best[1], threshold: STAMMGAST_THRESHOLD };
+      }
+    }
+  }
+
+  const progress = { attendedCount, nextMilestone, topOrganizer };
+
+  return NextResponse.json({ tickets, badges, progress });
 }

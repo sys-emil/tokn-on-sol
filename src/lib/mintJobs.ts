@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
 import { mintTicket } from "@/lib/mint";
 import { sendTicketConfirmation, sendAdminAlert } from "@/lib/email";
+import { checkPurchaseBadges } from "@/lib/badges";
 
 /**
  * Async mint queue (decouples slow Bubblegum mints from the Stripe webhook).
@@ -185,6 +186,11 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
       .from("mint_jobs")
       .update({ status: "done", last_error: null, updated_at: new Date().toISOString() })
       .eq("id", job.id);
+
+    // Purchase-time badges (Frühstarter, Early Bird) — must not delay the job.
+    void checkPurchaseBadges(job.buyer_wallet, job.event_id, baseUrl).catch((err) =>
+      console.error("Purchase badge check failed:", err),
+    );
 
     // One confirmation email per completed job, listing every ticket of the session.
     if (job.buyer_email) {

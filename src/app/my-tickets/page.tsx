@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
+import { badgeDisplay } from '@/lib/badgeMeta';
 import { useEffect, useRef, useState } from 'react';
 
 interface Ticket {
@@ -25,12 +26,22 @@ interface BadgeItem {
   earnedAt: string;
 }
 
-const BADGE_DISPLAY: Record<string, { name: string; symbol: string; hue: number }> = {
-  first_show:      { name: 'Erste Show', symbol: 'I', hue: 285 },
-  show_5:          { name: '5 Shows',    symbol: 'V', hue: 150 },
-  show_10:         { name: '10 Shows',   symbol: 'X', hue: 220 },
-  loyal_organizer: { name: 'Treuer Fan', symbol: '♥', hue: 340 },
-};
+interface Progress {
+  attendedCount: number;
+  nextMilestone: { type: string; threshold: number } | null;
+  topOrganizer: { name: string; attendedEvents: number; threshold: number } | null;
+}
+
+interface LoyaltyProgramView {
+  programId: string;
+  organizerName: string;
+  benefitTitle: string;
+  benefitDescription: string | null;
+  threshold: number;
+  attendedEvents: number;
+  qualified: boolean;
+  claim: { code: string; redeemedAt: string | null } | null;
+}
 
 const monthShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
 const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
@@ -51,6 +62,9 @@ export default function MyTickets() {
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [badges, setBadges] = useState<BadgeItem[]>([]);
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [loyalty, setLoyalty] = useState<LoyaltyProgramView[]>([]);
+  const [claimingProgramId, setClaimingProgramId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [shareModal, setShareModal] = useState<{ assetId: string; url: string } | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
@@ -74,11 +88,19 @@ export default function MyTickets() {
     if (!buyerWallet || loaded) return;
     async function load() {
       try {
-        const res = await fetch(`/api/my-tickets?buyerWallet=${buyerWallet}`);
+        const [res, loyaltyRes] = await Promise.all([
+          fetch(`/api/my-tickets?buyerWallet=${buyerWallet}`),
+          fetch(`/api/loyalty/status?buyerWallet=${buyerWallet}`),
+        ]);
         if (res.ok) {
-          const data = (await res.json()) as { tickets: Ticket[]; badges: BadgeItem[] };
+          const data = (await res.json()) as { tickets: Ticket[]; badges: BadgeItem[]; progress?: Progress };
           setTickets(data.tickets);
           setBadges(data.badges ?? []);
+          setProgress(data.progress ?? null);
+        }
+        if (loyaltyRes.ok) {
+          const data = (await loyaltyRes.json()) as { programs: LoyaltyProgramView[] };
+          setLoyalty(data.programs ?? []);
         }
       } finally {
         setLoaded(true);
@@ -109,6 +131,27 @@ export default function MyTickets() {
       }
     } finally {
       setSharingAssetId(null);
+    }
+  }
+
+  async function handleClaimBenefit(programId: string) {
+    if (!buyerWallet || claimingProgramId) return;
+    setClaimingProgramId(programId);
+    try {
+      const authToken = await getAccessToken();
+      const res = await fetch('/api/loyalty/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
+        body: JSON.stringify({ buyerWallet, programId }),
+      });
+      const data = (await res.json()) as { success: boolean; code?: string; redeemedAt?: string | null };
+      if (data.success && data.code) {
+        setLoyalty((prev) => prev.map((p) =>
+          p.programId === programId ? { ...p, claim: { code: data.code!, redeemedAt: data.redeemedAt ?? null } } : p,
+        ));
+      }
+    } finally {
+      setClaimingProgramId(null);
     }
   }
 
@@ -299,17 +342,76 @@ export default function MyTickets() {
                   )}
                 </section>
 
-                {badges.length > 0 && (
+                {loyalty.length > 0 && (
+                  <section>
+                    <div className="section-head">
+                      <div>
+                        <h2>Deine Vorteile</h2>
+                        <div className="sub">Treueprogramme deiner Veranstalter</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {loyalty.map((p) => {
+                        const remaining = Math.max(0, p.threshold - p.attendedEvents);
+                        const pct = Math.min(100, Math.round((p.attendedEvents / p.threshold) * 100));
+                        return (
+                          <div key={p.programId} className="card" style={{ padding: '16px 20px' }}>
+                            <div className="row gap-3" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <div style={{ flex: 1, minWidth: 200 }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.benefitTitle}</div>
+                                <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 2 }}>
+                                  von {p.organizerName}{p.benefitDescription ? ` · ${p.benefitDescription}` : ''}
+                                </div>
+                                {!p.qualified && (
+                                  <>
+                                    <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>
+                                      Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis zu deinem Vorteil ({p.attendedEvents}/{p.threshold})
+                                    </div>
+                                    <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', marginTop: 6, overflow: 'hidden', maxWidth: 320 }}>
+                                      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: 'var(--accent)' }} />
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              {p.qualified && (
+                                p.claim ? (
+                                  p.claim.redeemedAt ? (
+                                    <span className="chip"><span className="d" />Eingelöst</span>
+                                  ) : (
+                                    <div style={{ textAlign: 'center' }}>
+                                      <div className="mono" style={{ fontSize: 18, fontWeight: 600, letterSpacing: '0.14em', color: 'var(--accent)' }}>{p.claim.code}</div>
+                                      <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>Am Einlass vorzeigen</div>
+                                    </div>
+                                  )
+                                ) : (
+                                  <button
+                                    className="btn primary sm"
+                                    onClick={() => void handleClaimBenefit(p.programId)}
+                                    disabled={claimingProgramId === p.programId}
+                                  >
+                                    {claimingProgramId === p.programId ? '…' : 'Vorteil abholen'}
+                                  </button>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+                {(badges.length > 0 || progress?.nextMilestone || progress?.topOrganizer) && (
                   <section>
                     <div className="section-head">
                       <div>
                         <h2>Abzeichen</h2>
-                        <div className="sub">{badges.length} verdient</div>
+                        <div className="sub">{badges.length > 0 ? `${badges.length} verdient` : 'Dein erstes Abzeichen wartet'}</div>
                       </div>
                     </div>
                     <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
                       {badges.map((b) => {
-                        const meta = BADGE_DISPLAY[b.badgeType] ?? { name: b.badgeType, symbol: '◆', hue: 260 };
+                        const meta = badgeDisplay(b.badgeType);
                         const earned = new Date(b.earnedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
                         return (
                           <div key={b.badgeType} className="card" style={{ padding: '16px 20px', width: 130, textAlign: 'center' }}>
@@ -320,6 +422,56 @@ export default function MyTickets() {
                         );
                       })}
                     </div>
+                    {(progress?.nextMilestone || progress?.topOrganizer) && (
+                      <div style={{ display: 'grid', gap: 10, marginTop: badges.length > 0 ? 14 : 0 }}>
+                        {progress?.nextMilestone && (() => {
+                          const meta = badgeDisplay(progress.nextMilestone.type);
+                          const remaining = progress.nextMilestone.threshold - progress.attendedCount;
+                          const pct = Math.min(100, Math.round((progress.attendedCount / progress.nextMilestone.threshold) * 100));
+                          return (
+                            <div className="card" style={{ padding: '14px 18px' }}>
+                              <div className="row gap-3" style={{ alignItems: 'center' }}>
+                                <div style={{ fontSize: 20, fontWeight: 600, color: `oklch(0.54 0.20 ${meta.hue})`, opacity: 0.45, lineHeight: 1, width: 24, textAlign: 'center' }}>{meta.symbol}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                                    Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis „{meta.name}“
+                                  </div>
+                                  <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', marginTop: 8, overflow: 'hidden' }}>
+                                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: `oklch(0.54 0.20 ${meta.hue})`, transition: 'width .4s ease' }} />
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
+                                  {progress.attendedCount}/{progress.nextMilestone.threshold}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        {progress?.topOrganizer && (() => {
+                          const meta = badgeDisplay('loyal_organizer');
+                          const remaining = progress.topOrganizer.threshold - progress.topOrganizer.attendedEvents;
+                          const pct = Math.min(100, Math.round((progress.topOrganizer.attendedEvents / progress.topOrganizer.threshold) * 100));
+                          return (
+                            <div className="card" style={{ padding: '14px 18px' }}>
+                              <div className="row gap-3" style={{ alignItems: 'center' }}>
+                                <div style={{ fontSize: 20, fontWeight: 600, color: `oklch(0.54 0.20 ${meta.hue})`, opacity: 0.45, lineHeight: 1, width: 24, textAlign: 'center' }}>{meta.symbol}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                                    Noch {remaining} Event{remaining !== 1 ? 's' : ''} bei {progress.topOrganizer.name} bis „{meta.name}“
+                                  </div>
+                                  <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', marginTop: 8, overflow: 'hidden' }}>
+                                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: `oklch(0.54 0.20 ${meta.hue})`, transition: 'width .4s ease' }} />
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
+                                  {progress.topOrganizer.attendedEvents}/{progress.topOrganizer.threshold}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </section>
                 )}
               </>

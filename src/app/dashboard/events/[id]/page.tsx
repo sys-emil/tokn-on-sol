@@ -92,6 +92,14 @@ export default function EventDetailPage() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelResult, setCancelResult] = useState<string | null>(null);
 
+  const [plan, setPlan] = useState<'free' | 'pro'>('free');
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [msgSubject, setMsgSubject] = useState('');
+  const [msgText, setMsgText] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgError, setMsgError] = useState<string | null>(null);
+  const [msgSent, setMsgSent] = useState<number | null>(null);
+
   const [filter, setFilter] = useState<'all' | 'valid' | 'checked'>('all');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -131,6 +139,44 @@ export default function EventDetailPage() {
     }
     void load();
   }, [ready, authenticated, id, loaded, getAccessToken]);
+
+  useEffect(() => {
+    if (!walletAddress) return;
+    async function checkPlan(): Promise<void> {
+      const res = await fetch(`/api/organizers/status?walletAddress=${walletAddress}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as { plan?: string };
+      setPlan(data.plan === 'pro' ? 'pro' : 'free');
+    }
+    void checkPlan();
+  }, [walletAddress]);
+
+  async function sendMessage(): Promise<void> {
+    if (!walletAddress || !event || msgSending) return;
+    setMsgError(null);
+    const token = await getAccessToken();
+    if (!token) { setMsgError('Nicht angemeldet. Bitte melde dich ab und wieder an.'); return; }
+    setMsgSending(true);
+    try {
+      const res = await fetch('/api/organizer/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ walletAddress, eventId: event.id, subject: msgSubject, text: msgText }),
+      });
+      const data = (await res.json()) as { success: boolean; recipientCount?: number; error?: string };
+      if (data.success) {
+        setMsgSent(data.recipientCount ?? 0);
+        setMsgSubject('');
+        setMsgText('');
+      } else {
+        setMsgError(data.error ?? 'Senden fehlgeschlagen.');
+      }
+    } catch (err) {
+      setMsgError(err instanceof Error ? err.message : 'Senden fehlgeschlagen.');
+    } finally {
+      setMsgSending(false);
+    }
+  }
 
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
@@ -496,6 +542,19 @@ export default function EventDetailPage() {
                         <Link href={`/shop/${event.id}`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
                           <Icon name="ticket" size={14} /> Shop-Seite ansehen
                         </Link>
+                        {plan === 'pro' ? (
+                          <button
+                            className="btn ghost"
+                            style={{ justifyContent: 'flex-start' }}
+                            onClick={() => { setMsgError(null); setMsgSent(null); setMessageOpen(true); }}
+                          >
+                            <Icon name="mail" size={14} /> Gäste kontaktieren
+                          </button>
+                        ) : (
+                          <Link href="/dashboard/analytics" className="btn ghost" style={{ justifyContent: 'flex-start', color: 'var(--ink-3)' }}>
+                            <Icon name="mail" size={14} /> Gäste kontaktieren <span className="chip accent" style={{ marginLeft: 'auto' }}>Pro</span>
+                          </Link>
+                        )}
                         {!cancelled && (
                           <button
                             className="btn ghost"
@@ -514,6 +573,48 @@ export default function EventDetailPage() {
           </div>
         </div>
       </div>
+
+      {messageOpen && event && (
+        <div className="modal-backdrop" onClick={() => !msgSending && setMessageOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Gäste kontaktieren</h3>
+              <button className="close-btn" onClick={() => setMessageOpen(false)}><Icon name="x" size={16} /></button>
+            </div>
+            <div className="modal-body">
+              {msgSent !== null ? (
+                <div style={{ textAlign: 'center', padding: '10px 0' }}>
+                  <span className="chip ok"><span className="d" />Nachricht an {msgSent} Empfänger gesendet</span>
+                </div>
+              ) : (
+                <>
+                  <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
+                    Deine Nachricht geht per E-Mail an alle Ticketinhaber von „{event.name}“.
+                    Maximal 2 Nachrichten pro Event in 24 Stunden.
+                  </p>
+                  <div className="field" style={{ marginBottom: 12 }}>
+                    <label>Betreff</label>
+                    <input className="input" value={msgSubject} maxLength={120} onChange={(e) => setMsgSubject(e.target.value)} placeholder="z. B. Einlass ab 19 Uhr" />
+                  </div>
+                  <div className="field">
+                    <label>Nachricht</label>
+                    <textarea className="input" value={msgText} maxLength={2000} rows={6} onChange={(e) => setMsgText(e.target.value)} placeholder="Deine Nachricht an alle Gäste …" style={{ resize: 'vertical' }} />
+                  </div>
+                  {msgError && <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 10 }}>{msgError}</div>}
+                </>
+              )}
+            </div>
+            <div className="modal-foot">
+              <button className="btn ghost" onClick={() => setMessageOpen(false)} disabled={msgSending}>Schließen</button>
+              {msgSent === null && (
+                <button className="btn primary" onClick={() => void sendMessage()} disabled={msgSending || !msgSubject.trim() || !msgText.trim()}>
+                  {msgSending ? 'Sende …' : 'Senden'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {editOpen && event && (
         <>

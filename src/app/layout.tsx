@@ -2,6 +2,8 @@
 
 import { PrivyProvider } from '@privy-io/react-auth';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { Suspense } from 'react';
+import { ConsentBanner, PageViewTracker } from '@/app/components/ConsentBanner';
 import './globals.css';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist', display: 'swap' });
@@ -33,6 +35,10 @@ export default function RootLayout({
           }}
         >
           {children}
+          <ConsentBanner />
+          <Suspense fallback={null}>
+            <PageViewTracker />
+          </Suspense>
         </PrivyProvider>
       </body>
     </html>

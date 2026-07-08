@@ -4,6 +4,7 @@ import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import bs58 from 'bs58';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
+import { track } from '@/lib/track';
 
 export default function TicketClient({ assetId }: { assetId: string }) {
   const { wallets } = useSolanaWallets();
@@ -11,6 +12,10 @@ export default function TicketClient({ assetId }: { assetId: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'refreshing'>('loading');
   const hadQr = useRef(false);
+
+  useEffect(() => {
+    track('ticket_viewed');
+  }, [assetId]);
 
   useEffect(() => {
     if (!wallet) return;
