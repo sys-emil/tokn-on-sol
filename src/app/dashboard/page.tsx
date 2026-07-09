@@ -4,7 +4,9 @@ import { useLogout, usePrivy } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AccountMenu } from '@/app/components/AccountMenu';
 import { Celebration } from '@/app/components/Celebration';
+import { ProfileNudge } from '@/app/components/ProfileNudge';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, Spark } from '@/app/components/passlyUi';
@@ -199,7 +201,6 @@ export default function Dashboard() {
   const ownerWallet = solanaWalletAddress;
   const email = user?.email?.address ?? '';
   const displayName = email ? email.split('@')[0] : 'Organizer';
-  const initials = displayName.slice(0, 2).toUpperCase();
   const loadingEvents = !!ownerWallet && !eventsLoaded;
 
   const totalRevenueCents = events.reduce((a, e) => a + e.tickets_sold * e.price_eur, 0);
@@ -442,8 +443,7 @@ export default function Dashboard() {
               <Link href="/my-tickets">Meine Tickets</Link>
             </div>
             <div className="topbar-right">
-              <button className="btn subtle sm" onClick={() => logout()}>Abmelden</button>
-              <div className="avatar" title={email}>{initials}</div>
+              <AccountMenu email={email} walletAddress={ownerWallet} onLogout={() => logout()} />
             </div>
           </div>
         </div>
@@ -846,6 +846,8 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      {!showProCelebration && <ProfileNudge walletAddress={ownerWallet} />}
 
       {showProCelebration && (
         <Celebration

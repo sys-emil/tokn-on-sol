@@ -5,6 +5,7 @@ import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { AccountMenu } from '@/app/components/AccountMenu';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, Spark } from '@/app/components/passlyUi';
@@ -278,7 +279,6 @@ export default function ProAnalytics() {
   if (!ready || orgStatus === 'loading') return null;
 
   const email = user?.email?.address ?? '';
-  const initials = (email ? email.split('@')[0] : 'PA').slice(0, 2).toUpperCase();
   const totalRevenue = analytics?.events.reduce((sum, e) => sum + e.revenueCents, 0) ?? 0;
   const sparkData = analytics?.salesByDay.map((d) => d.sold) ?? [];
 
@@ -295,8 +295,7 @@ export default function ProAnalytics() {
             <Link href="/my-tickets">Meine Tickets</Link>
           </div>
           <div className="topbar-right">
-            <button className="btn subtle sm" onClick={() => logout()}>Abmelden</button>
-            <div className="avatar" title={email}>{initials}</div>
+            <AccountMenu email={email} walletAddress={wallet} onLogout={() => logout()} />
           </div>
         </div>
       </div>

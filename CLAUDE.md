@@ -80,6 +80,7 @@ Tables:
 - `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, plan (free|pro), stripe_customer_id, stripe_subscription_id, plan_period_end, plan_cancel_at_period_end, created_at`
 - `badges`: buyer achievements — `id, wallet_address, badge_type, asset_id, earned_at, event_id, organizer_wallet` (partial unique indexes dedupe awards; see Badges section)
 - `organizer_messages` / `loyalty_programs` / `loyalty_claims` / `analytics_events`: see Dashboard Pro & analytics sections
+- `profiles`: buyer/organizer account profile — `wallet_address (PK), display_name, bio, is_private`. Edited on `/account` (GET/PUT `/api/profile`, auth `requestOwnsWallet`); read server-side by the public profile `/collection/[walletAddress]` (`is_private` hides the page, `display_name` replaces the wallet ID). `ProfileNudge` (mounted on `/my-tickets` + `/dashboard`) prompts accounts without a display name once per device; `AccountMenu` is the avatar dropdown in all signed-in topbars.
 - `payouts`: one row per paid checkout session — `stripe_session_id (unique), payment_intent_id, charge_id, event_id, organizer_wallet, stripe_account_id, gross_cents, fee_cents, net_cents, currency, available_at, status (pending|paid|held|disputed|failed|refunded), transfer_id, dispute_id, failure_reason`
 - `stripe_webhook_events`: processed Stripe event IDs (`id` = evt_… primary key) — the webhook idempotency gate.
 

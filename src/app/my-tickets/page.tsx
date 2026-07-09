@@ -4,7 +4,9 @@ import { useLogout, usePrivy, getAccessToken } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AccountMenu } from '@/app/components/AccountMenu';
 import { Celebration } from '@/app/components/Celebration';
+import { ProfileNudge } from '@/app/components/ProfileNudge';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
@@ -36,80 +38,8 @@ const PAGE_CSS = `
     100% { opacity: 0; }
   }
 
-  /* ── Abzeichen als Medaillen-Meilensteine ─────────────────── */
-  .badges-row { display: flex; flex-wrap: wrap; gap: 14px; }
-  .badge-tile {
-    --bh: 285;
-    width: 152px;
-    padding: 20px 14px 16px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    border-radius: 16px;
-    background:
-      radial-gradient(130px 90px at 50% -20%, oklch(0.955 0.05 var(--bh)), transparent 72%),
-      linear-gradient(180deg, oklch(0.99 0.008 var(--bh)), #fff);
-    border: 1px solid oklch(0.89 0.055 var(--bh));
-    box-shadow:
-      0 1px 2px rgba(17,20,45,0.05),
-      0 6px 18px oklch(0.60 0.16 var(--bh) / 0.10),
-      inset 0 1px 0 #fff;
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .badge-tile:hover {
-    transform: translateY(-2px);
-    box-shadow:
-      0 2px 4px rgba(17,20,45,0.06),
-      0 12px 28px oklch(0.60 0.16 var(--bh) / 0.20),
-      inset 0 1px 0 #fff;
-  }
-  .badge-tile::after {
-    content: "";
-    position: absolute; inset: 0;
-    background: linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.6) 50%, transparent 58%);
-    transform: translateX(-130%) ;
-    transition: transform 0.7s ease;
-    pointer-events: none;
-  }
-  .badge-tile:hover::after { transform: translateX(130%); }
-  .badge-medal {
-    width: 58px; height: 58px; border-radius: 50%;
-    margin: 0 auto;
-    display: grid; place-items: center;
-    position: relative;
-    color: #fff; font-size: 22px; font-weight: 600; line-height: 1;
-    text-shadow: 0 1px 2px oklch(0.35 0.15 var(--bh) / 0.6);
-    background: radial-gradient(circle at 32% 28%,
-      oklch(0.85 0.11 var(--bh)),
-      oklch(0.60 0.20 var(--bh)) 58%,
-      oklch(0.45 0.19 var(--bh)));
-    border: 2px solid oklch(0.93 0.05 var(--bh));
-    box-shadow:
-      0 4px 12px oklch(0.52 0.20 var(--bh) / 0.38),
-      inset 0 1px 2px rgba(255,255,255,0.5),
-      inset 0 -3px 6px oklch(0.40 0.18 var(--bh) / 0.45);
-  }
-  .badge-medal::before {
-    content: "";
-    position: absolute; inset: -6px;
-    border-radius: 50%;
-    border: 1px dashed oklch(0.70 0.14 var(--bh) / 0.55);
-  }
-  .badge-medal.sm { width: 40px; height: 40px; font-size: 15px; border-width: 1.5px; flex-shrink: 0; }
-  .badge-medal.sm::before { inset: -4px; }
-  .badge-medal.locked { filter: grayscale(0.8) opacity(0.55); }
-  .badge-name { font-size: 12.5px; font-weight: 600; margin-top: 13px; letter-spacing: -0.01em; }
-  .badge-date { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
-  .badge-new-tag {
-    position: absolute; top: 9px; right: 9px;
-    font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-    color: #fff;
-    background: linear-gradient(115deg, oklch(0.60 0.21 var(--bh)), oklch(0.68 0.17 calc(var(--bh) + 40)));
-    padding: 2px 7px; border-radius: 999px;
-    box-shadow: 0 1px 5px oklch(0.50 0.20 var(--bh) / 0.45);
-  }
-
-  /* Frisch verdientes Abzeichen: Landung + pulsierender Medaillen-Glow */
+  /* Frisch verdientes Abzeichen: Landung + pulsierender Medaillen-Glow
+     (Basis-Medaillen-Styles sind global — auch /collection nutzt sie) */
   .badge-tile.is-new {
     animation: badgeLand 0.7s cubic-bezier(0.18, 1.4, 0.3, 1) var(--fresh-delay, 150ms) both;
   }
@@ -383,7 +313,6 @@ export default function MyTickets() {
   }
 
   const email = user?.email?.address ?? '';
-  const initials = (email ? email.split('@')[0] : 'PA').slice(0, 2).toUpperCase();
   const loading = !!buyerWallet && !loaded;
   const upcoming = tickets.filter((t) => isUpcoming(t.eventDate));
   const past = tickets.filter((t) => !isUpcoming(t.eventDate));
@@ -450,8 +379,7 @@ export default function MyTickets() {
               <Link href="/dashboard">Dashboard</Link>
             </div>
             <div className="topbar-right">
-              <button className="btn subtle sm" onClick={() => logout()}>Abmelden</button>
-              <div className="avatar" title={email}>{initials}</div>
+              <AccountMenu email={email} walletAddress={buyerWallet} onLogout={() => logout()} />
             </div>
           </div>
         </div>
@@ -682,6 +610,8 @@ export default function MyTickets() {
           </div>
         </div>
       </div>
+
+      {!celebration && <ProfileNudge walletAddress={buyerWallet} />}
 
       {celebration && !loading && (
         <Celebration
