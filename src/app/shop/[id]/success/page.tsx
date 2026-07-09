@@ -142,6 +142,9 @@ function SuccessInner() {
 
           if (ids.length >= qty) {
             track('purchase_completed', { quantity: qty });
+            // Handoff for the arrival celebration on /my-tickets: the list page
+            // pops these tickets in with a congratulation overlay.
+            try { sessionStorage.setItem('passly_new_tickets', JSON.stringify(ids)); } catch { /* private mode */ }
             setAllDone(true);
             setRedirecting(true);
             await new Promise((r) => setTimeout(r, 2200));
@@ -208,7 +211,7 @@ function SuccessInner() {
         </div>
 
         {allDone ? (
-          <div className="notice">{redirecting ? 'Du wirst zu deinen Tickets weitergeleitet …' : ''}</div>
+          <div className="notice">{redirecting ? '🎉 Herzlichen Glückwunsch! Du wirst zu deinen Tickets weitergeleitet …' : ''}</div>
         ) : (
           <div className="notice">Das kann bis zu einer Minute dauern. Lass den Tab am besten offen.</div>
         )}

@@ -53,6 +53,74 @@ interface LoyaltyClaim {
   redeemed_at: string | null;
 }
 
+const PAGE_CSS = `
+  /* Premium-Signale für den Pro-Bereich */
+  .pro-eyebrow {
+    background: linear-gradient(115deg, var(--accent), oklch(0.62 0.19 calc(var(--hue) + 45))) !important;
+    border-color: transparent !important;
+    color: white !important;
+    box-shadow: 0 2px 12px oklch(0.50 0.20 var(--hue) / 0.40);
+  }
+  .pro-eyebrow .pulse { background: white; }
+  .pro-kpis { position: relative; }
+  .pro-kpis::before {
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), oklch(0.70 0.16 calc(var(--hue) + 50)), transparent 85%);
+    z-index: 1;
+  }
+  .kpi .value.grad {
+    background: linear-gradient(115deg, var(--accent-ink), var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Upsell: Pro als greifbares Produkt */
+  .pro-medal {
+    width: 56px; height: 56px; border-radius: 50%;
+    margin: 0 auto 16px;
+    display: grid; place-items: center;
+    color: white;
+    background: radial-gradient(circle at 32% 28%,
+      oklch(0.78 0.14 var(--hue)),
+      oklch(0.56 0.22 var(--hue)) 58%,
+      oklch(0.42 0.20 var(--hue)));
+    border: 2px solid oklch(0.92 0.05 var(--hue));
+    box-shadow:
+      0 6px 20px oklch(0.52 0.20 var(--hue) / 0.45),
+      inset 0 1px 2px rgba(255,255,255,0.5),
+      inset 0 -3px 6px oklch(0.38 0.18 var(--hue) / 0.45);
+    animation: proMedalGlow 3s ease-in-out infinite;
+  }
+  @keyframes proMedalGlow {
+    0%, 100% { box-shadow: 0 6px 20px oklch(0.52 0.20 var(--hue) / 0.35), inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -3px 6px oklch(0.38 0.18 var(--hue) / 0.45); }
+    50%      { box-shadow: 0 6px 30px oklch(0.52 0.20 var(--hue) / 0.60), inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -3px 6px oklch(0.38 0.18 var(--hue) / 0.45); }
+  }
+  .pro-features {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    max-width: 560px; margin: 22px auto 0;
+    text-align: left;
+  }
+  @media (max-width: 560px) { .pro-features { grid-template-columns: 1fr; } }
+  .pro-feature {
+    display: flex; gap: 11px; align-items: flex-start;
+    padding: 13px 14px;
+    border: 1px solid var(--accent-line);
+    border-radius: var(--radius);
+    background: var(--accent-wash);
+  }
+  .pro-feature .ic {
+    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+    display: grid; place-items: center;
+    background: var(--surface); color: var(--accent);
+    border: 1px solid var(--accent-line);
+  }
+  .pro-feature b { display: block; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+  .pro-feature span { font-size: 12px; color: var(--ink-3); line-height: 1.5; margin-top: 2px; display: block; }
+  @media (prefers-reduced-motion: reduce) { .pro-medal { animation: none; } }
+`;
+
 const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 const shortDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
 const shortWallet = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
@@ -216,6 +284,7 @@ export default function ProAnalytics() {
 
   return (
     <div className="app">
+      <style>{PAGE_CSS}</style>
       <div className="topbar">
         <div className="topbar-inner">
           <PasslyLogo height={24} />
@@ -237,7 +306,7 @@ export default function ProAnalytics() {
         <div className="container">
 
           <div className="hero">
-            <div className="eyebrow"><span className="pulse" /> Passly Pro</div>
+            <div className={`eyebrow${plan === 'pro' ? ' pro-eyebrow' : ''}`}><span className="pulse" /> Passly Pro</div>
             <h1>Deine Gäste, <br />richtig verstanden.</h1>
             <p className="lead">
               Analytics über alle Events, Stammkunden auf einen Blick und dein eigenes Treueprogramm.
@@ -246,24 +315,52 @@ export default function ProAnalytics() {
 
           {plan === 'free' && (
             <section>
-              <div className="card" style={{ padding: 28, textAlign: 'center' }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', margin: '0 auto 14px', color: 'var(--accent)' }}>
-                  <Icon name="sparkle" size={20} />
+              <div className="card pro-outline" style={{ padding: '34px 28px 30px', textAlign: 'center' }}>
+                <div className="pro-medal">
+                  <Icon name="sparkle" size={22} />
                 </div>
-                <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Passly Pro freischalten</div>
-                <div style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.6, maxWidth: 440, marginLeft: 'auto', marginRight: 'auto' }}>
-                  Wiederkehrer-Statistiken, Top-Kunden mit Kontakt, Nachrichten an alle Ticketinhaber
-                  und ein Treueprogramm, das deine Stammgäste belohnt.
+                <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.025em' }}>Schalte Passly Pro frei</div>
+                <div style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.6, maxWidth: 460, marginLeft: 'auto', marginRight: 'auto' }}>
+                  Deine Gäste kommen wieder — Pro zeigt dir, wer sie sind, und gibt dir
+                  die Werkzeuge, sie zu halten.
                 </div>
-                <div className="row gap-3" style={{ justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
-                  {['Umsatz & Einlösequote je Event', 'Stammkunden-Anteil', 'Gäste-Nachrichten', 'Treueprogramm'].map((f) => (
-                    <span key={f} className="chip accent"><span className="d" />{f}</span>
-                  ))}
+                <div className="pro-features">
+                  <div className="pro-feature">
+                    <div className="ic"><Icon name="euro" size={14} /></div>
+                    <div>
+                      <b>Alle Events im Blick</b>
+                      <span>Umsatz, Einlösequote und Verkaufstrends über dein gesamtes Programm.</span>
+                    </div>
+                  </div>
+                  <div className="pro-feature">
+                    <div className="ic"><Icon name="users" size={14} /></div>
+                    <div>
+                      <b>Stammkunden erkennen</b>
+                      <span>Top-Kunden mit Kontakt und Wiederkehrer-Anteil auf einen Blick.</span>
+                    </div>
+                  </div>
+                  <div className="pro-feature">
+                    <div className="ic"><Icon name="mail" size={14} /></div>
+                    <div>
+                      <b>Gäste erreichen</b>
+                      <span>Nachrichten an alle Ticketinhaber eines Events — direkt aus dem Dashboard.</span>
+                    </div>
+                  </div>
+                  <div className="pro-feature">
+                    <div className="ic"><Icon name="sparkle" size={14} /></div>
+                    <div>
+                      <b>Treue belohnen</b>
+                      <span>Dein eigenes Treueprogramm mit Vorteilen für Gäste, die immer wieder kommen.</span>
+                    </div>
+                  </div>
                 </div>
-                {billingError && <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 12 }}>{billingError}</div>}
-                <button className="btn primary lg" style={{ marginTop: 20 }} onClick={() => void handleUpgrade()} disabled={billingBusy}>
-                  {billingBusy ? 'Weiterleitung …' : 'Pro werden'}
+                {billingError && <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 14 }}>{billingError}</div>}
+                <button className="btn primary lg btn-shine" style={{ marginTop: 24 }} onClick={() => void handleUpgrade()} disabled={billingBusy}>
+                  {billingBusy ? 'Weiterleitung …' : 'Jetzt Pro werden'} <Icon name="arrow" size={14} />
                 </button>
+                <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 12 }}>
+                  Monatlich · jederzeit kündbar · sichere Abrechnung über Stripe
+                </div>
               </div>
             </section>
           )}
@@ -277,10 +374,10 @@ export default function ProAnalytics() {
                     <div className="sub">Letzte 30 Tage</div>
                   </div>
                 </div>
-                <div className="kpis">
+                <div className="kpis pro-kpis">
                   <div className="kpi">
                     <div className="label">Ausgezahlter Umsatz</div>
-                    <div className="value">{eur(totalRevenue)}</div>
+                    <div className="value grad">{eur(totalRevenue)}</div>
                     {sparkData.length > 1 && <div className="spark"><Spark data={sparkData} color="var(--ok)" /></div>}
                   </div>
                   <div className="kpi">

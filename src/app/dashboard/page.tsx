@@ -4,6 +4,7 @@ import { useLogout, usePrivy } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Celebration } from '@/app/components/Celebration';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, Spark } from '@/app/components/passlyUi';
@@ -90,12 +91,29 @@ export default function Dashboard() {
   const [planPeriodEnd, setPlanPeriodEnd] = useState<string | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
+  const [showProCelebration, setShowProCelebration] = useState(false);
+  const [statusNonce, setStatusNonce] = useState(0);
 
   const solanaWalletAddress = solanaWallets[0]?.address;
 
   useEffect(() => {
     if (ready && !authenticated) router.push('/');
   }, [ready, authenticated, router]);
+
+  // Stripe redirects here with ?billing=success after the Pro checkout.
+  // Celebrate, clean the URL, and re-check the plan once the webhook had a
+  // moment to flip `organizers.plan`.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!new URLSearchParams(window.location.search).has('billing')) return;
+    const isSuccess = new URLSearchParams(window.location.search).get('billing') === 'success';
+    router.replace('/dashboard');
+    if (!isSuccess) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot read of the redirect URL, runs once on mount
+    setShowProCelebration(true);
+    const timer = setTimeout(() => setStatusNonce((n) => n + 1), 4000);
+    return () => clearTimeout(timer);
+  }, [router]);
 
   useEffect(() => {
     if (!solanaWalletAddress) return;
@@ -123,7 +141,7 @@ export default function Dashboard() {
       }
     }
     void checkOrg();
-  }, [solanaWalletAddress]);
+  }, [solanaWalletAddress, statusNonce]);
 
   useEffect(() => {
     if (orgStatus === 'none') router.push('/become-organizer');
@@ -513,15 +531,15 @@ export default function Dashboard() {
                 )}
 
                 <section>
-                  <div className="card" style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', color: 'var(--accent)', flexShrink: 0 }}>
+                  <div className={`card${plan === 'free' ? ' pro-outline' : ''}`} style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: plan === 'free' ? 'linear-gradient(135deg, var(--accent), oklch(0.62 0.19 calc(var(--hue) + 45)))' : 'var(--accent-wash)', border: plan === 'free' ? 'none' : '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', color: plan === 'free' ? 'white' : 'var(--accent)', flexShrink: 0, boxShadow: plan === 'free' ? '0 2px 10px oklch(0.50 0.20 var(--hue) / 0.40)' : undefined }}>
                       <Icon name="sparkle" size={16} />
                     </div>
                     <div style={{ flex: 1, minWidth: 240 }}>
                       <div className="row gap-2" style={{ alignItems: 'center' }}>
                         <div style={{ fontSize: 14, fontWeight: 600 }}>Passly Pro</div>
                         {plan === 'pro'
-                          ? <span className="chip ok"><span className="d" />Aktiv</span>
+                          ? <span className="chip pro"><span className="d" />Aktiv</span>
                           : <span className="chip"><span className="d" />Free</span>}
                       </div>
                       <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
@@ -529,7 +547,7 @@ export default function Dashboard() {
                           ? planCancelAtPeriodEnd && planPeriodEnd
                             ? `Dein Abo endet am ${new Date(planPeriodEnd).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}.`
                             : 'Detaillierte Analytics, Gäste-Nachrichten und dein Treueprogramm sind freigeschaltet.'
-                          : 'Detaillierte Analytics über alle Events, Nachrichten an deine Gäste und ein Treueprogramm für Stammkunden.'}
+                          : 'Kenne deine Stammgäste, schreibe allen Ticketinhabern und belohne Wiederkehrer mit deinem eigenen Treueprogramm — alles in einem Abo, jederzeit kündbar.'}
                       </div>
                       {billingError && (
                         <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>{billingError}</div>
@@ -543,7 +561,7 @@ export default function Dashboard() {
                         </button>
                       </div>
                     ) : (
-                      <button className="btn primary" onClick={() => void handleBilling('checkout')} disabled={billingBusy}>
+                      <button className="btn primary btn-shine" onClick={() => void handleBilling('checkout')} disabled={billingBusy}>
                         {billingBusy ? 'Weiterleitung …' : 'Pro werden'}
                       </button>
                     )}
@@ -828,6 +846,17 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      {showProCelebration && (
+        <Celebration
+          emoji="🚀"
+          title="Willkommen bei Passly Pro!"
+          message="Herzlichen Glückwunsch — Analytics über alle Events, Gäste-Nachrichten und dein Treueprogramm sind jetzt für dich freigeschaltet. Zeit, deine Stammgäste zu begeistern."
+          actionLabel="Zum Pro-Bereich"
+          actionHref="/dashboard/analytics"
+          onClose={() => setShowProCelebration(false)}
+        />
+      )}
     </>
   );
 }

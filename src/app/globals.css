@@ -464,6 +464,104 @@ section + section { margin-top: 36px; }
   padding: 48px 24px; text-align: center; color: var(--ink-3);
 }
 
+/* Pro highlight — animated brand-gradient outline with soft glow.
+   Used on the Passly-Pro upsell cards (dashboard + /dashboard/analytics). */
+.pro-outline {
+  position: relative;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(115deg,
+      oklch(0.56 0.22 var(--hue)),
+      oklch(0.72 0.16 calc(var(--hue) + 50)),
+      oklch(0.62 0.20 calc(var(--hue) - 35)),
+      oklch(0.56 0.22 var(--hue))) border-box;
+  background-size: auto, 300% 300%;
+  animation: proBorderDrift 7s linear infinite, proGlowPulse 3.4s ease-in-out infinite;
+}
+@keyframes proBorderDrift {
+  from { background-position: 0 0, 0% 50%; }
+  to   { background-position: 0 0, 300% 50%; }
+}
+@keyframes proGlowPulse {
+  0%, 100% { box-shadow: 0 0 14px oklch(0.56 0.22 var(--hue) / 0.14), var(--shadow); }
+  50%      { box-shadow: 0 0 32px oklch(0.56 0.22 var(--hue) / 0.30), var(--shadow); }
+}
+
+/* Gradient "Pro" chip */
+.chip.pro {
+  background: linear-gradient(115deg, var(--accent), oklch(0.62 0.19 calc(var(--hue) + 45)));
+  color: white; border-color: transparent;
+  box-shadow: 0 1px 6px oklch(0.50 0.20 var(--hue) / 0.40);
+}
+.chip.pro .d { background: white; }
+
+/* Shine sweep for high-intent CTAs */
+.btn-shine { position: relative; overflow: hidden; }
+.btn-shine::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%);
+  transform: translateX(-130%);
+  animation: btnShine 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes btnShine {
+  0%, 55%  { transform: translateX(-130%); }
+  85%, 100% { transform: translateX(130%); }
+}
+
+/* Celebration overlay (new ticket, new badge, Pro upgrade) */
+.celebrate-backdrop {
+  position: fixed; inset: 0; z-index: 120;
+  background: color-mix(in oklab, var(--ink) 36%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid; place-items: center;
+  padding: 24px;
+  animation: fadeIn 0.2s ease-out;
+}
+.celebrate-card {
+  position: relative;
+  background:
+    radial-gradient(320px 180px at 50% -30%, var(--accent-wash), transparent 70%),
+    var(--surface);
+  border: 1px solid var(--accent-line);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(17,20,45,0.28), 0 0 40px oklch(0.56 0.22 var(--hue) / 0.18);
+  max-width: 400px; width: 100%;
+  padding: 36px 28px 26px;
+  text-align: center;
+  animation: celebratePop 0.5s cubic-bezier(0.18, 1.4, 0.3, 1);
+}
+@keyframes celebratePop {
+  from { opacity: 0; transform: scale(0.82) translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.celebrate-emoji {
+  font-size: 46px; line-height: 1; display: inline-block;
+  animation: celebrateBounce 0.9s cubic-bezier(0.18, 1.4, 0.3, 1) 0.12s both;
+}
+@keyframes celebrateBounce {
+  0%   { transform: scale(0) rotate(-14deg); }
+  60%  { transform: scale(1.18) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+.celebrate-card h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.025em; margin-top: 16px; }
+.celebrate-card p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: 8px; }
+.confetti {
+  position: absolute; left: 50%; top: 26%;
+  width: 8px; height: 12px; border-radius: 2px;
+  background: var(--cc, var(--accent));
+  opacity: 0; pointer-events: none;
+  animation: confettiFly 1.15s cubic-bezier(0.15, 0.6, 0.4, 1) var(--cd, 0s) forwards;
+}
+@keyframes confettiFly {
+  0%   { opacity: 1; transform: translate(-50%, -50%) rotate(0) scale(1); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--cx, 0px)), calc(-50% + var(--cy, -80px))) rotate(var(--cr, 180deg)) scale(0.7); }
+}
+
 /* Utilities */
 .row { display: flex; align-items: center; }
 .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
@@ -475,6 +573,10 @@ section + section { margin-top: 36px; }
 @media (prefers-reduced-motion: reduce) {
   .hero .eyebrow .pulse { animation: none; }
   .modal, .drawer, .modal-backdrop, .drawer-backdrop { animation: none; }
+  .pro-outline { animation: none; box-shadow: 0 0 20px oklch(0.56 0.22 var(--hue) / 0.20), var(--shadow); }
+  .btn-shine::after { animation: none; }
+  .celebrate-card, .celebrate-emoji { animation: none; }
+  .confetti { display: none; }
 }
 
 @media (max-width: 700px) {

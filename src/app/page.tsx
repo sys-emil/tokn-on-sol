@@ -170,7 +170,25 @@ const PAGE_CSS = `
     border-radius: 12px;
     display: grid; place-items: center;
     color: #23263c;
+    position: relative;
+    overflow: hidden;
   }
+  /* Scan-Beam: der QR lebt — genau das Verkaufsargument */
+  .mock-qr::after {
+    content: "";
+    position: absolute; left: 8px; right: 8px; top: 0;
+    height: 36px; border-radius: 8px;
+    background: linear-gradient(180deg, transparent, oklch(0.56 0.22 var(--hue) / 0.22) 55%, oklch(0.56 0.22 var(--hue) / 0.45) 78%, transparent);
+    animation: qrScan 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes qrScan {
+    0%, 12%  { transform: translateY(-40px); opacity: 0; }
+    22%      { opacity: 1; }
+    68%      { opacity: 1; }
+    80%, 100% { transform: translateY(152px); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { .mock-qr::after { animation: none; opacity: 0; } }
   .mock-foot { padding: 14px 20px 18px; display: flex; align-items: center; justify-content: space-between; }
   .mock-foot .id { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
 
@@ -247,6 +265,10 @@ const PAGE_CSS = `
     position: relative;
   }
   .cta-banner .btn:hover { background: oklch(0.96 0.01 var(--hue)); }
+  /* Weißer Button im Banner: Sweep in Akzentfarbe statt Weiß */
+  .cta-banner .btn-shine::after {
+    background: linear-gradient(105deg, transparent 40%, oklch(0.56 0.22 var(--hue) / 0.14) 50%, transparent 60%);
+  }
 
   /* ── Footer ──────────────────────────────────────────────── */
   .footer {
@@ -305,7 +327,7 @@ export default function Home() {
                   eindeutig dir gehört.
                 </p>
                 <div className="hero-ctas">
-                  <Link href="/events" className="btn primary lg">
+                  <Link href="/events" className="btn primary lg btn-shine">
                     Events entdecken <Icon name="arrow" size={14} />
                   </Link>
                   <Link href="/so-funktionierts" className="btn ghost lg">So funktioniert&rsquo;s</Link>
@@ -465,7 +487,7 @@ export default function Home() {
               <div className="cta-banner" data-reveal>
                 <h2>Bereit für Tickets, die man nicht fälschen kann?</h2>
                 <p>Leg dein erstes Event an — kostenlos und in wenigen Minuten.</p>
-                <Link href="/become-organizer" className="btn lg">
+                <Link href="/become-organizer" className="btn lg btn-shine">
                   Jetzt Event anlegen <Icon name="arrow" size={14} />
                 </Link>
               </div>

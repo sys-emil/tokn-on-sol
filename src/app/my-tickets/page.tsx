@@ -4,11 +4,145 @@ import { useLogout, usePrivy, getAccessToken } from '@privy-io/react-auth';
 import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Celebration } from '@/app/components/Celebration';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { badgeDisplay } from '@/lib/badgeMeta';
 import { useEffect, useRef, useState } from 'react';
+
+const PAGE_CSS = `
+  /* ── Frisch gekauftes Ticket: Entrance + Akzent-Halo ─────── */
+  .event-card.is-fresh {
+    animation: freshIn 0.6s cubic-bezier(0.18, 1.2, 0.3, 1) var(--fresh-delay, 0ms) both;
+  }
+  .event-card.is-fresh::after {
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    border: 2px solid var(--accent);
+    box-shadow: inset 0 0 24px oklch(0.56 0.22 var(--hue) / 0.12), 0 0 24px oklch(0.56 0.22 var(--hue) / 0.35);
+    opacity: 0;
+    animation: freshHalo 2.8s ease-out calc(var(--fresh-delay, 0ms) + 250ms);
+    pointer-events: none;
+  }
+  @keyframes freshIn {
+    from { opacity: 0; transform: scale(0.9) translateY(14px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes freshHalo {
+    0% { opacity: 0; }
+    12% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── Abzeichen als Medaillen-Meilensteine ─────────────────── */
+  .badges-row { display: flex; flex-wrap: wrap; gap: 14px; }
+  .badge-tile {
+    --bh: 285;
+    width: 152px;
+    padding: 20px 14px 16px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    background:
+      radial-gradient(130px 90px at 50% -20%, oklch(0.955 0.05 var(--bh)), transparent 72%),
+      linear-gradient(180deg, oklch(0.99 0.008 var(--bh)), #fff);
+    border: 1px solid oklch(0.89 0.055 var(--bh));
+    box-shadow:
+      0 1px 2px rgba(17,20,45,0.05),
+      0 6px 18px oklch(0.60 0.16 var(--bh) / 0.10),
+      inset 0 1px 0 #fff;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .badge-tile:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 2px 4px rgba(17,20,45,0.06),
+      0 12px 28px oklch(0.60 0.16 var(--bh) / 0.20),
+      inset 0 1px 0 #fff;
+  }
+  .badge-tile::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(115deg, transparent 42%, rgba(255,255,255,0.6) 50%, transparent 58%);
+    transform: translateX(-130%) ;
+    transition: transform 0.7s ease;
+    pointer-events: none;
+  }
+  .badge-tile:hover::after { transform: translateX(130%); }
+  .badge-medal {
+    width: 58px; height: 58px; border-radius: 50%;
+    margin: 0 auto;
+    display: grid; place-items: center;
+    position: relative;
+    color: #fff; font-size: 22px; font-weight: 600; line-height: 1;
+    text-shadow: 0 1px 2px oklch(0.35 0.15 var(--bh) / 0.6);
+    background: radial-gradient(circle at 32% 28%,
+      oklch(0.85 0.11 var(--bh)),
+      oklch(0.60 0.20 var(--bh)) 58%,
+      oklch(0.45 0.19 var(--bh)));
+    border: 2px solid oklch(0.93 0.05 var(--bh));
+    box-shadow:
+      0 4px 12px oklch(0.52 0.20 var(--bh) / 0.38),
+      inset 0 1px 2px rgba(255,255,255,0.5),
+      inset 0 -3px 6px oklch(0.40 0.18 var(--bh) / 0.45);
+  }
+  .badge-medal::before {
+    content: "";
+    position: absolute; inset: -6px;
+    border-radius: 50%;
+    border: 1px dashed oklch(0.70 0.14 var(--bh) / 0.55);
+  }
+  .badge-medal.sm { width: 40px; height: 40px; font-size: 15px; border-width: 1.5px; flex-shrink: 0; }
+  .badge-medal.sm::before { inset: -4px; }
+  .badge-medal.locked { filter: grayscale(0.8) opacity(0.55); }
+  .badge-name { font-size: 12.5px; font-weight: 600; margin-top: 13px; letter-spacing: -0.01em; }
+  .badge-date { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+  .badge-new-tag {
+    position: absolute; top: 9px; right: 9px;
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: #fff;
+    background: linear-gradient(115deg, oklch(0.60 0.21 var(--bh)), oklch(0.68 0.17 calc(var(--bh) + 40)));
+    padding: 2px 7px; border-radius: 999px;
+    box-shadow: 0 1px 5px oklch(0.50 0.20 var(--bh) / 0.45);
+  }
+
+  /* Frisch verdientes Abzeichen: Landung + pulsierender Medaillen-Glow */
+  .badge-tile.is-new {
+    animation: badgeLand 0.7s cubic-bezier(0.18, 1.4, 0.3, 1) var(--fresh-delay, 150ms) both;
+  }
+  .badge-tile.is-new .badge-medal {
+    animation: medalGlow 1.5s ease-in-out calc(var(--fresh-delay, 150ms) + 350ms) 3;
+  }
+  @keyframes badgeLand {
+    from { opacity: 0; transform: scale(0.55) translateY(18px) rotate(-4deg); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes medalGlow {
+    0%, 100% {
+      box-shadow:
+        0 4px 12px oklch(0.52 0.20 var(--bh) / 0.38),
+        inset 0 1px 2px rgba(255,255,255,0.5),
+        inset 0 -3px 6px oklch(0.40 0.18 var(--bh) / 0.45);
+    }
+    50% {
+      box-shadow:
+        0 0 0 9px oklch(0.60 0.20 var(--bh) / 0.14),
+        0 0 30px oklch(0.60 0.20 var(--bh) / 0.60),
+        inset 0 1px 2px rgba(255,255,255,0.5),
+        inset 0 -3px 6px oklch(0.40 0.18 var(--bh) / 0.45);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .event-card.is-fresh, .event-card.is-fresh::after,
+    .badge-tile.is-new, .badge-tile.is-new .badge-medal { animation: none; }
+    .event-card.is-fresh::after { opacity: 0; }
+    .badge-tile::after { transition: none; }
+  }
+`;
 
 interface Ticket {
   assetId: string;
@@ -70,8 +204,60 @@ export default function MyTickets() {
   const [shareError, setShareError] = useState<string | null>(null);
   const [sharingAssetId, setSharingAssetId] = useState<string | null>(null);
   const [copyConfirmed, setCopyConfirmed] = useState(false);
+  const [freshAssetIds, setFreshAssetIds] = useState<Set<string>>(new Set());
+  const [newBadgeTypes, setNewBadgeTypes] = useState<Set<string>>(new Set());
+  const [celebration, setCelebration] = useState<{ emoji: string; title: string; message: string } | null>(null);
 
   const buyerWallet = solanaWallets[0]?.address;
+
+  // Arrival celebration: the checkout success page drops the freshly minted
+  // asset IDs into sessionStorage right before redirecting here.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('passly_new_tickets');
+      if (!raw) return;
+      sessionStorage.removeItem('passly_new_tickets');
+      const ids = JSON.parse(raw) as string[];
+      if (!Array.isArray(ids) || ids.length === 0) return;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot sessionStorage handoff, runs once on mount
+      setFreshAssetIds(new Set(ids));
+      setCelebration({
+        emoji: '🎟️',
+        title: 'Herzlichen Glückwunsch!',
+        message: ids.length === 1
+          ? 'Dein neues Ticket ist da — sicher in deinem Konto und bereit für einen unvergesslichen Abend.'
+          : `Deine ${ids.length} neuen Tickets sind da — sicher in deinem Konto und bereit für einen unvergesslichen Abend.`,
+      });
+    } catch { /* private mode */ }
+  }, []);
+
+  // Badge celebration: compare the loaded badges against what this device has
+  // already seen. First visit only seeds the store (no stale celebrations).
+  useEffect(() => {
+    if (!loaded || !buyerWallet) return;
+    const key = `passly_badges_seen:${buyerWallet}`;
+    try {
+      const raw = localStorage.getItem(key);
+      const current = badges.map((b) => b.badgeType);
+      if (raw !== null) {
+        const seen = new Set(JSON.parse(raw) as string[]);
+        const fresh = current.filter((t) => !seen.has(t));
+        if (fresh.length > 0) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- diff against localStorage is only known after the fetch
+          setNewBadgeTypes(new Set(fresh));
+          const meta = badgeDisplay(fresh[0]);
+          setCelebration((prev) => prev ?? {
+            emoji: '🏅',
+            title: 'Neues Abzeichen!',
+            message: fresh.length === 1
+              ? `Herzlichen Glückwunsch — du hast dir „${meta.name}“ verdient. Ein echter Meilenstein für deine Sammlung.`
+              : `Herzlichen Glückwunsch — du hast dir ${fresh.length} neue Abzeichen verdient. Echte Meilensteine für deine Sammlung.`,
+          });
+        }
+      }
+      localStorage.setItem(key, JSON.stringify(current));
+    } catch { /* private mode */ }
+  }, [loaded, buyerWallet, badges]);
 
   // Open the login modal at most once for signed-out visitors — never call
   // login() from re-runs of this effect, or the modal resets mid-flow and the
@@ -207,8 +393,15 @@ export default function MyTickets() {
     const attended = !!t.redeemedAt;
     const days = daysUntil(t.eventDate);
     const daysLabel = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : `in ${days} Tagen`;
+    const isFresh = freshAssetIds.has(t.assetId);
+    const freshIndex = isFresh ? [...freshAssetIds].indexOf(t.assetId) : 0;
     return (
-      <Link key={t.assetId} href={`/tickets/${t.assetId}`} className="event-card">
+      <Link
+        key={t.assetId}
+        href={`/tickets/${t.assetId}`}
+        className={`event-card${isFresh ? ' is-fresh' : ''}`}
+        style={isFresh ? ({ '--fresh-delay': `${freshIndex * 120}ms` } as React.CSSProperties) : undefined}
+      >
         <div className="row gap-3">
           <div className="date-chip">
             <div className="m">{monthShort(t.eventDate)}</div>
@@ -245,6 +438,7 @@ export default function MyTickets() {
 
   return (
     <>
+      <style>{PAGE_CSS}</style>
       <div className="app">
 
         <div className="topbar">
@@ -409,15 +603,21 @@ export default function MyTickets() {
                         <div className="sub">{badges.length > 0 ? `${badges.length} verdient` : 'Dein erstes Abzeichen wartet'}</div>
                       </div>
                     </div>
-                    <div className="row gap-3" style={{ flexWrap: 'wrap' }}>
-                      {badges.map((b) => {
+                    <div className="badges-row">
+                      {badges.map((b, i) => {
                         const meta = badgeDisplay(b.badgeType);
                         const earned = new Date(b.earnedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
+                        const isNew = newBadgeTypes.has(b.badgeType);
                         return (
-                          <div key={b.badgeType} className="card" style={{ padding: '16px 20px', width: 130, textAlign: 'center' }}>
-                            <div style={{ fontSize: 24, fontWeight: 600, color: `oklch(0.54 0.20 ${meta.hue})`, lineHeight: 1 }}>{meta.symbol}</div>
-                            <div style={{ fontSize: 12.5, fontWeight: 600, marginTop: 8 }}>{meta.name}</div>
-                            <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 2 }}>{earned}</div>
+                          <div
+                            key={b.badgeType}
+                            className={`badge-tile${isNew ? ' is-new' : ''}`}
+                            style={{ '--bh': meta.hue, ...(isNew ? { '--fresh-delay': `${150 + i * 100}ms` } : null) } as React.CSSProperties}
+                          >
+                            {isNew && <span className="badge-new-tag">Neu</span>}
+                            <div className="badge-medal">{meta.symbol}</div>
+                            <div className="badge-name">{meta.name}</div>
+                            <div className="badge-date">{earned}</div>
                           </div>
                         );
                       })}
@@ -431,13 +631,13 @@ export default function MyTickets() {
                           return (
                             <div className="card" style={{ padding: '14px 18px' }}>
                               <div className="row gap-3" style={{ alignItems: 'center' }}>
-                                <div style={{ fontSize: 20, fontWeight: 600, color: `oklch(0.54 0.20 ${meta.hue})`, opacity: 0.45, lineHeight: 1, width: 24, textAlign: 'center' }}>{meta.symbol}</div>
+                                <div className="badge-medal sm locked" style={{ '--bh': meta.hue } as React.CSSProperties}>{meta.symbol}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ fontSize: 13, fontWeight: 600 }}>
                                     Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis „{meta.name}“
                                   </div>
                                   <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', marginTop: 8, overflow: 'hidden' }}>
-                                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: `oklch(0.54 0.20 ${meta.hue})`, transition: 'width .4s ease' }} />
+                                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: `linear-gradient(90deg, oklch(0.66 0.16 ${meta.hue}), oklch(0.54 0.21 ${meta.hue}))`, transition: 'width .4s ease' }} />
                                   </div>
                                 </div>
                                 <div style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
@@ -454,13 +654,13 @@ export default function MyTickets() {
                           return (
                             <div className="card" style={{ padding: '14px 18px' }}>
                               <div className="row gap-3" style={{ alignItems: 'center' }}>
-                                <div style={{ fontSize: 20, fontWeight: 600, color: `oklch(0.54 0.20 ${meta.hue})`, opacity: 0.45, lineHeight: 1, width: 24, textAlign: 'center' }}>{meta.symbol}</div>
+                                <div className="badge-medal sm locked" style={{ '--bh': meta.hue } as React.CSSProperties}>{meta.symbol}</div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <div style={{ fontSize: 13, fontWeight: 600 }}>
                                     Noch {remaining} Event{remaining !== 1 ? 's' : ''} bei {progress.topOrganizer.name} bis „{meta.name}“
                                   </div>
                                   <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', marginTop: 8, overflow: 'hidden' }}>
-                                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: `oklch(0.54 0.20 ${meta.hue})`, transition: 'width .4s ease' }} />
+                                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: `linear-gradient(90deg, oklch(0.66 0.16 ${meta.hue}), oklch(0.54 0.21 ${meta.hue}))`, transition: 'width .4s ease' }} />
                                   </div>
                                 </div>
                                 <div style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
@@ -482,6 +682,15 @@ export default function MyTickets() {
           </div>
         </div>
       </div>
+
+      {celebration && !loading && (
+        <Celebration
+          emoji={celebration.emoji}
+          title={celebration.title}
+          message={celebration.message}
+          onClose={() => setCelebration(null)}
+        />
+      )}
 
       {shareModal && (
         <div className="modal-backdrop" onClick={() => setShareModal(null)}>
