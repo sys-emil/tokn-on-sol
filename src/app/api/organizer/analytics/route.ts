@@ -26,6 +26,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       salesByDay: [],
       repeat: { customers: 0, repeatCustomers: 0, repeatShare: 0 },
       topCustomers: [],
+      funnel: { views: 0, checkouts: 0, purchases: 0 },
     });
   }
 
@@ -146,9 +147,39 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     };
   });
 
+  // Conversion funnel from the consent-gated first-party analytics: distinct
+  // visitors (cid) per stage, matched by shop path so legacy rows without an
+  // eventId prop count too. Only consented visitors appear here — the funnel
+  // shows relations, not absolute traffic.
+  const eventIdSet = new Set(eventIds);
+  const pathEventId = (path: string | null): string | null => {
+    if (!path || !path.startsWith("/shop/")) return null;
+    const id = path.split("/")[2] ?? "";
+    return eventIdSet.has(id) ? id : null;
+  };
+  const { data: funnelRows } = await supabaseAdmin
+    .from("analytics_events")
+    .select("name, path, cid")
+    .in("name", ["page_view", "checkout_started", "purchase_completed"])
+    .like("path", "/shop/%")
+    .limit(50000);
+  const stageCids: Record<string, Set<string>> = {
+    page_view: new Set(),
+    checkout_started: new Set(),
+    purchase_completed: new Set(),
+  };
+  for (const row of (funnelRows ?? []) as { name: string; path: string | null; cid: string }[]) {
+    if (pathEventId(row.path)) stageCids[row.name]?.add(row.cid);
+  }
+
   return NextResponse.json({
     events: perEvent,
     salesByDay,
+    funnel: {
+      views: stageCids.page_view.size,
+      checkouts: stageCids.checkout_started.size,
+      purchases: stageCids.purchase_completed.size,
+    },
     repeat: {
       customers,
       repeatCustomers,

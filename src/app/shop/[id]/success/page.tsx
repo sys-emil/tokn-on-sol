@@ -163,7 +163,7 @@ function SuccessInner() {
           setAssetIds(ids);
 
           if (ids.length >= qty) {
-            track('purchase_completed', { quantity: qty });
+            track('purchase_completed', { quantity: qty, ...(params?.id ? { eventId: params.id } : {}) });
             // Handoff for the arrival celebration on /my-tickets: the list page
             // pops these tickets in with a congratulation overlay.
             try { sessionStorage.setItem('passly_new_tickets', JSON.stringify(ids)); } catch { /* private mode */ }

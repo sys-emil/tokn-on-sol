@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { LegalLinks } from '@/app/components/LegalLinks';
+import { ShareButton } from './ShareButton';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { supabaseAdmin } from '@/lib/supabase';
@@ -115,6 +117,39 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ walletAddress: string }>;
+}): Promise<Metadata> {
+  const { walletAddress } = await params;
+  const [{ data: profile }, { count: attended }] = await Promise.all([
+    supabaseAdmin
+      .from('profiles')
+      .select('display_name, is_private')
+      .eq('wallet_address', walletAddress)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('purchases')
+      .select('*', { count: 'exact', head: true })
+      .eq('buyer_wallet', walletAddress)
+      .not('redeemed_at', 'is', null),
+  ]);
+
+  if (profile?.is_private) {
+    return { title: 'Privates Profil · Passly', description: 'Diese Sammlung ist privat.' };
+  }
+
+  const name = (profile?.display_name as string | null)?.trim() || 'Konzertgänger:in';
+  const description = `${attended ?? 0} Event${(attended ?? 0) === 1 ? '' : 's'} besucht — die Sammlung auf Passly.`;
+  return {
+    title: `${name} · Passly`,
+    description,
+    openGraph: { title: `${name} auf Passly`, description },
+    twitter: { card: 'summary_large_image' },
+  };
+}
+
 export default async function CollectionPage({
   params,
 }: {
@@ -159,6 +194,7 @@ export default async function CollectionPage({
             <p style={{ fontSize: 13.5, color: 'var(--ink-2)', marginTop: 8, lineHeight: 1.6, maxWidth: 520 }}>{profile.bio}</p>
           )}
         </div>
+        <ShareButton title={`${displayName} auf Passly`} />
       </div>
 
       <section>

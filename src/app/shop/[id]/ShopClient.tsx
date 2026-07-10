@@ -17,6 +17,7 @@ export interface TierView {
 interface Props {
   eventId: string;
   tiers: TierView[];
+  waitlistEnabled?: boolean;
 }
 
 function formatPrice(cents: number): string {
@@ -39,7 +40,7 @@ function formatCountdown(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export default function ShopClient({ eventId, tiers }: Props) {
+export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: Props) {
   const { ready, authenticated, login } = usePrivy();
   const { wallets: solanaWallets } = useWallets();
   const [loading, setLoading] = useState(false);
@@ -54,14 +55,32 @@ export default function ShopClient({ eventId, tiers }: Props) {
 
   const storageKey = `passly_checkout_${eventId}`;
 
+  // Discount code (validated server-side; this mirrors discountedUnitPrice)
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [codeInput, setCodeInput] = useState('');
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [applied, setApplied] = useState<{ code: string; percentOff: number } | null>(null);
+
+  // Waitlist signup (sold-out events of Pro organizers)
+  const [wlEmail, setWlEmail] = useState('');
+  const [wlBusy, setWlBusy] = useState(false);
+  const [wlDone, setWlDone] = useState(false);
+  const [wlError, setWlError] = useState<string | null>(null);
+
   const walletAddress = solanaWallets[0]?.address;
   const tier = tiers.find((t) => t.id === tierId) ?? tiers[0];
   const soldOut = tiers.every((t) => t.available <= 0);
   const tierSoldOut = !tier || tier.available <= 0;
   const maxQty = tier ? Math.min(MAX_QTY, Math.max(1, tier.available)) : 1;
-  const feePerTicket = tier ? serviceFeePerTicketCents(tier.priceEur) : 0;
+  const unitPrice = tier
+    ? applied
+      ? Math.max(0, Math.round((tier.priceEur * (100 - applied.percentOff)) / 100))
+      : tier.priceEur
+    : 0;
+  const feePerTicket = tier ? serviceFeePerTicketCents(unitPrice) : 0;
   const feeTotal = feePerTicket * quantity;
-  const grandTotal = tier ? (tier.priceEur + feePerTicket) * quantity : 0;
+  const grandTotal = tier ? (unitPrice + feePerTicket) * quantity : 0;
 
   function selectTier(id: string) {
     setTierId(id);
@@ -114,6 +133,51 @@ export default function ShopClient({ eventId, tiers }: Props) {
     void startCheckout(walletAddress);
   }, [authenticated, walletAddress]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function applyCode() {
+    const code = codeInput.trim();
+    if (!code || codeBusy) return;
+    setCodeBusy(true);
+    setCodeError(null);
+    try {
+      const res = await fetch(
+        `/api/checkout/validate-code?eventId=${encodeURIComponent(eventId)}&code=${encodeURIComponent(code)}&quantity=${quantity}`,
+      );
+      const data = (await res.json()) as { valid: boolean; percentOff?: number; error?: string };
+      if (data.valid && data.percentOff) {
+        setApplied({ code: code.toUpperCase(), percentOff: data.percentOff });
+        setCodeOpen(false);
+        setCodeInput('');
+      } else {
+        setCodeError(data.error ?? 'Dieser Code ist ungültig.');
+      }
+    } catch {
+      setCodeError('Netzwerkfehler. Bitte versuch es erneut.');
+    } finally {
+      setCodeBusy(false);
+    }
+  }
+
+  async function joinWaitlist() {
+    const email = wlEmail.trim();
+    if (!email || wlBusy) return;
+    setWlBusy(true);
+    setWlError(null);
+    try {
+      const res = await fetch('/api/waitlist/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, email }),
+      });
+      const data = (await res.json()) as { success: boolean; error?: string };
+      if (data.success) setWlDone(true);
+      else setWlError(data.error ?? 'Eintrag fehlgeschlagen. Bitte versuch es erneut.');
+    } catch {
+      setWlError('Netzwerkfehler. Bitte versuch es erneut.');
+    } finally {
+      setWlBusy(false);
+    }
+  }
+
   async function startCheckout(wallet: string) {
     setLoading(true);
     setError(null);
@@ -122,7 +186,13 @@ export default function ShopClient({ eventId, tiers }: Props) {
       const res = await fetch('/api/checkout/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId, buyerWallet: wallet, quantity, tierId: tier?.id }),
+        body: JSON.stringify({
+          eventId,
+          buyerWallet: wallet,
+          quantity,
+          tierId: tier?.id,
+          ...(applied ? { discountCode: applied.code } : {}),
+        }),
       });
       const data = (await res.json()) as { success: boolean; url?: string; expiresAt?: number; error?: string };
       if (!res.ok || !data.success || !data.url) {
@@ -255,6 +325,33 @@ export default function ShopClient({ eventId, tiers }: Props) {
           border: 1px solid oklch(0.86 0.10 25);
           font-size: 12.5px; color: var(--bad); line-height: 1.5;
         }
+        .code-row { display: flex; gap: 8px; margin-bottom: 14px; }
+        .code-row .input { flex: 1; min-width: 0; text-transform: uppercase; }
+        .code-toggle {
+          font-size: 12px; color: var(--ink-3);
+          text-decoration: underline; text-underline-offset: 2px;
+          margin-bottom: 14px; display: inline-block;
+        }
+        .code-applied {
+          display: flex; align-items: center; justify-content: space-between; gap: 10px;
+          padding: 8px 12px; margin-bottom: 14px;
+          background: var(--ok-wash);
+          border: 1px solid oklch(0.86 0.08 150);
+          border-radius: 8px;
+          font-size: 12.5px; color: oklch(0.38 0.12 150); font-weight: 500;
+        }
+        .code-applied button { color: inherit; text-decoration: underline; text-underline-offset: 2px; font-size: 11.5px; }
+        .waitlist-box {
+          padding: 14px;
+          background: var(--surface);
+          border: 1px solid var(--line-2);
+          border-radius: 10px;
+          margin-top: 14px;
+        }
+        .waitlist-box .wl-title { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; }
+        .waitlist-box .wl-sub { font-size: 12px; color: var(--ink-3); line-height: 1.5; margin-top: 3px; }
+        .waitlist-box .wl-row { display: flex; gap: 8px; margin-top: 10px; }
+        .waitlist-box .wl-row .input { flex: 1; min-width: 0; }
       `}</style>
 
       {pending && remainingSec > 0 && (
@@ -346,10 +443,42 @@ export default function ShopClient({ eventId, tiers }: Props) {
       )}
 
       {!soldOut && !tierSoldOut && tier && tier.priceEur > 0 && (
-        <div className="fee-summary">
-          <div className="label">Gesamt · inkl. {formatPrice(feeTotal)} Servicegebühr</div>
-          <div className="total">{formatPrice(grandTotal)}</div>
-        </div>
+        <>
+          {applied ? (
+            <div className="code-applied">
+              <span>Code {applied.code} eingelöst — {applied.percentOff} % Rabatt</span>
+              <button type="button" onClick={() => setApplied(null)} disabled={loading}>Entfernen</button>
+            </div>
+          ) : codeOpen ? (
+            <div className="code-row">
+              <input
+                className="input"
+                placeholder="Rabattcode"
+                value={codeInput}
+                maxLength={24}
+                onChange={(e) => { setCodeInput(e.target.value); setCodeError(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') void applyCode(); }}
+                disabled={codeBusy}
+                style={{ padding: '8px 10px', fontSize: 13 }}
+              />
+              <button className="btn ghost" onClick={() => void applyCode()} disabled={codeBusy || !codeInput.trim()}>
+                {codeBusy ? '…' : 'Einlösen'}
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="code-toggle" onClick={() => setCodeOpen(true)}>
+              Du hast einen Rabattcode?
+            </button>
+          )}
+          {codeError && <div className="buy-error" style={{ marginTop: 0, marginBottom: 14 }}>{codeError}</div>}
+
+          <div className="fee-summary">
+            <div className="label">
+              Gesamt{feeTotal > 0 ? ` · inkl. ${formatPrice(feeTotal)} Servicegebühr` : ''}
+            </div>
+            <div className="total">{grandTotal === 0 ? 'Kostenlos' : formatPrice(grandTotal)}</div>
+          </div>
+        </>
       )}
 
       <button
@@ -370,6 +499,40 @@ export default function ShopClient({ eventId, tiers }: Props) {
       </button>
 
       {error && <div className="buy-error">{error}</div>}
+
+      {soldOut && waitlistEnabled && (
+        <div className="waitlist-box">
+          <div className="wl-title">Warteliste</div>
+          {wlDone ? (
+            <div className="wl-sub" style={{ color: 'oklch(0.38 0.12 150)', fontWeight: 500 }}>
+              Du stehst auf der Liste! Wir schreiben dir, sobald wieder Tickets verfügbar sind.
+            </div>
+          ) : (
+            <>
+              <div className="wl-sub">
+                Trag dich ein — wenn Plätze frei werden, bekommst du sofort eine E-Mail.
+              </div>
+              <div className="wl-row">
+                <input
+                  className="input"
+                  type="email"
+                  placeholder="deine@email.de"
+                  value={wlEmail}
+                  maxLength={254}
+                  onChange={(e) => { setWlEmail(e.target.value); setWlError(null); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') void joinWaitlist(); }}
+                  disabled={wlBusy}
+                  style={{ padding: '8px 10px', fontSize: 13 }}
+                />
+                <button className="btn primary" onClick={() => void joinWaitlist()} disabled={wlBusy || !wlEmail.trim()}>
+                  {wlBusy ? '…' : 'Eintragen'}
+                </button>
+              </div>
+              {wlError && <div className="buy-error">{wlError}</div>}
+            </>
+          )}
+        </div>
+      )}
 
       {!soldOut && (
         <p

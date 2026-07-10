@@ -3,6 +3,8 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendAdminAlert } from "@/lib/email";
+import { sendDueEventReminders } from "@/lib/reminders";
+import { sweepWaitlists } from "@/lib/waitlist";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -133,11 +135,32 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }).catch((err) => console.error("Admin alert failed:", err));
   }
 
+  // Day-before event reminders piggyback on this cron (both Hobby cron slots
+  // are taken). Best-effort — a reminder failure must never fail the payouts.
+  let reminders = { events: 0, mails: 0 };
+  let waitlistMails = 0;
+  const baseUrl = process.env.APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  try {
+    reminders = await sendDueEventReminders(baseUrl);
+  } catch (err) {
+    console.error("Event reminders failed:", err instanceof Error ? err.message : err);
+  }
+  // Waitlist catch-all: covers seats freed by paths without their own hook
+  // (e.g. reservations released by the expiry sweep above).
+  try {
+    waitlistMails = await sweepWaitlists(baseUrl);
+  } catch (err) {
+    console.error("Waitlist sweep failed:", err instanceof Error ? err.message : err);
+  }
+
   return NextResponse.json({
     success: true,
     processed: (due ?? []).length,
     paid,
     held,
     releasedReservations: (releasedReservations as number | null) ?? 0,
+    reminders,
+    waitlistMails,
   });
 }

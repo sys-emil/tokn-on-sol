@@ -36,6 +36,7 @@ interface AnalyticsData {
   salesByDay: { date: string; sold: number }[];
   repeat: { customers: number; repeatCustomers: number; repeatShare: number };
   topCustomers: TopCustomer[];
+  funnel: { views: number; checkouts: number; purchases: number };
 }
 
 interface LoyaltyProgram {
@@ -290,6 +291,7 @@ export default function ProAnalytics() {
           <PasslyLogo height={24} />
           <div className="nav">
             <Link href="/dashboard">Übersicht</Link>
+            <Link href="/dashboard/payouts">Auszahlungen</Link>
             <Link href="/dashboard/analytics" className="active">Pro</Link>
             <Link href="/events">Events</Link>
             <Link href="/my-tickets">Meine Tickets</Link>
@@ -398,6 +400,55 @@ export default function ProAnalytics() {
                       {claims.filter((c) => c.redeemed_at).length} eingelöst
                     </div>
                   </div>
+                </div>
+              </section>
+
+              <section>
+                <div className="section-head">
+                  <div>
+                    <h2>Conversion-Funnel</h2>
+                    <div className="sub">Vom Shop-Besuch zum Kauf · nur Besucher mit Cookie-Einwilligung</div>
+                  </div>
+                </div>
+                <div className="card" style={{ padding: 22 }}>
+                  {(() => {
+                    const funnel = analytics?.funnel ?? { views: 0, checkouts: 0, purchases: 0 };
+                    const base = Math.max(funnel.views, funnel.checkouts, funnel.purchases);
+                    const stages = [
+                      { label: 'Shop besucht', value: funnel.views },
+                      { label: 'Checkout gestartet', value: funnel.checkouts },
+                      { label: 'Kauf abgeschlossen', value: funnel.purchases },
+                    ];
+                    if (base === 0) {
+                      return (
+                        <div className="empty">
+                          Noch keine Daten — der Funnel füllt sich, sobald Besucher mit
+                          Cookie-Einwilligung deine Shop-Seiten öffnen.
+                        </div>
+                      );
+                    }
+                    return (
+                      <div style={{ display: 'grid', gap: 14 }}>
+                        {stages.map((s, i) => {
+                          const pct = Math.round((s.value / base) * 100);
+                          const conv = i > 0 && stages[i - 1].value > 0
+                            ? Math.round((s.value / stages[i - 1].value) * 100)
+                            : null;
+                          return (
+                            <div key={s.label}>
+                              <div className="row" style={{ justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                                <span style={{ fontWeight: 500 }}>{s.label}</span>
+                                <span style={{ color: 'var(--ink-3)', fontVariantNumeric: 'tabular-nums' }}>
+                                  {s.value}{conv !== null ? ` · ${conv} % vom vorherigen Schritt` : ' Besucher'}
+                                </span>
+                              </div>
+                              <div className="progress"><span style={{ width: `${Math.max(pct, 2)}%` }} /></div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </section>
 

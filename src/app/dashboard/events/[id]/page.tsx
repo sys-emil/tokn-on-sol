@@ -67,6 +67,14 @@ function isEventDay(iso: string): boolean {
   return iso === today;
 }
 
+interface DiscountCode {
+  id: string;
+  code: string;
+  percentOff: number;
+  maxUses: number | null;
+  uses: number;
+}
+
 interface DoorLink {
   id: string;
   token: string;
@@ -119,6 +127,13 @@ export default function EventDetailPage() {
   const [msgSending, setMsgSending] = useState(false);
   const [msgError, setMsgError] = useState<string | null>(null);
   const [msgSent, setMsgSent] = useState<number | null>(null);
+
+  const [codes, setCodes] = useState<DiscountCode[]>([]);
+  const [codeName, setCodeName] = useState('');
+  const [codePercent, setCodePercent] = useState(20);
+  const [codeMaxUses, setCodeMaxUses] = useState('');
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeErr, setCodeErr] = useState<string | null>(null);
 
   const [doorLinks, setDoorLinks] = useState<DoorLink[]>([]);
   const [doorLabel, setDoorLabel] = useState('');
@@ -222,6 +237,80 @@ export default function EventDetailPage() {
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, id]);
+
+  // Discount codes are Pro — the card only renders (and this only loads)
+  // when the plan check came back 'pro'.
+  useEffect(() => {
+    if (plan !== 'pro' || !walletAddress || !id) return;
+    let cancelled = false;
+    async function loadCodes(): Promise<void> {
+      try {
+        const token = await getAccessToken();
+        const res = await fetch(`/api/organizer/discount-codes?walletAddress=${walletAddress}&eventId=${id}`, {
+          headers: { Authorization: `Bearer ${token ?? ''}` },
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { codes: DiscountCode[] };
+        if (!cancelled) setCodes(data.codes);
+      } catch {
+        // non-critical
+      }
+    }
+    void loadCodes();
+    return () => { cancelled = true; };
+  }, [plan, walletAddress, id, getAccessToken]);
+
+  async function createCode(): Promise<void> {
+    if (!walletAddress || !id || codeBusy) return;
+    setCodeBusy(true);
+    setCodeErr(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/organizer/discount-codes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({
+          walletAddress,
+          eventId: id,
+          code: codeName,
+          percentOff: codePercent,
+          maxUses: codeMaxUses.trim() === '' ? null : Number(codeMaxUses),
+        }),
+      });
+      const data = (await res.json()) as { code?: DiscountCode; error?: string };
+      if (!res.ok || !data.code) {
+        setCodeErr(data.error ?? 'Anlegen fehlgeschlagen.');
+        return;
+      }
+      setCodes((prev) => [data.code!, ...prev]);
+      setCodeName('');
+      setCodeMaxUses('');
+    } catch {
+      setCodeErr('Netzwerkfehler. Bitte versuch es erneut.');
+    } finally {
+      setCodeBusy(false);
+    }
+  }
+
+  async function deactivateCode(codeId: string): Promise<void> {
+    if (!walletAddress || codeBusy) return;
+    setCodeBusy(true);
+    setCodeErr(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/organizer/discount-codes', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ walletAddress, codeId }),
+      });
+      if (res.ok) setCodes((prev) => prev.filter((c) => c.id !== codeId));
+      else setCodeErr('Deaktivieren fehlgeschlagen.');
+    } catch {
+      setCodeErr('Netzwerkfehler. Bitte versuch es erneut.');
+    } finally {
+      setCodeBusy(false);
+    }
+  }
 
   async function createDoorLink(): Promise<void> {
     if (!id || doorBusy) return;
@@ -726,6 +815,82 @@ export default function EventDetailPage() {
                         </div>
                         {doorError && (
                           <div style={{ marginTop: 8, fontSize: 12, color: 'var(--bad)' }}>{doorError}</div>
+                        )}
+                      </div>
+                    )}
+
+                    {!cancelled && plan === 'pro' && (
+                      <div className="card" style={{ padding: 22 }}>
+                        <div className="row gap-2" style={{ marginBottom: 10 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent-wash)', color: 'var(--accent)', display: 'grid', placeItems: 'center', border: '1px solid var(--accent-line)' }}>
+                            <Icon name="sparkle" size={15} />
+                          </div>
+                          <h3 style={{ fontSize: 14.5, fontWeight: 600 }}>Rabattcodes</h3>
+                        </div>
+                        <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+                          Prozent-Rabatt oder Gästeliste (100 %) — Käufer geben den Code im Shop ein.
+                        </p>
+                        {codes.length > 0 && (
+                          <div style={{ borderTop: '1px solid var(--line)', marginTop: 14, paddingTop: 6 }}>
+                            {codes.map((c) => (
+                              <div key={c.id} className="row" style={{ justifyContent: 'space-between', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                                <div style={{ minWidth: 0 }}>
+                                  <div className="mono" style={{ fontSize: 12.5, fontWeight: 600, letterSpacing: '0.04em' }}>{c.code}</div>
+                                  <div style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>
+                                    −{c.percentOff} % · {c.uses}{c.maxUses !== null ? ` / ${c.maxUses}` : ''} eingelöst
+                                  </div>
+                                </div>
+                                <button
+                                  className="btn ghost sm"
+                                  aria-label="Code deaktivieren"
+                                  title="Code deaktivieren"
+                                  disabled={codeBusy}
+                                  onClick={() => void deactivateCode(c.id)}
+                                >
+                                  <Icon name="x" size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                          <input
+                            className="input mono"
+                            placeholder="CODE, z. B. PRESALE25"
+                            value={codeName}
+                            maxLength={24}
+                            onChange={(e) => setCodeName(e.target.value.toUpperCase())}
+                            style={{ padding: '7px 10px', fontSize: 12.5, textTransform: 'uppercase' }}
+                          />
+                          <div className="row gap-2">
+                            <input
+                              className="input"
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={codePercent}
+                              onChange={(e) => setCodePercent(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
+                              aria-label="Rabatt in Prozent"
+                              style={{ padding: '7px 10px', fontSize: 12.5, width: 74 }}
+                            />
+                            <span style={{ fontSize: 12.5, color: 'var(--ink-3)', alignSelf: 'center' }}>%</span>
+                            <input
+                              className="input"
+                              type="number"
+                              min={1}
+                              placeholder="Max. (∞)"
+                              value={codeMaxUses}
+                              onChange={(e) => setCodeMaxUses(e.target.value)}
+                              aria-label="Maximale Einlösungen"
+                              style={{ padding: '7px 10px', fontSize: 12.5, flex: 1, minWidth: 0 }}
+                            />
+                            <button className="btn ghost sm" disabled={codeBusy || !codeName.trim()} onClick={() => void createCode()}>
+                              {codeBusy ? '…' : '+ Code'}
+                            </button>
+                          </div>
+                        </div>
+                        {codeErr && (
+                          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--bad)' }}>{codeErr}</div>
                         )}
                       </div>
                     )}

@@ -86,6 +86,15 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
   const tiers = await getTiers(id);
   const cancelled = Boolean((event as Event & { cancelled_at?: string | null }).cancelled_at);
 
+  // Waitlist is a Pro feature of the organizer — the shop only offers the
+  // signup when the plan is active (the join API enforces the same rule).
+  const { data: organizerRow } = await supabaseAdmin
+    .from('organizers')
+    .select('plan')
+    .eq('wallet_address', event.organizer_wallet)
+    .maybeSingle();
+  const waitlistEnabled = organizerRow?.plan === 'pro';
+
   // Per-tier availability, additionally capped by the event-level counters —
   // the hard overselling gate in reserve_tickets uses the same numbers.
   const eventAvailable = Math.max(0, event.capacity - event.tickets_sold - (event.tickets_reserved ?? 0));
@@ -166,7 +175,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
                 Tickets werden automatisch erstattet.
               </div>
             ) : (
-              <ShopClient eventId={event.id} tiers={tierViews} />
+              <ShopClient eventId={event.id} tiers={tierViews} waitlistEnabled={waitlistEnabled} />
             )}
           </div>
         </div>

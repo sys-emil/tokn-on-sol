@@ -88,6 +88,112 @@ export async function sendOrganizerMessage({
   return sent;
 }
 
+/**
+ * Retention nudge after a check-in: "one more event until your next badge".
+ * Sent at most once per redemption path (the caller guards against repeats);
+ * plaintext like the organizer messages — no HTML injection surface.
+ */
+export async function sendBadgeProgressEmail({
+  to,
+  headline,
+  detail,
+  baseUrl,
+}: {
+  to: string;
+  headline: string;
+  detail: string;
+  baseUrl: string;
+}): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const body = `${detail}\n\nDeine Sammlung und alle Abzeichen findest du hier:\n${baseUrl}/my-tickets\n\n—\nDu bekommst diese E-Mail, weil du gerade ein Ticket über Passly eingelöst hast.\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  await resend.emails.send({ from: FROM, to, subject: headline, text: body });
+}
+
+/**
+ * "Morgen ist es soweit" — day-before reminder to every ticket holder of an
+ * event. One e-mail per recipient (addresses never leak to each other),
+ * chunked through Resend's batch endpoint like the organizer messages.
+ */
+export async function sendEventReminder({
+  recipients,
+  eventName,
+  eventDate,
+  venue,
+  baseUrl,
+}: {
+  recipients: string[];
+  eventName: string;
+  eventDate: string;
+  venue: string | null;
+  baseUrl: string;
+}): Promise<number> {
+  if (!process.env.RESEND_API_KEY || recipients.length === 0) return 0;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const body = `Morgen ist es soweit: ${eventName}\n${formatDate(eventDate)}${venue ? `\n${venue}` : ""}\n\nDein Ticket hast du in deiner Ticketübersicht — öffne sie am besten auf dem Handy, dann zeigst du am Einlass einfach deinen QR-Code:\n${baseUrl}/my-tickets\n\nViel Spaß!\n\n—\nDu bekommst diese Erinnerung, weil du ein Ticket für dieses Event hast.\nVertragspartner für die Veranstaltung ist der jeweilige Veranstalter.\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  let sent = 0;
+  const CHUNK = 50;
+  for (let i = 0; i < recipients.length; i += CHUNK) {
+    const chunk = recipients.slice(i, i + CHUNK);
+    const { error } = await resend.batch.send(
+      chunk.map((to) => ({
+        from: FROM,
+        to,
+        subject: `Morgen ist es soweit: ${eventName}`,
+        text: body,
+      })),
+    );
+    if (error) {
+      console.error("Event reminder batch failed:", error.message);
+      continue;
+    }
+    sent += chunk.length;
+  }
+  return sent;
+}
+
+/** "Es sind wieder Tickets frei" — one-shot note to waitlisted buyers. */
+export async function sendWaitlistEmail({
+  recipients,
+  eventName,
+  eventId,
+  baseUrl,
+}: {
+  recipients: string[];
+  eventName: string;
+  eventId: string;
+  baseUrl: string;
+}): Promise<number> {
+  if (!process.env.RESEND_API_KEY || recipients.length === 0) return 0;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const body = `Gute Nachrichten: Für „${eventName}“ sind wieder Tickets verfügbar.\n\nSchnell sein lohnt sich — wer zuerst kommt, bekommt den Platz:\n${baseUrl}/shop/${eventId}\n\n—\nDu bekommst diese E-Mail einmalig, weil du dich auf die Warteliste für dieses Event eingetragen hast.\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  let sent = 0;
+  const CHUNK = 50;
+  for (let i = 0; i < recipients.length; i += CHUNK) {
+    const chunk = recipients.slice(i, i + CHUNK);
+    const { error } = await resend.batch.send(
+      chunk.map((to) => ({
+        from: FROM,
+        to,
+        subject: `Wieder Tickets verfügbar: ${eventName}`,
+        text: body,
+      })),
+    );
+    if (error) {
+      console.error("Waitlist batch failed:", error.message);
+      continue;
+    }
+    sent += chunk.length;
+  }
+  return sent;
+}
+
 export async function sendTicketConfirmation({
   to,
   eventName,

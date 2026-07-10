@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { mintBadge } from "@/lib/mint";
+import { sendBadgeProgressEmail } from "@/lib/email";
 import {
   BADGE_META,
   MILESTONES,
@@ -93,6 +94,7 @@ export async function checkRedemptionBadges(
 
   // Stammgast: distinct redeemed events at this event's organizer.
   const organizerWallet = eventRow?.organizer_wallet as string | undefined;
+  let distinctOrganizerEvents = 0;
   if (organizerWallet) {
     const { data: orgEvents } = await supabaseAdmin
       .from("events")
@@ -109,6 +111,7 @@ export async function checkRedemptionBadges(
         .not("redeemed_at", "is", null);
 
       const distinctEvents = new Set((redeemedRows ?? []).map((r: { event_id: string }) => r.event_id));
+      distinctOrganizerEvents = distinctEvents.size;
       if (distinctEvents.size >= STAMMGAST_THRESHOLD) {
         awards.push(
           awardBadge({ wallet: walletAddress, type: "loyal_organizer", eventId, organizerWallet, baseUrl }),
@@ -118,6 +121,103 @@ export async function checkRedemptionBadges(
   }
 
   await Promise.all(awards);
+
+  // Retention nudge: "one more event until the next badge". Must never fail
+  // the redemption path — the whole block is best-effort.
+  try {
+    await maybeSendBadgeNudge({
+      wallet: walletAddress,
+      eventId,
+      attendedCount: attendedCount ?? 0,
+      organizerWallet,
+      distinctOrganizerEvents,
+      baseUrl,
+    });
+  } catch (err) {
+    console.error("Badge nudge failed:", err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * E-mails the guest right after check-in when they are exactly one event away
+ * from the Stammgast badge at this organizer or from the next attendance
+ * milestone. Fires only on the wallet's first redeemed ticket at this event —
+ * a second scanned ticket of the same purchase changes no progress and must
+ * not re-send the mail.
+ */
+async function maybeSendBadgeNudge({
+  wallet,
+  eventId,
+  attendedCount,
+  organizerWallet,
+  distinctOrganizerEvents,
+  baseUrl,
+}: {
+  wallet: string;
+  eventId: string;
+  attendedCount: number;
+  organizerWallet?: string;
+  distinctOrganizerEvents: number;
+  baseUrl: string;
+}): Promise<void> {
+  const stammgastNudge =
+    Boolean(organizerWallet) && STAMMGAST_THRESHOLD - distinctOrganizerEvents === 1;
+  const nextMilestone = MILESTONES.find((m) => m.threshold > attendedCount);
+  const milestoneNudge = nextMilestone ? nextMilestone.threshold - attendedCount === 1 : false;
+  if (!stammgastNudge && !milestoneNudge) return;
+
+  // First redemption at this event for this wallet?
+  const { count: redeemedHere } = await supabaseAdmin
+    .from("purchases")
+    .select("*", { count: "exact", head: true })
+    .eq("buyer_wallet", wallet)
+    .eq("event_id", eventId)
+    .not("redeemed_at", "is", null);
+  if ((redeemedHere ?? 0) !== 1) return;
+
+  // Recipient: the buyer e-mail behind this wallet's purchase at this event.
+  const { data: purchase } = await supabaseAdmin
+    .from("purchases")
+    .select("stripe_session_id")
+    .eq("buyer_wallet", wallet)
+    .eq("event_id", eventId)
+    .not("stripe_session_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if (!purchase?.stripe_session_id) return;
+  const { data: job } = await supabaseAdmin
+    .from("mint_jobs")
+    .select("buyer_email")
+    .eq("stripe_session_id", purchase.stripe_session_id as string)
+    .maybeSingle();
+  const to = job?.buyer_email as string | undefined;
+  if (!to) return;
+
+  // The Stammgast nudge is the more personal one — it wins when both apply.
+  if (stammgastNudge && organizerWallet) {
+    const { data: organizer } = await supabaseAdmin
+      .from("organizers")
+      .select("name, business_name")
+      .eq("wallet_address", organizerWallet)
+      .maybeSingle();
+    const organizerName = (organizer?.business_name ?? organizer?.name ?? "diesem Veranstalter") as string;
+    await sendBadgeProgressEmail({
+      to,
+      headline: `Noch 1 Event bis zu deinem Stammgast-Abzeichen`,
+      detail: `Schön, dass du da warst! Du hast jetzt ${distinctOrganizerEvents} Events von ${organizerName} besucht — noch eins, und du bekommst das Stammgast-Abzeichen „${BADGE_META.loyal_organizer.name}“.`,
+      baseUrl,
+    });
+    return;
+  }
+
+  if (milestoneNudge && nextMilestone) {
+    await sendBadgeProgressEmail({
+      to,
+      headline: `Noch 1 Event bis zum Abzeichen „${BADGE_META[nextMilestone.type].name}“`,
+      detail: `Schön, dass du da warst! Das war dein ${attendedCount}. Event auf Passly — noch eins, und das Abzeichen „${BADGE_META[nextMilestone.type].name}“ gehört dir.`,
+      baseUrl,
+    });
+  }
 }
 
 /** Awards purchase-based badges once a mint job has delivered its tickets. */

@@ -7,6 +7,12 @@ import { buildPayoutRow, claimWebhookEvent, computeFeeSplit } from "@/lib/payout
 import { subscriptionPlanFromStatus } from "@/lib/subscription";
 import { processMintJobs } from "@/lib/mintJobs";
 import { sendAdminAlert } from "@/lib/email";
+import { notifyWaitlistIfSeats } from "@/lib/waitlist";
+
+function appBaseUrl(): string {
+  return process.env.APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+}
 
 // Fire-and-forget admin alert — webhook latency must not depend on Resend.
 function alertAdmin(subject: string, text: string): void {
@@ -160,6 +166,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
       return NextResponse.json({ error: "Failed to release reservation" }, { status: 500 });
     }
+    // Freed seats may unlock waitlisted buyers — best-effort, never blocks the ack.
+    const expiredEventId = expiredSession.metadata?.eventId;
+    if (expiredEventId) {
+      void notifyWaitlistIfSeats(expiredEventId, appBaseUrl()).catch((err) =>
+        console.error("Waitlist notify (expired) failed:", err),
+      );
+    }
     return NextResponse.json({ received: true });
   }
 
@@ -217,7 +230,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { data: payout } = await supabaseAdmin
       .from("payouts")
-      .select("id, status, stripe_session_id, currency, gross_cents, fee_cents")
+      .select("id, status, stripe_session_id, event_id, currency, gross_cents, fee_cents")
       .eq("charge_id", charge.id)
       .maybeSingle();
 
@@ -267,6 +280,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           p_session_id: payout.stripe_session_id,
         });
         if (seatError) throw new Error(seatError.message);
+
+        // Freed seats may unlock waitlisted buyers — best-effort.
+        if (payout.event_id) {
+          void notifyWaitlistIfSeats(payout.event_id as string, appBaseUrl()).catch((err) =>
+            console.error("Waitlist notify (refund) failed:", err),
+          );
+        }
 
         // Stop a not-yet-minted job — no point delivering revoked tickets.
         await supabaseAdmin
@@ -383,6 +403,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error(`Failed to finalize ticket sale for session ${session.id}:`, finalizeError.message);
     await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
     return NextResponse.json({ error: "Failed to finalize ticket sale" }, { status: 500 });
+  }
+
+  // Book the discount-code use (idempotent at the Stripe-event level — the
+  // webhook claim above already deduplicates retries). Best-effort: a failed
+  // counter must never fail the sale.
+  const discountCodeId = session.metadata?.discountCodeId;
+  if (discountCodeId) {
+    void supabaseAdmin
+      .rpc("increment_discount_uses", { p_code_id: discountCodeId, p_quantity: quantity })
+      .then(({ error: incError }) => {
+        if (incError) console.error(`Discount use increment failed for ${discountCodeId}:`, incError.message);
+      });
   }
 
   // Record the payout obligation before minting — money accounting must exist

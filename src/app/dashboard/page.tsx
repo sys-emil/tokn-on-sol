@@ -438,6 +438,7 @@ export default function Dashboard() {
             <PasslyLogo height={24} />
             <div className="nav">
               <Link href="/dashboard" className="active">Übersicht</Link>
+              <Link href="/dashboard/payouts">Auszahlungen</Link>
               <Link href="/dashboard/analytics">Pro</Link>
               <Link href="/events">Events</Link>
               <Link href="/my-tickets">Meine Tickets</Link>

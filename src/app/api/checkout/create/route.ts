@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { TicketTier } from "@/lib/supabase";
 import { serviceFeePerTicketCents } from "@/lib/fees";
+import { findValidDiscount, discountedUnitPrice, type ValidDiscount } from "@/lib/discounts";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 interface CheckoutBody {
@@ -10,6 +11,7 @@ interface CheckoutBody {
   buyerWallet: string;
   quantity?: number;
   tierId?: string;
+  discountCode?: string;
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { eventId, buyerWallet, quantity: rawQty, tierId } = body;
+  const { eventId, buyerWallet, quantity: rawQty, tierId, discountCode } = body;
   const quantity = Math.max(1, Math.min(4, Math.floor(rawQty ?? 1)));
 
   if (!eventId || !buyerWallet) {
@@ -87,6 +89,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 400 }
     );
   }
+
+  // Discount code (Pro feature): the tier stays the price authority, the code
+  // only scales it. Validated here — never trust a client-side preview.
+  let discount: ValidDiscount | null = null;
+  if (discountCode) {
+    const result = await findValidDiscount(eventId, discountCode, quantity);
+    if (!result.ok) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+    }
+    discount = result.discount;
+  }
+  const unitPrice = discount ? discountedUnitPrice(tier.price_eur, discount.percentOff) : tier.price_eur;
 
   // Paid tickets require completed Connect onboarding — the KYC gate. Organizers
   // can create events without Stripe, but nobody can pay them until onboarding
@@ -156,8 +170,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // line item — the organizer nets 100% of the face price. The total is stored
   // in the session metadata so the webhook books fee_cents/net_cents from what
   // the buyer actually agreed to, not from a re-computation that could drift.
-  const feePerTicket = serviceFeePerTicketCents(tier.price_eur);
+  const feePerTicket = serviceFeePerTicketCents(unitPrice);
   const lineItemName = tiers.length > 1 ? `${event.name} — ${tier.name}` : event.name;
+  const lineItemDescription = discount
+    ? `Ticket for ${event.date} · Code ${discount.code} (−${discount.percentOff} %)`
+    : `Ticket for ${event.date}`;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -168,8 +185,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           quantity,
           price_data: {
             currency: "eur",
-            unit_amount: tier.price_eur,
-            product_data: { name: lineItemName, description: `Ticket for ${event.date}` },
+            unit_amount: unitPrice,
+            product_data: { name: lineItemName, description: lineItemDescription },
           },
         },
         ...(feePerTicket > 0
@@ -193,6 +210,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         quantity: String(quantity),
         tierId: tier.id,
         serviceFeeCents: String(feePerTicket * quantity),
+        ...(discount ? { discountCodeId: discount.id, discountPercent: String(discount.percentOff) } : {}),
       },
     });
 
