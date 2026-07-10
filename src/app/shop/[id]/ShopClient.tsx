@@ -363,7 +363,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
                 : 'Ein Ticket für dich reserviert'}
             </div>
             <div className="rb-time">
-              Noch <b>{formatCountdown(remainingSec)}</b> — danach werden die Plätze wieder freigegeben.
+              Noch <b>{formatCountdown(remainingSec)}</b> — danach können deine Plätze an andere Gäste gehen.
             </div>
           </div>
           <div className="rb-actions">

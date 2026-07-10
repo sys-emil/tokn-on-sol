@@ -14,6 +14,45 @@ interface CheckoutBody {
   discountCode?: string;
 }
 
+/** How long a buyer's seats are held before others may claim them. */
+const HOLD_MINUTES = 5;
+/** Stripe's minimum checkout-session lifetime. */
+const SESSION_MINUTES = 30;
+
+/**
+ * Expires this event's checkout sessions that outlived the 5-minute hold and
+ * frees their seats. Only sessions Stripe confirms as expired get released —
+ * a session that already completed payment throws on expire and keeps its
+ * reservation (the completed-webhook finalizes it). Returns freed count.
+ */
+async function expireStaleReservations(eventId: string): Promise<number> {
+  // expires_at is creation + 30 min, so "older than the hold" means less
+  // than (30 - HOLD) minutes of session lifetime left.
+  const staleBefore = new Date(Date.now() + (SESSION_MINUTES - HOLD_MINUTES) * 60_000).toISOString();
+  const { data: stale } = await supabaseAdmin
+    .from("ticket_reservations")
+    .select("stripe_session_id")
+    .eq("event_id", eventId)
+    .eq("status", "reserved")
+    .lt("expires_at", staleBefore)
+    .limit(10);
+
+  let freed = 0;
+  for (const row of (stale ?? []) as { stripe_session_id: string }[]) {
+    try {
+      await stripe.checkout.sessions.expire(row.stripe_session_id);
+    } catch {
+      // already completed or already expired-and-released — don't touch it
+      continue;
+    }
+    const { error } = await supabaseAdmin.rpc("release_reservation", {
+      p_session_id: row.stripe_session_id,
+    });
+    if (!error) freed++;
+  }
+  return freed;
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   // Each checkout claims capacity for 30 minutes and creates a Stripe session.
   // Without a limit a loop could reserve an event's whole capacity and lock out
@@ -129,12 +168,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // function claims the tier first and the event-level total as the hard
   // overselling gate, so concurrent checkouts can never oversell either. The
   // reservation is converted to a sale by the webhook (checkout.session.completed)
-  // or freed again when the session expires (checkout.session.expired, 30 min).
-  const { data: reserved, error: reserveError } = await supabaseAdmin.rpc("reserve_tickets", {
-    p_event_id: eventId,
-    p_quantity: quantity,
-    p_tier_id: tier.id,
-  });
+  // or freed again when the session expires (checkout.session.expired).
+  //
+  // Soft hold: buyers are promised 5 minutes. Stripe won't let a session
+  // expire before 30 minutes, so the 5-minute limit is enforced on demand —
+  // when capacity is exhausted, sessions older than the hold window are
+  // expired and their seats freed before giving up (stops slot-hogging
+  // without ever pulling seats from an active, fresh checkout).
+  const attemptReserve = async () =>
+    supabaseAdmin.rpc("reserve_tickets", {
+      p_event_id: eventId,
+      p_quantity: quantity,
+      p_tier_id: tier.id,
+    });
+
+  let { data: reserved, error: reserveError } = await attemptReserve();
+  if (!reserveError && !reserved) {
+    const freed = await expireStaleReservations(eventId);
+    if (freed > 0) {
+      ({ data: reserved, error: reserveError } = await attemptReserve());
+    }
+  }
   if (reserveError) {
     return NextResponse.json({ success: false, error: reserveError.message }, { status: 500 });
   }
@@ -164,7 +218,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const host = req.headers.get("host") ?? "";
   const protocol = host.includes("localhost") ? "http" : "https";
   const origin = `${protocol}://${host}`;
-  const expiresAt = Math.floor(Date.now() / 1000) + 30 * 60; // Stripe minimum session lifetime
+  const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MINUTES * 60; // Stripe minimum session lifetime
 
   // Buyer-side service fee (€1 + 4% per ticket, src/lib/fees.ts) as its own
   // line item — the organizer nets 100% of the face price. The total is stored
@@ -234,9 +288,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: reservationError.message }, { status: 500 });
     }
 
-    // expiresAt lets the shop page show a "your seats are held until …"
-    // countdown when the buyer bounces back from Stripe without paying.
-    return NextResponse.json({ success: true, url: session.url, expiresAt: expiresAt * 1000 });
+    // The countdown the shop page shows is the 5-minute hold, not the Stripe
+    // session lifetime — after the hold, contested seats go to other buyers.
+    return NextResponse.json({ success: true, url: session.url, expiresAt: Date.now() + HOLD_MINUTES * 60_000 });
   } catch (err) {
     await releaseClaim();
     const message = err instanceof Error ? err.message : String(err);

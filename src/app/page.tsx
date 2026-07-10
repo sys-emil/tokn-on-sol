@@ -3,6 +3,7 @@ import CtaButton from '@/app/components/CtaButton';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
+import { TodayStamp } from '@/app/components/TodayStamp';
 
 const PAGE_CSS = `
   /* ── Stronger aurora on the landing page ─────────────────── */
@@ -343,8 +344,8 @@ export default function Home() {
                 <div className="mock-ticket">
                   <div className="mock-head">
                     <div>
-                      <div className="event">Sommerfest 2026</div>
-                      <div className="date">Sa, 12. Juli · Berlin</div>
+                      <div className="event">Die beste Nacht des Jahres</div>
+                      <div className="date"><TodayStamp suffix=" · Einlass 20:00" /></div>
                     </div>
                     <span className="chip ok"><span className="d" />Gültig</span>
                   </div>
