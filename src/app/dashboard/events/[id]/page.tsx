@@ -61,6 +61,26 @@ function isUpcoming(iso: string): boolean {
   return new Date(iso + 'T00:00:00').getTime() >= today.getTime();
 }
 
+function isEventDay(iso: string): boolean {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return iso === today;
+}
+
+interface DoorLink {
+  id: string;
+  token: string;
+  label: string | null;
+  expiresAt: string;
+}
+
+interface EventApiResponse {
+  event: EventData;
+  tiers: TierRow[];
+  tickets: TicketRow[];
+  stats: { checkedIn: number; revoked: number };
+}
+
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -100,6 +120,12 @@ export default function EventDetailPage() {
   const [msgError, setMsgError] = useState<string | null>(null);
   const [msgSent, setMsgSent] = useState<number | null>(null);
 
+  const [doorLinks, setDoorLinks] = useState<DoorLink[]>([]);
+  const [doorLabel, setDoorLabel] = useState('');
+  const [doorBusy, setDoorBusy] = useState(false);
+  const [doorError, setDoorError] = useState<string | null>(null);
+  const [copiedDoorId, setCopiedDoorId] = useState<string | null>(null);
+
   const [filter, setFilter] = useState<'all' | 'valid' | 'checked'>('all');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -121,12 +147,7 @@ export default function EventDetailPage() {
           setLoadError(res.status === 401 ? 'Kein Zugriff auf diese Veranstaltung.' : 'Veranstaltung nicht gefunden.');
           return;
         }
-        const data = (await res.json()) as {
-          event: EventData;
-          tiers: TierRow[];
-          tickets: TicketRow[];
-          stats: { checkedIn: number; revoked: number };
-        };
+        const data = (await res.json()) as EventApiResponse;
         setEvent(data.event);
         setTiers(data.tiers ?? []);
         setTickets(data.tickets);
@@ -150,6 +171,112 @@ export default function EventDetailPage() {
     }
     void checkPlan();
   }, [walletAddress]);
+
+  // Live refresh on the day of the event: doormen write redemptions while the
+  // organizer watches this page, so the check-in numbers poll every 30 s.
+  const liveDay = Boolean(event && !event.cancelled_at && isEventDay(event.date));
+  useEffect(() => {
+    if (!liveDay || !id || !loaded) return;
+    let stopped = false;
+    const timer = setInterval(() => {
+      void (async () => {
+        try {
+          const token = await getAccessToken();
+          const res = await fetch(`/api/organizer/event?id=${id}`, {
+            headers: { Authorization: `Bearer ${token ?? ''}` },
+          });
+          if (!res.ok || stopped) return;
+          const data = (await res.json()) as EventApiResponse;
+          if (stopped) return;
+          setEvent(data.event);
+          setTiers(data.tiers ?? []);
+          setTickets(data.tickets);
+          setCheckedIn(data.stats.checkedIn);
+        } catch {
+          // transient — next tick retries
+        }
+      })();
+    }, 30_000);
+    return () => { stopped = true; clearInterval(timer); };
+  }, [liveDay, id, loaded, getAccessToken]);
+
+  // Door access links load once after the event itself — not part of the
+  // 30 s live polling, they only change through actions on this page.
+  useEffect(() => {
+    if (!loaded || !event || !id) return;
+    let cancelled = false;
+    async function loadLinks(): Promise<void> {
+      try {
+        const token = await getAccessToken();
+        const res = await fetch(`/api/organizer/door-links?eventId=${id}`, {
+          headers: { Authorization: `Bearer ${token ?? ''}` },
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { links: DoorLink[] };
+        if (!cancelled) setDoorLinks(data.links);
+      } catch {
+        // non-critical — the card just shows no links
+      }
+    }
+    void loadLinks();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, id]);
+
+  async function createDoorLink(): Promise<void> {
+    if (!id || doorBusy) return;
+    setDoorBusy(true);
+    setDoorError(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/organizer/door-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ eventId: id, label: doorLabel }),
+      });
+      const data = (await res.json()) as { link?: DoorLink; error?: string };
+      if (!res.ok || !data.link) {
+        setDoorError(data.error ?? 'Link konnte nicht erstellt werden.');
+        return;
+      }
+      setDoorLinks((prev) => [data.link!, ...prev]);
+      setDoorLabel('');
+    } catch {
+      setDoorError('Netzwerkfehler. Bitte versuch es erneut.');
+    } finally {
+      setDoorBusy(false);
+    }
+  }
+
+  async function revokeDoorLink(linkId: string): Promise<void> {
+    if (doorBusy) return;
+    setDoorBusy(true);
+    setDoorError(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/organizer/door-links', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ linkId }),
+      });
+      if (res.ok) setDoorLinks((prev) => prev.filter((l) => l.id !== linkId));
+      else setDoorError('Widerruf fehlgeschlagen. Bitte versuch es erneut.');
+    } catch {
+      setDoorError('Netzwerkfehler. Bitte versuch es erneut.');
+    } finally {
+      setDoorBusy(false);
+    }
+  }
+
+  function copyDoorLink(link: DoorLink): void {
+    if (!event) return;
+    void navigator.clipboard
+      .writeText(`${window.location.origin}/doorman/${event.id}?key=${link.token}`)
+      .then(() => {
+        setCopiedDoorId(link.id);
+        setTimeout(() => setCopiedDoorId(null), 2000);
+      });
+  }
 
   async function sendMessage(): Promise<void> {
     if (!walletAddress || !event || msgSending) return;
@@ -474,6 +601,25 @@ export default function EventDetailPage() {
                   </div>
 
                   <aside style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    {liveDay && (
+                      <div className="card" style={{ padding: 22, borderColor: 'var(--accent)', boxShadow: '0 0 0 1px var(--accent), var(--shadow-sm)' }}>
+                        <div className="row" style={{ justifyContent: 'space-between' }}>
+                          <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                            Einlass heute
+                          </div>
+                          <span className="chip ok"><span className="d" />Live</span>
+                        </div>
+                        <div style={{ fontSize: 34, letterSpacing: '-0.03em', fontWeight: 600, lineHeight: 1.1, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
+                          {checkedIn}
+                          <span style={{ fontSize: 18, color: 'var(--ink-3)', fontWeight: 500 }}> / {event.tickets_sold} eingecheckt</span>
+                        </div>
+                        <div className="progress" style={{ marginTop: 10 }}><span style={{ width: redemptionPct + '%' }} /></div>
+                        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--ink-3)' }}>
+                          Aktualisiert sich alle 30 Sekunden automatisch.
+                        </div>
+                      </div>
+                    )}
+
                     <div className="card" style={{ padding: 22 }}>
                       <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
                         Verkauf
@@ -524,6 +670,65 @@ export default function EventDetailPage() {
                         </div>
                       </div>
                     </div>
+
+                    {!cancelled && (
+                      <div className="card" style={{ padding: 22 }}>
+                        <div className="row gap-2" style={{ marginBottom: 10 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent-wash)', color: 'var(--accent)', display: 'grid', placeItems: 'center', border: '1px solid var(--accent-line)' }}>
+                            <Icon name="scan" size={15} />
+                          </div>
+                          <h3 style={{ fontSize: 14.5, fontWeight: 600 }}>Türsteher-Zugang</h3>
+                        </div>
+                        <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+                          Links für dein Einlass-Personal — öffnen den Scanner ohne dein Konto.
+                          Gültig bis 2 Tage nach dem Event, jederzeit widerrufbar.
+                        </p>
+                        {doorLinks.length > 0 && (
+                          <div style={{ borderTop: '1px solid var(--line)', marginTop: 14, paddingTop: 6 }}>
+                            {doorLinks.map((l) => (
+                              <div key={l.id} className="row" style={{ justifyContent: 'space-between', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--line)' }}>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {l.label || 'Einlass-Link'}
+                                  </div>
+                                  <div style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>bis {shortStamp(l.expiresAt)}</div>
+                                </div>
+                                <div className="row gap-2" style={{ flexShrink: 0 }}>
+                                  <button className="btn ghost sm" onClick={() => copyDoorLink(l)}>
+                                    {copiedDoorId === l.id ? 'Kopiert!' : 'Kopieren'}
+                                  </button>
+                                  <button
+                                    className="btn ghost sm"
+                                    aria-label="Zugang widerrufen"
+                                    title="Zugang widerrufen"
+                                    disabled={doorBusy}
+                                    onClick={() => void revokeDoorLink(l.id)}
+                                  >
+                                    <Icon name="x" size={12} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="row gap-2" style={{ marginTop: 12 }}>
+                          <input
+                            className="input"
+                            placeholder="Name (optional), z. B. Alex"
+                            value={doorLabel}
+                            maxLength={60}
+                            onChange={(e) => setDoorLabel(e.target.value)}
+                            style={{ padding: '7px 10px', fontSize: 12.5, flex: 1, minWidth: 0 }}
+                          />
+                          <button className="btn ghost sm" disabled={doorBusy} onClick={() => void createDoorLink()}>
+                            {doorBusy ? '…' : '+ Link'}
+                          </button>
+                        </div>
+                        {doorError && (
+                          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--bad)' }}>{doorError}</div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="card" style={{ padding: 22 }}>
                       <h3 style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 10 }}>Schnellaktionen</h3>

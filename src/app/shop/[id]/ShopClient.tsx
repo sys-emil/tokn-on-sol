@@ -23,6 +23,22 @@ function formatPrice(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 }
 
+const MAX_QTY = 4;
+
+// A checkout the buyer started but hasn't finished — the server-side
+// reservation (30 min) keeps the seats, the Stripe session URL stays valid.
+interface PendingCheckout {
+  url: string;
+  expiresAt: number; // ms epoch
+  quantity: number;
+}
+
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 export default function ShopClient({ eventId, tiers }: Props) {
   const { ready, authenticated, login } = usePrivy();
   const { wallets: solanaWallets } = useWallets();
@@ -33,12 +49,16 @@ export default function ShopClient({ eventId, tiers }: Props) {
     () => (tiers.find((t) => t.available > 0) ?? tiers[0])?.id ?? '',
   );
   const pendingCheckout = useRef(false);
+  const [pending, setPending] = useState<PendingCheckout | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  const storageKey = `passly_checkout_${eventId}`;
 
   const walletAddress = solanaWallets[0]?.address;
   const tier = tiers.find((t) => t.id === tierId) ?? tiers[0];
   const soldOut = tiers.every((t) => t.available <= 0);
   const tierSoldOut = !tier || tier.available <= 0;
-  const maxQty = tier ? Math.min(10, Math.max(1, tier.available)) : 1;
+  const maxQty = tier ? Math.min(MAX_QTY, Math.max(1, tier.available)) : 1;
   const feePerTicket = tier ? serviceFeePerTicketCents(tier.priceEur) : 0;
   const feeTotal = feePerTicket * quantity;
   const grandTotal = tier ? (tier.priceEur + feePerTicket) * quantity : 0;
@@ -47,8 +67,45 @@ export default function ShopClient({ eventId, tiers }: Props) {
     setTierId(id);
     setError(null);
     const next = tiers.find((t) => t.id === id);
-    if (next) setQuantity((q) => Math.min(q, Math.min(10, Math.max(1, next.available))));
+    if (next) setQuantity((q) => Math.min(q, Math.min(MAX_QTY, Math.max(1, next.available))));
   }
+
+  // Restore a still-valid reservation when the buyer bounced back from Stripe
+  // (cancel_url lands here). The countdown explains why seats may look taken
+  // and offers the way back into the open session.
+  useEffect(() => {
+    // Deferred a tick so hydration completes with the server-rendered markup
+    // before the banner pops in (sessionStorage is client-only).
+    const restore = setTimeout(() => {
+      try {
+        const raw = sessionStorage.getItem(storageKey);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as PendingCheckout;
+        if (parsed.url && parsed.expiresAt > Date.now() + 5_000) {
+          setPending(parsed);
+        } else {
+          sessionStorage.removeItem(storageKey);
+        }
+      } catch {
+        // corrupt entry — ignore
+      }
+    }, 0);
+    return () => clearTimeout(restore);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!pending) return;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      if (pending.expiresAt <= Date.now()) {
+        setPending(null);
+        try { sessionStorage.removeItem(storageKey); } catch { /* private mode */ }
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [pending, storageKey]);
+
+  const remainingSec = pending ? Math.max(0, Math.floor((pending.expiresAt - now) / 1000)) : 0;
 
   useEffect(() => {
     if (!pendingCheckout.current) return;
@@ -67,10 +124,15 @@ export default function ShopClient({ eventId, tiers }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ eventId, buyerWallet: wallet, quantity, tierId: tier?.id }),
       });
-      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
+      const data = (await res.json()) as { success: boolean; url?: string; expiresAt?: number; error?: string };
       if (!res.ok || !data.success || !data.url) {
         setError(data.error ?? 'Der Kauf konnte nicht gestartet werden. Bitte versuch es erneut.');
         return;
+      }
+      if (data.expiresAt) {
+        try {
+          sessionStorage.setItem(storageKey, JSON.stringify({ url: data.url, expiresAt: data.expiresAt, quantity } satisfies PendingCheckout));
+        } catch { /* private mode */ }
       }
       window.location.href = data.url;
     } catch {
@@ -162,6 +224,29 @@ export default function ShopClient({ eventId, tiers }: Props) {
           font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
           font-variant-numeric: tabular-nums; white-space: nowrap;
         }
+        .resume-banner {
+          display: flex; align-items: center; justify-content: space-between; gap: 12px;
+          padding: 12px 14px; margin-bottom: 16px;
+          background: var(--accent-wash);
+          border: 1px solid var(--accent);
+          border-radius: 10px;
+        }
+        .resume-banner .rb-title { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+        .resume-banner .rb-time { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+        .resume-banner .rb-time b {
+          color: var(--accent); font-weight: 600;
+          font-variant-numeric: tabular-nums;
+        }
+        .resume-banner .rb-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+        .resume-banner .rb-dismiss {
+          font-size: 11px; color: var(--ink-4);
+          text-decoration: underline; text-underline-offset: 2px;
+        }
+        .group-hint {
+          display: flex; align-items: baseline; gap: 6px;
+          font-size: 11.5px; color: var(--ink-3); line-height: 1.5;
+          margin: -6px 0 14px;
+        }
         .buy-error {
           margin-top: 12px;
           padding: 10px 12px;
@@ -171,6 +256,34 @@ export default function ShopClient({ eventId, tiers }: Props) {
           font-size: 12.5px; color: var(--bad); line-height: 1.5;
         }
       `}</style>
+
+      {pending && remainingSec > 0 && (
+        <div className="resume-banner">
+          <div>
+            <div className="rb-title">
+              {pending.quantity > 1
+                ? `${pending.quantity} Tickets für dich reserviert`
+                : 'Ein Ticket für dich reserviert'}
+            </div>
+            <div className="rb-time">
+              Noch <b>{formatCountdown(remainingSec)}</b> — danach werden die Plätze wieder freigegeben.
+            </div>
+          </div>
+          <div className="rb-actions">
+            <a className="btn primary sm" href={pending.url}>Kauf abschließen</a>
+            <button
+              type="button"
+              className="rb-dismiss"
+              onClick={() => {
+                setPending(null);
+                try { sessionStorage.removeItem(storageKey); } catch { /* private mode */ }
+              }}
+            >
+              Verwerfen
+            </button>
+          </div>
+        </div>
+      )}
 
       {!soldOut && tiers.length > 1 && (
         <div className="tier-list" role="radiogroup" aria-label="Ticketkategorie">
@@ -223,6 +336,13 @@ export default function ShopClient({ eventId, tiers }: Props) {
             </button>
           </div>
         </div>
+      )}
+
+      {!soldOut && !tierSoldOut && quantity > 1 && (
+        <p className="group-hint">
+          <span>👥</span>
+          <span>Du kaufst für die Gruppe? Nach dem Kauf kannst du jedes Ticket per Link an deine Freunde weitergeben.</span>
+        </p>
       )}
 
       {!soldOut && !tierSoldOut && tier && tier.priceEur > 0 && (

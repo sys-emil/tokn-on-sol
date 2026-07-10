@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
@@ -73,6 +73,20 @@ const PAGE_CSS = `
     display: block; font-family: var(--mono); font-size: 10.5px;
     word-break: break-all; margin-top: 8px; color: var(--ink-3);
   }
+  .share-promo {
+    display: flex; gap: 12px; align-items: flex-start;
+    margin-top: 16px; padding: 14px 16px;
+    background: var(--accent-wash);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    font-size: 13px; line-height: 1.55; color: var(--ink-2);
+  }
+  .share-promo .icon-wrap {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    background: var(--accent); color: white;
+    display: grid; place-items: center;
+  }
+  .share-promo b { color: var(--ink); }
 `;
 
 interface ConfirmData {
@@ -107,7 +121,15 @@ function TicketRow({ index, assetId }: { index: number; assetId: string | null }
 function SuccessInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams<{ id: string }>();
   const sessionId = searchParams.get('session_id') ?? '';
+
+  // The purchase is done — drop the "resume your checkout" state the shop
+  // page stored when this session was created.
+  useEffect(() => {
+    if (!params?.id) return;
+    try { sessionStorage.removeItem(`passly_checkout_${params.id}`); } catch { /* private mode */ }
+  }, [params?.id]);
 
   const [failed, setFailed] = useState(!sessionId);
   const [quantity, setQuantity] = useState<number>(1);
@@ -146,9 +168,13 @@ function SuccessInner() {
             // pops these tickets in with a congratulation overlay.
             try { sessionStorage.setItem('passly_new_tickets', JSON.stringify(ids)); } catch { /* private mode */ }
             setAllDone(true);
-            setRedirecting(true);
-            await new Promise((r) => setTimeout(r, 2200));
-            if (!stopped) router.replace('/my-tickets');
+            // Group purchases stay on this page: the share promo below points
+            // buyers at the pass-along links instead of auto-redirecting away.
+            if (qty === 1) {
+              setRedirecting(true);
+              await new Promise((r) => setTimeout(r, 2200));
+              if (!stopped) router.replace('/my-tickets');
+            }
             return;
           }
         } catch {
@@ -209,6 +235,22 @@ function SuccessInner() {
             <TicketRow key={i} index={i} assetId={id} />
           ))}
         </div>
+
+        {allDone && quantity > 1 && (
+          <>
+            <div className="share-promo">
+              <div className="icon-wrap"><Icon name="share" size={14} strokeWidth={2.2} /></div>
+              <div>
+                <b>Für die Gruppe gekauft?</b> Gib jedes Ticket per Link an deine
+                Freunde weiter — sie bekommen es direkt in ihr eigenes Konto und
+                zeigen ihren QR-Code selbst am Einlass vor.
+              </div>
+            </div>
+            <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>
+              Zu meinen Tickets & weitergeben
+            </Link>
+          </>
+        )}
 
         {allDone ? (
           <div className="notice">{redirecting ? '🎉 Herzlichen Glückwunsch! Du wirst zu deinen Tickets weitergeleitet …' : ''}</div>

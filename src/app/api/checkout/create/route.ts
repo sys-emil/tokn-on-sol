@@ -34,7 +34,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const { eventId, buyerWallet, quantity: rawQty, tierId } = body;
-  const quantity = Math.max(1, Math.min(10, Math.floor(rawQty ?? 1)));
+  const quantity = Math.max(1, Math.min(4, Math.floor(rawQty ?? 1)));
 
   if (!eventId || !buyerWallet) {
     return NextResponse.json(
@@ -216,7 +216,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: reservationError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, url: session.url });
+    // expiresAt lets the shop page show a "your seats are held until …"
+    // countdown when the buyer bounces back from Stripe without paying.
+    return NextResponse.json({ success: true, url: session.url, expiresAt: expiresAt * 1000 });
   } catch (err) {
     await releaseClaim();
     const message = err instanceof Error ? err.message : String(err);

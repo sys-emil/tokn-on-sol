@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +13,8 @@ export const dynamic = "force-dynamic";
  * once-only redemption is enforced locally until the queue is synced back
  * via /api/tickets/redeem-offline.
  *
- * Organizer-only (same gate as /api/organizer/event) — the wallet list is
- * not public data.
+ * Gated like the other door routes: organizer session or door access link —
+ * the wallet list is not public data.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const id = new URL(req.url).searchParams.get("id");
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  if (!(await requestOwnsWallet(req, event.organizer_wallet as string))) {
+  if (!(await requestMayWorkTheDoor(req, id, event.organizer_wallet as string))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

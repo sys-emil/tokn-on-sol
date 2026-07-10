@@ -4,7 +4,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { heliusRpcUrl } from "@/lib/solana";
 import { checkRedemptionBadges } from "@/lib/badges";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 import bs58 from "bs58";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -41,10 +41,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Redemption is a door action, not a public one: only the organizer of this
-  // event (the doorman is signed in as them) may burn a ticket. Without this
-  // gate anyone who captured a valid QR could POST it here and mark the ticket
-  // used, locking the real guest out. The redemption below is additionally
-  // scoped to this event, so an organizer can only redeem their own tickets.
+  // event or a holder of a valid door access link for it may burn a ticket.
+  // Without this gate anyone who captured a valid QR could POST it here and
+  // mark the ticket used, locking the real guest out. The redemption below is
+  // additionally scoped to this event, so the door can only redeem its own
+  // tickets.
   const { data: gateEvent, error: gateError } = await supabaseAdmin
     .from("events")
     .select("organizer_wallet")
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (gateError || !gateEvent) {
     return NextResponse.json({ valid: false, reason: "Event not found" }, { status: 404 });
   }
-  if (!(await requestOwnsWallet(req, gateEvent.organizer_wallet as string))) {
+  if (!(await requestMayWorkTheDoor(req, eventId, gateEvent.organizer_wallet as string))) {
     return NextResponse.json({ valid: false, reason: "Unauthorized" }, { status: 401 });
   }
 

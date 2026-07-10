@@ -46,6 +46,13 @@ function formatDate(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
+function agoLabel(iso: string, nowTs: number): string {
+  const sec = Math.max(0, Math.floor((nowTs - new Date(iso).getTime()) / 1000));
+  if (sec < 10) return 'gerade eben';
+  if (sec < 60) return `vor ${sec} s`;
+  return `vor ${Math.floor(sec / 60)} min`;
+}
+
 // The verify API returns English reason strings — translate the ones the
 // doorman needs to act on differently; everything else is a generic reject.
 function reasonDe(reason: string): string {
@@ -191,6 +198,14 @@ export default function DoormanPage() {
   const { wallets: solanaWallets } = useWallets();
   const walletAddress = solanaWallets[0]?.address;
 
+  // Door access link (?key=…): venue staff scan without the organizer's
+  // login. Read once via window — the key never appears in rendered output,
+  // so the SSR/client difference can't cause a hydration mismatch.
+  const [doorKey] = useState(() =>
+    typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('key') ?? '',
+  );
+  const [keyStatus, setKeyStatus] = useState<'none' | 'checking' | 'granted'>(doorKey ? 'checking' : 'none');
+
   const [event, setEvent] = useState<EventData | null>(null);
   const [phase, setPhase] = useState<Phase>({ tag: 'loading' });
   const [scannedToday, setScannedToday] = useState(0);
@@ -207,6 +222,9 @@ export default function DoormanPage() {
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   const [pendingCount, setPendingCount] = useState(0);
   const [snapshotReady, setSnapshotReady] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [conflictCount, setConflictCount] = useState(0);
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const snapshotRef = useRef<Snapshot | null>(null);
   const pendingRef = useRef<PendingRedemption[]>([]);
   const locallyRedeemedRef = useRef<Set<string>>(new Set());
@@ -223,6 +241,13 @@ export default function DoormanPage() {
     };
   }, []);
 
+  // Drives the "zuletzt synchronisiert vor X s" label — 5 s granularity is
+  // enough and keeps re-renders away from the rAF scan loop.
+  useEffect(() => {
+    const timer = setInterval(() => setNowTs(Date.now()), 5_000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Restore snapshot + queue from the last session (page reload in a dead spot).
   useEffect(() => {
     if (!eventId) return;
@@ -234,23 +259,70 @@ export default function DoormanPage() {
   }, [eventId]);
 
   const isOrganizer = Boolean(event && walletAddress && walletAddress === event.organizer_wallet);
+  const hasDoorAccess = isOrganizer || keyStatus === 'granted';
+
+  // Auth for the door APIs: the link token when present, the organizer's
+  // Privy session otherwise.
+  const doorAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    if (doorKey) return { 'x-door-token': doorKey };
+    const token = await getAccessToken();
+    return { Authorization: `Bearer ${token ?? ''}` };
+  }, [doorKey, getAccessToken]);
+
+  // Key mode: validate the link by fetching the snapshot with it. 401 means
+  // revoked/expired/wrong event → denied; success doubles as the first
+  // snapshot load. Network failure falls back to a cached snapshot (reload
+  // in a dead spot), otherwise the next attempt retries.
+  useEffect(() => {
+    if (!doorKey || !eventId || keyStatus !== 'checking') return;
+    let cancelled = false;
+    async function check(): Promise<void> {
+      try {
+        const res = await fetch(`/api/organizer/event/snapshot?id=${eventId}`, {
+          headers: { 'x-door-token': doorKey },
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const snap = (await res.json()) as Snapshot;
+          snapshotRef.current = snap;
+          saveSnapshot(eventId, snap);
+          setSnapshotReady(true);
+          setLastSyncAt(new Date().toISOString());
+          setKeyStatus('granted');
+          setPhase((p) => (p.tag === 'loading' ? { tag: 'scanning' } : p));
+        } else {
+          setPhase({ tag: 'denied' });
+        }
+      } catch {
+        if (cancelled) return;
+        if (snapshotRef.current) {
+          setKeyStatus('granted');
+          setPhase((p) => (p.tag === 'loading' ? { tag: 'scanning' } : p));
+        } else {
+          setTimeout(() => { if (!cancelled) void check(); }, 3000);
+        }
+      }
+    }
+    void check();
+    return () => { cancelled = true; };
+  }, [doorKey, eventId, keyStatus]);
 
   // Refresh the snapshot every 60 s while online — the cache the doorman
   // falls back to is at most a minute old when the connection drops.
   useEffect(() => {
-    if (!isOrganizer || !online || !eventId) return;
+    if (!hasDoorAccess || !online || !eventId) return;
     let cancelled = false;
     async function refresh(): Promise<void> {
       try {
-        const token = await getAccessToken();
         const res = await fetch(`/api/organizer/event/snapshot?id=${eventId}`, {
-          headers: { Authorization: `Bearer ${token ?? ''}` },
+          headers: await doorAuthHeaders(),
         });
         if (!res.ok || cancelled) return;
         const snap = (await res.json()) as Snapshot;
         snapshotRef.current = snap;
         saveSnapshot(eventId, snap);
         setSnapshotReady(true);
+        setLastSyncAt(new Date().toISOString());
       } catch {
         // offline or flaky — the cached snapshot keeps working
       }
@@ -261,18 +333,17 @@ export default function DoormanPage() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [isOrganizer, online, eventId, getAccessToken]);
+  }, [hasDoorAccess, online, eventId, doorAuthHeaders]);
 
   // Push queued offline redemptions once the connection is back.
   useEffect(() => {
-    if (!isOrganizer || !online || !eventId || pendingCount === 0 || syncingRef.current) return;
+    if (!hasDoorAccess || !online || !eventId || pendingCount === 0 || syncingRef.current) return;
     async function sync(): Promise<void> {
       syncingRef.current = true;
       try {
-        const token = await getAccessToken();
         const res = await fetch('/api/tickets/redeem-offline', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+          headers: { 'Content-Type': 'application/json', ...(await doorAuthHeaders()) },
           body: JSON.stringify({ eventId, redemptions: pendingRef.current }),
         });
         if (!res.ok) return;
@@ -281,7 +352,9 @@ export default function DoormanPage() {
         pendingRef.current = pendingRef.current.filter((p) => !handled.has(p.assetId));
         savePending(eventId, pendingRef.current);
         setPendingCount(pendingRef.current.length);
+        setLastSyncAt(new Date().toISOString());
         if (data.conflicts.length > 0) {
+          setConflictCount((n) => n + data.conflicts.length);
           console.warn('Offline-Scans mit Konflikt (an anderem Gerät bereits eingelöst?):', data.conflicts);
         }
       } catch {
@@ -291,7 +364,7 @@ export default function DoormanPage() {
       }
     }
     void sync();
-  }, [isOrganizer, online, eventId, pendingCount, getAccessToken]);
+  }, [hasDoorAccess, online, eventId, pendingCount, doorAuthHeaders]);
 
   // Fetch event
   useEffect(() => {
@@ -304,8 +377,10 @@ export default function DoormanPage() {
 
   // Auth + access check. login() may only fire once — this effect re-runs
   // when the event fetch resolves, and re-invoking login() mid-flow resets
-  // the Privy modal so the e-mail code step never appears.
+  // the Privy modal so the e-mail code step never appears. In key mode the
+  // access link replaces the login entirely (validated above).
   useEffect(() => {
+    if (doorKey) return;
     if (!ready) return;
     if (!authenticated) {
       if (!loginPromptedRef.current) {
@@ -326,7 +401,7 @@ export default function DoormanPage() {
       setTimeout(() => setPhase({ tag: 'scanning' }), 0);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, authenticated, walletAddress, event]);
+  }, [doorKey, ready, authenticated, walletAddress, event]);
 
   const handleQrResult = useCallback(async (raw: string) => {
     if (processingRef.current) return;
@@ -337,10 +412,9 @@ export default function DoormanPage() {
     try {
       // 5 s budget for the live check — at the door a hanging request is
       // worse than falling back to the offline snapshot.
-      const token = await getAccessToken();
       const res = await fetch('/api/tickets/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        headers: { 'Content-Type': 'application/json', ...(await doorAuthHeaders()) },
         body: JSON.stringify({ token: raw, eventId }),
         signal: AbortSignal.timeout(5000),
       });
@@ -382,7 +456,7 @@ export default function DoormanPage() {
       processingRef.current = false;
       setPhase({ tag: 'scanning' });
     }, 3000);
-  }, [eventId, event?.name, getAccessToken]);
+  }, [eventId, event?.name, doorAuthHeaders]);
 
   // Start / stop camera based on phase
   useEffect(() => {
@@ -481,8 +555,9 @@ export default function DoormanPage() {
             </div>
             <div style={{ fontSize: 17, fontWeight: 600 }}>Kein Zugriff</div>
             <p style={{ fontSize: 13.5, color: 'var(--ink-3)', lineHeight: 1.55, marginTop: 8 }}>
-              Dieses Konto ist nicht der Veranstalter dieses Events.
-              Melde dich mit dem Veranstalter-Konto an, um den Einlass-Modus zu öffnen.
+              {doorKey
+                ? 'Dieser Einlass-Link ist abgelaufen oder wurde widerrufen. Bitte frag den Veranstalter nach einem neuen Link.'
+                : 'Dieses Konto ist nicht der Veranstalter dieses Events. Melde dich mit dem Veranstalter-Konto an, um den Einlass-Modus zu öffnen.'}
             </p>
           </div>
         </div>
@@ -511,13 +586,29 @@ export default function DoormanPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
               {online ? (
-                <span className="chip ok"><span className="d" />Live</span>
+                <span className="chip ok"><span className="d" />Online</span>
               ) : (
                 <span className="chip warn"><span className="d" />Offline{snapshotReady ? '' : ' · keine Liste'}</span>
               )}
-              {pendingCount > 0 && (
+              <span style={{ fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
+                {online
+                  ? lastSyncAt
+                    ? `Synchronisiert ${agoLabel(lastSyncAt, nowTs)}`
+                    : 'Synchronisiert …'
+                  : pendingCount > 0
+                  ? `${pendingCount} Scan${pendingCount === 1 ? '' : 's'} in Warteschlange`
+                  : snapshotReady
+                  ? 'Prüfung läuft lokal weiter'
+                  : 'Scans nicht möglich'}
+              </span>
+              {online && pendingCount > 0 && (
                 <span className="chip" title="Offline gescannte Tickets, die noch synchronisiert werden">
-                  {pendingCount} nicht synchron.
+                  {pendingCount} wird synchronisiert …
+                </span>
+              )}
+              {conflictCount > 0 && (
+                <span className="chip warn" title="Diese Gäste wurden an einem anderen Gerät bereits eingelassen">
+                  {conflictCount} Konflikt{conflictCount === 1 ? '' : 'e'}
                 </span>
               )}
             </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 import { checkRedemptionBadges } from "@/lib/badges";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (error || !event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
-  if (!(await requestOwnsWallet(req, event.organizer_wallet as string))) {
+  if (!(await requestMayWorkTheDoor(req, eventId, event.organizer_wallet as string))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
