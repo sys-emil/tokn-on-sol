@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requestOwnsWallet } from "@/lib/privyServer";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Buyer view of loyalty programs: for every organizer the wallet has attended,
  * report active programs of Pro organizers with progress and claim state.
- * Read-only and keyed by wallet, same access model as /api/my-tickets.
+ * Read-only and keyed by wallet, same access model as /api/my-tickets — the
+ * caller must prove ownership of the wallet (it reveals which events the wallet
+ * has attended).
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const buyerWallet = new URL(req.url).searchParams.get("buyerWallet");
   if (!buyerWallet) {
     return NextResponse.json({ error: "buyerWallet is required" }, { status: 400 });
+  }
+
+  if (!(await requestOwnsWallet(req, buyerWallet))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Distinct redeemed events per organizer for this wallet.

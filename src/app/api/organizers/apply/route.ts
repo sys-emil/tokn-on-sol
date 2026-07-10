@@ -2,6 +2,7 @@
 // Find them at: https://dashboard.privy.io → your app → Settings → API keys
 import { PrivyClient } from "@privy-io/server-auth";
 import { supabaseAdmin } from "@/lib/supabase";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 
 const privy = new PrivyClient(
@@ -18,6 +19,14 @@ interface ApplyBody {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const rl = rateLimit(`organizer-apply:${clientIp(req)}`, 5, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { success: false, error: "Zu viele Anfragen. Bitte kurz warten." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const authToken = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!authToken) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

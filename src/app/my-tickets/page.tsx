@@ -204,9 +204,11 @@ export default function MyTickets() {
     if (!buyerWallet || loaded) return;
     async function load() {
       try {
+        const authToken = await getAccessToken();
+        const authHeaders = { Authorization: `Bearer ${authToken ?? ''}` };
         const [res, loyaltyRes] = await Promise.all([
-          fetch(`/api/my-tickets?buyerWallet=${buyerWallet}`),
-          fetch(`/api/loyalty/status?buyerWallet=${buyerWallet}`),
+          fetch(`/api/my-tickets?buyerWallet=${buyerWallet}`, { headers: authHeaders }),
+          fetch(`/api/loyalty/status?buyerWallet=${buyerWallet}`, { headers: authHeaders }),
         ]);
         if (res.ok) {
           const data = (await res.json()) as { tickets: Ticket[]; badges: BadgeItem[]; progress?: Progress };

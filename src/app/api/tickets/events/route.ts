@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { heliusRpcUrl } from "@/lib/solana";
+import { requestOwnsWallet } from "@/lib/privyServer";
 
 interface DasAsset {
   content: {
@@ -19,6 +20,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (!ownerWallet) {
     return NextResponse.json({ error: "ownerWallet is required" }, { status: 400 });
+  }
+
+  // Lists a wallet's tickets — same access model as the other wallet reads:
+  // the caller must prove they own the wallet.
+  if (!(await requestOwnsWallet(req, ownerWallet))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const heliusApiKey = process.env.HELIUS_API_KEY ?? "";

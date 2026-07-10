@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requestOwnsWallet } from "@/lib/privyServer";
 import { MILESTONES, STAMMGAST_THRESHOLD } from "@/lib/badgeMeta";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { error: "buyerWallet is required" },
       { status: 400 }
     );
+  }
+
+  // The response exposes personal purchase history AND live claim tokens
+  // (bearer secrets that transfer the ticket). A wallet address is public, so
+  // the caller must prove they own this wallet via their Privy auth token —
+  // otherwise anyone could enumerate and hijack another buyer's tickets.
+  if (!(await requestOwnsWallet(req, buyerWallet))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { data, error } = await supabaseAdmin

@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { TicketTier } from "@/lib/supabase";
 import { serviceFeePerTicketCents } from "@/lib/fees";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 interface CheckoutBody {
   eventId: string;
@@ -12,6 +13,18 @@ interface CheckoutBody {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Each checkout claims capacity for 30 minutes and creates a Stripe session.
+  // Without a limit a loop could reserve an event's whole capacity and lock out
+  // real buyers (denial-of-sale). 10 attempts/minute/IP is far above any
+  // legitimate purchase cadence.
+  const rl = rateLimit(`checkout:${clientIp(req)}`, 10, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { success: false, error: "Zu viele Anfragen. Bitte kurz warten." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   let body: CheckoutBody;
 
   try {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const consent = req.cookies.get("passly_consent")?.value;
   const cid = req.cookies.get("passly_cid")?.value;
   if (consent !== "granted" || !cid || cid.length > 64) return noContent;
+
+  // The cid cookie is client-set and forgeable, so cap by both cid and IP —
+  // a script can't flood analytics_events (table bloat / poisoned stats).
+  // Silently drop over-limit hits: tracking never surfaces errors. The ceiling
+  // is well above real browsing (page_view + a few events per navigation).
+  if (
+    !rateLimit(`track-cid:${cid}`, 120, 60_000).ok
+    || !rateLimit(`track-ip:${clientIp(req)}`, 300, 60_000).ok
+  ) {
+    return noContent;
+  }
 
   let body: { name?: string; path?: string; referrer?: string | null; props?: unknown };
   try {

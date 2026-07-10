@@ -337,10 +337,11 @@ export default function DoormanPage() {
     try {
       // 5 s budget for the live check — at the door a hanging request is
       // worse than falling back to the offline snapshot.
+      const token = await getAccessToken();
       const res = await fetch('/api/tickets/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: raw }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ token: raw, eventId }),
         signal: AbortSignal.timeout(5000),
       });
       const data = (await res.json()) as
@@ -381,7 +382,7 @@ export default function DoormanPage() {
       processingRef.current = false;
       setPhase({ tag: 'scanning' });
     }, 3000);
-  }, [eventId, event?.name]);
+  }, [eventId, event?.name, getAccessToken]);
 
   // Start / stop camera based on phase
   useEffect(() => {

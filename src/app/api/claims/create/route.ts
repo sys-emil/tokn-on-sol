@@ -2,6 +2,7 @@ import { PrivyClient } from "@privy-io/server-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { transferCnft, getOperatorWalletAddress } from "@/lib/transfer";
 import { heliusRpcUrl } from "@/lib/solana";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 
 const privy = new PrivyClient(
@@ -18,6 +19,16 @@ interface DasAsset {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  // Each call moves a cNFT into escrow (an on-chain transaction). Cap the rate
+  // so a compromised/looping client can't hammer the operator wallet.
+  const rl = rateLimit(`claims-create:${clientIp(req)}`, 10, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { success: false, error: "Zu viele Anfragen. Bitte kurz warten." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const authToken = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!authToken) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

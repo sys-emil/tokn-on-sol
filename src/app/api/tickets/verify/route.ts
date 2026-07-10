@@ -4,11 +4,13 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { heliusRpcUrl } from "@/lib/solana";
 import { checkRedemptionBadges } from "@/lib/badges";
+import { requestOwnsWallet } from "@/lib/privyServer";
 import bs58 from "bs58";
 import { NextRequest, NextResponse } from "next/server";
 
 interface VerifyBody {
   token: string;
+  eventId: string;
 }
 
 interface QrPayload {
@@ -30,9 +32,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ valid: false, reason: "Invalid request body" }, { status: 400 });
   }
 
-  const { token } = body;
+  const { token, eventId } = body;
   if (!token || typeof token !== "string") {
     return NextResponse.json({ valid: false, reason: "Token is required" }, { status: 400 });
+  }
+  if (!eventId || typeof eventId !== "string") {
+    return NextResponse.json({ valid: false, reason: "eventId is required" }, { status: 400 });
+  }
+
+  // Redemption is a door action, not a public one: only the organizer of this
+  // event (the doorman is signed in as them) may burn a ticket. Without this
+  // gate anyone who captured a valid QR could POST it here and mark the ticket
+  // used, locking the real guest out. The redemption below is additionally
+  // scoped to this event, so an organizer can only redeem their own tickets.
+  const { data: gateEvent, error: gateError } = await supabaseAdmin
+    .from("events")
+    .select("organizer_wallet")
+    .eq("id", eventId)
+    .single();
+  if (gateError || !gateEvent) {
+    return NextResponse.json({ valid: false, reason: "Event not found" }, { status: 404 });
+  }
+  if (!(await requestOwnsWallet(req, gateEvent.organizer_wallet as string))) {
+    return NextResponse.json({ valid: false, reason: "Unauthorized" }, { status: 401 });
   }
 
   // Parse token: compact JSON { a, t, w, s }
@@ -115,6 +137,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .from("purchases")
     .update({ redeemed_at: now })
     .eq("asset_id", assetId)
+    .eq("event_id", eventId)
     .is("redeemed_at", null)
     .is("revoked_at", null)
     .select("id, event_id");
@@ -140,12 +163,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
   }
 
-  // Not updated — ticket not found, revoked (refunded), or already redeemed
+  // Not updated — ticket not found, wrong event, revoked (refunded), or already
+  // redeemed. Scoped to this event so a ticket for a different event reads as
+  // "not found" rather than leaking its state.
   const { data: existing } = await supabaseAdmin
     .from("purchases")
     .select("redeemed_at, revoked_at")
     .eq("asset_id", assetId)
-    .single();
+    .eq("event_id", eventId)
+    .maybeSingle();
 
   if (!existing) {
     return NextResponse.json({ valid: false, reason: "Ticket not found" });
