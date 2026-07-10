@@ -35,7 +35,7 @@ export interface PendingRedemption {
 }
 
 export type OfflineVerdict =
-  | { valid: true; assetId: string }
+  | { valid: true; assetId: string; backup?: boolean }
   | { valid: false; reason: string; redeemedAt?: string };
 
 const snapshotKey = (eventId: string) => `passly-doorman-snapshot-${eventId}`;
@@ -85,25 +85,30 @@ export async function verifyOffline(
     return { valid: false, reason: 'Offline und keine Ticketliste geladen' };
   }
 
-  let payload: { a?: string; t?: number; w?: string; s?: string };
+  let payload: { a?: string; t?: number; w?: string; s?: string; b?: number };
   try {
     payload = JSON.parse(rawToken) as typeof payload;
   } catch {
     return { valid: false, reason: 'Invalid QR code' };
   }
   const { a: assetId, t, w: walletAddress, s: sigBase58 } = payload;
-  if (!assetId || typeof t !== 'number' || !walletAddress || !sigBase58) {
+  const isBackup = payload.b === 1;
+  if (!assetId || (!isBackup && typeof t !== 'number') || !walletAddress || !sigBase58) {
     return { valid: false, reason: 'Invalid QR code' };
   }
 
-  // Same replay window as the server: current or previous minute.
-  const nowMinute = Math.floor(Date.now() / 60000);
-  if (t !== nowMinute && t !== nowMinute - 1) {
-    return { valid: false, reason: 'QR code expired' };
+  // Same replay window as the server: current or previous minute. Backup
+  // tickets are static by design (saved in advance for dead spots) — no
+  // window; once-only redemption + printed ID personalization carry it.
+  if (!isBackup) {
+    const nowMinute = Math.floor(Date.now() / 60000);
+    if (t !== nowMinute && t !== nowMinute - 1) {
+      return { valid: false, reason: 'QR code expired' };
+    }
   }
 
   // Ed25519 signature check — identical challenge to the server route.
-  const challenge = `passly:verify:${assetId}:${t}`;
+  const challenge = isBackup ? `passly:backup:${assetId}` : `passly:verify:${assetId}:${t}`;
   let signatureValid: boolean;
   try {
     const key = await crypto.subtle.importKey(
@@ -140,5 +145,5 @@ export async function verifyOffline(
     return { valid: false, reason: 'Already redeemed' };
   }
 
-  return { valid: true, assetId };
+  return { valid: true, assetId, backup: isBackup };
 }

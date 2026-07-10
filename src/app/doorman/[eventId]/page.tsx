@@ -30,7 +30,7 @@ type Phase =
   | { tag: 'camera-error'; message: string }
   | { tag: 'scanning' }
   | { tag: 'verifying' }
-  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string; offline?: boolean }
+  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string; offline?: boolean; backup?: boolean }
   | { tag: 'result-used'; redeemedAt: string }
   | { tag: 'result-invalid'; reason: string };
 
@@ -419,14 +419,14 @@ export default function DoormanPage() {
         signal: AbortSignal.timeout(5000),
       });
       const data = (await res.json()) as
-        | { valid: true; assetId: string; eventName: string; redeemedAt: string }
+        | { valid: true; assetId: string; eventName: string; redeemedAt: string; backup?: boolean }
         | { valid: false; reason: string; redeemedAt?: string };
 
       if (data.valid) {
         locallyRedeemedRef.current.add(data.assetId);
         setScannedToday((n) => n + 1);
         setLastScan(new Date().toISOString());
-        setPhase({ tag: 'result-valid', assetId: data.assetId, eventName: data.eventName, redeemedAt: data.redeemedAt });
+        setPhase({ tag: 'result-valid', assetId: data.assetId, eventName: data.eventName, redeemedAt: data.redeemedAt, backup: data.backup });
       } else if (data.reason === 'Already redeemed') {
         setPhase({ tag: 'result-used', redeemedAt: data.redeemedAt ?? '' });
       } else {
@@ -444,7 +444,7 @@ export default function DoormanPage() {
         setPendingCount(pendingRef.current.length);
         setScannedToday((n) => n + 1);
         setLastScan(at);
-        setPhase({ tag: 'result-valid', assetId: verdict.assetId, eventName: event?.name ?? '', redeemedAt: at, offline: true });
+        setPhase({ tag: 'result-valid', assetId: verdict.assetId, eventName: event?.name ?? '', redeemedAt: at, offline: true, backup: verdict.backup });
       } else if (verdict.reason === 'Already redeemed') {
         setPhase({ tag: 'result-used', redeemedAt: verdict.redeemedAt ?? '' });
       } else {
@@ -655,6 +655,15 @@ export default function DoormanPage() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>Willkommen!</div>
                   <div style={{ fontSize: 13, marginTop: 4, opacity: 0.85 }}>{phase.eventName} · {shortId(phase.assetId)}</div>
+                  {phase.backup && (
+                    <div style={{
+                      fontSize: 12.5, fontWeight: 600, marginTop: 8,
+                      padding: '6px 12px', borderRadius: 999,
+                      background: 'rgba(255,255,255,0.18)', display: 'inline-block',
+                    }}>
+                      Backup-Ticket — Ausweis mit PDF abgleichen
+                    </div>
+                  )}
                   {phase.offline && (
                     <div style={{ fontSize: 11.5, marginTop: 6, opacity: 0.75 }}>Offline geprüft — wird später synchronisiert</div>
                   )}

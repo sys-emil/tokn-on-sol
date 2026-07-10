@@ -194,6 +194,32 @@ export async function sendWaitlistEmail({
   return sent;
 }
 
+/** Backup ticket PDF as attachment — requested explicitly by the buyer. */
+export async function sendBackupTicketEmail({
+  to,
+  eventName,
+  pdf,
+  baseUrl,
+}: {
+  to: string;
+  eventName: string;
+  pdf: Uint8Array;
+  baseUrl: string;
+}): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const body = `Im Anhang findest du dein Backup-Ticket für „${eventName}“ als PDF.\n\nEs ist für Veranstaltungsorte ohne Empfang gedacht: Speichere es auf deinem Handy oder drucke es aus. Es ist auf dich personalisiert und nur zusammen mit deinem Ausweis gültig — nicht zum Weitergeben oder Teilen gedacht, Weiterverkauf verboten. Es gilt der erste Scan.\n\nDein normales Ticket bleibt unverändert gültig:\n${baseUrl}/my-tickets\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Dein Backup-Ticket für ${eventName}`,
+    text: body,
+    attachments: [{ filename: "passly-backup-ticket.pdf", content: Buffer.from(pdf) }],
+  });
+}
+
 export async function sendTicketConfirmation({
   to,
   eventName,

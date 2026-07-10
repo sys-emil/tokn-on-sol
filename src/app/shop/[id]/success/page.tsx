@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
+import { BackupTicketModal } from '@/app/components/BackupTicketModal';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
@@ -119,7 +120,6 @@ function TicketRow({ index, assetId }: { index: number; assetId: string | null }
 }
 
 function SuccessInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams<{ id: string }>();
   const sessionId = searchParams.get('session_id') ?? '';
@@ -135,7 +135,7 @@ function SuccessInner() {
   const [quantity, setQuantity] = useState<number>(1);
   const [assetIds, setAssetIds] = useState<string[]>([]);
   const [allDone, setAllDone] = useState(false);
-  const [redirecting, setRedirecting] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
 
   const MAX_ATTEMPTS = 35; // ~2 minutes of polling
 
@@ -167,14 +167,9 @@ function SuccessInner() {
             // Handoff for the arrival celebration on /my-tickets: the list page
             // pops these tickets in with a congratulation overlay.
             try { sessionStorage.setItem('passly_new_tickets', JSON.stringify(ids)); } catch { /* private mode */ }
+            // No auto-redirect: the page offers the backup ticket (and for
+            // group purchases the share promo) right after the purchase.
             setAllDone(true);
-            // Group purchases stay on this page: the share promo below points
-            // buyers at the pass-along links instead of auto-redirecting away.
-            if (qty === 1) {
-              setRedirecting(true);
-              await new Promise((r) => setTimeout(r, 2200));
-              if (!stopped) router.replace('/my-tickets');
-            }
             return;
           }
         } catch {
@@ -187,7 +182,7 @@ function SuccessInner() {
 
     void poll();
     return () => { stopped = true; };
-  }, [sessionId, router]);
+  }, [sessionId, params?.id]);
 
   const mintedCount = assetIds.length;
   const slots: (string | null)[] = Array.from({ length: quantity }, (_, i) => assetIds[i] ?? null);
@@ -237,26 +232,44 @@ function SuccessInner() {
         </div>
 
         {allDone && quantity > 1 && (
-          <>
-            <div className="share-promo">
-              <div className="icon-wrap"><Icon name="share" size={14} strokeWidth={2.2} /></div>
-              <div>
-                <b>Für die Gruppe gekauft?</b> Gib jedes Ticket per Link an deine
-                Freunde weiter — sie bekommen es direkt in ihr eigenes Konto und
-                zeigen ihren QR-Code selbst am Einlass vor.
-              </div>
+          <div className="share-promo">
+            <div className="icon-wrap"><Icon name="share" size={14} strokeWidth={2.2} /></div>
+            <div>
+              <b>Für die Gruppe gekauft?</b> Gib jedes Ticket per Link an deine
+              Freunde weiter — sie bekommen es direkt in ihr eigenes Konto und
+              zeigen ihren QR-Code selbst am Einlass vor.
             </div>
-            <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>
-              Zu meinen Tickets & weitergeben
+          </div>
+        )}
+
+        {allDone && (
+          <>
+            <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}>
+              {quantity > 1 ? 'Zu meinen Tickets & weitergeben' : 'Zu meinen Tickets'}
             </Link>
+            <button
+              className="btn ghost"
+              style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+              onClick={() => setBackupOpen(true)}
+            >
+              Backup-Ticket erstellen
+            </button>
+            <div className="notice">
+              🎉 Herzlichen Glückwunsch! Tipp: Schlechter Empfang am Veranstaltungsort?
+              Das Backup-Ticket funktioniert ganz ohne Internet.
+            </div>
           </>
         )}
 
-        {allDone ? (
-          <div className="notice">{redirecting ? '🎉 Herzlichen Glückwunsch! Du wirst zu deinen Tickets weitergeleitet …' : ''}</div>
-        ) : (
+        {!allDone && (
           <div className="notice">Das kann bis zu einer Minute dauern. Lass den Tab am besten offen.</div>
         )}
+
+        <BackupTicketModal
+          assetIds={assetIds}
+          open={backupOpen && allDone}
+          onClose={() => setBackupOpen(false)}
+        />
 
         {!allDone && mintedCount > 0 && (
           <Link href="/my-tickets" className="btn ghost" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>

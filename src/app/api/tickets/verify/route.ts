@@ -15,9 +15,10 @@ interface VerifyBody {
 
 interface QrPayload {
   a: string; // assetId
-  t: number; // minuteTimestamp = Math.floor(Date.now() / 60000)
+  t?: number; // minuteTimestamp = Math.floor(Date.now() / 60000) — absent on backup tokens
   w: string; // walletAddress (base58)
   s: string; // Ed25519 signature (base58)
+  b?: number; // 1 = static backup ticket (challenge without time window)
 }
 
 interface DasAsset {
@@ -67,18 +68,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const { a: assetId, t, w: walletAddress, s: sigBase58 } = payload;
-  if (!assetId || typeof t !== "number" || !walletAddress || !sigBase58) {
+  const isBackup = payload.b === 1;
+  if (!assetId || (!isBackup && typeof t !== "number") || !walletAddress || !sigBase58) {
     return NextResponse.json({ valid: false, reason: "Invalid QR code" });
   }
 
-  // Step 1 — Replay protection: accept current minute and previous minute
-  const nowMinute = Math.floor(Date.now() / 60000);
-  if (t !== nowMinute && t !== nowMinute - 1) {
-    return NextResponse.json({ valid: false, reason: "QR code expired" });
+  // Step 1 — Replay protection: accept current minute and previous minute.
+  // Backup tickets are deliberately static (saved in advance for venues
+  // without connectivity) — no time window; once-only redemption plus the
+  // printed personalization (ID check at the door) carry the security.
+  if (!isBackup) {
+    const nowMinute = Math.floor(Date.now() / 60000);
+    if (t !== nowMinute && t !== nowMinute - 1) {
+      return NextResponse.json({ valid: false, reason: "QR code expired" });
+    }
   }
 
   // Step 2 — Reconstruct the challenge the client signed
-  const challenge = `passly:verify:${assetId}:${t}`;
+  const challenge = isBackup ? `passly:backup:${assetId}` : `passly:verify:${assetId}:${t}`;
 
   // Step 3 — Decode base58 pubkey and signature, then verify Ed25519
   let pubkeyBytes: Uint8Array<ArrayBuffer>;
@@ -161,6 +168,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       assetId,
       eventName: event?.name ?? "",
       redeemedAt: now,
+      backup: isBackup,
     });
   }
 

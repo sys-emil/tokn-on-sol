@@ -1,6 +1,6 @@
 'use client';
 
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useSignMessage, useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import bs58 from 'bs58';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
@@ -8,6 +8,7 @@ import { track } from '@/lib/track';
 
 export default function TicketClient({ assetId }: { assetId: string }) {
   const { wallets } = useSolanaWallets();
+  const { signMessage } = useSignMessage();
   const wallet = wallets[0];
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'refreshing'>('loading');
@@ -34,7 +35,22 @@ export default function TicketClient({ assetId }: { assetId: string }) {
         const t = Math.floor(Date.now() / 60000);
         const challenge = `passly:verify:${assetId}:${t}`;
         const msgBytes = new TextEncoder().encode(challenge);
-        const output = await walletObj.signMessage({ message: msgBytes });
+        // First signature shows a friendly confirmation (no crypto wording,
+        // per design language); the automatic per-minute refreshes sign
+        // silently — a popup every 55 s would make the ticket unusable.
+        const output = await signMessage({
+          message: msgBytes,
+          wallet: walletObj,
+          options: {
+            uiOptions: hadQr.current
+              ? { showWalletUIs: false }
+              : {
+                  title: 'Authentifizieren',
+                  description: 'Bestätige kurz, damit dein persönlicher Einlass-Code angezeigt wird.',
+                  buttonText: 'Code anzeigen',
+                },
+          },
+        });
         const s = bs58.encode(Uint8Array.from(output.signature));
         const payload = JSON.stringify({ a: assetId, t, w: walletObj.address, s });
 
