@@ -57,6 +57,23 @@ async function parseLeafWithRetry(umi: Umi, signature: TransactionSignature) {
   throw new Error(`Could not parse leaf from tx ${sig} after ${MAX_ATTEMPTS} attempts: ${msg}`);
 }
 
+// Bubblegum caps the on-chain metadata name at 32 BYTES (error 6012
+// MetadataNameTooLong) — long event names must be truncated UTF-8-safely
+// (umlauts are 2 bytes). Display everywhere uses the DB / off-chain JSON,
+// so only the on-chain field is shortened.
+const MAX_ONCHAIN_NAME_BYTES = 32;
+const utf8 = new TextEncoder();
+
+export function onChainName(name: string): string {
+  if (utf8.encode(name).length <= MAX_ONCHAIN_NAME_BYTES) return name;
+  let out = "";
+  for (const ch of name) {
+    if (utf8.encode(out + ch + "…").length > MAX_ONCHAIN_NAME_BYTES) break;
+    out += ch;
+  }
+  return out.trimEnd() + "…";
+}
+
 export async function mintTicket(params: MintTicketParams): Promise<MintTicketResult> {
   const { eventName, eventDate, ownerWallet, baseUrl } = params;
 
@@ -80,7 +97,7 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
     merkleTree: merkleTreePk,
     payer: operatorSigner,
     metadata: {
-      name: eventName,
+      name: onChainName(eventName),
       symbol: "TOKN",
       uri: metadataUri,
       sellerFeeBasisPoints: 0,
@@ -134,7 +151,7 @@ export async function mintBadge(params: MintBadgeParams): Promise<MintTicketResu
     merkleTree: merkleTreePk,
     payer: operatorSigner,
     metadata: {
-      name: badgeName,
+      name: onChainName(badgeName),
       symbol: "BADG",
       uri: metadataUri,
       sellerFeeBasisPoints: 0,
