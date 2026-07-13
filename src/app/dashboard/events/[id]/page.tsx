@@ -5,7 +5,7 @@ import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-import { Icon } from '@/app/components/passlyUi';
+import { Icon, EventStyleFields } from '@/app/components/passlyUi';
 import { useEffect, useMemo, useState } from 'react';
 
 interface TicketRow {
@@ -28,6 +28,8 @@ interface EventData {
   is_private: boolean;
   payout_hold_days: number;
   image_url: string | null;
+  accent_hue: number | null;
+  border_style: string | null;
   cancelled_at: string | null;
 }
 
@@ -43,8 +45,10 @@ interface TierRow {
 interface TierDraft {
   id?: string;
   name: string;
-  priceEur: number; // euros in the form, cents on the wire
-  capacity: number;
+  // Raw text while editing (not number) so the user can clear a leading "0"
+  // and type a new value without it snapping back; parsed at submit time.
+  priceEur: string; // euros in the form, cents on the wire
+  capacity: string;
   committed: number; // sold + reserved — the capacity floor
 }
 
@@ -53,6 +57,7 @@ const MAX_TIERS = 5;
 
 const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+const formatDateLong = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 const shortStamp = (iso: string) => new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
 
 function isUpcoming(iso: string): boolean {
@@ -111,7 +116,9 @@ export default function EventDetailPage() {
   const [fVenue, setFVenue] = useState('');
   const [fDescription, setFDescription] = useState('');
   const [fIsPrivate, setFIsPrivate] = useState(false);
-  const [fHoldDays, setFHoldDays] = useState(0);
+  const [fHoldDays, setFHoldDays] = useState('0');
+  const [fAccentHue, setFAccentHue] = useState<number | null>(null);
+  const [fBorderStyle, setFBorderStyle] = useState<string | null>(null);
   const [fTiers, setFTiers] = useState<TierDraft[]>([]);
 
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -436,12 +443,14 @@ export default function EventDetailPage() {
     setFVenue(event.venue ?? '');
     setFDescription(event.description ?? '');
     setFIsPrivate(event.is_private);
-    setFHoldDays(event.payout_hold_days ?? 0);
+    setFHoldDays(String(event.payout_hold_days ?? 0));
+    setFAccentHue(event.accent_hue ?? null);
+    setFBorderStyle(event.border_style ?? null);
     setFTiers(tiers.map((t) => ({
       id: t.id,
       name: t.name,
-      priceEur: t.price_eur / 100,
-      capacity: t.capacity,
+      priceEur: String(t.price_eur / 100),
+      capacity: String(t.capacity),
       committed: t.tickets_sold + t.tickets_reserved,
     })));
     setEditError(null);
@@ -454,7 +463,12 @@ export default function EventDetailPage() {
       setEditError('Name und Datum sind Pflichtfelder.');
       return;
     }
-    for (const t of fTiers) {
+    const parsedTiers = fTiers.map((t) => ({
+      ...t,
+      priceEur: Number(t.priceEur) || 0,
+      capacity: Math.floor(Number(t.capacity)) || 0,
+    }));
+    for (const t of parsedTiers) {
       if (!t.name.trim()) { setEditError('Jede Ticketkategorie braucht einen Namen.'); return; }
       if (t.priceEur < 0) { setEditError(`Der Preis für „${t.name.trim()}" muss 0 oder größer sein.`); return; }
       if (!Number.isInteger(t.capacity) || t.capacity < 1) { setEditError(`Die Ticketanzahl für „${t.name.trim()}" muss mindestens 1 sein.`); return; }
@@ -481,9 +495,11 @@ export default function EventDetailPage() {
             venue: fVenue.trim() || null,
             description: fDescription.trim() || null,
             is_private: fIsPrivate,
-            payout_hold_days: fHoldDays,
+            payout_hold_days: Math.floor(Number(fHoldDays)) || 0,
+            accent_hue: fAccentHue,
+            border_style: fBorderStyle,
           },
-          tiers: fTiers.map((t) => ({
+          tiers: parsedTiers.map((t) => ({
             ...(t.id ? { id: t.id } : {}),
             name: t.name.trim(),
             price_eur: Math.round(t.priceEur * 100),
@@ -1001,7 +1017,15 @@ export default function EventDetailPage() {
               </div>
               <div className="field">
                 <label>Datum</label>
-                <input type="date" className="input" value={fDate} onChange={(e) => setFDate(e.target.value)} disabled={editSaving} />
+                <div className="date-field">
+                  <span className="date-field-icon"><Icon name="calendar" size={15} /></span>
+                  <input type="date" className="input" value={fDate} onChange={(e) => setFDate(e.target.value)} disabled={editSaving} />
+                </div>
+                {fDate && (
+                  <span className="date-preview">
+                    <Icon name="calendar" size={12} /> {formatDateLong(fDate)}
+                  </span>
+                )}
               </div>
               <div className="field">
                 <label>Veranstaltungsort</label>
@@ -1035,13 +1059,13 @@ export default function EventDetailPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <span className="hint">Preis pro Ticket (€)</span>
                           <input type="number" className="input" value={t.priceEur} min={0} step={0.5}
-                            onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, priceEur: Number(e.target.value) } : x))}
+                            onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, priceEur: e.target.value } : x))}
                             disabled={editSaving} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           <span className="hint">Anzahl Tickets{t.committed > 0 ? ` (min. ${t.committed})` : ''}</span>
                           <input type="number" className="input" value={t.capacity} min={Math.max(1, t.committed)}
-                            onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, capacity: Math.floor(Number(e.target.value)) } : x))}
+                            onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, capacity: e.target.value } : x))}
                             disabled={editSaving} />
                         </div>
                       </div>
@@ -1049,7 +1073,7 @@ export default function EventDetailPage() {
                   ))}
                   {fTiers.length < MAX_TIERS && (
                     <button type="button" className="btn ghost sm" style={{ alignSelf: 'flex-start' }}
-                      onClick={() => setFTiers((prev) => [...prev, { name: '', priceEur: 0, capacity: 50, committed: 0 }])}
+                      onClick={() => setFTiers((prev) => [...prev, { name: '', priceEur: '0', capacity: '50', committed: 0 }])}
                       disabled={editSaving}>
                       + Kategorie hinzufügen
                     </button>
@@ -1057,6 +1081,14 @@ export default function EventDetailPage() {
                 </div>
                 <span className="hint">Kapazität kann nicht unter die bereits verkauften/reservierten Tickets sinken. Preisänderungen gelten nur für künftige Käufe.</span>
               </div>
+              <EventStyleFields
+                accentHue={fAccentHue}
+                onAccentHueChange={setFAccentHue}
+                borderStyle={fBorderStyle}
+                onBorderStyleChange={setFBorderStyle}
+                isPro={plan === 'pro'}
+                disabled={editSaving}
+              />
               <div className="field">
                 <label>Sichtbarkeit</label>
                 <div className="seg">
@@ -1064,11 +1096,11 @@ export default function EventDetailPage() {
                   <button type="button" className={fIsPrivate ? 'active' : ''} onClick={() => setFIsPrivate(true)} disabled={editSaving}>Privat</button>
                 </div>
               </div>
-              {fTiers.some((t) => t.priceEur > 0) && (
+              {fTiers.some((t) => (Number(t.priceEur) || 0) > 0) && (
                 <div className="field">
                   <label>Auszahlungs-Puffer (Tage nach dem Event)</label>
                   <input type="number" className="input" value={fHoldDays} min={0} max={90} step={1}
-                    onChange={(e) => setFHoldDays(Math.floor(Number(e.target.value)))} disabled={editSaving} />
+                    onChange={(e) => setFHoldDays(e.target.value)} disabled={editSaving} />
                 </div>
               )}
               {editError && (

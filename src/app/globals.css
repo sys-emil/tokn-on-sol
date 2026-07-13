@@ -304,6 +304,91 @@ section + section { margin-top: 36px; }
 }
 .event-card .sold b { color: var(--ink); font-weight: 600; }
 
+/* ── Ticket-card individualisation (/my-tickets) ─────────────────────────
+   Priority: VIP tier > organizer border preset (Pro) > accent hue > event
+   image. VIP always wins so the gold look stays a reliable, unambiguous
+   signal even when an organizer has also picked a color/border. */
+
+/* Organizer-chosen event image as a soft card background. */
+.event-card.has-image { background-size: cover; background-position: center; }
+.event-card.has-image::before {
+  content: "";
+  position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(175deg, color-mix(in oklab, var(--surface) 15%, transparent) 0%, var(--surface) 82%);
+}
+.event-card.has-image > * { position: relative; z-index: 1; }
+
+/* Card-border presets (Pro feature). */
+.event-card.border-gold {
+  border-color: oklch(0.80 0.10 92);
+  background: linear-gradient(150deg, oklch(0.99 0.015 95), oklch(0.965 0.045 92));
+  box-shadow: 0 0 0 1px oklch(0.80 0.10 92 / 0.5), 0 4px 16px oklch(0.55 0.10 90 / 0.22), var(--shadow);
+}
+.event-card.border-chrome {
+  border-color: oklch(0.82 0.006 275);
+  box-shadow: 0 0 0 1px oklch(0.82 0.006 275 / 0.6), 0 4px 16px rgba(17,20,45,0.12), var(--shadow);
+}
+.event-card.border-chrome::after {
+  content: "";
+  position: absolute; inset: 0; z-index: 2; border-radius: inherit;
+  background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.65) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: cardChromeSweep 4.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes cardChromeSweep { 0% { transform: translateX(-120%); } 45%, 100% { transform: translateX(120%); } }
+.event-card.border-aurora {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(115deg,
+      oklch(0.62 0.22 var(--hue)),
+      oklch(0.74 0.18 calc(var(--hue) + 90)),
+      oklch(0.66 0.20 calc(var(--hue) - 90)),
+      oklch(0.62 0.22 var(--hue))) border-box;
+  background-size: auto, 320% 320%;
+  animation: cardAuroraDrift 8s linear infinite;
+}
+@keyframes cardAuroraDrift { from { background-position: 0 0, 0% 50%; } to { background-position: 0 0, 320% 50%; } }
+.event-card.border-neon {
+  border-color: oklch(0.60 0.24 var(--hue));
+  animation: cardNeonPulse 2.6s ease-in-out infinite;
+}
+@keyframes cardNeonPulse {
+  0%, 100% { box-shadow: 0 0 0 1px oklch(0.60 0.24 var(--hue) / 0.55), 0 0 10px oklch(0.60 0.24 var(--hue) / 0.25), var(--shadow); }
+  50%      { box-shadow: 0 0 0 1px oklch(0.60 0.24 var(--hue) / 0.8), 0 0 22px oklch(0.60 0.24 var(--hue) / 0.5), var(--shadow); }
+}
+
+/* VIP ticket cards — ported from the ticket detail page's gold look
+   (.ticket-canvas.vip family); always wins over border/accent choices. */
+.event-card.vip {
+  border-color: oklch(0.80 0.10 92) !important;
+  background: linear-gradient(150deg, oklch(0.99 0.015 95), oklch(0.965 0.045 92)) !important;
+  box-shadow: 0 0 0 1px oklch(0.80 0.10 92 / 0.5), 0 6px 18px oklch(0.55 0.10 90 / 0.24), var(--shadow) !important;
+  animation: none !important;
+}
+.event-card.vip::after, .event-card.vip::before { animation: none !important; }
+.event-card.vip .date-chip { border-color: oklch(0.80 0.10 92); }
+.event-card.vip .date-chip .m {
+  background: linear-gradient(110deg, oklch(0.62 0.11 88), oklch(0.78 0.12 92) 30%, oklch(0.92 0.09 95) 50%, oklch(0.78 0.12 92) 70%, oklch(0.62 0.11 88));
+  color: oklch(0.28 0.06 85);
+}
+.event-card.vip .title { color: oklch(0.32 0.07 85); }
+.vip-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  background: linear-gradient(110deg, oklch(0.72 0.12 90), oklch(0.85 0.11 94));
+  color: oklch(0.26 0.06 85);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  border: 1px solid oklch(0.68 0.11 88);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-card.border-chrome::after,
+  .event-card.border-aurora,
+  .event-card.border-neon { animation: none; }
+}
+
 .progress {
   height: 6px; border-radius: 99px; background: var(--surface-3);
   overflow: hidden; position: relative;
@@ -416,6 +501,49 @@ section + section { margin-top: 36px; }
 }
 .textarea { resize: vertical; min-height: 72px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Date field — calendar icon prefix + weekday preview under a native
+   <input type="date">, so it reads clearer without a custom picker. */
+.date-field { position: relative; }
+.date-field .input { padding-left: 38px; }
+.date-field-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--ink-3); pointer-events: none; display: flex;
+}
+.date-field:focus-within .date-field-icon { color: var(--accent); }
+.date-preview {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--accent-ink); margin-top: 7px;
+  background: var(--accent-wash); border: 1px solid var(--accent-line);
+  padding: 5px 10px; border-radius: 7px; width: fit-content;
+}
+
+/* Event color-scheme swatches (free) + card-border presets (Pro) — used in
+   the create/edit event forms. */
+.swatch-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+.swatch {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--line-2);
+  cursor: pointer; transition: box-shadow 0.15s, transform 0.15s;
+  padding: 0; flex-shrink: 0;
+}
+.swatch:hover:not(:disabled) { transform: scale(1.08); }
+.swatch[aria-checked="true"] { box-shadow: 0 0 0 1px var(--line-2), 0 0 0 3px var(--ink); }
+.swatch:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+.preset-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.preset-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 500;
+  border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2);
+  cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
+}
+.preset-chip:hover:not(:disabled) { border-color: var(--line-2); color: var(--ink); }
+.preset-chip.active { border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-wash); }
+.preset-chip.locked { opacity: 0.62; cursor: not-allowed; }
+.preset-chip:disabled { cursor: default; }
 
 /* Drawer */
 .drawer-backdrop {
@@ -569,6 +697,30 @@ section + section { margin-top: 36px; }
   box-shadow: 0 1px 6px oklch(0.50 0.20 var(--hue) / 0.40);
 }
 .chip.pro .d { background: white; }
+
+/* Persistent nav "Pro" link, once the plan is active. */
+.nav a.nav-pro {
+  color: var(--accent-ink);
+  background: var(--accent-wash);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.nav a.nav-pro:hover { background: var(--accent-line); color: var(--accent-ink); }
+
+/* Pro card in its *active* state (as opposed to .pro-outline, the free-plan
+   upsell rail) — a quieter, permanent "you're in" treatment: fixed gradient
+   wash, no animation loop, so it doesn't read as a recurring ad. */
+.card.pro-active {
+  background:
+    radial-gradient(420px 160px at 8% -20%, var(--accent-wash), transparent 70%),
+    var(--surface);
+  border-color: var(--accent-line);
+}
+
+/* KPI strip gets a subtle Pro-gradient top edge once the plan is active. */
+.kpis.pro-active .kpi { border-top: 2px solid transparent; }
+.kpis.pro-active .kpi {
+  border-image: linear-gradient(90deg, var(--accent), oklch(0.68 0.17 calc(var(--hue) + 45))) 1;
+}
 
 /* Shine sweep for high-intent CTAs */
 .btn-shine { position: relative; overflow: hidden; }

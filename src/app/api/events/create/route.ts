@@ -23,9 +23,14 @@ interface CreateEventBody {
   image_url?: string;
   venue?: string;
   description?: string;
+  /** Organizer-chosen accent hue (0–360) for buyer-facing ticket cards. Free for all organizers. */
+  accent_hue?: number | null;
+  /** Pro-only card border preset. */
+  border_style?: string | null;
 }
 
 const MAX_TIERS = 5;
+const BORDER_STYLES = ["gold", "chrome", "aurora", "neon"] as const;
 
 function normalizeTiers(body: CreateEventBody): TierInput[] | { error: string } {
   const raw = body.tiers && body.tiers.length > 0
@@ -74,7 +79,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, is_private, payout_hold_days, image_url, venue, description } = body;
+  const { organizer_wallet, name, date, is_private, payout_hold_days, image_url, venue, description, accent_hue, border_style } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -121,6 +126,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  if (accent_hue !== undefined && accent_hue !== null && (!Number.isInteger(accent_hue) || accent_hue < 0 || accent_hue > 360)) {
+    return NextResponse.json(
+      { success: false, error: "accent_hue must be an integer between 0 and 360" },
+      { status: 400 }
+    );
+  }
+
+  if (border_style !== undefined && border_style !== null && !BORDER_STYLES.includes(border_style as typeof BORDER_STYLES[number])) {
+    return NextResponse.json(
+      { success: false, error: `border_style must be one of: ${BORDER_STYLES.join(", ")}` },
+      { status: 400 }
+    );
+  }
+
   // The caller must prove ownership of organizer_wallet via their Privy auth
   // token — otherwise anyone could create events in another organizer's name.
   if (!(await requestOwnsWallet(req, organizer_wallet))) {
@@ -133,7 +152,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // 503 until the organizer's Connect account has charges_enabled).
   const { data: organizer } = await supabaseAdmin
     .from("organizers")
-    .select("status")
+    .select("status, plan")
     .eq("wallet_address", organizer_wallet)
     .eq("status", "approved")
     .maybeSingle();
@@ -143,6 +162,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { success: false, error: "Not an approved organizer" },
       { status: 403 }
     );
+  }
+
+  if (border_style && organizer.plan !== "pro") {
+    return NextResponse.json({ success: false, error: "pro_required" }, { status: 403 });
   }
 
   try {
@@ -159,6 +182,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         image_url: image_url ?? null,
         venue: venue?.trim() || null,
         description: description?.trim() || null,
+        accent_hue: accent_hue ?? null,
+        border_style: border_style ?? null,
       })
       .select("id")
       .single();

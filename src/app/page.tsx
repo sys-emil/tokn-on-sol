@@ -9,22 +9,22 @@ const PAGE_CSS = `
   /* ── Stronger aurora on the landing page ─────────────────── */
   .aurora {
     inset: -46% -12% auto -12%;
-    height: 640px;
-    filter: blur(80px) saturate(1.3);
+    height: 680px;
+    filter: blur(64px) saturate(1.45);
     opacity: 1;
   }
   .aurora::before {
-    left: 4%; top: 6%;
-    width: 640px; height: 640px;
-    background: radial-gradient(circle at 30% 30%, oklch(0.76 0.21 var(--hue)) 0%, transparent 62%);
+    left: 2%; top: 4%;
+    width: 720px; height: 720px;
+    background: radial-gradient(circle at 30% 30%, oklch(0.78 0.24 var(--hue)) 0%, transparent 66%);
     animation: auroraDriftA 16s ease-in-out infinite alternate;
   }
   .aurora::after {
-    right: 0; top: -8%;
-    width: 780px; height: 780px;
+    right: -4%; top: -10%;
+    width: 860px; height: 860px;
     background:
-      radial-gradient(circle at 70% 40%, oklch(0.76 0.19 calc(var(--hue) + 40)) 0%, transparent 58%),
-      radial-gradient(circle at 40% 80%, oklch(0.78 0.17 calc(var(--hue) - 40)) 0%, transparent 58%);
+      radial-gradient(circle at 70% 40%, oklch(0.78 0.22 calc(var(--hue) + 40)) 0%, transparent 62%),
+      radial-gradient(circle at 40% 80%, oklch(0.80 0.20 calc(var(--hue) - 40)) 0%, transparent 62%);
     animation: auroraDriftB 20s ease-in-out infinite alternate;
   }
   @keyframes auroraDriftA {
@@ -44,24 +44,24 @@ const PAGE_CSS = `
     z-index: 0;
   }
   .glow-violet {
-    width: 520px; height: 520px;
+    width: 560px; height: 560px;
     left: -160px; top: 820px;
-    background: radial-gradient(circle at 50% 50%, oklch(0.74 0.18 var(--hue)) 0%, transparent 65%);
-    opacity: 0.5;
+    background: radial-gradient(circle at 50% 50%, oklch(0.76 0.20 var(--hue)) 0%, transparent 68%);
+    opacity: 0.68;
     animation: glowFloatA 14s ease-in-out infinite alternate;
   }
   .glow-blue {
-    width: 560px; height: 560px;
+    width: 600px; height: 600px;
     right: -180px; top: 1450px;
-    background: radial-gradient(circle at 50% 50%, oklch(0.76 0.15 235) 0%, transparent 65%);
-    opacity: 0.45;
+    background: radial-gradient(circle at 50% 50%, oklch(0.78 0.17 235) 0%, transparent 68%);
+    opacity: 0.62;
     animation: glowFloatB 18s ease-in-out infinite alternate;
   }
   .glow-violet-2 {
-    width: 440px; height: 440px;
+    width: 480px; height: 480px;
     left: 8%; top: 2150px;
-    background: radial-gradient(circle at 50% 50%, oklch(0.75 0.16 calc(var(--hue) + 25)) 0%, transparent 65%);
-    opacity: 0.4;
+    background: radial-gradient(circle at 50% 50%, oklch(0.77 0.18 calc(var(--hue) + 25)) 0%, transparent 68%);
+    opacity: 0.56;
     animation: glowFloatA 20s ease-in-out infinite alternate-reverse;
   }
   @keyframes glowFloatA {

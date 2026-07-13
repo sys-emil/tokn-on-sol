@@ -25,7 +25,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await supabaseAdmin
     .from("purchases")
-    .select("asset_id, created_at, event_id, redeemed_at, events(name, date)")
+    .select("asset_id, created_at, event_id, redeemed_at, events(name, date, image_url, accent_hue, border_style), ticket_tiers(name)")
     .eq("buyer_wallet", buyerWallet)
     .order("created_at", { ascending: false });
 
@@ -59,6 +59,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const tickets = (data ?? []).map((row) => {
     const event = Array.isArray(row.events) ? row.events[0] : row.events;
+    const tier = Array.isArray(row.ticket_tiers) ? row.ticket_tiers[0] : row.ticket_tiers;
     const assetId = row.asset_id as string;
     const claimToken = claimedAssets.get(assetId);
     const baseUrl = process.env.APP_URL
@@ -71,6 +72,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       eventId: row.event_id as string,
       redeemedAt: (row.redeemed_at ?? null) as string | null,
       claimUrl: claimToken ? `${baseUrl}/claim/${claimToken}` : null,
+      imageUrl: (event?.image_url ?? null) as string | null,
+      accentHue: (event?.accent_hue ?? null) as number | null,
+      borderStyle: (event?.border_style ?? null) as string | null,
+      tierName: (tier?.name ?? null) as string | null,
     };
   });
 

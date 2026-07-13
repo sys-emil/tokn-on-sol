@@ -28,11 +28,14 @@ interface UpdateEventBody {
     description?: string | null;
     is_private?: boolean;
     payout_hold_days?: number;
+    accent_hue?: number | null;
+    border_style?: string | null;
   };
   tiers?: TierEdit[];
 }
 
 const MAX_TIERS = 5;
+const BORDER_STYLES = ["gold", "chrome", "aurora", "neon"] as const;
 
 /**
  * Organizer event management: edit core fields and ticket tiers, or cancel
@@ -123,6 +126,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "payout_hold_days must be 0–90" }, { status: 400 });
     }
     update.payout_hold_days = fields.payout_hold_days;
+  }
+  if (fields.accent_hue !== undefined) {
+    if (fields.accent_hue !== null && (!Number.isInteger(fields.accent_hue) || fields.accent_hue < 0 || fields.accent_hue > 360)) {
+      return NextResponse.json({ success: false, error: "accent_hue must be an integer between 0 and 360" }, { status: 400 });
+    }
+    update.accent_hue = fields.accent_hue;
+  }
+  if (fields.border_style !== undefined) {
+    if (fields.border_style !== null && !BORDER_STYLES.includes(fields.border_style as typeof BORDER_STYLES[number])) {
+      return NextResponse.json({ success: false, error: `border_style must be one of: ${BORDER_STYLES.join(", ")}` }, { status: 400 });
+    }
+    if (fields.border_style) {
+      const { data: organizer } = await supabaseAdmin
+        .from("organizers")
+        .select("plan")
+        .eq("wallet_address", organizer_wallet)
+        .maybeSingle();
+      if (organizer?.plan !== "pro") {
+        return NextResponse.json({ success: false, error: "pro_required" }, { status: 403 });
+      }
+    }
+    update.border_style = fields.border_style;
   }
 
   // ── Tier edits ─────────────────────────────────────────────────────────

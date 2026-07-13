@@ -12,6 +12,9 @@ export interface OrganizerEventRow {
   capacity: number;
   tickets_sold: number;
   is_private: boolean;
+  image_url: string | null;
+  accent_hue: number | null;
+  border_style: string | null;
 }
 
 export interface ActivityItem {
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, venue, price_eur, capacity, tickets_sold, is_private")
+    .select("id, name, date, venue, price_eur, capacity, tickets_sold, is_private, image_url, accent_hue, border_style")
     .eq("organizer_wallet", organizerWallet)
     .order("created_at", { ascending: false });
 

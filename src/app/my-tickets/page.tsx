@@ -82,6 +82,10 @@ interface Ticket {
   eventId: string;
   redeemedAt: string | null;
   claimUrl: string | null;
+  imageUrl: string | null;
+  accentHue: number | null;
+  borderStyle: string | null;
+  tierName: string | null;
 }
 
 interface BadgeItem {
@@ -326,12 +330,25 @@ export default function MyTickets() {
     const daysLabel = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : `in ${days} Tagen`;
     const isFresh = freshAssetIds.has(t.assetId);
     const freshIndex = isFresh ? [...freshAssetIds].indexOf(t.assetId) : 0;
+    // Priority: VIP tier > organizer border preset (Pro) > accent hue > event
+    // image — VIP always wins so its gold look stays an unambiguous signal.
+    const isVip = /\bvip\b/i.test(t.tierName ?? '');
+    const cardClasses = [
+      'event-card',
+      isFresh && 'is-fresh',
+      isVip ? 'vip' : t.borderStyle ? `border-${t.borderStyle}` : '',
+      t.imageUrl && 'has-image',
+    ].filter(Boolean).join(' ');
+    const cardStyle: Record<string, string | number> = {};
+    if (isFresh) cardStyle['--fresh-delay'] = `${freshIndex * 120}ms`;
+    if (t.accentHue != null) cardStyle['--hue'] = t.accentHue;
+    if (t.imageUrl) cardStyle.backgroundImage = `url(${t.imageUrl})`;
     return (
       <Link
         key={t.assetId}
         href={`/tickets/${t.assetId}`}
-        className={`event-card${isFresh ? ' is-fresh' : ''}`}
-        style={isFresh ? ({ '--fresh-delay': `${freshIndex * 120}ms` } as React.CSSProperties) : undefined}
+        className={cardClasses}
+        style={cardStyle as React.CSSProperties}
       >
         <div className="row gap-3">
           <div className="date-chip">
@@ -339,7 +356,10 @@ export default function MyTickets() {
             <div className="d">{dayNum(t.eventDate)}</div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="title">{t.eventName}</div>
+            <div className="title row gap-2">
+              {t.eventName}
+              {isVip && <span className="vip-tag"><span className="star">★</span>VIP</span>}
+            </div>
             <div className="meta">
               <Icon name="calendar" size={12} /> {formatDate(t.eventDate)}
             </div>

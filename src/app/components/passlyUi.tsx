@@ -7,7 +7,7 @@ type IconName =
   | 'plus' | 'calendar' | 'users' | 'ticket' | 'check' | 'doublecheck' | 'arrow'
   | 'download' | 'share' | 'x' | 'search' | 'dots' | 'qr' | 'scan' | 'clock'
   | 'euro' | 'mail' | 'location' | 'shield' | 'sparkle' | 'camera' | 'refresh'
-  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell' | 'edit';
+  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell' | 'edit' | 'lock';
 
 const ICON_PATHS: Record<IconName, React.ReactNode> = {
   plus: <><path d="M12 5v14"/><path d="M5 12h14"/></>,
@@ -38,6 +38,7 @@ const ICON_PATHS: Record<IconName, React.ReactNode> = {
   wifi: <><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 15.55a7 7 0 0 1 7 0"/><path d="M12 19.55v0"/></>,
   bell: <><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>,
   edit: <><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></>,
+  lock: <><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></>,
 };
 
 export function Icon({ name, size = 16, strokeWidth = 1.7 }: { name: IconName; size?: number; strokeWidth?: number }) {
@@ -46,6 +47,95 @@ export function Icon({ name, size = 16, strokeWidth = 1.7 }: { name: IconName; s
          stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
       {ICON_PATHS[name]}
     </svg>
+  );
+}
+
+// Curated palette — same oklch chroma/lightness formula as --accent, just a
+// fixed hue, so every choice stays inside the design system's saturation.
+const ACCENT_HUES: { hue: number | null; name: string }[] = [
+  { hue: null, name: 'Violett (Standard)' },
+  { hue: 345, name: 'Rose' },
+  { hue: 45, name: 'Amber' },
+  { hue: 150, name: 'Smaragd' },
+  { hue: 195, name: 'Türkis' },
+  { hue: 230, name: 'Blau' },
+];
+
+const BORDER_PRESETS: { value: string | null; name: string }[] = [
+  { value: null, name: 'Standard' },
+  { value: 'gold', name: 'Gold' },
+  { value: 'chrome', name: 'Chrome' },
+  { value: 'aurora', name: 'Aurora' },
+  { value: 'neon', name: 'Neon' },
+];
+
+/**
+ * Event color-scheme (free, all organizers) + card-border preset (Pro-only)
+ * pickers, shared between the create and edit event forms.
+ */
+export function EventStyleFields({
+  accentHue, onAccentHueChange, borderStyle, onBorderStyleChange, isPro, disabled,
+}: {
+  accentHue: number | null;
+  onAccentHueChange: (hue: number | null) => void;
+  borderStyle: string | null;
+  onBorderStyleChange: (style: string | null) => void;
+  isPro: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <>
+      <div className="field">
+        <label>Farbschema</label>
+        <div className="swatch-row" role="radiogroup" aria-label="Farbschema">
+          {ACCENT_HUES.map((c) => (
+            <button
+              key={c.name}
+              type="button"
+              className="swatch"
+              role="radio"
+              aria-checked={accentHue === c.hue}
+              title={c.name}
+              style={{ background: `oklch(0.58 0.20 ${c.hue ?? 285})` }}
+              onClick={() => onAccentHueChange(c.hue)}
+              disabled={disabled}
+            />
+          ))}
+        </div>
+        <span className="hint">Färbt Ticketkarten und Datumschip in der Übersicht deiner Gäste.</span>
+      </div>
+      <div className="field">
+        <label>
+          Kartenrand
+          {!isPro && <span className="chip pro" style={{ marginLeft: 8, fontSize: 10, padding: '2px 7px' }}>Pro</span>}
+        </label>
+        <div className="preset-row" role="radiogroup" aria-label="Kartenrand">
+          {BORDER_PRESETS.map((p) => {
+            const locked = !isPro && p.value !== null;
+            const checked = borderStyle === p.value;
+            return (
+              <button
+                key={p.name}
+                type="button"
+                className={`preset-chip${checked ? ' active' : ''}${locked ? ' locked' : ''}`}
+                role="radio"
+                aria-checked={checked}
+                onClick={() => { if (!locked) onBorderStyleChange(p.value); }}
+                disabled={disabled || locked}
+              >
+                {locked && <Icon name="lock" size={11} />}
+                {p.name}
+              </button>
+            );
+          })}
+        </div>
+        <span className="hint">
+          {isPro
+            ? 'Besonderer Rand-Effekt auf den Ticketkarten deiner Gäste.'
+            : 'Mit Passly Pro: besondere Rand-Effekte für deine Ticketkarten.'}
+        </span>
+      </div>
+    </>
   );
 }
 

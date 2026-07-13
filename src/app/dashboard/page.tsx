@@ -9,7 +9,7 @@ import { Celebration } from '@/app/components/Celebration';
 import { ProfileNudge } from '@/app/components/ProfileNudge';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-import { Icon, Spark } from '@/app/components/passlyUi';
+import { Icon, Spark, EventStyleFields } from '@/app/components/passlyUi';
 import { useEffect, useState } from 'react';
 
 interface EventRow {
@@ -21,6 +21,9 @@ interface EventRow {
   capacity: number;
   tickets_sold: number;
   is_private: boolean;
+  image_url: string | null;
+  accent_hue: number | null;
+  border_style: string | null;
 }
 
 interface ActivityItem {
@@ -34,6 +37,7 @@ const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'c
 const monthShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
 const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
 const shortDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
+const formatDateLong = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -47,9 +51,46 @@ function relativeTime(iso: string): string {
   return `vor ${days} Tagen`;
 }
 
-type TierDraft = { name: string; priceEur: number; capacity: number };
+// priceEur/capacity are kept as raw text while editing (not number) so the
+// user can clear a leading "0" and type a new value without it snapping back.
+type TierDraft = { name: string; priceEur: string; capacity: string };
 
 const MAX_TIERS = 5;
+
+const PAGE_CSS = `
+  /* ── Stronger aurora behind the dashboard hero ───────────── */
+  .aurora {
+    inset: -40% -14% auto -14%;
+    height: 560px;
+    filter: blur(60px) saturate(1.4);
+    opacity: 0.9;
+  }
+  .aurora::before {
+    left: 4%; top: 6%;
+    width: 560px; height: 560px;
+    background: radial-gradient(circle at 30% 30%, oklch(0.78 0.22 var(--hue)) 0%, transparent 64%);
+    animation: dashAuroraA 18s ease-in-out infinite alternate;
+  }
+  .aurora::after {
+    right: 2%; top: -6%;
+    width: 660px; height: 660px;
+    background:
+      radial-gradient(circle at 70% 40%, oklch(0.78 0.20 calc(var(--hue) + 40)) 0%, transparent 60%),
+      radial-gradient(circle at 40% 80%, oklch(0.80 0.18 calc(var(--hue) - 40)) 0%, transparent 60%);
+    animation: dashAuroraB 22s ease-in-out infinite alternate;
+  }
+  @keyframes dashAuroraA {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(30px, 18px, 0); }
+  }
+  @keyframes dashAuroraB {
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(-34px, 14px, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aurora::before, .aurora::after { animation: none; }
+  }
+`;
 
 function isUpcoming(iso: string): boolean {
   const today = new Date();
@@ -68,10 +109,12 @@ export default function Dashboard() {
   const [eventDate, setEventDate] = useState('');
   const [venue, setVenue] = useState('');
   const [description, setDescription] = useState('');
-  const [tiers, setTiers] = useState<TierDraft[]>([{ name: 'Standard', priceEur: 0, capacity: 100 }]);
+  const [tiers, setTiers] = useState<TierDraft[]>([{ name: 'Standard', priceEur: '0', capacity: '100' }]);
   const [isPrivate, setIsPrivate] = useState(false);
-  const [payoutHoldDays, setPayoutHoldDays] = useState(0);
+  const [payoutHoldDays, setPayoutHoldDays] = useState('0');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [accentHue, setAccentHue] = useState<number | null>(null);
+  const [borderStyle, setBorderStyle] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [shopLink, setShopLink] = useState<string | null>(null);
@@ -217,10 +260,12 @@ export default function Dashboard() {
     setEventDate('');
     setVenue('');
     setDescription('');
-    setTiers([{ name: 'Standard', priceEur: 0, capacity: 100 }]);
+    setTiers([{ name: 'Standard', priceEur: '0', capacity: '100' }]);
     setIsPrivate(false);
-    setPayoutHoldDays(0);
+    setPayoutHoldDays('0');
     setImageFile(null);
+    setAccentHue(null);
+    setBorderStyle(null);
     setFormError(null);
     setShopLink(null);
     setCopied(false);
@@ -305,7 +350,12 @@ export default function Dashboard() {
       setFormError('Name und Datum sind Pflichtfelder.');
       return;
     }
-    for (const t of tiers) {
+    const parsedTiers = tiers.map((t) => ({
+      name: t.name,
+      priceEur: Number(t.priceEur) || 0,
+      capacity: Math.floor(Number(t.capacity)) || 0,
+    }));
+    for (const t of parsedTiers) {
       if (!t.name.trim()) {
         setFormError('Jede Ticketkategorie braucht einen Namen.');
         return;
@@ -319,17 +369,18 @@ export default function Dashboard() {
         return;
       }
     }
-    const tierNames = new Set(tiers.map((t) => t.name.trim().toLowerCase()));
-    if (tierNames.size !== tiers.length) {
+    const tierNames = new Set(parsedTiers.map((t) => t.name.trim().toLowerCase()));
+    if (tierNames.size !== parsedTiers.length) {
       setFormError('Die Namen der Ticketkategorien müssen eindeutig sein.');
       return;
     }
-    const totalCapacity = tiers.reduce((sum, t) => sum + t.capacity, 0);
+    const totalCapacity = parsedTiers.reduce((sum, t) => sum + t.capacity, 0);
     if (totalCapacity > 10000) {
       setFormError('Insgesamt sind höchstens 10.000 Tickets möglich.');
       return;
     }
-    if (!Number.isInteger(payoutHoldDays) || payoutHoldDays < 0 || payoutHoldDays > 90) {
+    const parsedHoldDays = Math.floor(Number(payoutHoldDays)) || 0;
+    if (!Number.isInteger(parsedHoldDays) || parsedHoldDays < 0 || parsedHoldDays > 90) {
       setFormError('Der Auszahlungs-Puffer muss zwischen 0 und 90 Tagen liegen.');
       return;
     }
@@ -382,13 +433,15 @@ export default function Dashboard() {
           organizer_wallet: ownerWallet,
           name: trimmedName,
           date: eventDate,
-          tiers: tiers.map((t) => ({
+          tiers: parsedTiers.map((t) => ({
             name: t.name.trim(),
             price_eur: Math.round(t.priceEur * 100),
             capacity: t.capacity,
           })),
           is_private: isPrivate,
-          payout_hold_days: payoutHoldDays,
+          payout_hold_days: parsedHoldDays,
+          accent_hue: accentHue,
+          border_style: borderStyle,
           ...(venue.trim() ? { venue: venue.trim() } : {}),
           ...(description.trim() ? { description: description.trim() } : {}),
           ...(imageUrl ? { image_url: imageUrl } : {}),
@@ -411,10 +464,13 @@ export default function Dashboard() {
           name: trimmedName,
           date: eventDate,
           venue: venue.trim() || null,
-          price_eur: Math.round(Math.min(...tiers.map((t) => t.priceEur)) * 100),
-          capacity: tiers.reduce((sum, t) => sum + t.capacity, 0),
+          price_eur: Math.round(Math.min(...parsedTiers.map((t) => t.priceEur)) * 100),
+          capacity: parsedTiers.reduce((sum, t) => sum + t.capacity, 0),
           tickets_sold: 0,
           is_private: isPrivate,
+          image_url: imageUrl ?? null,
+          accent_hue: accentHue,
+          border_style: borderStyle,
         },
         ...prev,
       ]);
@@ -426,11 +482,12 @@ export default function Dashboard() {
   }
 
   const canSave = !!eventName.trim() && !!eventDate
-    && tiers.length > 0 && tiers.every((t) => t.name.trim() && t.capacity > 0)
+    && tiers.length > 0 && tiers.every((t) => t.name.trim() && (Number(t.capacity) || 0) > 0)
     && !creating && !shopLink;
 
   return (
     <>
+      <style>{PAGE_CSS}</style>
       <div className="app">
 
         <div className="topbar">
@@ -439,7 +496,9 @@ export default function Dashboard() {
             <div className="nav">
               <Link href="/dashboard" className="active">Übersicht</Link>
               <Link href="/dashboard/payouts">Auszahlungen</Link>
-              <Link href="/dashboard/analytics">Pro</Link>
+              <Link href="/dashboard/analytics" className={plan === 'pro' ? 'nav-pro' : undefined}>
+                {plan === 'pro' && <Icon name="sparkle" size={12} strokeWidth={2} />} Pro
+              </Link>
               <Link href="/events">Events</Link>
               <Link href="/my-tickets">Meine Tickets</Link>
             </div>
@@ -468,7 +527,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="kpis">
+                <div className={`kpis${plan === 'pro' ? ' pro-active' : ''}`}>
                   <div className="kpi">
                     <div className="label">Verkaufte Tickets</div>
                     <div className="value">{ticketsIssued.toLocaleString('de-DE')}</div>
@@ -532,8 +591,8 @@ export default function Dashboard() {
                 )}
 
                 <section>
-                  <div className={`card${plan === 'free' ? ' pro-outline' : ''}`} style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: plan === 'free' ? 'linear-gradient(135deg, var(--accent), oklch(0.62 0.19 calc(var(--hue) + 45)))' : 'var(--accent-wash)', border: plan === 'free' ? 'none' : '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', color: plan === 'free' ? 'white' : 'var(--accent)', flexShrink: 0, boxShadow: plan === 'free' ? '0 2px 10px oklch(0.50 0.20 var(--hue) / 0.40)' : undefined }}>
+                  <div className={`card${plan === 'free' ? ' pro-outline' : ' pro-active'}`} style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'linear-gradient(135deg, var(--accent), oklch(0.62 0.19 calc(var(--hue) + 45)))', border: 'none', display: 'grid', placeItems: 'center', color: 'white', flexShrink: 0, boxShadow: '0 2px 10px oklch(0.50 0.20 var(--hue) / 0.40)' }}>
                       <Icon name="sparkle" size={16} />
                     </div>
                     <div style={{ flex: 1, minWidth: 240 }}>
@@ -584,8 +643,16 @@ export default function Dashboard() {
                       {events.map((e) => {
                         const pct = e.capacity > 0 ? Math.round((e.tickets_sold / e.capacity) * 100) : 0;
                         const upcoming = isUpcoming(e.date);
+                        const cardClasses = [
+                          'event-card',
+                          e.border_style ? `border-${e.border_style}` : '',
+                          e.image_url && 'has-image',
+                        ].filter(Boolean).join(' ');
+                        const cardStyle: Record<string, string | number> = {};
+                        if (e.accent_hue != null) cardStyle['--hue'] = e.accent_hue;
+                        if (e.image_url) cardStyle.backgroundImage = `url(${e.image_url})`;
                         return (
-                          <Link key={e.id} href={`/dashboard/events/${e.id}`} className="event-card">
+                          <Link key={e.id} href={`/dashboard/events/${e.id}`} className={cardClasses} style={cardStyle as React.CSSProperties}>
                             <div className="row gap-3">
                               <div className="date-chip">
                                 <div className="m">{monthShort(e.date)}</div>
@@ -731,7 +798,15 @@ export default function Dashboard() {
                     </div>
                     <div className="field">
                       <label>Datum</label>
-                      <input type="date" className="input" value={eventDate} onChange={(e) => setEventDate(e.target.value)} disabled={creating} />
+                      <div className="date-field">
+                        <span className="date-field-icon"><Icon name="calendar" size={15} /></span>
+                        <input type="date" className="input" value={eventDate} onChange={(e) => setEventDate(e.target.value)} disabled={creating} />
+                      </div>
+                      {eventDate && (
+                        <span className="date-preview">
+                          <Icon name="calendar" size={12} /> {formatDateLong(eventDate)}
+                        </span>
+                      )}
                     </div>
                     <div className="field">
                       <label>Veranstaltungsort</label>
@@ -762,13 +837,13 @@ export default function Dashboard() {
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <span className="hint">Preis pro Ticket (€)</span>
                                 <input type="number" className="input" value={t.priceEur} min={0} step={0.5}
-                                  onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, priceEur: Number(e.target.value) } : x))}
+                                  onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, priceEur: e.target.value } : x))}
                                   disabled={creating} />
                               </div>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 <span className="hint">Anzahl Tickets</span>
                                 <input type="number" className="input" value={t.capacity} min={1} max={10000}
-                                  onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, capacity: Math.floor(Number(e.target.value)) } : x))}
+                                  onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, capacity: e.target.value } : x))}
                                   disabled={creating} />
                               </div>
                             </div>
@@ -776,7 +851,7 @@ export default function Dashboard() {
                         ))}
                         {tiers.length < MAX_TIERS && (
                           <button type="button" className="btn ghost sm" style={{ alignSelf: 'flex-start' }}
-                            onClick={() => setTiers((prev) => [...prev, { name: '', priceEur: 0, capacity: 50 }])}
+                            onClick={() => setTiers((prev) => [...prev, { name: '', priceEur: '0', capacity: '50' }])}
                             disabled={creating}>
                             + Kategorie hinzufügen
                           </button>
@@ -795,6 +870,14 @@ export default function Dashboard() {
                         onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} disabled={creating} />
                       <span className="hint">JPEG, PNG oder WebP, max. 4 MB. Erscheint auf der Ticketseite.</span>
                     </div>
+                    <EventStyleFields
+                      accentHue={accentHue}
+                      onAccentHueChange={setAccentHue}
+                      borderStyle={borderStyle}
+                      onBorderStyleChange={setBorderStyle}
+                      isPro={plan === 'pro'}
+                      disabled={creating}
+                    />
                     <div className="field">
                       <label>Sichtbarkeit</label>
                       <div className="seg">
@@ -805,11 +888,11 @@ export default function Dashboard() {
                         {isPrivate ? 'Nur über den direkten Link erreichbar.' : 'Erscheint in der öffentlichen Event-Liste.'}
                       </span>
                     </div>
-                    {tiers.some((t) => t.priceEur > 0) && (
+                    {tiers.some((t) => (Number(t.priceEur) || 0) > 0) && (
                       <div className="field">
                         <label>Auszahlungs-Puffer (Tage nach dem Event)</label>
                         <input type="number" className="input" value={payoutHoldDays} min={0} max={90} step={1}
-                          onChange={(e) => setPayoutHoldDays(Math.floor(Number(e.target.value)))} disabled={creating} />
+                          onChange={(e) => setPayoutHoldDays(e.target.value)} disabled={creating} />
                         <span className="hint">
                           0 = tägliche automatische Auszahlung. Ein Puffer hält Einnahmen als Rückbuchungsschutz, bis N Tage nach dem Event vergangen sind.
                         </span>
