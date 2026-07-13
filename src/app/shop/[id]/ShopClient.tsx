@@ -258,6 +258,58 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
           font-size: 14px; font-weight: 600; white-space: nowrap;
           font-variant-numeric: tabular-nums;
         }
+
+        /* ── VIP tier: gold treatment (matches the VIP ticket page) ──── */
+        .tier-option.vip {
+          position: relative; overflow: hidden;
+          background: linear-gradient(150deg, oklch(0.99 0.015 95), oklch(0.955 0.05 92));
+          border-color: oklch(0.80 0.10 92);
+        }
+        .tier-option.vip:not(:disabled):hover {
+          border-color: oklch(0.72 0.12 90);
+          box-shadow: 0 4px 14px oklch(0.55 0.10 90 / 0.22), var(--shadow-sm);
+        }
+        .tier-option.vip[aria-checked="true"] {
+          border-color: oklch(0.70 0.12 89);
+          box-shadow:
+            0 0 0 1px oklch(0.70 0.12 89),
+            0 6px 18px oklch(0.55 0.10 90 / 0.28),
+            var(--shadow-sm);
+        }
+        .tier-option.vip::after {
+          content: "";
+          position: absolute; inset: 0;
+          background: linear-gradient(115deg, transparent 35%, oklch(0.99 0.04 95 / 0.85) 50%, transparent 65%);
+          transform: translateX(-100%);
+          animation: tierVipShine 3.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+        @keyframes tierVipShine {
+          0% { transform: translateX(-100%); }
+          40%, 100% { transform: translateX(100%); }
+        }
+        .tier-option.vip .t-name { color: oklch(0.42 0.09 85); }
+        .tier-option.vip .t-left { color: oklch(0.52 0.08 85); }
+        .tier-option.vip .t-price { color: oklch(0.40 0.09 85); }
+        .tier-vip-chip {
+          display: inline-grid; place-items: center;
+          width: 17px; height: 17px; margin-left: 8px; border-radius: 999px;
+          background: linear-gradient(110deg, oklch(0.72 0.12 90), oklch(0.85 0.11 94));
+          border: 1px solid oklch(0.68 0.11 88);
+          color: oklch(0.26 0.06 85);
+          vertical-align: -2px;
+        }
+        .tier-vip-chip .star {
+          font-size: 9px; line-height: 1;
+          animation: tierVipStar 2.6s ease-in-out infinite;
+        }
+        @keyframes tierVipStar {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.35) rotate(18deg); opacity: 0.75; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .tier-option.vip::after, .tier-vip-chip .star { animation: none; }
+        }
         .qty-row {
           display: flex; align-items: center; justify-content: space-between;
           gap: 12px; margin-bottom: 14px;
@@ -384,18 +436,25 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
 
       {!soldOut && tiers.length > 1 && (
         <div className="tier-list" role="radiogroup" aria-label="Ticketkategorie">
-          {tiers.map((t) => (
+          {tiers.map((t) => {
+            const isVipTier = /\bvip\b/i.test(t.name);
+            return (
             <button
               key={t.id}
               type="button"
               role="radio"
               aria-checked={t.id === tier?.id}
-              className="tier-option"
+              className={`tier-option${isVipTier ? ' vip' : ''}`}
               disabled={t.available <= 0 || loading}
               onClick={() => selectTier(t.id)}
             >
               <span>
                 <span className="t-name">{t.name}</span>
+                {isVipTier && (
+                  <span className="tier-vip-chip" aria-hidden="true">
+                    <span className="star">★</span>
+                  </span>
+                )}
                 <span className="t-left" style={{ display: 'block' }}>
                   {t.available <= 0
                     ? 'Ausverkauft'
@@ -406,7 +465,8 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
               </span>
               <span className="t-price">{t.priceEur === 0 ? 'Kostenlos' : formatPrice(t.priceEur)}</span>
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -137,15 +137,29 @@ export async function generateMetadata({
   ]);
 
   if (profile?.is_private) {
-    return { title: 'Privates Profil · Passly', description: 'Diese Sammlung ist privat.' };
+    const description =
+      'Diese Sammlung auf Passly ist privat. Die Person hat ihre besuchten Events und Abzeichen nicht öffentlich geteilt — entdecke stattdessen Events auf getpassly.de.';
+    return {
+      title: 'Privates Profil — Eventsammlung auf Passly ansehen',
+      description,
+      openGraph: { title: 'Privates Profil auf Passly', description: 'Diese Sammlung ist privat — die besuchten Events und Abzeichen sind nicht öffentlich sichtbar.', siteName: 'Passly' },
+    };
   }
 
   const name = (profile?.display_name as string | null)?.trim() || 'Konzertgänger:in';
-  const description = `${attended ?? 0} Event${(attended ?? 0) === 1 ? '' : 's'} besucht — die Sammlung auf Passly.`;
+  const count = attended ?? 0;
+  const attendedText = `${count} Event${count === 1 ? '' : 's'}`;
+  // SERP snippet: 120–160 chars. OG description: 80–125 chars (Discord/social cards).
+  const description = `${name} hat ${attendedText} auf Passly besucht. Schau dir die gesammelten Erinnerungen und Abzeichen an — und entdecke selbst Events in deiner Nähe.`;
+  const ogDescription = `${attendedText} besucht — die ganze Sammlung mit allen verdienten Abzeichen jetzt auf Passly ansehen.`;
   return {
-    title: `${name} · Passly`,
+    title: `${name} — Eventsammlung & Abzeichen auf Passly`,
     description,
-    openGraph: { title: `${name} auf Passly`, description },
+    openGraph: {
+      title: `${name} auf Passly`,
+      description: ogDescription,
+      siteName: 'Passly',
+    },
     twitter: { card: 'summary_large_image' },
   };
 }

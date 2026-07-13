@@ -28,21 +28,17 @@ interface PurchaseInfo {
   eventName: string | null;
   eventDate: string | null;
   venue: string | null;
-  priceEur: number | null;
   tierName: string | null;
 }
 
 async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
   const { data } = await supabaseAdmin
     .from('purchases')
-    .select('redeemed_at, revoked_at, events(name, date, venue, price_eur), ticket_tiers(name, price_eur)')
+    .select('redeemed_at, revoked_at, events(name, date, venue), ticket_tiers(name)')
     .eq('asset_id', assetId)
     .maybeSingle();
   if (!data) return null;
   const ev = Array.isArray(data.events) ? data.events[0] : data.events;
-  // The tier is the price authority — the event-level price_eur is only the
-  // "ab" aggregate (min of all tiers) and wrong for anything above the
-  // cheapest category. Legacy purchases without tier_id fall back to it.
   const tier = Array.isArray(data.ticket_tiers) ? data.ticket_tiers[0] : data.ticket_tiers;
   return {
     redeemedAt: (data.redeemed_at as string | null) ?? null,
@@ -50,13 +46,11 @@ async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
     eventName: (ev?.name as string | undefined) ?? null,
     eventDate: (ev?.date as string | undefined) ?? null,
     venue: (ev?.venue as string | undefined) ?? null,
-    priceEur: (tier?.price_eur as number | undefined) ?? (ev?.price_eur as number | undefined) ?? null,
     tierName: (tier?.name as string | undefined) ?? null,
   };
 }
 
 const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
-const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 
 const PAGE_CSS = `
   .ticket-canvas {
@@ -232,11 +226,6 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
             {date && (
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <span className="muted">Datum</span><span style={{ fontWeight: 500 }}>{formatDate(date)}</span>
-              </div>
-            )}
-            {purchase?.priceEur != null && (
-              <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Preis</span><span style={{ fontWeight: 500 }}>{purchase.priceEur === 0 ? 'Kostenlos' : eur(purchase.priceEur)}</span>
               </div>
             )}
             <div className="row" style={{ justifyContent: 'space-between' }}>

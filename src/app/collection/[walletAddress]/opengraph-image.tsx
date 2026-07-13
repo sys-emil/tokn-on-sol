@@ -134,19 +134,34 @@ export default async function Image({
               <div
                 key={i}
                 style={{
-                  width: 84,
-                  height: 84,
-                  borderRadius: 22,
-                  background: '#ffffff',
-                  border: '2px solid #e4e4ec',
-                  fontSize: 40,
-                  color: '#7c3aed',
+                  width: 92,
+                  height: 92,
+                  borderRadius: 26,
+                  background: `linear-gradient(140deg, hsl(${b.hue} 90% 97%), hsl(${b.hue} 65% 88%))`,
+                  border: `2px solid hsl(${b.hue} 50% 76%)`,
+                  boxShadow: `0 10px 24px hsl(${b.hue} 55% 55% / 0.30)`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                {b.symbol}
+                <div
+                  style={{
+                    width: 58,
+                    height: 58,
+                    borderRadius: 999,
+                    background: `linear-gradient(135deg, hsl(${b.hue} 70% 62%), hsl(${b.hue} 75% 44%))`,
+                    boxShadow: `0 3px 8px hsl(${b.hue} 60% 40% / 0.40)`,
+                    color: '#ffffff',
+                    fontSize: 30,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {b.symbol}
+                </div>
               </div>
             ))}
           </div>
