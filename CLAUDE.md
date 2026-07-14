@@ -36,7 +36,7 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
    - Verify route steps: (0) organizer auth for `eventId`, (1) replay protection — accept current or previous minute, (2) reconstruct challenge, (3) verify Ed25519 signature via `crypto.subtle`, (4) on-chain ownership check via Helius DAS, (5) atomic redemption — sets `redeemed_at` only if currently NULL, scoped to `event_id = eventId`.
    - **Backup tickets** (offline fallback for venues without connectivity): static token `{ a, w, s, b: 1 }` with challenge `` `passly:backup:${assetId}` `` — no time window by design; once-only redemption + printed personalization (name/birth date on the PDF, ID check at the door) carry the security. Issued via `POST /api/tickets/backup` (auth = the signatures themselves; personalization is printed/mailed, never stored) → PDF (`src/lib/backupTicket.ts`, pdf-lib) as download + mail attachment. UI: `BackupTicketModal` on the checkout success page. Verify route and doorman offline verifier both accept `b: 1`; the doorman shows "Backup-Ticket — Ausweis abgleichen" on such scans.
    - `NEXTAUTH_SECRET` is present in env but **not used** for QR verification (legacy name, do not remove — may be referenced elsewhere).
-3. **Organizer gate** – New organizers apply at `/become-organizer`. The POST handler at `/api/organizers/apply` verifies the Privy auth token server-side (`@privy-io/server-auth`), checks that the user has a verified email address on their Privy account, then inserts into the `organizers` table at `status: 'approved'`. `/dashboard` requires approved organizer status.
+3. **Organizer gate** – New organizers apply at `/become-organizer`. The POST handler at `/api/organizers/apply` verifies the Privy auth token server-side (`@privy-io/server-auth`), checks that the user has a verified email address on their Privy account, then inserts into the `organizers` table at `status: 'pending'` (+ admin alert e-mail). **Approval is manual** (fraud gate — since 2026-07-14): the admin reviews at `/admin/organizers` (`ADMIN_SECRET`-gated, API `/api/admin/organizers`), approve/reject sends the applicant a decision e-mail (`sendOrganizerApplicationDecision`). `/become-organizer` renders pending/rejected states; `/dashboard` and all organizer APIs require `status: 'approved'`.
 4. **Organizer dashboard** – `/dashboard` lets approved organizers create events (saved to Supabase) and view sales. `/api/events/create` requires a Privy Bearer token proving ownership of `organizer_wallet` (`requestOwnsWallet` in `src/lib/privyServer.ts` — use this helper for any new writing organizer route). Events can be marked **private** at creation — private events are excluded from the public listing but remain purchasable via direct link.
 
 ### Routing
@@ -51,10 +51,12 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 | `/tickets/[assetId]` | Individual ticket + QR code |
 | `/doorman/[eventId]` | Camera scanner for venue staff |
 | `/dashboard/events/[id]` | Organizer event detail (tickets, redemption, quick actions) |
+| `/admin/organizers` | Admin review of organizer applications (`ADMIN_SECRET`) |
+| `/admin/payouts` | Admin payout resolution (`ADMIN_SECRET`) |
 
 ### Authentication & wallets (Privy)
 
-Root layout wraps everything in `PrivyProvider`. Login method is **email only** (`loginMethods: ['email']`). Email login auto-creates a Solana embedded wallet per user. All auth-gated pages check `usePrivy().authenticated` client-side. Server-side token verification uses `PrivyClient` from `@privy-io/server-auth` (requires `PRIVY_APP_SECRET`).
+The root layout is a **server component** (global `metadata`/OG tags); `PrivyProvider` + consent banner live in the client component `src/app/components/Providers.tsx`, which wraps everything. Login method is **email only** (`loginMethods: ['email']`). Email login auto-creates a Solana embedded wallet per user. All auth-gated pages check `usePrivy().authenticated` client-side. Server-side token verification uses `PrivyClient` from `@privy-io/server-auth` (requires `PRIVY_APP_SECRET`).
 
 ### Blockchain
 
@@ -80,7 +82,7 @@ Tables:
 - `ticket_reservations`: one row per checkout session — `stripe_session_id (PK), event_id, tier_id, quantity, status (reserved|finalized|released|refunded), expires_at`. State transitions happen only inside the SQL functions above.
 - `mint_jobs`: async mint queue — `stripe_session_id (unique), event_id, tier_id, buyer_wallet, buyer_email, quantity, status (queued|processing|done|failed), attempts, last_error, refund_id`. Claimed via `claim_mint_jobs(limit, max_attempts)` (FOR UPDATE SKIP LOCKED). `refund_id` is the once-only gate for the auto-refund on permanent failure. Worker: `src/lib/mintJobs.ts`.
 - `purchases`: `event_id, tier_id, buyer_wallet, asset_id, stripe_session_id, redeemed_at, revoked_at` — `revoked_at` is set when the charge is fully refunded; the doorman verify route rejects revoked tickets.
-- `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (approved), stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, plan (free|pro), stripe_customer_id, stripe_subscription_id, plan_period_end, plan_cancel_at_period_end, created_at`
+- `organizers`: `id, wallet_address, email, name, type (private|business), business_name, status (pending|approved|rejected), stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, plan (free|pro), stripe_customer_id, stripe_subscription_id, plan_period_end, plan_cancel_at_period_end, created_at`
 - `badges`: buyer achievements — `id, wallet_address, badge_type, asset_id, earned_at, event_id, organizer_wallet` (partial unique indexes dedupe awards; see Badges section)
 - `organizer_messages` / `loyalty_programs` / `loyalty_claims` / `analytics_events`: see Dashboard Pro & analytics sections
 - `profiles`: buyer/organizer account profile — `wallet_address (PK), display_name, bio, is_private`. Edited on `/account` (GET/PUT `/api/profile`, auth `requestOwnsWallet`); read server-side by the public profile `/collection/[walletAddress]` (`is_private` hides the page, `display_name` replaces the wallet ID). `ProfileNudge` (mounted on `/my-tickets` + `/dashboard`) prompts accounts without a display name once per device; `AccountMenu` is the avatar dropdown in all signed-in topbars.
@@ -147,7 +149,8 @@ Tables:
 - **Language**: all user-facing copy is **German** (getpassly.de), du-Form. No crypto/web3/Solana wording anywhere in the UI — framing is "fälschungssicher"; say "Konto"/"Ticket" instead of wallet/NFT.
 - **Styling**: page-specific styles go in inline `<style>{`...`}</style>` blocks referencing the global tokens/classes. Don't introduce Tailwind utility classes on new pages.
 - **Fonts**: Geist + Geist Mono loaded once in the root layout (`--font-geist`, `--font-geist-mono`, referenced as `--font`/`--mono`). No other fonts.
-- **Client vs server**: Most pages are `'use client'` because of Privy hooks. Server components are limited to `/`, `/events`, `/shop/[id]/page.tsx`, `/tickets/[assetId]/page.tsx`, `/collection/[walletAddress]` (data fetching) and all `/api/*` routes.
+- **Client vs server**: Most pages are `'use client'` because of Privy hooks. Server components are limited to the root layout, `/`, `/events`, `/shop/[id]/page.tsx`, `/tickets/[assetId]/page.tsx`, `/collection/[walletAddress]` (data fetching) and all `/api/*` routes.
+- **SEO**: `src/app/sitemap.ts` (public events, `force-dynamic` — never let it go static or the event list freezes at build) + `src/app/robots.ts` (app/admin surfaces disallowed; keep sitemap and robots consistent — an auth-gated route must not appear in the sitemap). `/shop/[id]` builds per-event OG tags in `generateMetadata`. Route handlers without request APIs (e.g. `/api/organizer/billing/price`) need `export const dynamic = 'force-dynamic'` or Next prerenders them at build time.
 - **Stack versions**: Next.js 16 App Router, React 19, Tailwind 4 (PostCSS only, no config file). Don't suggest patterns that assume older versions.
 
 ### Path alias
@@ -167,7 +170,7 @@ STRIPE_CONNECT_WEBHOOK_SECRET  # Signing secret of the second (Connect) webhook 
 STRIPE_PRO_PRICE_ID    # Monthly recurring Price for the Dashboard-Pro subscription; billing checkout returns 503 when unset
 CRON_SECRET            # Auth for /api/cron/payouts + /api/cron/mint (Vercel Cron sends it as Bearer token)
 ADMIN_ALERT_EMAIL      # Recipient for operational alerts (permanently failed mint jobs); alerts are skipped when unset
-ADMIN_SECRET           # Auth for /admin/payouts + /api/admin/payouts (x-admin-secret header)
+ADMIN_SECRET           # Auth for /admin/payouts + /admin/organizers and their /api/admin/* routes (x-admin-secret header)
 NEXT_PUBLIC_SUPPORT_EMAIL  # Shown on /hilfe; defaults to support@getpassly.de when unset
 NEXTAUTH_SECRET        # Legacy name — no longer used for QR signing; do not remove
 VERCEL_URL             # Auto-set by Vercel; fallback for building absolute URLs
