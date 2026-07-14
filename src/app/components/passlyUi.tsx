@@ -41,9 +41,12 @@ const ICON_PATHS: Record<IconName, React.ReactNode> = {
   lock: <><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></>,
 };
 
+// Purely decorative by default — every use sits next to a text label or
+// inside a button that itself needs the accessible name (aria-label on the
+// button), so the glyph stays out of the accessibility tree.
 export function Icon({ name, size = 16, strokeWidth = 1.7 }: { name: IconName; size?: number; strokeWidth?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"
          stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
       {ICON_PATHS[name]}
     </svg>

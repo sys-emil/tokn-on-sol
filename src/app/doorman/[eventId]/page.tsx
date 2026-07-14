@@ -625,7 +625,7 @@ export default function DoormanPage() {
             </div>
           </div>
 
-          <div className="scanner-wrap">
+          <div className="scanner-wrap" role="status" aria-live="assertive">
             <video ref={videoRef} className="scanner-video" muted playsInline />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
 
@@ -698,7 +698,7 @@ export default function DoormanPage() {
             )}
           </div>
 
-          <div className="door-foot">
+          <div className="door-foot" aria-live="polite">
             {phase.tag === 'scanning' && 'QR-Code in den Rahmen halten'}
             {phase.tag === 'verifying' && 'Wird geprüft …'}
             {isResult && 'Scanner startet gleich wieder …'}

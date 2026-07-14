@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
 import type { Event, TicketTier } from '@/lib/supabase';
@@ -6,6 +7,35 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import ShopClient from './ShopClient';
 import type { TierView } from './ShopClient';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const event = await getEvent(id);
+  if (!event) return { title: 'Event nicht gefunden — Passly' };
+
+  const dateLabel = formatDate(event.date);
+  const title = `${event.name} — ${dateLabel} — Passly`;
+  const description = event.venue
+    ? `${dateLabel} · ${event.venue}. Tickets sicher und fälschungssicher kaufen — Einlass per Handy.`
+    : `${dateLabel}. Tickets sicher und fälschungssicher kaufen — Einlass per Handy.`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title: event.name,
+      description,
+      type: 'website',
+      ...(event.image_url ? { images: [event.image_url] } : {}),
+    },
+    twitter: {
+      card: event.image_url ? 'summary_large_image' : 'summary',
+      title: event.name,
+      description,
+      ...(event.image_url ? { images: [event.image_url] } : {}),
+    },
+  };
+}
 
 async function getEvent(id: string): Promise<Event | null> {
   const { data, error } = await supabaseAdmin

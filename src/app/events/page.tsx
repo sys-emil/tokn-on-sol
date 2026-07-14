@@ -1,9 +1,16 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'Events entdecken — Passly',
+  description: 'Finde Events in deiner Nähe und sichere dir fälschungssichere Tickets — Einlass per Handy, kein Ausdrucken nötig.',
+  openGraph: { title: 'Events entdecken — Passly', description: 'Finde Events in deiner Nähe und sichere dir fälschungssichere Tickets.' },
+};
 
 interface EventRow {
   id: string;

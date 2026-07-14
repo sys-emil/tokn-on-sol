@@ -10,7 +10,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 
 type OrgType = 'private' | 'business';
-type PageState = 'loading' | 'form';
+type PageState = 'loading' | 'form' | 'pending' | 'rejected';
 
 const PAGE_CSS = `
   .narrow { max-width: 620px; margin: 0 auto; }
@@ -74,6 +74,10 @@ export default function BecomeOrganizer() {
       const data = (await res.json()) as { status: string };
       if (data.status === 'approved') {
         router.push('/dashboard');
+      } else if (data.status === 'pending') {
+        setPageState('pending');
+      } else if (data.status === 'rejected') {
+        setPageState('rejected');
       } else {
         setPageState('form');
       }
@@ -120,7 +124,7 @@ export default function BecomeOrganizer() {
         }
         return;
       }
-      router.push('/dashboard');
+      setPageState('pending');
     } catch {
       setFormError('Netzwerkfehler. Bitte versuch es erneut.');
     } finally {
@@ -158,10 +162,34 @@ export default function BecomeOrganizer() {
                 <h1 style={{ fontSize: 32 }}>Eigene Events veranstalten</h1>
                 {pageState === 'form' && (
                   <p className="lead" style={{ fontSize: 14.5 }}>
-                    Erzähl uns kurz, wer du bist — danach kannst du sofort dein erstes Event anlegen.
+                    Erzähl uns kurz, wer du bist — wir prüfen jede Bewerbung von Hand und melden uns
+                    in der Regel innerhalb eines Werktags.
                   </p>
                 )}
               </div>
+
+              {pageState === 'pending' && (
+                <div className="card" style={{ padding: '24px 24px 22px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>Deine Bewerbung wird geprüft</div>
+                  <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.6 }}>
+                    Wir melden uns per E-Mail, sobald dein Account freigegeben ist — in der Regel
+                    innerhalb eines Werktags. Danach kannst du direkt dein erstes Event anlegen.
+                  </p>
+                </div>
+              )}
+
+              {pageState === 'rejected' && (
+                <div className="card" style={{ padding: '24px 24px 22px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>Bewerbung nicht freigegeben</div>
+                  <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.6 }}>
+                    Wir konnten deine Bewerbung als Veranstalter aktuell nicht freigeben. Details dazu
+                    haben wir dir per E-Mail geschickt — bei Fragen erreichst du uns unter{' '}
+                    <a href={`mailto:${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@getpassly.de'}`} style={{ color: 'var(--accent-ink)' }}>
+                      {process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@getpassly.de'}
+                    </a>.
+                  </p>
+                </div>
+              )}
 
               {pageState === 'form' && (
                 <div className="card" style={{ padding: '24px 24px 22px' }}>

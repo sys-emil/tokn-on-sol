@@ -691,11 +691,11 @@ export default function EventDetailPage() {
                           <span>{pageRows.length} von {filtered.length} Tickets</span>
                           {pageCount > 1 && (
                             <div className="row gap-2">
-                              <button className="btn ghost sm" disabled={pageClamped === 0} onClick={() => setPage(pageClamped - 1)}>
+                              <button className="btn ghost sm" aria-label="Vorherige Seite" disabled={pageClamped === 0} onClick={() => setPage(pageClamped - 1)}>
                                 <Icon name="chevronLeft" size={12} />
                               </button>
                               <span>{pageClamped + 1} / {pageCount}</span>
-                              <button className="btn ghost sm" disabled={pageClamped >= pageCount - 1} onClick={() => setPage(pageClamped + 1)}>
+                              <button className="btn ghost sm" aria-label="Nächste Seite" disabled={pageClamped >= pageCount - 1} onClick={() => setPage(pageClamped + 1)}>
                                 <Icon name="chevronRight" size={12} />
                               </button>
                             </div>
@@ -965,7 +965,7 @@ export default function EventDetailPage() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <h3>Gäste kontaktieren</h3>
-              <button className="close-btn" onClick={() => setMessageOpen(false)}><Icon name="x" size={16} /></button>
+              <button className="close-btn" aria-label="Schließen" onClick={() => setMessageOpen(false)}><Icon name="x" size={16} /></button>
             </div>
             <div className="modal-body">
               {msgSent !== null ? (

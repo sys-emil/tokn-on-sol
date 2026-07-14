@@ -138,6 +138,7 @@ export default function ProAnalytics() {
   const [plan, setPlan] = useState<'loading' | 'free' | 'pro'>('loading');
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
+  const [proPrice, setProPrice] = useState<{ unitAmount: number; currency: string; interval: string | null } | null>(null);
 
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 
@@ -175,6 +176,18 @@ export default function ProAnalytics() {
   useEffect(() => {
     if (orgStatus === 'none') router.push('/dashboard');
   }, [orgStatus, router]);
+
+  useEffect(() => {
+    async function loadPrice(): Promise<void> {
+      const res = await fetch('/api/organizer/billing/price');
+      if (!res.ok) return;
+      const data = (await res.json()) as { available: boolean; unitAmount?: number; currency?: string; interval?: string | null };
+      if (data.available && data.unitAmount != null && data.currency) {
+        setProPrice({ unitAmount: data.unitAmount, currency: data.currency, interval: data.interval ?? null });
+      }
+    }
+    void loadPrice();
+  }, []);
 
   useEffect(() => {
     if (!wallet || plan !== 'pro') return;
@@ -355,8 +368,14 @@ export default function ProAnalytics() {
                     </div>
                   </div>
                 </div>
+                {proPrice && (
+                  <div style={{ marginTop: 22, fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em' }}>
+                    {(proPrice.unitAmount / 100).toLocaleString('de-DE', { style: 'currency', currency: proPrice.currency.toUpperCase() })}
+                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-3)' }}> / {proPrice.interval === 'year' ? 'Jahr' : 'Monat'}</span>
+                  </div>
+                )}
                 {billingError && <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 14 }}>{billingError}</div>}
-                <button className="btn primary lg btn-shine" style={{ marginTop: 24 }} onClick={() => void handleUpgrade()} disabled={billingBusy}>
+                <button className="btn primary lg btn-shine" style={{ marginTop: proPrice ? 16 : 24 }} onClick={() => void handleUpgrade()} disabled={billingBusy}>
                   {billingBusy ? 'Weiterleitung …' : 'Jetzt Pro werden'} <Icon name="arrow" size={14} />
                 </button>
                 <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 12 }}>

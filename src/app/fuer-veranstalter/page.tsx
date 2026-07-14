@@ -239,6 +239,27 @@ const PAGE_CSS = `
   @media (prefers-reduced-motion: reduce) {
     .faq summary .faq-chev { transition: none; }
   }
+
+  /* ── Trust bar ────────────────────────────────────────────── */
+  .trust-bar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  @media (max-width: 820px) { .trust-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .trust-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+    border-radius: var(--radius);
+  }
+  .trust-item .ic {
+    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+    display: grid; place-items: center;
+    background: var(--accent-wash); color: var(--accent-ink);
+  }
+  .trust-item .label { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
 `;
 
 export default function FuerVeranstalterPage() {
@@ -286,6 +307,28 @@ export default function FuerVeranstalterPage() {
                   Kostenlos starten <Icon name="arrow" size={14} />
                 </Link>
                 <Link href="/events" className="btn ghost lg">Events ansehen</Link>
+              </div>
+            </section>
+
+            {/* Trust-Leiste — konkrete, nachprüfbare Zusagen statt Kundenstimmen */}
+            <section>
+              <div className="trust-bar" data-reveal>
+                <div className="trust-item">
+                  <div className="ic"><Icon name="lock" size={15} /></div>
+                  <div className="label">Zahlungen über Stripe Connect, PCI-konform</div>
+                </div>
+                <div className="trust-item">
+                  <div className="ic"><Icon name="location" size={15} /></div>
+                  <div className="label">Daten gehostet in der EU</div>
+                </div>
+                <div className="trust-item">
+                  <div className="ic"><Icon name="clock" size={15} /></div>
+                  <div className="label">Automatische, tägliche Auszahlung</div>
+                </div>
+                <div className="trust-item">
+                  <div className="ic"><Icon name="shield" size={15} /></div>
+                  <div className="label">Betrugsschutz: rotierender QR-Code, einmalige Einlösung</div>
+                </div>
               </div>
             </section>
 

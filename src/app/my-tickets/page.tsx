@@ -649,7 +649,7 @@ export default function MyTickets() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <h3>Ticket-Link teilen</h3>
-              <button className="close-btn" onClick={() => setShareModal(null)}><Icon name="x" size={16} /></button>
+              <button className="close-btn" aria-label="Schließen" onClick={() => setShareModal(null)}><Icon name="x" size={16} /></button>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>

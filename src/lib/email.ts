@@ -113,6 +113,38 @@ export async function sendBadgeProgressEmail({
 }
 
 /**
+ * Result of the manual organizer-application review (/admin/organizers).
+ * Plaintext, single recipient — the applicant themselves.
+ */
+export async function sendOrganizerApplicationDecision({
+  to,
+  name,
+  approved,
+  reason,
+  baseUrl,
+}: {
+  to: string;
+  name: string;
+  approved: boolean;
+  reason?: string;
+  baseUrl: string;
+}): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const body = approved
+    ? `Hallo ${name},\n\ndeine Bewerbung als Veranstalter bei Passly ist freigegeben. Du kannst ab sofort Events anlegen und Tickets verkaufen:\n${baseUrl}/dashboard\n\n—\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`
+    : `Hallo ${name},\n\nwir konnten deine Bewerbung als Veranstalter bei Passly aktuell leider nicht freigeben.${reason ? `\n\nGrund: ${reason}` : ""}\n\nFragen dazu beantworten wir gerne unter ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@getpassly.de"}.\n\n—\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  await resend.emails.send({
+    from: FROM,
+    to,
+    subject: approved ? "Deine Veranstalter-Bewerbung ist freigegeben" : "Update zu deiner Veranstalter-Bewerbung",
+    text: body,
+  });
+}
+
+/**
  * "Morgen ist es soweit" — day-before reminder to every ticket holder of an
  * event. One e-mail per recipient (addresses never leak to each other),
  * chunked through Resend's batch endpoint like the organizer messages.

@@ -3,6 +3,7 @@
 import { PrivyClient } from "@privy-io/server-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { sendAdminAlert } from "@/lib/email";
 import { NextRequest, NextResponse } from "next/server";
 
 const privy = new PrivyClient(
@@ -91,12 +92,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     name: name.trim(),
     type,
     business_name: type === "business" ? (businessName?.trim() ?? null) : null,
-    status: "approved",
+    status: "pending",
   });
 
   if (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  // Fire-and-forget: nudges the admin to review the application at /admin/organizers.
+  void sendAdminAlert({
+    subject: "Neue Veranstalter-Bewerbung",
+    text: `${name.trim()} (${email.trim()}, ${type}${type === "business" ? ` — ${businessName?.trim()}` : ""}) wartet auf Freigabe.\nWallet: ${walletAddress}\n\nPrüfen unter /admin/organizers`,
+  }).catch(() => {});
+
+  return NextResponse.json({ success: true, status: "pending" });
 }

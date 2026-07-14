@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { useState } from 'react';
 
@@ -120,6 +121,10 @@ export default function AdminPayouts() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
+            <div className="nav">
+              <Link href="/admin/organizers">Bewerbungen</Link>
+              <Link href="/admin/payouts" style={{ fontWeight: 600 }}>Auszahlungen</Link>
+            </div>
             <div className="topbar-right">
               <span className="chip"><span className="d" />Admin</span>
             </div>

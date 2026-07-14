@@ -105,7 +105,13 @@ a { color: inherit; text-decoration: none; }
 
 /* App shell */
 .app { min-height: 100vh; display: flex; flex-direction: column; }
-.main { flex: 1; position: relative; }
+/* `overflow: clip` (not `hidden`, so sticky descendants are unaffected — .main
+   has none) caps decorative absolutely-positioned glows/auroras at .main's own
+   content-determined height. Without it, a glow placed with a hardcoded pixel
+   offset past the actual content (e.g. a page-specific blob positioned deeper
+   than that page's content is tall) silently grows the whole document's
+   scrollable height, so the page scrolls into empty space below the footer. */
+.main { flex: 1; position: relative; overflow: clip; }
 .container { max-width: 1240px; margin: 0 auto; padding: 40px 24px 96px; position: relative; z-index: 1; }
 
 /* Top bar */

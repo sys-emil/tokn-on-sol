@@ -228,6 +228,27 @@ const PAGE_CSS = `
   .why-card h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
   .why-card p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: 4px; }
 
+  /* ── Trust bar ────────────────────────────────────────────── */
+  .trust-bar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  @media (max-width: 820px) { .trust-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .trust-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--line-2);
+    background: var(--surface);
+    border-radius: var(--radius);
+  }
+  .trust-item .ic {
+    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+    display: grid; place-items: center;
+    background: var(--accent-wash); color: var(--accent-ink);
+  }
+  .trust-item .label { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
+
   /* ── Stats strip ─────────────────────────────────────────── */
   .stats-strip {
     display: flex; align-items: center; justify-content: center; gap: 12px;
@@ -356,6 +377,28 @@ export default function Home() {
                     <span className="id">#PSL-K4X2</span>
                     <PasslyLogo height={16} asLink={false} />
                   </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Trust-Leiste — konkrete, nachprüfbare Zusagen statt Kundenstimmen */}
+            <section>
+              <div className="trust-bar" data-reveal>
+                <div className="trust-item">
+                  <div className="ic"><Icon name="lock" size={15} /></div>
+                  <div className="label">Zahlungen verschlüsselt über Stripe</div>
+                </div>
+                <div className="trust-item">
+                  <div className="ic"><Icon name="location" size={15} /></div>
+                  <div className="label">Daten gehostet in der EU</div>
+                </div>
+                <div className="trust-item">
+                  <div className="ic"><Icon name="euro" size={15} /></div>
+                  <div className="label">100&nbsp;% des Ticketpreises an den Veranstalter</div>
+                </div>
+                <div className="trust-item">
+                  <div className="ic"><Icon name="refresh" size={15} /></div>
+                  <div className="label">Automatische Rückerstattung bei Event-Absage</div>
                 </div>
               </div>
             </section>
