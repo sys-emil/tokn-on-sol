@@ -56,14 +56,98 @@ interface LoyaltyClaim {
 }
 
 const PAGE_CSS = `
-  /* Premium-Signale für den Pro-Bereich */
-  .pro-eyebrow {
-    background: linear-gradient(115deg, var(--accent), oklch(0.62 0.19 calc(var(--hue) + 45))) !important;
-    border-color: transparent !important;
-    color: white !important;
-    box-shadow: 0 2px 12px oklch(0.50 0.20 var(--hue) / 0.40);
+  /* ── Pro-Bereich: invertiertes, dunkles Theme (Pitch-Deck-Optik) ──
+     Die Seite überschreibt die globalen Tokens; sämtliche Komponenten-CSS
+     (topbar, card, kpi, chip, input …) folgt automatisch. Der Style-Tag
+     lebt nur solange diese Seite gemountet ist. */
+  :root {
+    color-scheme: dark;
+    --ink:        oklch(0.955 0.005 290);
+    --ink-2:      oklch(0.86 0.012 290);
+    --ink-3:      oklch(0.67 0.02 290);
+    --ink-4:      oklch(0.52 0.02 290);
+    --line:       oklch(0.285 0.022 290);
+    --line-2:     oklch(0.35 0.028 290);
+    --surface:    oklch(0.205 0.026 290);
+    --surface-2:  oklch(0.155 0.02 292);
+    --surface-3:  oklch(0.26 0.03 290);
+    --accent:     oklch(0.74 0.145 290);
+    --accent-2:   oklch(0.80 0.125 290);
+    --accent-ink: oklch(0.86 0.08 290);
+    --accent-wash:oklch(0.26 0.055 290);
+    --accent-line:oklch(0.40 0.08 290);
+    --ok:         oklch(0.75 0.14 150);
+    --ok-wash:    oklch(0.27 0.05 150);
+    --warn:       oklch(0.78 0.14 70);
+    --warn-wash:  oklch(0.27 0.05 70);
+    --bad:        oklch(0.70 0.17 25);
+    --bad-wash:   oklch(0.27 0.05 25);
+    --shadow-sm:  0 1px 0 rgba(0,0,0,0.35);
+    --shadow:     0 1px 2px rgba(0,0,0,0.35), 0 4px 18px rgba(0,0,0,0.30);
+    --shadow-lg:  0 12px 40px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.30);
   }
-  .pro-eyebrow .pulse { background: white; }
+  input[type="checkbox"] { accent-color: var(--accent); }
+
+  /* Topbar verschmilzt mit dem dunklen Hintergrund */
+  .topbar {
+    background: color-mix(in oklab, var(--surface-2) 80%, transparent);
+    border-bottom-color: rgba(255,255,255,0.07);
+  }
+
+  /* Karten: dunkle Flächen mit feiner heller Kante wie in der Vorlage */
+  .card, .kpis {
+    background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0) 42%), var(--surface);
+    border-color: rgba(255,255,255,0.09);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 10px 30px rgba(0,0,0,0.35);
+  }
+  .kpi { border-right-color: rgba(255,255,255,0.07); }
+  @media (max-width: 860px) { .kpi:nth-child(-n+2) { border-bottom-color: rgba(255,255,255,0.07); } }
+
+  /* Aurora: tiefvioletter Schein oben rechts, magenta Rest unten links */
+  .aurora { opacity: 0.55; filter: blur(85px) saturate(1.15); }
+  .aurora::before {
+    left: auto; right: -6%; top: -22%;
+    width: 760px; height: 760px;
+    background: radial-gradient(circle at 62% 30%, oklch(0.44 0.21 292) 0%, transparent 62%);
+  }
+  .aurora::after {
+    right: auto; left: -12%; top: 55%;
+    width: 560px; height: 560px;
+    background: radial-gradient(circle at 40% 60%, oklch(0.34 0.15 330) 0%, transparent 58%);
+  }
+
+  /* Hero: Mono-Kicker statt Pill, fette weiße Headline, Akzentzeile */
+  .hero .eyebrow, .hero .eyebrow.pro-eyebrow {
+    background: transparent; border: none; padding: 0;
+    font-family: var(--mono); font-size: 11.5px; font-weight: 500;
+    letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .hero h1 { font-weight: 700; font-size: 46px; letter-spacing: -0.035em; color: #fff; }
+  .hero h1 .accent-line { color: var(--accent); }
+  @media (max-width: 640px) { .hero h1 { font-size: 36px; } }
+
+  /* Mono-Ziffern & -Labels wie im Deck */
+  .kpi .label { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; }
+  .kpi .value { font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; }
+  .section-head h2 { color: #fff; }
+
+  /* Heller Akzent-Button braucht dunkle Schrift */
+  .btn.primary {
+    color: oklch(0.17 0.04 290);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 14px oklch(0.74 0.14 290 / 0.30);
+  }
+  .btn.ghost { background: var(--surface-3); border-color: rgba(255,255,255,0.12); }
+  .btn.ghost:hover { background: oklch(0.30 0.03 290); }
+
+  /* Chips: helle Schrift auf dunklen Washes */
+  .chip { background: var(--surface-3); color: var(--ink-2); border-color: rgba(255,255,255,0.10); }
+  .chip.ok { color: oklch(0.82 0.10 150); border-color: oklch(0.40 0.07 150); }
+  .chip.warn { color: oklch(0.84 0.10 70); border-color: oklch(0.42 0.08 70); }
+  .chip.bad { color: oklch(0.80 0.11 25); border-color: oklch(0.42 0.09 25); }
+  .chip.accent { color: var(--accent-ink); border-color: var(--accent-line); }
+
+  /* Premium-Signale für den Pro-Bereich */
   .pro-kpis { position: relative; }
   .pro-kpis::before {
     content: "";
@@ -71,8 +155,11 @@ const PAGE_CSS = `
     background: linear-gradient(90deg, var(--accent), oklch(0.70 0.16 calc(var(--hue) + 50)), transparent 85%);
     z-index: 1;
   }
+  .pro-kpis .kpi:first-child {
+    background: linear-gradient(180deg, oklch(0.28 0.07 290 / 0.60), transparent 80%);
+  }
   .kpi .value.grad {
-    background: linear-gradient(115deg, var(--accent-ink), var(--accent));
+    background: linear-gradient(115deg, #fff, var(--accent));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -88,7 +175,7 @@ const PAGE_CSS = `
       oklch(0.78 0.14 var(--hue)),
       oklch(0.56 0.22 var(--hue)) 58%,
       oklch(0.42 0.20 var(--hue)));
-    border: 2px solid oklch(0.92 0.05 var(--hue));
+    border: 2px solid oklch(0.88 0.06 var(--hue));
     box-shadow:
       0 6px 20px oklch(0.52 0.20 var(--hue) / 0.45),
       inset 0 1px 2px rgba(255,255,255,0.5),
@@ -301,7 +388,7 @@ export default function ProAnalytics() {
       <style>{PAGE_CSS}</style>
       <div className="topbar">
         <div className="topbar-inner">
-          <PasslyLogo height={24} />
+          <PasslyLogo height={24} variant="on-accent" />
           <div className="nav">
             <Link href="/dashboard">Übersicht</Link>
             <Link href="/dashboard/payouts">Auszahlungen</Link>
@@ -321,7 +408,7 @@ export default function ProAnalytics() {
 
           <div className="hero">
             <div className={`eyebrow${plan === 'pro' ? ' pro-eyebrow' : ''}`}><span className="pulse" /> Passly Pro</div>
-            <h1>Deine Gäste, <br />richtig verstanden.</h1>
+            <h1>Deine Gäste, <br /><span className="accent-line">richtig verstanden.</span></h1>
             <p className="lead">
               Analytics über alle Events, Stammkunden auf einen Blick und dein eigenes Treueprogramm.
             </p>
