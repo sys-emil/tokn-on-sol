@@ -66,9 +66,9 @@ const PAGE_CSS = `
   .error-box {
     padding: 14px 16px;
     border-radius: var(--radius);
-    border: 1px solid oklch(0.86 0.10 25);
-    background: var(--bad-wash);
-    font-size: 13px; color: var(--bad); line-height: 1.55;
+    border: 1px solid oklch(0.86 0.09 70);
+    background: var(--warn-wash);
+    font-size: 13px; color: var(--ink-2); line-height: 1.55;
   }
   .error-box code {
     display: block; font-family: var(--mono); font-size: 10.5px;
@@ -196,8 +196,9 @@ function SuccessInner() {
         </div>
         <div className="success-body">
           <div className="error-box">
-            Deine Zahlung ist eingegangen, aber wir konnten noch nicht alle Tickets bestätigen.
-            Sie werden im Hintergrund fertiggestellt — schau in ein paar Minuten in deiner Ticketübersicht nach.
+            Alles gut — deine Zahlung ist eingegangen. Die Tickets werden gerade im
+            Hintergrund fertiggestellt; das dauert manchmal ein paar Minuten. Sie
+            erscheinen automatisch in deiner Ticketübersicht, du musst nichts weiter tun.
             <code>{sessionId}</code>
           </div>
           <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}>
@@ -254,6 +255,15 @@ function SuccessInner() {
             >
               Backup-Ticket erstellen
             </button>
+            {params?.id && (
+              <a
+                href={`/api/events/${params.id}/ics`}
+                className="btn ghost"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+              >
+                Zum Kalender hinzufügen
+              </a>
+            )}
             <div className="notice">
               🎉 Herzlichen Glückwunsch! Tipp: Schlechter Empfang am Veranstaltungsort?
               Das Backup-Ticket funktioniert ganz ohne Internet.

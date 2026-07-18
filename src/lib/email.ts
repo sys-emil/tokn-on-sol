@@ -153,19 +153,21 @@ export async function sendEventReminder({
   recipients,
   eventName,
   eventDate,
+  startTime,
   venue,
   baseUrl,
 }: {
   recipients: string[];
   eventName: string;
   eventDate: string;
+  startTime?: string | null;
   venue: string | null;
   baseUrl: string;
 }): Promise<number> {
   if (!process.env.RESEND_API_KEY || recipients.length === 0) return 0;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const body = `Morgen ist es soweit: ${eventName}\n${formatDate(eventDate)}${venue ? `\n${venue}` : ""}\n\nDein Ticket hast du in deiner Ticketübersicht — öffne sie am besten auf dem Handy, dann zeigst du am Einlass einfach deinen QR-Code:\n${baseUrl}/my-tickets\n\nViel Spaß!\n\n—\nDu bekommst diese Erinnerung, weil du ein Ticket für dieses Event hast.\nVertragspartner für die Veranstaltung ist der jeweilige Veranstalter.\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+  const body = `Morgen ist es soweit: ${eventName}\n${formatDate(eventDate)}${startTime ? ` · Beginn ${startTime} Uhr` : ""}${venue ? `\n${venue}` : ""}\n\nDein Ticket hast du in deiner Ticketübersicht — öffne sie am besten auf dem Handy, dann zeigst du am Einlass einfach deinen QR-Code:\n${baseUrl}/my-tickets\n\nViel Spaß!\n\n—\nDu bekommst diese Erinnerung, weil du ein Ticket für dieses Event hast.\nVertragspartner für die Veranstaltung ist der jeweilige Veranstalter.\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
 
   let sent = 0;
   const CHUNK = 50;

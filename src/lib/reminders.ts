@@ -23,7 +23,7 @@ export async function sendDueEventReminders(baseUrl: string): Promise<{ events: 
 
   const { data: events } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, venue")
+    .select("id, name, date, start_time, venue")
     .eq("date", tomorrow)
     .is("cancelled_at", null)
     .is("reminder_sent_at", null)
@@ -68,6 +68,7 @@ export async function sendDueEventReminders(baseUrl: string): Promise<{ events: 
       recipients: [...recipients],
       eventName: event.name as string,
       eventDate: event.date as string,
+      startTime: (event.start_time ?? null) as string | null,
       venue: (event.venue ?? null) as string | null,
       baseUrl,
     });

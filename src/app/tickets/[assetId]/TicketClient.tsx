@@ -12,6 +12,9 @@ export default function TicketClient({ assetId }: { assetId: string }) {
   const wallet = wallets[0];
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'refreshing'>('loading');
+  // Bumped on every fresh signature — restarts the drain bar below the QR so
+  // door staff and guests can see the code is alive and current.
+  const [cycle, setCycle] = useState(0);
   const hadQr = useRef(false);
 
   useEffect(() => {
@@ -63,6 +66,7 @@ export default function TicketClient({ assetId }: { assetId: string }) {
           });
           hadQr.current = true;
           setStatus('ready');
+          setCycle((c) => c + 1);
         }
       } catch {
         if (!cancelled) setStatus('loading');
@@ -82,27 +86,44 @@ export default function TicketClient({ assetId }: { assetId: string }) {
   }, [wallet, assetId]);
 
   return (
-    <div style={{ position: 'relative', width: 240, height: 240 }}>
-      <canvas
-        ref={canvasRef}
-        width={240}
-        height={240}
-        style={{ display: 'block', opacity: status === 'loading' ? 0 : 1 }}
-      />
-      {status !== 'ready' && (
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 11,
-          fontFamily: 'inherit',
-          color: '#23263c',
-          letterSpacing: '0.08em',
-        }}>
-          {status === 'refreshing' ? 'wird aktualisiert …' : 'wird erstellt …'}
+    <div style={{ width: 240 }}>
+      <style>{`
+        @keyframes qrDrain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+        .qr-drain { transform-origin: left; animation: qrDrain 55s linear forwards; }
+        @media (prefers-reduced-motion: reduce) { .qr-drain { animation: none; } }
+      `}</style>
+      <div style={{ position: 'relative', width: 240, height: 240 }}>
+        <canvas
+          ref={canvasRef}
+          width={240}
+          height={240}
+          role="img"
+          aria-label="Dein persönlicher Einlass-Code — beim Einlass einscannen lassen"
+          style={{ display: 'block', opacity: status === 'loading' ? 0 : 1 }}
+        />
+        {status !== 'ready' && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 11,
+            fontFamily: 'inherit',
+            color: '#23263c',
+            letterSpacing: '0.08em',
+          }}>
+            {status === 'refreshing' ? 'wird aktualisiert …' : 'wird erstellt …'}
+          </div>
+        )}
+      </div>
+      {cycle > 0 && (
+        <div
+          aria-hidden="true"
+          style={{ height: 3, borderRadius: 2, background: '#eceef6', marginTop: 10, overflow: 'hidden' }}
+        >
+          <div key={cycle} className="qr-drain" style={{ height: '100%', borderRadius: 2, background: '#23263c' }} />
         </div>
       )}
     </div>

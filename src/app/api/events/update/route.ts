@@ -24,6 +24,7 @@ interface UpdateEventBody {
   fields?: {
     name?: string;
     date?: string;
+    start_time?: string | null;
     venue?: string | null;
     description?: string | null;
     is_private?: boolean;
@@ -105,6 +106,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "date must be YYYY-MM-DD" }, { status: 400 });
     }
     update.date = fields.date;
+  }
+  if (fields.start_time !== undefined) {
+    if (fields.start_time !== null && (typeof fields.start_time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(fields.start_time))) {
+      return NextResponse.json({ success: false, error: "start_time must be HH:MM (24h)" }, { status: 400 });
+    }
+    update.start_time = fields.start_time;
   }
   if (fields.venue !== undefined) {
     if (fields.venue !== null && (typeof fields.venue !== "string" || fields.venue.length > 200)) {

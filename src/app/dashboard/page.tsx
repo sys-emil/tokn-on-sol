@@ -107,6 +107,7 @@ export default function Dashboard() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [eventName, setEventName] = useState('');
   const [eventDate, setEventDate] = useState('');
+  const [startTime, setStartTime] = useState('');
   const [venue, setVenue] = useState('');
   const [description, setDescription] = useState('');
   const [tiers, setTiers] = useState<TierDraft[]>([{ name: 'Standard', priceEur: '0', capacity: '100' }]);
@@ -144,6 +145,34 @@ export default function Dashboard() {
   useEffect(() => {
     if (ready && !authenticated) router.push('/');
   }, [ready, authenticated, router]);
+
+  // "Event duplizieren" on the event detail page drops a prefill payload into
+  // sessionStorage and navigates here — open the drawer with everything except
+  // the date (a copy is almost always a new date).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('passly_duplicate_event');
+      if (!raw) return;
+      sessionStorage.removeItem('passly_duplicate_event');
+      const d = JSON.parse(raw) as {
+        name?: string; startTime?: string | null; venue?: string | null; description?: string | null;
+        isPrivate?: boolean; payoutHoldDays?: number; accentHue?: number | null; borderStyle?: string | null;
+        tiers?: { name: string; priceEur: string; capacity: string }[];
+      };
+      /* eslint-disable react-hooks/set-state-in-effect -- one-shot sessionStorage handoff, runs once on mount */
+      setEventName(d.name ?? '');
+      setStartTime(d.startTime ?? '');
+      setVenue(d.venue ?? '');
+      setDescription(d.description ?? '');
+      setIsPrivate(d.isPrivate === true);
+      setPayoutHoldDays(String(d.payoutHoldDays ?? 0));
+      setAccentHue(d.accentHue ?? null);
+      setBorderStyle(d.borderStyle ?? null);
+      if (d.tiers && d.tiers.length > 0) setTiers(d.tiers);
+      setDrawerOpen(true);
+      /* eslint-enable react-hooks/set-state-in-effect */
+    } catch { /* corrupt entry — ignore */ }
+  }, []);
 
   // Stripe redirects here with ?billing=success after the Pro checkout.
   // Celebrate, clean the URL, and re-check the plan once the webhook had a
@@ -258,6 +287,7 @@ export default function Dashboard() {
   function resetForm(): void {
     setEventName('');
     setEventDate('');
+    setStartTime('');
     setVenue('');
     setDescription('');
     setTiers([{ name: 'Standard', priceEur: '0', capacity: '100' }]);
@@ -433,6 +463,7 @@ export default function Dashboard() {
           organizer_wallet: ownerWallet,
           name: trimmedName,
           date: eventDate,
+          ...(startTime ? { start_time: startTime } : {}),
           tiers: parsedTiers.map((t) => ({
             name: t.name.trim(),
             price_eur: Math.round(t.priceEur * 100),
@@ -804,9 +835,17 @@ export default function Dashboard() {
                       </div>
                       {eventDate && (
                         <span className="date-preview">
-                          <Icon name="calendar" size={12} /> {formatDateLong(eventDate)}
+                          <Icon name="calendar" size={12} /> {formatDateLong(eventDate)}{startTime ? ` · ${startTime} Uhr` : ''}
                         </span>
                       )}
+                    </div>
+                    <div className="field">
+                      <label>Beginn (optional)</label>
+                      <div className="date-field">
+                        <span className="date-field-icon"><Icon name="clock" size={15} /></span>
+                        <input type="time" className="input" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={creating} />
+                      </div>
+                      <span className="hint">Erscheint auf Ticket, Shop-Seite und im Kalender-Eintrag deiner Gäste.</span>
                     </div>
                     <div className="field">
                       <label>Veranstaltungsort</label>

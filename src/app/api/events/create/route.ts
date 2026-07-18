@@ -13,6 +13,8 @@ interface CreateEventBody {
   organizer_wallet: string;
   name: string;
   date: string;
+  /** Optional start time "HH:MM" (24h). */
+  start_time?: string;
   /** Legacy single-price form — used when `tiers` is absent. */
   price_eur?: number;
   capacity?: number;
@@ -79,7 +81,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, is_private, payout_hold_days, image_url, venue, description, accent_hue, border_style } = body;
+  const { organizer_wallet, name, date, start_time, is_private, payout_hold_days, image_url, venue, description, accent_hue, border_style } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -95,6 +97,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const tiers = tiersOrError;
   const capacity = tiers.reduce((sum, t) => sum + t.capacity, 0);
   const price_eur = Math.min(...tiers.map((t) => t.price_eur));
+
+  if (start_time !== undefined && (typeof start_time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(start_time))) {
+    return NextResponse.json(
+      { success: false, error: "start_time must be HH:MM (24h)" },
+      { status: 400 }
+    );
+  }
 
   if (venue !== undefined && (typeof venue !== "string" || venue.length > 200)) {
     return NextResponse.json(
@@ -175,6 +184,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         organizer_wallet: organizer_wallet.trim(),
         name: name.trim(),
         date,
+        start_time: start_time ?? null,
         price_eur,
         capacity,
         is_private: is_private === true,

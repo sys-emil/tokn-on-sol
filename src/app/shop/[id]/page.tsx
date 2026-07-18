@@ -118,12 +118,17 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
 
   // Waitlist is a Pro feature of the organizer — the shop only offers the
   // signup when the plan is active (the join API enforces the same rule).
+  // Name/type feed the "Veranstaltet von" trust block: every listed organizer
+  // has passed the manual vetting, so the "Geprüft" badge is earned.
   const { data: organizerRow } = await supabaseAdmin
     .from('organizers')
-    .select('plan')
+    .select('plan, name, business_name, type')
     .eq('wallet_address', event.organizer_wallet)
     .maybeSingle();
   const waitlistEnabled = organizerRow?.plan === 'pro';
+  const organizerName = organizerRow
+    ? (organizerRow.type === 'business' && organizerRow.business_name ? organizerRow.business_name : organizerRow.name)
+    : null;
 
   // Per-tier availability, additionally capped by the event-level counters —
   // the hard overselling gate in reserve_tickets uses the same numbers.
@@ -171,8 +176,20 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1>{event.name}</h1>
               <div className="when">
-                <span className="line"><Icon name="calendar" size={13} /> {formatDate(event.date)}</span>
-                {venue && <span className="line"><Icon name="location" size={13} /> {venue}</span>}
+                <span className="line"><Icon name="calendar" size={13} /> {formatDate(event.date)}{event.start_time ? ` · ${event.start_time} Uhr` : ''}</span>
+                {venue && (
+                  <span className="line">
+                    <Icon name="location" size={13} />{' '}
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(venue)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                    >
+                      {venue}
+                    </a>
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -181,9 +198,23 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
 
           <div className="shop-rows">
             <div className="shop-row">
-              <span className="label">Ticketpreis</span>
+              <span className="label">
+                Ticketpreis
+                {minPrice > 0 && (
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>zzgl. Servicegebühr</span>
+                )}
+              </span>
               <span className="value big">{priceFormatted}</span>
             </div>
+            {organizerName && (
+              <div className="shop-row">
+                <span className="label">Veranstalter</span>
+                <span className="value" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 500 }}>
+                  {organizerName}
+                  <span className="chip ok" title="Dieser Veranstalter wurde von Passly geprüft."><Icon name="shield" size={11} /> Geprüft</span>
+                </span>
+              </div>
+            )}
             <div className="shop-row">
               <span className="label">Verfügbarkeit</span>
               {cancelled ? (
@@ -215,7 +246,12 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
           Jedes Ticket ist einzigartig und fälschungssicher.
         </div>
 
-        <Link href="/events" style={{ marginTop: 14, fontSize: 12.5, color: 'var(--ink-3)' }}>
+        {organizerName && (
+          <Link href={`/events?veranstalter=${encodeURIComponent(event.organizer_wallet)}`} style={{ marginTop: 14, fontSize: 12.5, color: 'var(--ink-3)' }}>
+            Weitere Events von {organizerName} →
+          </Link>
+        )}
+        <Link href="/events" style={{ marginTop: organizerName ? 8 : 14, fontSize: 12.5, color: 'var(--ink-3)' }}>
           Alle Events ansehen →
         </Link>
 

@@ -47,6 +47,8 @@ export type Event = {
   organizer_wallet: string;
   name: string;
   date: string;
+  /** Optional start time "HH:MM" (Europe/Berlin); NULL for events created before the field existed. */
+  start_time: string | null;
   price_eur: number;
   capacity: number;
   tickets_sold: number;

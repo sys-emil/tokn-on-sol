@@ -25,8 +25,10 @@ async function getAsset(assetId: string): Promise<DasAsset | null> {
 interface PurchaseInfo {
   redeemedAt: string | null;
   revokedAt: string | null;
+  eventId: string | null;
   eventName: string | null;
   eventDate: string | null;
+  startTime: string | null;
   venue: string | null;
   tierName: string | null;
 }
@@ -34,7 +36,7 @@ interface PurchaseInfo {
 async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
   const { data } = await supabaseAdmin
     .from('purchases')
-    .select('redeemed_at, revoked_at, events(name, date, venue), ticket_tiers(name)')
+    .select('redeemed_at, revoked_at, event_id, events(name, date, start_time, venue), ticket_tiers(name)')
     .eq('asset_id', assetId)
     .maybeSingle();
   if (!data) return null;
@@ -43,8 +45,10 @@ async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
   return {
     redeemedAt: (data.redeemed_at as string | null) ?? null,
     revokedAt: (data.revoked_at as string | null) ?? null,
+    eventId: (data.event_id as string | null) ?? null,
     eventName: (ev?.name as string | undefined) ?? null,
     eventDate: (ev?.date as string | undefined) ?? null,
+    startTime: (ev?.start_time as string | undefined) ?? null,
     venue: (ev?.venue as string | undefined) ?? null,
     tierName: (tier?.name as string | undefined) ?? null,
   };
@@ -220,7 +224,15 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
             )}
             {venue && (
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Ort</span><span style={{ fontWeight: 500 }}>{venue}</span>
+                <span className="muted">Ort</span>
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(venue)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontWeight: 500, color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                >
+                  {venue}
+                </a>
               </div>
             )}
             {date && (
@@ -228,9 +240,23 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
                 <span className="muted">Datum</span><span style={{ fontWeight: 500 }}>{formatDate(date)}</span>
               </div>
             )}
+            {purchase?.startTime && (
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">Beginn</span><span style={{ fontWeight: 500 }}>{purchase.startTime} Uhr</span>
+              </div>
+            )}
             <div className="row" style={{ justifyContent: 'space-between' }}>
               <span className="muted">Ticket-Nr.</span><span style={{ fontWeight: 500, fontFamily: 'var(--mono)', fontSize: 11.5 }}>#{serial}</span>
             </div>
+            {purchase?.eventId && status !== 'revoked' && (
+              <a
+                href={`/api/events/${purchase.eventId}/ics`}
+                className="btn ghost sm"
+                style={{ justifyContent: 'center', marginTop: 6 }}
+              >
+                Zum Kalender hinzufügen
+              </a>
+            )}
           </div>
 
         </div>

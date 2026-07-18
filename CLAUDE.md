@@ -70,7 +70,8 @@ The root layout is a **server component** (global `metadata`/OG tags); `PrivyPro
 ### Database (Supabase)
 
 Tables:
-- `events`: `id, organizer_wallet, name, date, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, image_url, metadata_uri, venue, description, cancelled_at, reminder_sent_at, created_at`
+- `events`: `id, organizer_wallet, name, date, start_time, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, image_url, metadata_uri, venue, description, cancelled_at, reminder_sent_at, created_at`
+  - `start_time text` (nullable, `HH:MM`, Europe/Berlin) — optional event start; shown on shop/ticket/listing pages, in the reminder mail and in the calendar export `GET /api/events/[eventId]/ics` (public .ics download, linked from ticket + checkout-success pages; all-day entry when NULL).
   - `reminder_sent_at` — once-only claim for the day-before reminder e-mail batch (`sendDueEventReminders` in `src/lib/reminders.ts`, runs inside the payout cron because both Hobby cron slots are taken; recipients via purchases→mint_jobs like the organizer messaging).
   - `is_private boolean default false` — private events are excluded from `/api/events/public` but still purchasable via direct link.
   - `image_url` / `metadata_uri` — public Supabase Storage URLs (bucket `event-assets`); `metadata_uri` is stamped on-chain at mint, NULL for pre-existing events (mint falls back to the legacy dynamic metadata route).

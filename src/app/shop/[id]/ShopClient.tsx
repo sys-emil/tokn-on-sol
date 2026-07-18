@@ -133,6 +133,28 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
     void startCheckout(walletAddress);
   }, [authenticated, walletAddress]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // An applied code can become invalid when the quantity changes (soft cap
+  // max_uses is checked per quantity) — revalidate instead of letting the
+  // checkout API reject it after the redirect.
+  useEffect(() => {
+    if (!applied) return;
+    let stale = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/checkout/validate-code?eventId=${encodeURIComponent(eventId)}&code=${encodeURIComponent(applied.code)}&quantity=${quantity}`,
+        );
+        const data = (await res.json()) as { valid: boolean; error?: string };
+        if (!stale && !data.valid) {
+          setApplied(null);
+          setCodeError(data.error ?? 'Der Rabattcode gilt nicht für diese Anzahl.');
+        }
+      } catch { /* network hiccup — the checkout API is the authority anyway */ }
+    })();
+    return () => { stale = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-check when the quantity changes
+  }, [quantity]);
+
   async function applyCode() {
     const code = codeInput.trim();
     if (!code || codeBusy) return;

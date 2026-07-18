@@ -16,12 +16,14 @@ interface EventRow {
   id: string;
   name: string;
   date: string;
+  start_time: string | null;
   price_eur: number;
   capacity: number;
   tickets_sold: number;
   tickets_reserved: number;
   image_url: string | null;
   venue: string | null;
+  organizer_wallet: string;
 }
 
 // Same generative recipe as before — one visual language for events
@@ -66,9 +68,19 @@ const PAGE_CSS = `
   .event-card:hover .art img, .event-card:hover .art .art-bg { transform: scale(1.03); }
   .event-card .art .art-chip { position: absolute; top: 12px; left: 12px; }
   .event-card .body { padding: 16px 18px 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
-  .event-card.sold-out { cursor: default; }
   .event-card.sold-out:hover { transform: none; box-shadow: var(--shadow); border-color: var(--line); }
   .event-card.sold-out .art img, .event-card.sold-out .art .art-bg { filter: grayscale(0.7); opacity: 0.6; }
+  .search-row { display: flex; gap: 8px; margin-top: 18px; max-width: 420px; }
+  .search-row .search-wrap { position: relative; flex: 1; min-width: 0; }
+  .search-row .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-3); display: grid; }
+  .search-row .input { width: 100%; padding-left: 36px; }
+  .filter-note {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 14px; padding: 6px 12px;
+    background: var(--accent-wash); border: 1px solid var(--accent-line);
+    border-radius: 999px; font-size: 12.5px; color: var(--accent-ink);
+  }
+  .filter-note a { color: var(--accent); font-weight: 500; }
   .event-card .price-row {
     display: flex; align-items: center; justify-content: space-between;
     margin-top: auto;
@@ -103,21 +115,56 @@ function EventArt({ name, imageUrl }: { name: string; imageUrl: string | null })
   );
 }
 
-export default async function EventsPage() {
+export default async function EventsPage({ searchParams }: {
+  searchParams: Promise<{ q?: string; veranstalter?: string }>;
+}) {
   const today = new Date().toISOString().slice(0, 10);
+  const { q, veranstalter } = await searchParams;
+  const query = (q ?? '').trim();
 
-  const { data } = await supabaseAdmin
+  let dbQuery = supabaseAdmin
     .from('events')
-    .select('id, name, date, price_eur, capacity, tickets_sold, tickets_reserved, image_url, venue')
+    .select('id, name, date, start_time, price_eur, capacity, tickets_sold, tickets_reserved, image_url, venue, organizer_wallet')
     .gte('date', today)
     .eq('is_private', false)
     .order('date', { ascending: true });
+  if (veranstalter) dbQuery = dbQuery.eq('organizer_wallet', veranstalter);
 
-  const all = (data ?? []) as EventRow[];
+  const { data } = await dbQuery;
+
+  // Text search runs in JS — the public listing is small, and this avoids
+  // feeding user input into a PostgREST or() filter string.
+  const needle = query.toLowerCase();
+  const all = ((data ?? []) as EventRow[]).filter((e) =>
+    !needle || e.name.toLowerCase().includes(needle) || (e.venue ?? '').toLowerCase().includes(needle),
+  );
   const taken = (e: EventRow) => e.tickets_sold + (e.tickets_reserved ?? 0);
   const available = all.filter((e) => taken(e) < e.capacity);
   const soldOut = all.filter((e) => taken(e) >= e.capacity);
   const totalCount = all.length;
+
+  // Sold-out cards of Pro organizers advertise the waitlist on the shop page.
+  const soldOutWallets = [...new Set(soldOut.map((e) => e.organizer_wallet))];
+  const waitlistWallets = new Set<string>();
+  if (soldOutWallets.length > 0) {
+    const { data: proRows } = await supabaseAdmin
+      .from('organizers')
+      .select('wallet_address')
+      .in('wallet_address', soldOutWallets)
+      .eq('plan', 'pro');
+    for (const r of (proRows ?? []) as { wallet_address: string }[]) waitlistWallets.add(r.wallet_address);
+  }
+
+  // "Events von X" heading when the listing is filtered by organizer.
+  let organizerLabel: string | null = null;
+  if (veranstalter) {
+    const { data: org } = await supabaseAdmin
+      .from('organizers')
+      .select('name, business_name, type')
+      .eq('wallet_address', veranstalter)
+      .maybeSingle();
+    if (org) organizerLabel = (org.type === 'business' && org.business_name ? org.business_name : org.name) as string;
+  }
 
   const card = (e: EventRow, isSoldOut: boolean) => {
     const remaining = e.capacity - taken(e);
@@ -146,7 +193,7 @@ export default async function EventsPage() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="title">{e.name}</div>
               <div className="meta">
-                {formatDate(e.date)}
+                {formatDate(e.date)}{e.start_time ? ` · ${e.start_time} Uhr` : ''}
                 {e.venue && (<><span className="dot" />{e.venue}</>)}
               </div>
             </div>
@@ -154,7 +201,11 @@ export default async function EventsPage() {
           <div className="price-row">
             <div className="price">{formatPrice(e.price_eur)}</div>
             {isSoldOut ? (
-              <span className="muted" style={{ fontSize: 12.5 }}>Ausverkauft</span>
+              waitlistWallets.has(e.organizer_wallet) ? (
+                <span className="go">Zur Warteliste <Icon name="arrow" size={13} /></span>
+              ) : (
+                <span className="muted" style={{ fontSize: 12.5 }}>Ausverkauft</span>
+              )
             ) : (
               <span className="go">Tickets sichern <Icon name="arrow" size={13} /></span>
             )}
@@ -163,10 +214,13 @@ export default async function EventsPage() {
       </>
     );
 
-    if (isSoldOut) {
-      return <div key={e.id} className="event-card listing sold-out">{inner}</div>;
-    }
-    return <Link key={e.id} href={`/shop/${e.id}`} className="event-card listing">{inner}</Link>;
+    // Sold-out events stay clickable — the shop page shows the waitlist
+    // signup (Pro organizers) and the full event details.
+    return (
+      <Link key={e.id} href={`/shop/${e.id}`} className={`event-card listing${isSoldOut ? ' sold-out' : ''}`}>
+        {inner}
+      </Link>
+    );
   };
 
   return (
@@ -193,22 +247,47 @@ export default async function EventsPage() {
 
             <div className="hero">
               <div className="eyebrow"><span className="pulse" />Entdecken</div>
-              <h1>Bevorstehende Events</h1>
+              <h1>{organizerLabel ? `Events von ${organizerLabel}` : 'Bevorstehende Events'}</h1>
               <p className="lead">
                 {totalCount > 0
                   ? `${totalCount} Event${totalCount !== 1 ? 's' : ''} mit fälschungssicheren Tickets — kaufen, teilen, am Einlass vorzeigen.`
                   : 'Fälschungssichere Tickets — kaufen, teilen, am Einlass vorzeigen.'}
               </p>
+              <form className="search-row" action="/events" method="get">
+                {veranstalter && <input type="hidden" name="veranstalter" value={veranstalter} />}
+                <div className="search-wrap">
+                  <span className="search-icon"><Icon name="search" size={14} /></span>
+                  <input className="input" type="search" name="q" defaultValue={query} placeholder="Event oder Ort suchen …" maxLength={80} aria-label="Events durchsuchen" />
+                </div>
+                <button type="submit" className="btn subtle">Suchen</button>
+              </form>
+              {(organizerLabel || query) && (
+                <div className="filter-note">
+                  {organizerLabel && query ? `Suche „${query}" bei ${organizerLabel}` : organizerLabel ? `Nur Events dieses Veranstalters` : `Suche „${query}"`}
+                  <Link href="/events">Zurücksetzen</Link>
+                </div>
+              )}
             </div>
 
             {totalCount === 0 ? (
               <div className="card">
                 <div className="empty">
                   <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', margin: '0 auto 12px', color: 'var(--accent)' }}>
-                    <Icon name="calendar" size={20} />
+                    <Icon name={query || organizerLabel ? 'search' : 'calendar'} size={20} />
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Gerade ist nichts angekündigt.</div>
-                  <div style={{ fontSize: 13, marginTop: 4 }}>Schau bald wieder vorbei — neue Events erscheinen hier zuerst.</div>
+                  {query || organizerLabel ? (
+                    <>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Nichts gefunden.</div>
+                      <div style={{ fontSize: 13, marginTop: 4 }}>
+                        Versuch einen anderen Suchbegriff oder <Link href="/events" style={{ color: 'var(--accent)', fontWeight: 500 }}>zeig alle Events</Link>.
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Gerade ist nichts angekündigt.</div>
+                      <div style={{ fontSize: 13, marginTop: 4 }}>Schau bald wieder vorbei — neue Events erscheinen hier zuerst.</div>
+                    </>
+                  )}
                 </div>
               </div>
             ) : (

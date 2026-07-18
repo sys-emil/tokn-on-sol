@@ -371,9 +371,9 @@ export default function MyTickets() {
           ) : attended ? (
             <span className="chip ok"><span className="d" />Dabei gewesen</span>
           ) : (
-            <span className="chip"><span className="d" />Verpasst</span>
+            <span className="chip"><span className="d" />Nicht eingelöst</span>
           )}
-          {(kind === 'upcoming' || attended) && (
+          {kind === 'upcoming' && (
             <button
               className="btn subtle sm"
               onClick={(e) => { e.preventDefault(); void handleShare(t.assetId, t.claimUrl); }}

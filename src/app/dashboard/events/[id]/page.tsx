@@ -20,6 +20,7 @@ interface EventData {
   id: string;
   name: string;
   date: string;
+  start_time: string | null;
   venue: string | null;
   description: string | null;
   price_eur: number;
@@ -113,6 +114,7 @@ export default function EventDetailPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [fName, setFName] = useState('');
   const [fDate, setFDate] = useState('');
+  const [fStartTime, setFStartTime] = useState('');
   const [fVenue, setFVenue] = useState('');
   const [fDescription, setFDescription] = useState('');
   const [fIsPrivate, setFIsPrivate] = useState(false);
@@ -436,10 +438,31 @@ export default function EventDetailPage() {
 
   const cancelled = Boolean(event?.cancelled_at);
 
+  // "Event duplizieren": hand the form values (everything except the date)
+  // to the dashboard create drawer via sessionStorage.
+  function duplicateEvent(): void {
+    if (!event) return;
+    try {
+      sessionStorage.setItem('passly_duplicate_event', JSON.stringify({
+        name: event.name,
+        startTime: event.start_time,
+        venue: event.venue,
+        description: event.description,
+        isPrivate: event.is_private,
+        payoutHoldDays: event.payout_hold_days ?? 0,
+        accentHue: event.accent_hue,
+        borderStyle: event.border_style,
+        tiers: tiers.map((t) => ({ name: t.name, priceEur: String(t.price_eur / 100), capacity: String(t.capacity) })),
+      }));
+    } catch { /* private mode — the drawer just opens empty */ }
+    router.push('/dashboard');
+  }
+
   function openEdit(): void {
     if (!event) return;
     setFName(event.name);
     setFDate(event.date);
+    setFStartTime(event.start_time ?? '');
     setFVenue(event.venue ?? '');
     setFDescription(event.description ?? '');
     setFIsPrivate(event.is_private);
@@ -492,6 +515,7 @@ export default function EventDetailPage() {
           fields: {
             name: fName.trim(),
             date: fDate,
+            start_time: fStartTime || null,
             venue: fVenue.trim() || null,
             description: fDescription.trim() || null,
             is_private: fIsPrivate,
@@ -598,6 +622,7 @@ export default function EventDetailPage() {
                     <h1 style={{ fontSize: 30, letterSpacing: '-0.03em', fontWeight: 600, lineHeight: 1.1 }}>{event.name}</h1>
                     <div className="row gap-3" style={{ marginTop: 10, color: 'var(--ink-3)', fontSize: 13.5, flexWrap: 'wrap' }}>
                       <span className="row gap-2"><Icon name="calendar" size={14} />{formatDate(event.date)}</span>
+                      {event.start_time && <span className="row gap-2"><Icon name="clock" size={14} />{event.start_time} Uhr</span>}
                       {event.venue && <span className="row gap-2"><Icon name="location" size={14} />{event.venue}</span>}
                       <span className="row gap-2"><Icon name="euro" size={14} />{event.price_eur === 0 ? 'Kostenlos' : `${eur(event.price_eur)} pro Ticket`}</span>
                     </div>
@@ -928,6 +953,9 @@ export default function EventDetailPage() {
                         <Link href={`/shop/${event.id}`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
                           <Icon name="ticket" size={14} /> Shop-Seite ansehen
                         </Link>
+                        <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={duplicateEvent}>
+                          <Icon name="plus" size={14} /> Event duplizieren
+                        </button>
                         {plan === 'pro' ? (
                           <button
                             className="btn ghost"
@@ -1023,9 +1051,16 @@ export default function EventDetailPage() {
                 </div>
                 {fDate && (
                   <span className="date-preview">
-                    <Icon name="calendar" size={12} /> {formatDateLong(fDate)}
+                    <Icon name="calendar" size={12} /> {formatDateLong(fDate)}{fStartTime ? ` · ${fStartTime} Uhr` : ''}
                   </span>
                 )}
+              </div>
+              <div className="field">
+                <label>Beginn (optional)</label>
+                <div className="date-field">
+                  <span className="date-field-icon"><Icon name="clock" size={15} /></span>
+                  <input type="time" className="input" value={fStartTime} onChange={(e) => setFStartTime(e.target.value)} disabled={editSaving} />
+                </div>
               </div>
               <div className="field">
                 <label>Veranstaltungsort</label>
