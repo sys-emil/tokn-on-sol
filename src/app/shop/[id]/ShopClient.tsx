@@ -352,6 +352,10 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
         }
         .qty-btn:hover:not(:disabled) { background: var(--surface-2); }
         .qty-btn:disabled { color: var(--ink-4); cursor: default; }
+        @media (pointer: coarse) {
+          .qty-btn { width: 42px; height: 42px; }
+          .qty-num { min-width: 40px; line-height: 42px; }
+        }
         .qty-num {
           min-width: 34px; text-align: center;
           font-size: 14px; font-weight: 600;

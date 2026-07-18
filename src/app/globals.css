@@ -104,7 +104,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* App shell */
-.app { min-height: 100vh; display: flex; flex-direction: column; }
+.app { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
 /* `overflow: clip` (not `hidden`, so sticky descendants are unaffected — .main
    has none) caps decorative absolutely-positioned glows/auroras at .main's own
    content-determined height. Without it, a glow placed with a hardcoded pixel
@@ -474,7 +474,11 @@ section + section { margin-top: 36px; }
   max-width: 420px; width: 100%; overflow: hidden;
   box-shadow: 0 24px 80px rgba(17,20,45,0.24), 0 2px 8px rgba(17,20,45,0.08);
   animation: slideUp 0.22s cubic-bezier(.2,.8,.2,1);
+  /* Tall modals scroll inside their body instead of overflowing the viewport. */
+  max-height: calc(100dvh - 48px);
+  display: flex; flex-direction: column;
 }
+.modal-body { overflow-y: auto; }
 .modal-head { padding: 18px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
 .modal-head h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
 .modal-body { padding: 24px 22px; }
@@ -812,6 +816,7 @@ section + section { margin-top: 36px; }
 }
 
 @media (max-width: 700px) {
+  .hero { padding: 32px 0 28px; }
   .hero h1 { font-size: 30px; }
   .topbar-inner { padding: 0 16px; gap: 10px; }
   .container { padding: 28px 16px 72px; }
@@ -820,4 +825,53 @@ section + section { margin-top: 36px; }
   .nav::-webkit-scrollbar { display: none; }
   .nav a, .nav button { padding: 7px 8px; font-size: 12.5px; white-space: nowrap; }
   .topbar-right { gap: 8px; flex-shrink: 0; }
+  /* iOS Safari zooms into focused inputs below 16px — prevent the jump. */
+  .input, .textarea, .select { font-size: 16px; }
+  .section-head { flex-wrap: wrap; }
+  /* The create/edit drawer becomes a full-screen sheet; footer actions
+     stretch so the primary action is an easy thumb target. */
+  .drawer { width: 100%; border-left: none; }
+  .drawer-foot .btn { flex: 1; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  /* Decorative sparklines crowd the halved KPI cells — drop them. */
+  .spark { display: none; }
+  .kpi { padding: 16px 18px; }
+  .kpi .value { font-size: 24px; }
+  .badges-row { gap: 10px; }
+  .badge-tile { width: calc(50% - 5px); }
+}
+
+/* Comfortable touch targets on touch devices (44pt guideline). */
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+  .btn.sm { min-height: 38px; }
+  .close-btn { width: 36px; height: 36px; }
+  .seg button { padding: 8px 12px; }
+}
+
+/* Modals become bottom sheets on phones — full width, anchored at the
+   thumb, scrolling inside. Desktop keeps the centered dialog. */
+@media (max-width: 620px) {
+  .modal-backdrop { place-items: end stretch; padding: 0; }
+  .modal {
+    max-width: none;
+    border-radius: 18px 18px 0 0;
+    border-bottom: none;
+    max-height: calc(100dvh - 24px);
+    animation: sheetUp 0.28s cubic-bezier(.2,.8,.2,1);
+  }
+  .modal-foot { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+}
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
+
+/* Guest table on the organizer event page: the decorative QR cell and the
+   issued-at column (cols 1 + 4) don't earn their width on phones.
+   NOTE: keep in sync with the column order in dashboard/events/[id]. */
+@media (max-width: 640px) {
+  .ticket-table th:nth-child(1), .ticket-table td:nth-child(1),
+  .ticket-table th:nth-child(4), .ticket-table td:nth-child(4) { display: none; }
+  .ticket-table thead th, .ticket-table tbody td { padding-left: 12px; padding-right: 12px; }
 }

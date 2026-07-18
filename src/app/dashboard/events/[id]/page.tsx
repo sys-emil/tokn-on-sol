@@ -632,7 +632,7 @@ export default function EventDetailPage() {
                       </p>
                     )}
                   </div>
-                  <div className="row gap-2">
+                  <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
                     {!cancelled && (
                       <button className="btn ghost" onClick={openEdit}>
                         <Icon name="edit" size={14} /> Bearbeiten
@@ -661,7 +661,7 @@ export default function EventDetailPage() {
                             placeholder="E-Mail oder Nr."
                             value={query}
                             onChange={(e) => { setQuery(e.target.value); setPage(0); }}
-                            style={{ padding: '7px 10px 7px 32px', fontSize: 12.5, width: 180 }}
+                            style={{ padding: '7px 10px 7px 32px', fontSize: 12.5, width: 180, maxWidth: '100%' }}
                           />
                           <span style={{ position: 'absolute', left: 10, top: 9, color: 'var(--ink-3)' }}>
                             <Icon name="search" size={13} />
