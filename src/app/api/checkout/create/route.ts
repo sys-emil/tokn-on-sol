@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { TicketTier } from "@/lib/supabase";
 import { serviceFeePerTicketCents } from "@/lib/fees";
 import { findValidDiscount, discountedUnitPrice, type ValidDiscount } from "@/lib/discounts";
+import { requestOwnsWallet } from "@/lib/privyServer";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 interface CheckoutBody {
@@ -12,7 +14,12 @@ interface CheckoutBody {
   quantity?: number;
   tierId?: string;
   discountCode?: string;
+  /** Apply the buyer's Passly credit balance to this purchase (requires auth). */
+  useCredit?: boolean;
 }
+
+/** Stripe's minimum card charge (€0.50). Never leave a smaller non-zero total. */
+const STRIPE_MIN_CHARGE_CENTS = 50;
 
 /** How long a buyer's seats are held before others may claim them. */
 const HOLD_MINUTES = 5;
@@ -230,10 +237,85 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ? `Ticket for ${event.date} · Code ${discount.code} (−${discount.percentOff} %)`
     : `Ticket for ${event.date}`;
 
+  // Passly credit redemption (funded by prior resale proceeds). Held under a
+  // hold-id before the session is created so a concurrent checkout of the same
+  // wallet can't spend the same balance; redeemed by the completed webhook and
+  // released by the expiry webhook. Requires proof of wallet ownership.
+  const totalDueCents = unitPrice * quantity + feePerTicket * quantity;
+  let creditHoldId: string | null = null;
+  let creditAppliedCents = 0;
+  if (body.useCredit && totalDueCents > 0) {
+    if (!(await requestOwnsWallet(req, buyerWallet))) {
+      await releaseClaim();
+      return NextResponse.json(
+        { success: false, error: "Bitte melde dich an, um dein Guthaben zu verwenden." },
+        { status: 401 },
+      );
+    }
+    const { data: cred } = await supabaseAdmin
+      .from("user_credits").select("balance_cents").eq("wallet_address", buyerWallet).maybeSingle();
+    const { data: holds } = await supabaseAdmin
+      .from("credit_holds").select("amount_cents").eq("wallet_address", buyerWallet).eq("status", "active");
+    const balance = (cred?.balance_cents as number | undefined) ?? 0;
+    const held0 = ((holds ?? []) as { amount_cents: number }[]).reduce((s, h) => s + h.amount_cents, 0);
+    const available = Math.max(0, balance - held0);
+
+    let plan = Math.min(available, totalDueCents);
+    const remaining = totalDueCents - plan;
+    // Never leave a card charge below the Stripe minimum: either cover the whole
+    // total, or leave at least €0.50 to charge.
+    if (remaining > 0 && remaining < STRIPE_MIN_CHARGE_CENTS) {
+      plan = available >= totalDueCents ? totalDueCents : totalDueCents - STRIPE_MIN_CHARGE_CENTS;
+    }
+
+    if (plan > 0) {
+      const holdId = randomUUID();
+      const { data: held } = await supabaseAdmin.rpc("reserve_credit", {
+        p_session_id: holdId, p_wallet: buyerWallet, p_cents: plan,
+      });
+      const heldCents = Math.min(plan, (held as number | null) ?? 0);
+      if (heldCents > 0) {
+        const rem2 = totalDueCents - heldCents;
+        if (rem2 > 0 && rem2 < STRIPE_MIN_CHARGE_CENTS) {
+          // A concurrent hold left us a sub-minimum remainder — skip credit.
+          await supabaseAdmin.rpc("release_credit", { p_session_id: holdId });
+        } else {
+          creditHoldId = holdId;
+          creditAppliedCents = heldCents;
+        }
+      }
+    }
+  }
+
+  const releaseCreditHold = async (): Promise<void> => {
+    if (creditHoldId) await supabaseAdmin.rpc("release_credit", { p_session_id: creditHoldId });
+  };
+
+  // A one-time Stripe coupon carries the credit as an amount-off discount.
+  let creditCouponId: string | null = null;
+  if (creditAppliedCents > 0) {
+    try {
+      const coupon = await stripe.coupons.create({
+        amount_off: creditAppliedCents,
+        currency: "eur",
+        duration: "once",
+        max_redemptions: 1,
+        name: "Passly-Guthaben",
+      });
+      creditCouponId = coupon.id;
+    } catch (err) {
+      await releaseCreditHold();
+      await releaseClaim();
+      const message = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ success: false, error: message }, { status: 500 });
+    }
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       expires_at: expiresAt,
+      ...(creditCouponId ? { discounts: [{ coupon: creditCouponId }] } : {}),
       line_items: [
         {
           quantity,
@@ -265,6 +347,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         tierId: tier.id,
         serviceFeeCents: String(feePerTicket * quantity),
         ...(discount ? { discountCodeId: discount.id, discountPercent: String(discount.percentOff) } : {}),
+        ...(creditHoldId ? { creditHoldId, creditAppliedCents: String(creditAppliedCents) } : {}),
       },
     });
 
@@ -280,6 +363,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     if (reservationError) {
       await releaseClaim();
+      await releaseCreditHold();
       try {
         await stripe.checkout.sessions.expire(session.id);
       } catch {
@@ -293,6 +377,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: true, url: session.url, expiresAt: Date.now() + HOLD_MINUTES * 60_000 });
   } catch (err) {
     await releaseClaim();
+    await releaseCreditHold();
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }

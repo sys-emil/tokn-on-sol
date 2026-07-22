@@ -28,6 +28,7 @@ interface EventData {
   tickets_sold: number;
   is_private: boolean;
   payout_hold_days: number;
+  resale_max_markup_pct: number | null;
   image_url: string | null;
   accent_hue: number | null;
   border_style: string | null;
@@ -119,6 +120,8 @@ export default function EventDetailPage() {
   const [fDescription, setFDescription] = useState('');
   const [fIsPrivate, setFIsPrivate] = useState(false);
   const [fHoldDays, setFHoldDays] = useState('0');
+  const [fResaleEnabled, setFResaleEnabled] = useState(false);
+  const [fResaleMaxMarkup, setFResaleMaxMarkup] = useState('20');
   const [fAccentHue, setFAccentHue] = useState<number | null>(null);
   const [fBorderStyle, setFBorderStyle] = useState<string | null>(null);
   const [fTiers, setFTiers] = useState<TierDraft[]>([]);
@@ -450,6 +453,7 @@ export default function EventDetailPage() {
         description: event.description,
         isPrivate: event.is_private,
         payoutHoldDays: event.payout_hold_days ?? 0,
+        resaleMaxMarkupPct: event.resale_max_markup_pct,
         accentHue: event.accent_hue,
         borderStyle: event.border_style,
         tiers: tiers.map((t) => ({ name: t.name, priceEur: String(t.price_eur / 100), capacity: String(t.capacity) })),
@@ -467,6 +471,8 @@ export default function EventDetailPage() {
     setFDescription(event.description ?? '');
     setFIsPrivate(event.is_private);
     setFHoldDays(String(event.payout_hold_days ?? 0));
+    setFResaleEnabled(event.resale_max_markup_pct != null);
+    setFResaleMaxMarkup(String(event.resale_max_markup_pct ?? 20));
     setFAccentHue(event.accent_hue ?? null);
     setFBorderStyle(event.border_style ?? null);
     setFTiers(tiers.map((t) => ({
@@ -501,6 +507,11 @@ export default function EventDetailPage() {
       setEditError('Dein Konto ist noch nicht bereit. Bitte versuche es gleich noch einmal.');
       return;
     }
+    const parsedMarkup = Math.floor(Number(fResaleMaxMarkup));
+    if (fResaleEnabled && (!Number.isInteger(parsedMarkup) || parsedMarkup < 0 || parsedMarkup > 200)) {
+      setEditError('Der maximale Aufpreis muss zwischen 0 und 200 % liegen.');
+      return;
+    }
     setEditSaving(true);
     setEditError(null);
     try {
@@ -520,6 +531,7 @@ export default function EventDetailPage() {
             description: fDescription.trim() || null,
             is_private: fIsPrivate,
             payout_hold_days: Math.floor(Number(fHoldDays)) || 0,
+            resale_max_markup_pct: fResaleEnabled ? parsedMarkup : null,
             accent_hue: fAccentHue,
             border_style: fBorderStyle,
           },
@@ -1138,6 +1150,26 @@ export default function EventDetailPage() {
                     onChange={(e) => setFHoldDays(e.target.value)} disabled={editSaving} />
                 </div>
               )}
+              <div className="field">
+                <label>Weiterverkauf (Fan-zu-Fan)</label>
+                <div className="seg">
+                  <button type="button" className={!fResaleEnabled ? 'active' : ''} onClick={() => setFResaleEnabled(false)} disabled={editSaving}>Aus</button>
+                  <button type="button" className={fResaleEnabled ? 'active' : ''} onClick={() => setFResaleEnabled(true)} disabled={editSaving}>Erlauben</button>
+                </div>
+                {fResaleEnabled ? (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                      <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Max. Aufpreis</span>
+                      <input type="number" className="input" style={{ width: 90 }} value={fResaleMaxMarkup} min={0} max={200} step={1}
+                        onChange={(e) => setFResaleMaxMarkup(e.target.value)} disabled={editSaving} />
+                      <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>% über Nennwert</span>
+                    </div>
+                    <span className="hint">Gäste dürfen ihr Ticket über Passly weiterverkaufen — höchstens {Math.floor(Number(fResaleMaxMarkup)) || 0} % über dem Originalpreis. Höhere Aufpreise verursachen höhere Verkaufsgebühren.</span>
+                  </>
+                ) : (
+                  <span className="hint">Gäste können ihre Tickets nicht offiziell weiterverkaufen.</span>
+                )}
+              </div>
               {editError && (
                 <div style={{ marginTop: 8, fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{editError}</div>
               )}

@@ -113,6 +113,8 @@ export default function Dashboard() {
   const [tiers, setTiers] = useState<TierDraft[]>([{ name: 'Standard', priceEur: '0', capacity: '100' }]);
   const [isPrivate, setIsPrivate] = useState(false);
   const [payoutHoldDays, setPayoutHoldDays] = useState('0');
+  const [resaleEnabled, setResaleEnabled] = useState(false);
+  const [resaleMaxMarkup, setResaleMaxMarkup] = useState('20');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [accentHue, setAccentHue] = useState<number | null>(null);
   const [borderStyle, setBorderStyle] = useState<string | null>(null);
@@ -157,6 +159,7 @@ export default function Dashboard() {
       const d = JSON.parse(raw) as {
         name?: string; startTime?: string | null; venue?: string | null; description?: string | null;
         isPrivate?: boolean; payoutHoldDays?: number; accentHue?: number | null; borderStyle?: string | null;
+        resaleMaxMarkupPct?: number | null;
         tiers?: { name: string; priceEur: string; capacity: string }[];
       };
       /* eslint-disable react-hooks/set-state-in-effect -- one-shot sessionStorage handoff, runs once on mount */
@@ -166,6 +169,7 @@ export default function Dashboard() {
       setDescription(d.description ?? '');
       setIsPrivate(d.isPrivate === true);
       setPayoutHoldDays(String(d.payoutHoldDays ?? 0));
+      if (d.resaleMaxMarkupPct != null) { setResaleEnabled(true); setResaleMaxMarkup(String(d.resaleMaxMarkupPct)); }
       setAccentHue(d.accentHue ?? null);
       setBorderStyle(d.borderStyle ?? null);
       if (d.tiers && d.tiers.length > 0) setTiers(d.tiers);
@@ -414,6 +418,11 @@ export default function Dashboard() {
       setFormError('Der Auszahlungs-Puffer muss zwischen 0 und 90 Tagen liegen.');
       return;
     }
+    const parsedMaxMarkup = Math.floor(Number(resaleMaxMarkup));
+    if (resaleEnabled && (!Number.isInteger(parsedMaxMarkup) || parsedMaxMarkup < 0 || parsedMaxMarkup > 200)) {
+      setFormError('Der maximale Aufpreis muss zwischen 0 und 200 % liegen.');
+      return;
+    }
     if (imageFile && !['image/jpeg', 'image/png', 'image/webp'].includes(imageFile.type)) {
       setFormError('Das Event-Bild muss ein JPEG, PNG oder WebP sein.');
       return;
@@ -471,6 +480,7 @@ export default function Dashboard() {
           })),
           is_private: isPrivate,
           payout_hold_days: parsedHoldDays,
+          resale_max_markup_pct: resaleEnabled ? parsedMaxMarkup : null,
           accent_hue: accentHue,
           border_style: borderStyle,
           ...(venue.trim() ? { venue: venue.trim() } : {}),
@@ -937,6 +947,28 @@ export default function Dashboard() {
                         </span>
                       </div>
                     )}
+                    <div className="field">
+                      <label>Weiterverkauf (Fan-zu-Fan)</label>
+                      <div className="seg">
+                        <button type="button" className={!resaleEnabled ? 'active' : ''} onClick={() => setResaleEnabled(false)} disabled={creating}>Aus</button>
+                        <button type="button" className={resaleEnabled ? 'active' : ''} onClick={() => setResaleEnabled(true)} disabled={creating}>Erlauben</button>
+                      </div>
+                      {resaleEnabled ? (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Max. Aufpreis</span>
+                            <input type="number" className="input" style={{ width: 90 }} value={resaleMaxMarkup} min={0} max={200} step={1}
+                              onChange={(e) => setResaleMaxMarkup(e.target.value)} disabled={creating} />
+                            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>% über Nennwert</span>
+                          </div>
+                          <span className="hint">
+                            Gäste können ihr Ticket über Passly weiterverkaufen — höchstens {Math.floor(Number(resaleMaxMarkup)) || 0} % über dem Originalpreis. Höhere Aufpreise verursachen höhere Verkaufsgebühren.
+                          </span>
+                        </>
+                      ) : (
+                        <span className="hint">Gäste können ihre Tickets nicht offiziell weiterverkaufen (nur kostenlos per Link weitergeben).</span>
+                      )}
+                    </div>
 
                     <div style={{
                       marginTop: 18, padding: 14, borderRadius: 10,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
 import { MILESTONES, STAMMGAST_THRESHOLD } from "@/lib/badgeMeta";
+import { maxResalePriceCents } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await supabaseAdmin
     .from("purchases")
-    .select("asset_id, created_at, event_id, redeemed_at, events(name, date, image_url, accent_hue, border_style), ticket_tiers(name)")
+    .select("asset_id, created_at, event_id, redeemed_at, events(name, date, image_url, accent_hue, border_style, price_eur, resale_max_markup_pct), ticket_tiers(name, price_eur)")
     .eq("buyer_wallet", buyerWallet)
     .order("created_at", { ascending: false });
 
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const assetIds = (data ?? []).map((row) => row.asset_id as string);
 
-  const [claimsResult, badgesResult] = await Promise.all([
+  const [claimsResult, badgesResult, listingsResult, creditResult] = await Promise.all([
     assetIds.length > 0
       ? supabaseAdmin
           .from("claims")
@@ -48,7 +49,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .select("badge_type, asset_id, earned_at, organizer_wallet")
       .eq("wallet_address", buyerWallet)
       .order("earned_at", { ascending: true }),
+    // The seller's own live resale listings (ticket sits in operator escrow but
+    // the purchase row still points at the seller until it sells).
+    supabaseAdmin
+      .from("resale_listings")
+      .select("id, asset_id, list_price_cents, fee_cents, net_cents, status")
+      .eq("seller_wallet", buyerWallet)
+      .in("status", ["active", "reserved"]),
+    supabaseAdmin
+      .from("user_credits")
+      .select("balance_cents")
+      .eq("wallet_address", buyerWallet)
+      .maybeSingle(),
   ]);
+
+  const listedAssets = new Map<string, {
+    id: string; listPriceCents: number; feeCents: number; netCents: number; status: string;
+  }>(
+    ((listingsResult.data ?? []) as {
+      id: string; asset_id: string; list_price_cents: number; fee_cents: number; net_cents: number; status: string;
+    }[]).map((l) => [l.asset_id, {
+      id: l.id, listPriceCents: l.list_price_cents, feeCents: l.fee_cents, netCents: l.net_cents, status: l.status,
+    }]),
+  );
+  const creditCents = ((creditResult.data as { balance_cents: number } | null)?.balance_cents) ?? 0;
 
   const claimedAssets = new Map<string, string>(
     ((claimsResult.data ?? []) as { asset_id: string; token: string }[]).map((c) => [
@@ -64,6 +88,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const claimToken = claimedAssets.get(assetId);
     const baseUrl = process.env.APP_URL
       ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
+    // Resale eligibility (client shows the "Weiterverkaufen" action). Face value
+    // is the tier price, falling back to the event's aggregate price.
+    const resaleMaxMarkupPct = (event?.resale_max_markup_pct ?? null) as number | null;
+    const faceValueCents = ((tier?.price_eur ?? event?.price_eur ?? 0)) as number;
+    const listing = listedAssets.get(assetId) ?? null;
+
     return {
       assetId,
       eventName: (event?.name ?? "") as string,
@@ -76,6 +107,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       accentHue: (event?.accent_hue ?? null) as number | null,
       borderStyle: (event?.border_style ?? null) as string | null,
       tierName: (tier?.name ?? null) as string | null,
+      faceValueCents,
+      resaleMaxMarkupPct,
+      resaleMaxPriceCents: resaleMaxMarkupPct != null ? maxResalePriceCents(faceValueCents, resaleMaxMarkupPct) : null,
+      resaleListing: listing,
     };
   });
 
@@ -135,5 +170,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const progress = { attendedCount, nextMilestone, topOrganizer };
 
-  return NextResponse.json({ tickets, badges, progress });
+  return NextResponse.json({ tickets, badges, progress, creditCents });
 }

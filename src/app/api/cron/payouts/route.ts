@@ -37,9 +37,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     console.error("Failed to release expired reservations:", sweepError.message);
   }
 
+  // Safety net for missed resale-checkout expiry webhooks: re-open listings
+  // whose buyer hold elapsed without a completed payment.
+  const { error: resaleSweepError } = await supabaseAdmin.rpc("release_expired_resale_listings");
+  if (resaleSweepError) {
+    console.error("Failed to release expired resale listings:", resaleSweepError.message);
+  }
+
   const { data: due, error } = await supabaseAdmin
     .from("payouts")
-    .select("id, stripe_session_id, charge_id, organizer_wallet, stripe_account_id, net_cents, currency")
+    .select("id, stripe_session_id, charge_id, organizer_wallet, stripe_account_id, net_cents, currency, skip_source_transaction")
     .eq("status", "pending")
     .lte("available_at", new Date().toISOString())
     .order("created_at", { ascending: true })
@@ -84,7 +91,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           amount: payout.net_cents,
           currency: payout.currency ?? "eur",
           destination: accountId,
-          ...(payout.charge_id ? { source_transaction: payout.charge_id } : {}),
+          // Credit-funded payouts draw from the platform balance (the card
+          // charge is smaller than the organizer's net) — no source_transaction.
+          ...(payout.charge_id && !payout.skip_source_transaction ? { source_transaction: payout.charge_id } : {}),
           metadata: { payout_id: payout.id, stripe_session_id: payout.stripe_session_id },
         },
         { idempotencyKey: `payout-transfer-${payout.id}` },

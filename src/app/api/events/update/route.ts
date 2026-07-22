@@ -31,6 +31,7 @@ interface UpdateEventBody {
     payout_hold_days?: number;
     accent_hue?: number | null;
     border_style?: string | null;
+    resale_max_markup_pct?: number | null;
   };
   tiers?: TierEdit[];
 }
@@ -133,6 +134,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "payout_hold_days must be 0–90" }, { status: 400 });
     }
     update.payout_hold_days = fields.payout_hold_days;
+  }
+  if (fields.resale_max_markup_pct !== undefined) {
+    if (fields.resale_max_markup_pct !== null
+        && (!Number.isInteger(fields.resale_max_markup_pct) || fields.resale_max_markup_pct < 0 || fields.resale_max_markup_pct > 200)) {
+      return NextResponse.json({ success: false, error: "resale_max_markup_pct must be 0–200" }, { status: 400 });
+    }
+    update.resale_max_markup_pct = fields.resale_max_markup_pct;
   }
   if (fields.accent_hue !== undefined) {
     if (fields.accent_hue !== null && (!Number.isInteger(fields.accent_hue) || fields.accent_hue < 0 || fields.accent_hue > 360)) {

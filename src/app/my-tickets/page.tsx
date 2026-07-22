@@ -10,7 +10,8 @@ import { ProfileNudge } from '@/app/components/ProfileNudge';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
-import { badgeDisplay } from '@/lib/badgeMeta';
+import { badgeDisplay, BADGE_META, type BadgeType } from '@/lib/badgeMeta';
+import { resaleFeeCents, resaleNetProceedsCents } from '@/lib/fees';
 import { useEffect, useRef, useState } from 'react';
 
 const PAGE_CSS = `
@@ -66,11 +67,68 @@ const PAGE_CSS = `
     }
   }
 
+  /* ── Klickbare Abzeichen: Detailkarte zieht sich auf ─────── */
+  .badge-tile.is-clickable { cursor: pointer; }
+  .badge-tile.is-clickable:focus-visible {
+    outline: 2px solid oklch(0.56 0.20 var(--bh)); outline-offset: 2px;
+  }
+
+  .badge-detail-overlay {
+    position: fixed; inset: 0; z-index: 120;
+    display: grid; place-items: center;
+    padding: 20px;
+    background: oklch(0.30 0.03 285 / 0.42);
+    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    animation: badgeOverlayIn 0.2s ease both;
+  }
+  .badge-detail-overlay.is-closing { animation: badgeOverlayOut 0.24s ease both; }
+  @keyframes badgeOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes badgeOverlayOut { from { opacity: 1; } to { opacity: 0; } }
+
+  .badge-detail-card {
+    --bh: 285;
+    position: relative;
+    width: min(360px, 100%);
+    padding: 32px 26px 24px;
+    text-align: center;
+    border-radius: 22px;
+    cursor: pointer;
+    overflow: hidden;
+    background:
+      radial-gradient(200px 130px at 50% -10%, oklch(0.95 0.06 var(--bh)), transparent 72%),
+      linear-gradient(180deg, oklch(0.99 0.008 var(--bh)), #fff);
+    border: 1px solid oklch(0.88 0.06 var(--bh));
+    box-shadow: 0 24px 64px oklch(0.45 0.18 var(--bh) / 0.30), inset 0 1px 0 #fff;
+    transform-origin: center;
+    animation: badgeCardIn 0.36s cubic-bezier(0.18, 1.3, 0.3, 1) both;
+  }
+  .badge-detail-overlay.is-closing .badge-detail-card {
+    animation: badgeCardOut 0.24s cubic-bezier(0.4, 0, 0.9, 0.4) both;
+  }
+  @keyframes badgeCardIn {
+    from { opacity: 0; transform: scale(0.5) translateY(12px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes badgeCardOut {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 0; transform: scale(0.72) translateY(6px); }
+  }
+  .badge-detail-card .badge-medal { width: 78px; height: 78px; font-size: 30px; }
+  .badge-detail-card .badge-medal::before { inset: -7px; }
+  .bd-name { font-size: 19px; font-weight: 700; margin-top: 18px; letter-spacing: -0.01em; animation: bdRise 0.4s ease 0.14s both; }
+  .bd-desc { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); margin-top: 10px; animation: bdRise 0.4s ease 0.22s both; }
+  .bd-meta { font-size: 12px; color: var(--ink-3); margin-top: 16px; animation: bdRise 0.4s ease 0.30s both; }
+  .bd-hint { font-size: 11px; color: var(--ink-3); opacity: 0.75; margin-top: 18px; animation: bdRise 0.4s ease 0.38s both; }
+  @keyframes bdRise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+
   @media (prefers-reduced-motion: reduce) {
     .event-card.is-fresh, .event-card.is-fresh::after,
     .badge-tile.is-new, .badge-tile.is-new .badge-medal { animation: none; }
     .event-card.is-fresh::after { opacity: 0; }
     .badge-tile::after { transition: none; }
+    .badge-detail-overlay, .badge-detail-overlay.is-closing,
+    .badge-detail-card, .badge-detail-overlay.is-closing .badge-detail-card,
+    .bd-name, .bd-desc, .bd-meta, .bd-hint { animation: none; }
   }
 `;
 
@@ -86,7 +144,13 @@ interface Ticket {
   accentHue: number | null;
   borderStyle: string | null;
   tierName: string | null;
+  faceValueCents: number;
+  resaleMaxMarkupPct: number | null;
+  resaleMaxPriceCents: number | null;
+  resaleListing: { id: string; listPriceCents: number; feeCents: number; netCents: number; status: string } | null;
 }
+
+const euro = (cents: number) => (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
 interface BadgeItem {
   badgeType: string;
@@ -141,6 +205,27 @@ export default function MyTickets() {
   const [freshAssetIds, setFreshAssetIds] = useState<Set<string>>(new Set());
   const [newBadgeTypes, setNewBadgeTypes] = useState<Set<string>>(new Set());
   const [celebration, setCelebration] = useState<{ emoji: string; title: string; message: string } | null>(null);
+  const [badgeDetail, setBadgeDetail] = useState<{ type: string; earnedAt: string } | null>(null);
+  const [badgeClosing, setBadgeClosing] = useState(false);
+  const [creditCents, setCreditCents] = useState(0);
+  const [resaleModal, setResaleModal] = useState<Ticket | null>(null);
+  const [resalePrice, setResalePrice] = useState('');
+  const [resaleBusy, setResaleBusy] = useState(false);
+  const [resaleError, setResaleError] = useState<string | null>(null);
+  const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
+
+  const closeBadgeDetail = () => {
+    setBadgeClosing(true);
+    setTimeout(() => { setBadgeDetail(null); setBadgeClosing(false); }, 240);
+  };
+
+  // Escape schließt die Abzeichen-Detailkarte
+  useEffect(() => {
+    if (!badgeDetail) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeBadgeDetail(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [badgeDetail]);
 
   const buyerWallet = solanaWallets[0]?.address;
 
@@ -215,10 +300,11 @@ export default function MyTickets() {
           fetch(`/api/loyalty/status?buyerWallet=${buyerWallet}`, { headers: authHeaders }),
         ]);
         if (res.ok) {
-          const data = (await res.json()) as { tickets: Ticket[]; badges: BadgeItem[]; progress?: Progress };
+          const data = (await res.json()) as { tickets: Ticket[]; badges: BadgeItem[]; progress?: Progress; creditCents?: number };
           setTickets(data.tickets);
           setBadges(data.badges ?? []);
           setProgress(data.progress ?? null);
+          setCreditCents(data.creditCents ?? 0);
         }
         if (loyaltyRes.ok) {
           const data = (await loyaltyRes.json()) as { programs: LoyaltyProgramView[] };
@@ -253,6 +339,69 @@ export default function MyTickets() {
       }
     } finally {
       setSharingAssetId(null);
+    }
+  }
+
+  function openResale(t: Ticket) {
+    setResaleError(null);
+    // Default the price to the face value — the "just get rid of it" case.
+    setResalePrice((t.faceValueCents / 100).toFixed(2));
+    setResaleModal(t);
+  }
+
+  async function submitResale() {
+    if (!resaleModal || resaleBusy) return;
+    const cents = Math.round(Number(resalePrice.replace(',', '.')) * 100);
+    if (!Number.isFinite(cents) || cents <= 0) {
+      setResaleError('Bitte gib einen gültigen Preis ein.');
+      return;
+    }
+    if (resaleModal.resaleMaxPriceCents != null && cents > resaleModal.resaleMaxPriceCents) {
+      setResaleError(`Höchstpreis: ${euro(resaleModal.resaleMaxPriceCents)}.`);
+      return;
+    }
+    setResaleBusy(true);
+    setResaleError(null);
+    try {
+      const authToken = await getAccessToken();
+      const res = await fetch('/api/resale/list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
+        body: JSON.stringify({ assetId: resaleModal.assetId, listPriceCents: cents }),
+      });
+      const data = (await res.json()) as { success: boolean; error?: string };
+      if (data.success) {
+        setResaleModal(null);
+        setLoaded(false); // reload — the ticket moves into the "angeboten" state
+      } else if (data.error === 'not_delegated') {
+        setResaleError('Dieses Ticket wurde gekauft, bevor der Weiterverkauf unterstützt wurde.');
+      } else {
+        setResaleError(data.error ?? 'Das Angebot konnte nicht erstellt werden.');
+      }
+    } finally {
+      setResaleBusy(false);
+    }
+  }
+
+  async function withdrawResale(listingId: string) {
+    if (cancelBusyId) return;
+    setCancelBusyId(listingId);
+    setResaleError(null);
+    try {
+      const authToken = await getAccessToken();
+      const res = await fetch('/api/resale/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
+        body: JSON.stringify({ listingId }),
+      });
+      const data = (await res.json()) as { success: boolean; error?: string };
+      if (data.success) {
+        setLoaded(false);
+      } else {
+        setShareError(data.error ?? 'Das Angebot konnte nicht zurückgezogen werden.');
+      }
+    } finally {
+      setCancelBusyId(null);
     }
   }
 
@@ -373,14 +522,35 @@ export default function MyTickets() {
           ) : (
             <span className="chip"><span className="d" />Nicht eingelöst</span>
           )}
-          {kind === 'upcoming' && (
-            <button
-              className="btn subtle sm"
-              onClick={(e) => { e.preventDefault(); void handleShare(t.assetId, t.claimUrl); }}
-              disabled={sharingAssetId === t.assetId}
-            >
-              <Icon name="share" size={12} /> {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Link kopieren' : 'Teilen'}
-            </button>
+          {kind === 'upcoming' && t.resaleListing ? (
+            <div className="row gap-2" style={{ alignItems: 'center' }}>
+              <span className="chip accent"><span className="d" />Zum Verkauf · {euro(t.resaleListing.listPriceCents)}</span>
+              <button
+                className="btn subtle sm"
+                onClick={(e) => { e.preventDefault(); void withdrawResale(t.resaleListing!.id); }}
+                disabled={cancelBusyId === t.resaleListing.id}
+              >
+                {cancelBusyId === t.resaleListing.id ? '…' : 'Zurückziehen'}
+              </button>
+            </div>
+          ) : kind === 'upcoming' && (
+            <div className="row gap-2">
+              {t.resaleMaxPriceCents != null && (
+                <button
+                  className="btn subtle sm"
+                  onClick={(e) => { e.preventDefault(); openResale(t); }}
+                >
+                  <Icon name="tag" size={12} /> Verkaufen
+                </button>
+              )}
+              <button
+                className="btn subtle sm"
+                onClick={(e) => { e.preventDefault(); void handleShare(t.assetId, t.claimUrl); }}
+                disabled={sharingAssetId === t.assetId}
+              >
+                <Icon name="share" size={12} /> {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Link kopieren' : 'Teilen'}
+              </button>
+            </div>
           )}
         </div>
       </Link>
@@ -417,6 +587,11 @@ export default function MyTickets() {
                     <Link href={`/collection/${buyerWallet}`} style={{ color: 'var(--accent)', fontWeight: 500 }}>
                       Öffentliches Profil ansehen →
                     </Link>
+                  </div>
+                )}
+                {creditCents > 0 && (
+                  <div className="chip accent" style={{ marginTop: 10 }} title="Wird beim nächsten Ticketkauf automatisch verrechnet.">
+                    <Icon name="euro" size={12} /> {euro(creditCents)} Guthaben
                   </div>
                 )}
               </div>
@@ -561,7 +736,12 @@ export default function MyTickets() {
                         return (
                           <div
                             key={b.badgeType}
-                            className={`badge-tile${isNew ? ' is-new' : ''}`}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`${meta.name} – Details anzeigen`}
+                            onClick={() => setBadgeDetail({ type: b.badgeType, earnedAt: b.earnedAt })}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBadgeDetail({ type: b.badgeType, earnedAt: b.earnedAt }); } }}
+                            className={`badge-tile is-clickable${isNew ? ' is-new' : ''}`}
                             style={{ '--bh': meta.hue, ...(isNew ? { '--fresh-delay': `${150 + i * 100}ms` } : null) } as React.CSSProperties}
                           >
                             {isNew && <span className="badge-new-tag">Neu</span>}
@@ -635,6 +815,29 @@ export default function MyTickets() {
 
       {!celebration && <ProfileNudge walletAddress={buyerWallet} />}
 
+      {badgeDetail && (() => {
+        const meta = badgeDisplay(badgeDetail.type);
+        const full = BADGE_META[badgeDetail.type as BadgeType];
+        const earned = new Date(badgeDetail.earnedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+        return (
+          <div
+            className={`badge-detail-overlay${badgeClosing ? ' is-closing' : ''}`}
+            onClick={closeBadgeDetail}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Abzeichen ${meta.name}`}
+          >
+            <div className="badge-detail-card" style={{ '--bh': meta.hue } as React.CSSProperties} onClick={closeBadgeDetail}>
+              <div className="badge-medal">{meta.symbol}</div>
+              <div className="bd-name">{meta.name}</div>
+              <div className="bd-desc">{full?.description ?? 'Ein Abzeichen aus deiner Sammlung.'}</div>
+              <div className="bd-meta">Verdient am {earned}</div>
+              <div className="bd-hint">Zum Schließen tippen</div>
+            </div>
+          </div>
+        );
+      })()}
+
       {celebration && !loading && (
         <Celebration
           emoji={celebration.emoji}
@@ -643,6 +846,56 @@ export default function MyTickets() {
           onClose={() => setCelebration(null)}
         />
       )}
+
+      {resaleModal && (() => {
+        const cents = Math.round(Number(resalePrice.replace(',', '.')) * 100);
+        const valid = Number.isFinite(cents) && cents > 0
+          && (resaleModal.resaleMaxPriceCents == null || cents <= resaleModal.resaleMaxPriceCents);
+        const fee = valid ? resaleFeeCents(cents, resaleModal.faceValueCents) : 0;
+        const net = valid ? resaleNetProceedsCents(cents, resaleModal.faceValueCents) : 0;
+        return (
+          <div className="modal-backdrop" onClick={() => !resaleBusy && setResaleModal(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-head">
+                <h3>Ticket weiterverkaufen</h3>
+                <button className="close-btn" aria-label="Schließen" onClick={() => setResaleModal(null)} disabled={resaleBusy}><Icon name="x" size={16} /></button>
+              </div>
+              <div className="modal-body">
+                <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
+                  <b style={{ color: 'var(--ink)' }}>{resaleModal.eventName}</b><br />
+                  Originalpreis {euro(resaleModal.faceValueCents)}. Höchstpreis {resaleModal.resaleMaxPriceCents != null ? euro(resaleModal.resaleMaxPriceCents) : '—'} ({resaleModal.resaleMaxMarkupPct}% Aufpreis). Der Erlös landet als Passly-Guthaben in deinem Konto.
+                </p>
+                <div className="field">
+                  <label>Dein Verkaufspreis</label>
+                  <input
+                    type="number" className="input" value={resalePrice} min={0}
+                    max={resaleModal.resaleMaxPriceCents != null ? resaleModal.resaleMaxPriceCents / 100 : undefined}
+                    step="0.01" inputMode="decimal" disabled={resaleBusy}
+                    onChange={(e) => setResalePrice(e.target.value)}
+                  />
+                </div>
+                <div className="card" style={{ padding: '12px 14px', marginTop: 12, fontSize: 13, display: 'grid', gap: 6 }}>
+                  <div className="row" style={{ justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Verkaufspreis</span><span>{valid ? euro(cents) : '—'}</span></div>
+                  <div className="row" style={{ justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Verkaufsgebühr</span><span>{valid ? '− ' + euro(fee) : '—'}</span></div>
+                  <div className="row" style={{ justifyContent: 'space-between', fontWeight: 600, borderTop: '1px solid var(--line)', paddingTop: 6 }}><span>Dein Guthaben</span><span style={{ color: 'var(--accent)' }}>{valid ? euro(net) : '—'}</span></div>
+                </div>
+                <p style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5, marginTop: 10 }}>
+                  Solange dein Ticket angeboten wird, liegt es sicher bei Passly und kann nicht selbst genutzt werden. Du kannst das Angebot jederzeit zurückziehen.
+                </p>
+                {resaleError && (
+                  <div style={{ marginTop: 12, fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{resaleError}</div>
+                )}
+              </div>
+              <div className="modal-foot">
+                <button className="btn ghost" onClick={() => setResaleModal(null)} disabled={resaleBusy}>Abbrechen</button>
+                <button className="btn primary" onClick={() => void submitResale()} disabled={!valid || resaleBusy}>
+                  {resaleBusy ? 'Wird eingestellt …' : 'Zum Verkauf anbieten'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {shareModal && (
         <div className="modal-backdrop" onClick={() => setShareModal(null)}>

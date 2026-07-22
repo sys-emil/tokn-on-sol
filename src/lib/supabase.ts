@@ -59,7 +59,33 @@ export type Event = {
   metadata_uri: string | null;
   venue: string | null;
   description: string | null;
+  /** Max resale markup over face value in percent. NULL = resale disabled for this event. */
+  resale_max_markup_pct: number | null;
   created_at: string;
+};
+
+export type ResaleListingStatus = 'active' | 'reserved' | 'sold' | 'cancelled';
+
+export type ResaleListing = {
+  id: string;
+  asset_id: string;
+  event_id: string;
+  tier_id: string | null;
+  seller_wallet: string;
+  list_price_cents: number;
+  face_value_cents: number;
+  fee_cents: number;
+  net_cents: number;
+  currency: string;
+  status: ResaleListingStatus;
+  stripe_session_id: string | null;
+  reserved_until: string | null;
+  buyer_wallet: string | null;
+  transferred_at: string | null;
+  credited_at: string | null;
+  created_at: string;
+  updated_at: string;
+  sold_at: string | null;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";

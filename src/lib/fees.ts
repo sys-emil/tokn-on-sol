@@ -30,3 +30,65 @@ export function serviceFeeTotalCents(unitPriceCents: number, quantity: number): 
   }
   return serviceFeePerTicketCents(unitPriceCents) * quantity;
 }
+
+/**
+ * Resale (secondary market) fee — borne by the SELLER, deducted from the sale
+ * price. The seller receives (listPrice − fee) as Passly credit.
+ *
+ * The percentage RISES with the markup over the ticket's face value (its tier's
+ * original price) to make scalping unattractive:
+ *   - markup < 10%           → 8%
+ *   - markup ≥ 10%           → 12%
+ *   - each further +5% markup → +2%   (15%→14%, 20%→16%, 25%→18%, …)
+ * Selling at or below face value (markup ≤ 0) stays at the 8% base.
+ *
+ * On top of the percentage there is a flat €1.00 base charge. Percentages are
+ * applied to the resale list price. Kept dependency-free — imported by the
+ * seller-facing listing UI to preview the net proceeds live.
+ */
+export const RESALE_FEE_BASE_CENTS = 100; // €1.00 flat
+export const RESALE_FEE_BASE_BPS = 800; // 8% baseline
+
+/** Fee percentage (in basis points) for a given markup over face value (bps). */
+export function resaleFeeBps(markupBps: number): number {
+  if (markupBps < 1_000) return RESALE_FEE_BASE_BPS; // < 10% markup → 8%
+  const steps = Math.floor((markupBps - 1_000) / 500); // each additional 5%
+  return 1_200 + steps * 200; // 10% → 12%, then +2% per 5%
+}
+
+/**
+ * Seller-side resale fee in cents for a ticket listed at `listPriceCents` whose
+ * original face value is `faceValueCents`. Flat €1 + a markup-scaled percentage
+ * of the list price.
+ */
+export function resaleFeeCents(listPriceCents: number, faceValueCents: number): number {
+  if (!Number.isInteger(listPriceCents) || listPriceCents <= 0) {
+    throw new Error(`listPriceCents must be a positive integer, got ${listPriceCents}`);
+  }
+  if (!Number.isInteger(faceValueCents) || faceValueCents < 0) {
+    throw new Error(`faceValueCents must be a non-negative integer, got ${faceValueCents}`);
+  }
+  // Markup relative to face value; clamped at 0 so selling below face never
+  // yields a negative (fee-reducing) markup.
+  const markupBps = faceValueCents > 0
+    ? Math.max(0, Math.round(((listPriceCents - faceValueCents) / faceValueCents) * 10_000))
+    : 0;
+  const bps = resaleFeeBps(markupBps);
+  return RESALE_FEE_BASE_CENTS + Math.round((listPriceCents * bps) / 10_000);
+}
+
+/** Net proceeds the seller receives as credit: list price minus the resale fee. */
+export function resaleNetProceedsCents(listPriceCents: number, faceValueCents: number): number {
+  return Math.max(0, listPriceCents - resaleFeeCents(listPriceCents, faceValueCents));
+}
+
+/** Highest list price the organizer's markup cap allows for a given face value. */
+export function maxResalePriceCents(faceValueCents: number, maxMarkupPct: number): number {
+  if (!Number.isInteger(faceValueCents) || faceValueCents < 0) {
+    throw new Error(`faceValueCents must be a non-negative integer, got ${faceValueCents}`);
+  }
+  if (!Number.isInteger(maxMarkupPct) || maxMarkupPct < 0) {
+    throw new Error(`maxMarkupPct must be a non-negative integer, got ${maxMarkupPct}`);
+  }
+  return faceValueCents + Math.floor((faceValueCents * maxMarkupPct) / 100);
+}

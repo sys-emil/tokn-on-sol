@@ -7,7 +7,7 @@ type IconName =
   | 'plus' | 'calendar' | 'users' | 'ticket' | 'check' | 'doublecheck' | 'arrow'
   | 'download' | 'share' | 'x' | 'search' | 'dots' | 'qr' | 'scan' | 'clock'
   | 'euro' | 'mail' | 'location' | 'shield' | 'sparkle' | 'camera' | 'refresh'
-  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell' | 'edit' | 'lock';
+  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell' | 'edit' | 'lock' | 'tag';
 
 const ICON_PATHS: Record<IconName, React.ReactNode> = {
   plus: <><path d="M12 5v14"/><path d="M5 12h14"/></>,
@@ -39,6 +39,7 @@ const ICON_PATHS: Record<IconName, React.ReactNode> = {
   bell: <><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>,
   edit: <><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></>,
   lock: <><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></>,
+  tag: <><path d="M20.59 13.41 12 22l-8-8V4h10l6.59 6.59a2 2 0 0 1 0 2.82z"/><circle cx="7.5" cy="7.5" r="1.5"/></>,
 };
 
 // Purely decorative by default — every use sits next to a text label or
