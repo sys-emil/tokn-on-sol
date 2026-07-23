@@ -13,10 +13,13 @@ const Globe = dynamic(() => import('react-globe.gl'), { ssr: false });
 
 const ACCENT = '#7c3aed'; // Passly violet (~oklch(0.54 0.22 285))
 
+type CountryFeature = object;
+
 export function GlobeCard({ locations }: { locations: EventLocation[] }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const globeRef = useRef<{ controls: () => { autoRotate: boolean; autoRotateSpeed: number } } | null>(null);
   const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 420 });
+  const [countries, setCountries] = useState<CountryFeature[]>([]);
 
   // Track container width so the globe stays responsive.
   useEffect(() => {
@@ -30,11 +33,23 @@ export function GlobeCard({ locations }: { locations: EventLocation[] }) {
     return () => ro.disconnect();
   }, []);
 
-  // White globe body, no earth texture.
-  const globeMaterial = useMemo(() => new MeshBasicMaterial({ color: '#f5f3fb' }), []);
+  // Country outlines (Natural Earth 110m), served locally from /public.
+  useEffect(() => {
+    let alive = true;
+    fetch('/globe/countries-110m.geojson')
+      .then((r) => r.json())
+      .then((geo: { features?: CountryFeature[] }) => {
+        if (alive) setCountries(geo.features ?? []);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
-  const maxEvents = useMemo(
-    () => Math.max(1, ...locations.map((l) => l.eventCount)),
+  // White globe body, no earth texture.
+  const globeMaterial = useMemo(() => new MeshBasicMaterial({ color: '#f7f5fc' }), []);
+
+  const maxTickets = useMemo(
+    () => Math.max(1, ...locations.map((l) => l.ticketsSold)),
     [locations],
   );
 
@@ -64,21 +79,25 @@ export function GlobeCard({ locations }: { locations: EventLocation[] }) {
           height={size.h}
           backgroundColor="rgba(0,0,0,0)"
           globeMaterial={globeMaterial}
-          showGraticules
           showAtmosphere
           atmosphereColor={ACCENT}
-          atmosphereAltitude={0.18}
+          atmosphereAltitude={0.16}
+          // Country shapes: faint violet land fill + visible borders.
+          polygonsData={countries}
+          polygonCapColor={() => 'rgba(124, 58, 237, 0.08)'}
+          polygonSideColor={() => 'rgba(124, 58, 237, 0.06)'}
+          polygonStrokeColor={() => 'rgba(91, 63, 173, 0.55)'}
+          polygonAltitude={0.006}
+          // Event markers: flat discs on the surface (not raised columns).
           pointsData={locations}
           pointLat={(d: object) => (d as EventLocation).lat}
           pointLng={(d: object) => (d as EventLocation).lng}
           pointColor={() => ACCENT}
-          pointAltitude={(d: object) =>
-            0.02 + ((d as EventLocation).eventCount / maxEvents) * 0.22
-          }
+          pointAltitude={0.01}
           pointRadius={(d: object) =>
-            0.4 + Math.sqrt((d as EventLocation).ticketsSold) * 0.12
+            0.5 + Math.sqrt((d as EventLocation).ticketsSold / maxTickets) * 0.9
           }
-          pointResolution={16}
+          pointResolution={24}
           pointLabel={(d: object) => {
             const l = d as EventLocation;
             return `<div style="font-family:var(--font,sans-serif);font-size:12px;padding:2px 4px;color:#1a1626">
@@ -86,6 +105,14 @@ export function GlobeCard({ locations }: { locations: EventLocation[] }) {
               ${l.eventCount} Event${l.eventCount !== 1 ? 's' : ''} · ${l.ticketsSold} Ticket${l.ticketsSold !== 1 ? 's' : ''}
             </div>`;
           }}
+          // Pulsing rings so markers stay visible on the white globe.
+          ringsData={locations}
+          ringLat={(d: object) => (d as EventLocation).lat}
+          ringLng={(d: object) => (d as EventLocation).lng}
+          ringColor={() => (t: number) => `rgba(124, 58, 237, ${1 - t})`}
+          ringMaxRadius={3}
+          ringPropagationSpeed={1.4}
+          ringRepeatPeriod={1400}
         />
       )}
 
