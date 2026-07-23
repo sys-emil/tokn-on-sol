@@ -10,7 +10,7 @@ const privy = new PrivyClient(
   process.env.PRIVY_APP_SECRET!,
 );
 
-// GET /api/claims/[token] — public preview
+// GET /api/claims/[token]; public preview
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
@@ -54,7 +54,7 @@ export async function GET(
   });
 }
 
-// POST /api/claims/[token]/redeem — authenticated claim
+// POST /api/claims/[token]/redeem; authenticated claim
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ token: string }> },

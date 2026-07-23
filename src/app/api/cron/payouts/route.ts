@@ -16,7 +16,7 @@ export const maxDuration = 300;
  * status 'pending') and transfers the organizer's net share from the platform
  * balance to their Connect account. `source_transaction` ties each Transfer to
  * the original charge so it settles as soon as that charge's funds are
- * available. The Stripe idempotency key is derived from the payout row ID —
+ * available. The Stripe idempotency key is derived from the payout row ID;
  * re-running the cron can never double-transfer.
  *
  * Failure handling: a transfer that fails because the connected account is
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const heldDetails: string[] = [];
 
   for (const payout of due ?? []) {
-    // Resolve the destination account at transfer time — onboarding may have
+    // Resolve the destination account at transfer time; onboarding may have
     // completed (or the account been restricted) since the purchase.
     let accountId = payout.stripe_account_id as string | null;
     const { data: organizer } = await supabaseAdmin
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           currency: payout.currency ?? "eur",
           destination: accountId,
           // Credit-funded payouts draw from the platform balance (the card
-          // charge is smaller than the organizer's net) — no source_transaction.
+          // charge is smaller than the organizer's net); no source_transaction.
           ...(payout.charge_id && !payout.skip_source_transaction ? { source_transaction: payout.charge_id } : {}),
           metadata: { payout_id: payout.id, stripe_session_id: payout.stripe_session_id },
         },
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         .eq("id", payout.id);
       paid++;
     } catch (err) {
-      // Restricted/disabled account, missing transfer capability, etc. —
+      // Restricted/disabled account, missing transfer capability, etc.
       // funds remain on the platform balance, row goes to 'held' for the
       // admin view. A retry from the admin panel resets it to 'pending'.
       const message = err instanceof Stripe.errors.StripeError
@@ -133,7 +133,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // A held transfer means an organizer is waiting for money — that must not
+  // A held transfer means an organizer is waiting for money; that must not
   // sit silently until someone happens to open /admin/payouts.
   if (heldDetails.length > 0) {
     void sendAdminAlert({
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // Day-before event reminders piggyback on this cron (both Hobby cron slots
-  // are taken). Best-effort — a reminder failure must never fail the payouts.
+  // are taken). Best-effort; a reminder failure must never fail the payouts.
   let reminders = { events: 0, mails: 0 };
   let waitlistMails = 0;
   const baseUrl = process.env.APP_URL

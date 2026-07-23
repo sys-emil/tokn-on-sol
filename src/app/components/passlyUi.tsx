@@ -1,5 +1,5 @@
 /*
- * Passly UI kit — Icon + Spark components for the "Tokn Based" light theme.
+ * Passly UI kit; Icon + Spark components for the "Tokn Based" light theme.
  * The shared component CSS lives in src/app/globals.css since the full
  * template migration (2026-07-06); pages only add page-specific <style> blocks.
  */
@@ -42,7 +42,7 @@ const ICON_PATHS: Record<IconName, React.ReactNode> = {
   tag: <><path d="M20.59 13.41 12 22l-8-8V4h10l6.59 6.59a2 2 0 0 1 0 2.82z"/><circle cx="7.5" cy="7.5" r="1.5"/></>,
 };
 
-// Purely decorative by default — every use sits next to a text label or
+// Purely decorative by default; every use sits next to a text label or
 // inside a button that itself needs the accessible name (aria-label on the
 // button), so the glyph stays out of the accessibility tree.
 export function Icon({ name, size = 16, strokeWidth = 1.7 }: { name: IconName; size?: number; strokeWidth?: number }) {
@@ -54,7 +54,7 @@ export function Icon({ name, size = 16, strokeWidth = 1.7 }: { name: IconName; s
   );
 }
 
-// Curated palette — same oklch chroma/lightness formula as --accent, just a
+// Curated palette; same oklch chroma/lightness formula as --accent, just a
 // fixed hue, so every choice stays inside the design system's saturation.
 const ACCENT_HUES: { hue: number | null; name: string }[] = [
   { hue: null, name: 'Violett (Standard)' },

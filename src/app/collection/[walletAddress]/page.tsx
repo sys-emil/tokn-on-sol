@@ -138,11 +138,11 @@ export async function generateMetadata({
 
   if (profile?.is_private) {
     const description =
-      'Diese Sammlung auf Passly ist privat. Die Person hat ihre besuchten Events und Abzeichen nicht öffentlich geteilt — entdecke stattdessen Events auf getpassly.de.';
+      'Diese Sammlung auf Passly ist privat. Die Person hat ihre besuchten Events und Abzeichen nicht öffentlich geteilt. Entdecke stattdessen Events auf getpassly.de.';
     return {
-      title: 'Privates Profil — Eventsammlung auf Passly ansehen',
+      title: 'Privates Profil · Eventsammlung auf Passly ansehen',
       description,
-      openGraph: { title: 'Privates Profil auf Passly', description: 'Diese Sammlung ist privat — die besuchten Events und Abzeichen sind nicht öffentlich sichtbar.', siteName: 'Passly' },
+      openGraph: { title: 'Privates Profil auf Passly', description: 'Diese Sammlung ist privat, die besuchten Events und Abzeichen sind nicht öffentlich sichtbar.', siteName: 'Passly' },
     };
   }
 
@@ -150,10 +150,10 @@ export async function generateMetadata({
   const count = attended ?? 0;
   const attendedText = `${count} Event${count === 1 ? '' : 's'}`;
   // SERP snippet: 120–160 chars. OG description: 80–125 chars (Discord/social cards).
-  const description = `${name} hat ${attendedText} auf Passly besucht. Schau dir die gesammelten Erinnerungen und Abzeichen an — und entdecke selbst Events in deiner Nähe.`;
-  const ogDescription = `${attendedText} besucht — die ganze Sammlung mit allen verdienten Abzeichen jetzt auf Passly ansehen.`;
+  const description = `${name} hat ${attendedText} auf Passly besucht. Schau dir die gesammelten Erinnerungen und Abzeichen an und entdecke selbst Events in deiner Nähe.`;
+  const ogDescription = `${attendedText} besucht, die ganze Sammlung mit allen verdienten Abzeichen jetzt auf Passly ansehen.`;
   return {
-    title: `${name} — Eventsammlung & Abzeichen auf Passly`,
+    title: `${name} · Eventsammlung & Abzeichen auf Passly`,
     description,
     openGraph: {
       title: `${name} auf Passly`,
@@ -221,7 +221,7 @@ export default async function CollectionPage({
         {attended.length === 0 ? (
           <div className="card">
             <div className="empty">
-              Noch keine besuchten Events — die Geschichte beginnt beim nächsten Mal.
+              Noch keine besuchten Events, die Geschichte beginnt beim nächsten Mal.
               <div style={{ marginTop: 12 }}>
                 <Link href="/events" style={{ color: 'var(--accent)', fontWeight: 500, fontSize: 13 }}>Events entdecken →</Link>
               </div>

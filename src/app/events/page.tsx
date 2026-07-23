@@ -7,9 +7,9 @@ import { Icon } from '@/app/components/passlyUi';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Events entdecken — Passly',
-  description: 'Finde Events in deiner Nähe und sichere dir fälschungssichere Tickets — Einlass per Handy, kein Ausdrucken nötig.',
-  openGraph: { title: 'Events entdecken — Passly', description: 'Finde Events in deiner Nähe und sichere dir fälschungssichere Tickets.' },
+  title: 'Events entdecken · Passly',
+  description: 'Finde Events in deiner Nähe und sichere dir fälschungssichere Tickets, Einlass per Handy, kein Ausdrucken nötig.',
+  openGraph: { title: 'Events entdecken · Passly', description: 'Finde Events in deiner Nähe und sichere dir fälschungssichere Tickets.' },
 };
 
 interface EventRow {
@@ -26,7 +26,7 @@ interface EventRow {
   organizer_wallet: string;
 }
 
-// Same generative recipe as before — one visual language for events
+// Same generative recipe as before, one visual language for events
 // without an uploaded image.
 function eventHue(name: string): number {
   let h = 0;
@@ -132,7 +132,7 @@ export default async function EventsPage({ searchParams }: {
 
   const { data } = await dbQuery;
 
-  // Text search runs in JS — the public listing is small, and this avoids
+  // Text search runs in JS; the public listing is small, and this avoids
   // feeding user input into a PostgREST or() filter string.
   const needle = query.toLowerCase();
   const all = ((data ?? []) as EventRow[]).filter((e) =>
@@ -214,7 +214,7 @@ export default async function EventsPage({ searchParams }: {
       </>
     );
 
-    // Sold-out events stay clickable — the shop page shows the waitlist
+    // Sold-out events stay clickable; the shop page shows the waitlist
     // signup (Pro organizers) and the full event details.
     return (
       <Link key={e.id} href={`/shop/${e.id}`} className={`event-card listing${isSoldOut ? ' sold-out' : ''}`}>
@@ -250,8 +250,8 @@ export default async function EventsPage({ searchParams }: {
               <h1>{organizerLabel ? `Events von ${organizerLabel}` : 'Bevorstehende Events'}</h1>
               <p className="lead">
                 {totalCount > 0
-                  ? `${totalCount} Event${totalCount !== 1 ? 's' : ''} mit fälschungssicheren Tickets — kaufen, teilen, am Einlass vorzeigen.`
-                  : 'Fälschungssichere Tickets — kaufen, teilen, am Einlass vorzeigen.'}
+                  ? `${totalCount} Event${totalCount !== 1 ? 's' : ''} mit fälschungssicheren Tickets: kaufen, teilen, am Einlass vorzeigen.`
+                  : 'Fälschungssichere Tickets: kaufen, teilen, am Einlass vorzeigen.'}
               </p>
               <form className="search-row" action="/events" method="get">
                 {veranstalter && <input type="hidden" name="veranstalter" value={veranstalter} />}
@@ -285,7 +285,7 @@ export default async function EventsPage({ searchParams }: {
                   ) : (
                     <>
                       <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Gerade ist nichts angekündigt.</div>
-                      <div style={{ fontSize: 13, marginTop: 4 }}>Schau bald wieder vorbei — neue Events erscheinen hier zuerst.</div>
+                      <div style={{ fontSize: 13, marginTop: 4 }}>Schau bald wieder vorbei, neue Events erscheinen hier zuerst.</div>
                     </>
                   )}
                 </div>

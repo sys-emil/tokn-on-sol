@@ -15,7 +15,7 @@ interface VerifyBody {
 
 interface QrPayload {
   a: string; // assetId
-  t?: number; // minuteTimestamp = Math.floor(Date.now() / 60000) — absent on backup tokens
+  t?: number; // minuteTimestamp = Math.floor(Date.now() / 60000); absent on backup tokens
   w: string; // walletAddress (base58)
   s: string; // Ed25519 signature (base58)
   b?: number; // 1 = static backup ticket (challenge without time window)
@@ -73,9 +73,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ valid: false, reason: "Invalid QR code" });
   }
 
-  // Step 1 — Replay protection: accept current minute and previous minute.
+  // Step 1; Replay protection: accept current minute and previous minute.
   // Backup tickets are deliberately static (saved in advance for venues
-  // without connectivity) — no time window; once-only redemption plus the
+  // without connectivity); no time window; once-only redemption plus the
   // printed personalization (ID check at the door) carry the security.
   if (!isBackup) {
     const nowMinute = Math.floor(Date.now() / 60000);
@@ -84,10 +84,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Step 2 — Reconstruct the challenge the client signed
+  // Step 2; Reconstruct the challenge the client signed
   const challenge = isBackup ? `passly:backup:${assetId}` : `passly:verify:${assetId}:${t}`;
 
-  // Step 3 — Decode base58 pubkey and signature, then verify Ed25519
+  // Step 3; Decode base58 pubkey and signature, then verify Ed25519
   let pubkeyBytes: Uint8Array<ArrayBuffer>;
   let sigBytes: Uint8Array<ArrayBuffer>;
   try {
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ valid: false, reason: "Invalid signature" });
   }
 
-  // Step 4 — On-chain ownership check via Helius DAS
+  // Step 4; On-chain ownership check via Helius DAS
   const assetRes = await fetch(heliusRpcUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ valid: false, reason: "Wallet does not own this ticket" });
   }
 
-  // Step 5 — Atomic redemption: update only if redeemed_at IS NULL (unchanged)
+  // Step 5; Atomic redemption: update only if redeemed_at IS NULL (unchanged)
   const now = new Date().toISOString();
 
   const { data: updated } = await supabaseAdmin
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq("id", eventId)
       .single();
 
-    // Fire badge check async — doorman can't wait for a mint
+    // Fire badge check async; doorman can't wait for a mint
     const baseUrl = process.env.APP_URL
       ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
     void checkRedemptionBadges(walletAddress, eventId, baseUrl);
@@ -172,7 +172,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
   }
 
-  // Not updated — ticket not found, wrong event, revoked (refunded), or already
+  // Not updated; ticket not found, wrong event, revoked (refunded), or already
   // redeemed. Scoped to this event so a ticket for a different event reads as
   // "not found" rather than leaking its state.
   const { data: existing } = await supabaseAdmin

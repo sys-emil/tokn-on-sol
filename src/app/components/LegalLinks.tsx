@@ -3,7 +3,7 @@ import Link from 'next/link';
 /*
  * Compact Impressum/Datenschutz/AGB link row. The Impressum must be reachable
  * from every page of the site (§ 5 DDG: "leicht erkennbar und unmittelbar
- * erreichbar") — drop this into any page without a full footer.
+ * erreichbar"), drop this into any page without a full footer.
  */
 export function LegalLinks({ style }: { style?: React.CSSProperties }) {
   return (

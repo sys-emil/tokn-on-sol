@@ -53,11 +53,11 @@ function agoLabel(iso: string, nowTs: number): string {
   return `vor ${Math.floor(sec / 60)} min`;
 }
 
-// The verify API returns English reason strings — translate the ones the
+// The verify API returns English reason strings, translate the ones the
 // doorman needs to act on differently; everything else is a generic reject.
 function reasonDe(reason: string): string {
   switch (reason) {
-    case 'QR code expired': return 'Der QR-Code ist abgelaufen — Gast soll die Ticketseite neu laden.';
+    case 'QR code expired': return 'Der QR-Code ist abgelaufen. Gast soll die Ticketseite neu laden.';
     case 'Ticket revoked (refunded)': return 'Dieses Ticket wurde storniert (Kauf erstattet).';
     case 'Wallet does not own this ticket': return 'Das Ticket gehört einem anderen Konto.';
     case 'Ticket not found': return 'Kein passendes Ticket gefunden.';
@@ -199,7 +199,7 @@ export default function DoormanPage() {
   const walletAddress = solanaWallets[0]?.address;
 
   // Door access link (?key=…): venue staff scan without the organizer's
-  // login. Read once via window — the key never appears in rendered output,
+  // login. Read once via window; the key never appears in rendered output,
   // so the SSR/client difference can't cause a hydration mismatch.
   const [doorKey] = useState(() =>
     typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('key') ?? '',
@@ -241,7 +241,7 @@ export default function DoormanPage() {
     };
   }, []);
 
-  // Drives the "zuletzt synchronisiert vor X s" label — 5 s granularity is
+  // Drives the "zuletzt synchronisiert vor X s" label; 5 s granularity is
   // enough and keeps re-renders away from the rAF scan loop.
   useEffect(() => {
     const timer = setInterval(() => setNowTs(Date.now()), 5_000);
@@ -307,7 +307,7 @@ export default function DoormanPage() {
     return () => { cancelled = true; };
   }, [doorKey, eventId, keyStatus]);
 
-  // Refresh the snapshot every 60 s while online — the cache the doorman
+  // Refresh the snapshot every 60 s while online; the cache the doorman
   // falls back to is at most a minute old when the connection drops.
   useEffect(() => {
     if (!hasDoorAccess || !online || !eventId) return;
@@ -324,7 +324,7 @@ export default function DoormanPage() {
         setSnapshotReady(true);
         setLastSyncAt(new Date().toISOString());
       } catch {
-        // offline or flaky — the cached snapshot keeps working
+        // offline or flaky; the cached snapshot keeps working
       }
     }
     void refresh();
@@ -358,7 +358,7 @@ export default function DoormanPage() {
           console.warn('Offline-Scans mit Konflikt (an anderem Gerät bereits eingelöst?):', data.conflicts);
         }
       } catch {
-        // still offline — retried on the next online tick
+        // still offline; retried on the next online tick
       } finally {
         syncingRef.current = false;
       }
@@ -375,7 +375,7 @@ export default function DoormanPage() {
       .catch(() => setEvent(null));
   }, [eventId]);
 
-  // Auth + access check. login() may only fire once — this effect re-runs
+  // Auth + access check. login() may only fire once; this effect re-runs
   // when the event fetch resolves, and re-invoking login() mid-flow resets
   // the Privy modal so the e-mail code step never appears. In key mode the
   // access link replaces the login entirely (validated above).
@@ -410,7 +410,7 @@ export default function DoormanPage() {
     setPhase({ tag: 'verifying' });
 
     try {
-      // 5 s budget for the live check — at the door a hanging request is
+      // 5 s budget for the live check; at the door a hanging request is
       // worse than falling back to the offline snapshot.
       const res = await fetch('/api/tickets/verify', {
         method: 'POST',
@@ -433,7 +433,7 @@ export default function DoormanPage() {
         setPhase({ tag: 'result-invalid', reason: data.reason });
       }
     } catch {
-      // Network gone — verify against the cached snapshot instead.
+      // Network gone; verify against the cached snapshot instead.
       setOnline(false);
       const verdict = await verifyOffline(raw, snapshotRef.current, locallyRedeemedRef.current);
       if (verdict.valid) {
@@ -621,7 +621,7 @@ export default function DoormanPage() {
             </div>
             <div className="door-counter">
               <div className="l">Letzter Einlass</div>
-              <div className="v">{lastScan ? formatTime(lastScan) : '—'}</div>
+              <div className="v">{lastScan ? formatTime(lastScan) : 'noch keiner'}</div>
             </div>
           </div>
 
@@ -661,11 +661,11 @@ export default function DoormanPage() {
                       padding: '6px 12px', borderRadius: 999,
                       background: 'rgba(255,255,255,0.18)', display: 'inline-block',
                     }}>
-                      Backup-Ticket — Ausweis mit PDF abgleichen
+                      Backup-Ticket: Ausweis mit PDF abgleichen
                     </div>
                   )}
                   {phase.offline && (
-                    <div style={{ fontSize: 11.5, marginTop: 6, opacity: 0.75 }}>Offline geprüft — wird später synchronisiert</div>
+                    <div style={{ fontSize: 11.5, marginTop: 6, opacity: 0.75 }}>Offline geprüft, wird später synchronisiert</div>
                   )}
                 </div>
               </div>
@@ -679,7 +679,7 @@ export default function DoormanPage() {
                   </div>
                   <div style={{ fontSize: 17, fontWeight: 600 }}>Bereits eingelöst</div>
                   <div style={{ fontSize: 12.5, marginTop: 4, opacity: 0.88 }}>
-                    Dieses Ticket wurde schon gescannt{phase.redeemedAt ? ` — um ${formatTime(phase.redeemedAt)} Uhr` : ''}.
+                    Dieses Ticket wurde schon gescannt{phase.redeemedAt ? `, um ${formatTime(phase.redeemedAt)} Uhr` : ''}.
                   </div>
                 </div>
               </div>

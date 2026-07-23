@@ -422,7 +422,7 @@ export default function ProAnalytics() {
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.025em' }}>Schalte Passly Pro frei</div>
                 <div style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.6, maxWidth: 460, marginLeft: 'auto', marginRight: 'auto' }}>
-                  Deine Gäste kommen wieder — Pro zeigt dir, wer sie sind, und gibt dir
+                  Deine Gäste kommen wieder. Pro zeigt dir, wer sie sind, und gibt dir
                   die Werkzeuge, sie zu halten.
                 </div>
                 <div className="pro-features">
@@ -444,7 +444,7 @@ export default function ProAnalytics() {
                     <div className="ic"><Icon name="mail" size={14} /></div>
                     <div>
                       <b>Gäste erreichen</b>
-                      <span>Nachrichten an alle Ticketinhaber eines Events — direkt aus dem Dashboard.</span>
+                      <span>Nachrichten an alle Ticketinhaber eines Events, direkt aus dem Dashboard.</span>
                     </div>
                   </div>
                   <div className="pro-feature">
@@ -528,7 +528,7 @@ export default function ProAnalytics() {
                     if (base === 0) {
                       return (
                         <div className="empty">
-                          Noch keine Daten — der Funnel füllt sich, sobald Besucher mit
+                          Noch keine Daten, der Funnel füllt sich, sobald Besucher mit
                           Cookie-Einwilligung deine Shop-Seiten öffnen.
                         </div>
                       );

@@ -1,5 +1,5 @@
 /**
- * Single source of truth for badge definitions — display (name/symbol/hue),
+ * Single source of truth for badge definitions; display (name/symbol/hue),
  * cNFT metadata copy, and award thresholds. Client-safe: no server imports,
  * imported by client pages, server components, and the badge engine alike.
  */
@@ -19,13 +19,13 @@ export const BADGE_META: Record<
 > = {
   first_show: {
     name: 'Erstes Event',
-    description: 'Das allererste Event auf Passly besucht — der Anfang der Sammlung.',
+    description: 'Das allererste Event auf Passly besucht; der Anfang der Sammlung.',
     symbol: 'I',
     hue: 285,
   },
   show_5: {
     name: '5 Events',
-    description: '5 Events besucht — auf dem besten Weg zum Stammgast.',
+    description: '5 Events besucht; auf dem besten Weg zum Stammgast.',
     symbol: 'V',
     hue: 150,
   },

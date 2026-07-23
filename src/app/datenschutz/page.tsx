@@ -3,7 +3,7 @@ import { LegalPageShell } from '@/app/components/LegalPageShell';
 import { ConsentSettingsButton } from '@/app/components/ConsentBanner';
 
 export const metadata: Metadata = {
-  title: 'Datenschutzerklärung — Passly',
+  title: 'Datenschutzerklärung · Passly',
   description: 'Informationen zur Verarbeitung personenbezogener Daten gemäß Art. 13, 14 DSGVO.',
   robots: { index: false },
 };
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
  * ergänzt oder entfernt, MUSS diese Seite angepasst werden.
  *
  * VOR GO-LIVE: "PLATZHALTER" ausfüllen und mit allen genannten Anbietern
- * Auftragsverarbeitungsverträge (AVV/DPA) abschließen — bei Vercel, Supabase,
+ * Auftragsverarbeitungsverträge (AVV/DPA) abschließen, bei Vercel, Supabase,
  * Stripe und Resend im Dashboard verfügbar; bei Privy Teil der Terms (prüfen).
  */
 
@@ -52,8 +52,8 @@ export default function DatenschutzPage() {
         Passly ist eine Plattform, über die Veranstalter fälschungssichere digitale
         Tickets verkaufen und Gäste diese kaufen, aufbewahren und am Einlass
         vorzeigen. Dafür verarbeiten wir vor allem: deine E-Mail-Adresse (Konto),
-        Ticket- und Kaufdaten sowie — abgewickelt durch unseren Zahlungsdienstleister
-        — Zahlungsdaten. Wir betreiben kein Werbetracking und verkaufen keine
+        Ticket- und Kaufdaten sowie, abgewickelt durch unseren Zahlungsdienstleister,
+        Zahlungsdaten. Wir betreiben kein Werbetracking und verkaufen keine
         Daten; eine anonyme Reichweitenmessung findet nur mit deiner
         Einwilligung statt (siehe Ziffer 10).
       </p>
@@ -77,7 +77,7 @@ export default function DatenschutzPage() {
       <h2>4. Konto und Anmeldung (Privy)</h2>
       <p>
         Für dein Passly-Konto nutzen wir den Dienst Privy (Horkos, Inc., New York,
-        USA). Die Anmeldung erfolgt ausschließlich per E-Mail-Code — ein Passwort
+        USA). Die Anmeldung erfolgt ausschließlich per E-Mail-Code, ein Passwort
         gibt es nicht. Verarbeitet werden dabei deine E-Mail-Adresse sowie
         technische Sitzungsdaten. Beim ersten Login wird deinem Konto automatisch
         eine eindeutige technische Kennung zugeordnet (ein kryptografisches
@@ -94,7 +94,7 @@ export default function DatenschutzPage() {
       <p>
         Konto-, Event-, Ticket- und Kaufdaten speichern wir in einer Datenbank des
         Anbieters Supabase Inc. (Region des Rechenzentrums:
-        [PLATZHALTER: z. B. Frankfurt, EU — im Supabase-Dashboard nachsehen]).
+        [PLATZHALTER: z. B. Frankfurt, EU, im Supabase-Dashboard nachsehen]).
         Eventbilder und Ticket-Beschreibungsdaten liegen in einem öffentlich
         abrufbaren Speicher, enthalten aber keine personenbezogenen Daten der
         Käufer.
@@ -195,7 +195,7 @@ export default function DatenschutzPage() {
       </p>
       <p>
         Du kannst deine Einwilligung jederzeit mit Wirkung für die Zukunft
-        widerrufen — dabei wird der Statistik-Cookie sofort gelöscht:
+        widerrufen, dabei wird der Statistik-Cookie sofort gelöscht:
       </p>
       <p>
         <ConsentSettingsButton />
@@ -217,7 +217,7 @@ export default function DatenschutzPage() {
       <ul>
         <li>Auskunft über die verarbeiteten Daten (Art. 15 DSGVO),</li>
         <li>Berichtigung unrichtiger Daten (Art. 16 DSGVO),</li>
-        <li>Löschung (Art. 17 DSGVO) — mit der technischen Einschränkung aus Ziffer 7,</li>
+        <li>Löschung (Art. 17 DSGVO), mit der technischen Einschränkung aus Ziffer 7,</li>
         <li>Einschränkung der Verarbeitung (Art. 18 DSGVO),</li>
         <li>Datenübertragbarkeit (Art. 20 DSGVO),</li>
         <li>Widerspruch gegen Verarbeitungen auf Grundlage berechtigter Interessen (Art. 21 DSGVO).</li>

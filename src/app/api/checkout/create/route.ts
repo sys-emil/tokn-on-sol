@@ -28,7 +28,7 @@ const SESSION_MINUTES = 30;
 
 /**
  * Expires this event's checkout sessions that outlived the 5-minute hold and
- * frees their seats. Only sessions Stripe confirms as expired get released —
+ * frees their seats. Only sessions Stripe confirms as expired get released;
  * a session that already completed payment throws on expire and keeps its
  * reservation (the completed-webhook finalizes it). Returns freed count.
  */
@@ -49,7 +49,7 @@ async function expireStaleReservations(eventId: string): Promise<number> {
     try {
       await stripe.checkout.sessions.expire(row.stripe_session_id);
     } catch {
-      // already completed or already expired-and-released — don't touch it
+      // already completed or already expired-and-released; don't touch it
       continue;
     }
     const { error } = await supabaseAdmin.rpc("release_reservation", {
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Every event has at least one tier (backfilled 'Standard' for legacy
-  // events). The tier is the price authority — the client only sends an ID,
+  // events). The tier is the price authority; the client only sends an ID,
   // never a price.
   const { data: tiers, error: tiersError } = await supabaseAdmin
     .from("ticket_tiers")
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Discount code (Pro feature): the tier stays the price authority, the code
-  // only scales it. Validated here — never trust a client-side preview.
+  // only scales it. Validated here; never trust a client-side preview.
   let discount: ValidDiscount | null = null;
   if (discountCode) {
     const result = await findValidDiscount(eventId, discountCode, quantity);
@@ -148,12 +148,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const unitPrice = discount ? discountedUnitPrice(tier.price_eur, discount.percentOff) : tier.price_eur;
 
-  // Paid tickets require completed Connect onboarding — the KYC gate. Organizers
+  // Paid tickets require completed Connect onboarding; the KYC gate. Organizers
   // can create events without Stripe, but nobody can pay them until onboarding
   // is done. Free tiers pass through unconditionally.
   //
   // The charge itself is a plain platform charge (Separate Charges & Transfers,
-  // NOT a destination charge) — see the rationale in src/lib/payouts.ts. The
+  // NOT a destination charge); see the rationale in src/lib/payouts.ts. The
   // webhook records a payouts row; a daily cron transfers the organizer's share
   // once the event's payout hold period has elapsed.
   if (tier.price_eur > 0) {
@@ -165,20 +165,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (!organizer?.stripe_account_id || !organizer.stripe_charges_enabled) {
       return NextResponse.json(
-        { success: false, error: "Ticket sales are not active yet — the organizer has not completed payout onboarding." },
+        { success: false, error: "Ticket sales are not active yet, the organizer has not completed payout onboarding." },
         { status: 503 }
       );
     }
   }
 
-  // Claim capacity atomically before creating the Stripe session — the SQL
+  // Claim capacity atomically before creating the Stripe session; the SQL
   // function claims the tier first and the event-level total as the hard
   // overselling gate, so concurrent checkouts can never oversell either. The
   // reservation is converted to a sale by the webhook (checkout.session.completed)
   // or freed again when the session expires (checkout.session.expired).
   //
   // Soft hold: buyers are promised 5 minutes. Stripe won't let a session
-  // expire before 30 minutes, so the 5-minute limit is enforced on demand —
+  // expire before 30 minutes, so the 5-minute limit is enforced on demand;
   // when capacity is exhausted, sessions older than the hold window are
   // expired and their seats freed before giving up (stops slot-hogging
   // without ever pulling seats from an active, fresh checkout).
@@ -228,11 +228,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MINUTES * 60; // Stripe minimum session lifetime
 
   // Buyer-side service fee (€1 + 4% per ticket, src/lib/fees.ts) as its own
-  // line item — the organizer nets 100% of the face price. The total is stored
+  // line item; the organizer nets 100% of the face price. The total is stored
   // in the session metadata so the webhook books fee_cents/net_cents from what
   // the buyer actually agreed to, not from a re-computation that could drift.
   const feePerTicket = serviceFeePerTicketCents(unitPrice);
-  const lineItemName = tiers.length > 1 ? `${event.name} — ${tier.name}` : event.name;
+  const lineItemName = tiers.length > 1 ? `${event.name}; ${tier.name}` : event.name;
   const lineItemDescription = discount
     ? `Ticket for ${event.date} · Code ${discount.code} (−${discount.percentOff} %)`
     : `Ticket for ${event.date}`;
@@ -277,7 +277,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (heldCents > 0) {
         const rem2 = totalDueCents - heldCents;
         if (rem2 > 0 && rem2 < STRIPE_MIN_CHARGE_CENTS) {
-          // A concurrent hold left us a sub-minimum remainder — skip credit.
+          // A concurrent hold left us a sub-minimum remainder; skip credit.
           await supabaseAdmin.rpc("release_credit", { p_session_id: holdId });
         } else {
           creditHoldId = holdId;
@@ -367,13 +367,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       try {
         await stripe.checkout.sessions.expire(session.id);
       } catch {
-        // best effort — the session dies on its own after 30 minutes
+        // best effort; the session dies on its own after 30 minutes
       }
       return NextResponse.json({ success: false, error: reservationError.message }, { status: 500 });
     }
 
     // The countdown the shop page shows is the 5-minute hold, not the Stripe
-    // session lifetime — after the hold, contested seats go to other buyers.
+    // session lifetime; after the hold, contested seats go to other buyers.
     return NextResponse.json({ success: true, url: session.url, expiresAt: Date.now() + HOLD_MINUTES * 60_000 });
   } catch (err) {
     await releaseClaim();

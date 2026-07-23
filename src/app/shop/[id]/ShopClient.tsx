@@ -26,7 +26,7 @@ function formatPrice(cents: number): string {
 
 const MAX_QTY = 4;
 
-// A checkout the buyer started but hasn't finished — the server-side
+// A checkout the buyer started but hasn't finished. The server-side
 // reservation (30 min) keeps the seats, the Stripe session URL stays valid.
 interface PendingCheckout {
   url: string;
@@ -68,12 +68,12 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
   const [wlDone, setWlDone] = useState(false);
   const [wlError, setWlError] = useState<string | null>(null);
 
-  // Passly credit (funded by prior resales) — apply to this purchase.
+  // Passly credit (funded by prior resales), applied to this purchase.
   const [creditCents, setCreditCents] = useState(0);
   const [useCredit, setUseCredit] = useState(true);
 
   // Secondary market: tickets other fans are reselling for this event.
-  interface ResaleOffer { id: string; listPriceCents: number; faceValueCents: number }
+  interface ResaleOffer { id: string; listPriceCents: number; faceValueCents: number; buyerTotalCents: number }
   const [resaleOffers, setResaleOffers] = useState<ResaleOffer[]>([]);
   const [resaleBuyingId, setResaleBuyingId] = useState<string | null>(null);
   const [resaleError, setResaleError] = useState<string | null>(null);
@@ -120,7 +120,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
           sessionStorage.removeItem(storageKey);
         }
       } catch {
-        // corrupt entry — ignore
+        // corrupt entry, ignore
       }
     }, 0);
     return () => clearTimeout(restore);
@@ -189,7 +189,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
   }, [authenticated, walletAddress]);
 
   // An applied code can become invalid when the quantity changes (soft cap
-  // max_uses is checked per quantity) — revalidate instead of letting the
+  // max_uses is checked per quantity), so revalidate instead of letting the
   // checkout API reject it after the redirect.
   useEffect(() => {
     if (!applied) return;
@@ -204,7 +204,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
           setApplied(null);
           setCodeError(data.error ?? 'Der Rabattcode gilt nicht für diese Anzahl.');
         }
-      } catch { /* network hiccup — the checkout API is the authority anyway */ }
+      } catch { /* network hiccup; the checkout API is the authority anyway */ }
     })();
     return () => { stale = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-check when the quantity changes
@@ -550,7 +550,8 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
           padding: 10px 12px; background: var(--surface-2);
           border: 1px solid var(--line); border-radius: 9px;
         }
-        .resale-offer .ro-price { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+        .resale-offer .ro-price { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; display: flex; flex-direction: column; gap: 1px; }
+        .resale-offer .ro-fee { font-size: 10.5px; font-weight: 400; color: var(--ink-3); letter-spacing: 0; }
         .resale-note { font-size: 11.5px; color: var(--ink-3); line-height: 1.5; margin-top: 10px; }
       `}</style>
 
@@ -563,7 +564,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
                 : 'Ein Ticket für dich reserviert'}
             </div>
             <div className="rb-time">
-              Noch <b>{formatCountdown(remainingSec)}</b> — danach können deine Plätze an andere Gäste gehen.
+              Noch <b>{formatCountdown(remainingSec)}</b>, danach können deine Plätze an andere Gäste gehen.
             </div>
           </div>
           <div className="rb-actions">
@@ -654,7 +655,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
         <>
           {applied ? (
             <div className="code-applied">
-              <span>Code {applied.code} eingelöst — {applied.percentOff} % Rabatt</span>
+              <span>Code {applied.code} eingelöst: {applied.percentOff} % Rabatt</span>
               <button type="button" onClick={() => setApplied(null)} disabled={loading}>Entfernen</button>
             </div>
           ) : codeOpen ? (
@@ -685,7 +686,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
               <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} disabled={loading} />
               <span>
                 <b>{formatPrice(creditCents)} Guthaben</b> verrechnen
-                {useCredit && creditApplicable > 0 && <> — <span style={{ color: 'var(--accent)' }}>−{formatPrice(creditApplicable)}</span></>}
+                {useCredit && creditApplicable > 0 && <>: <span style={{ color: 'var(--accent)' }}>−{formatPrice(creditApplicable)}</span></>}
               </span>
             </label>
           )}
@@ -728,7 +729,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
           ) : (
             <>
               <div className="wl-sub">
-                Trag dich ein — wenn Plätze frei werden, bekommst du sofort eine E-Mail.
+                Trag dich ein, dann bekommst du sofort eine E-Mail, sobald Plätze frei werden.
               </div>
               <div className="wl-row">
                 <input
@@ -761,7 +762,10 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
           <div className="resale-list">
             {resaleOffers.map((o) => (
               <div key={o.id} className="resale-offer">
-                <div className="ro-price">{formatPrice(o.listPriceCents)}</div>
+                <div className="ro-price">
+                  {formatPrice(o.buyerTotalCents)}
+                  <span className="ro-fee">inkl. Servicegebühr</span>
+                </div>
                 <button
                   className="btn primary sm"
                   onClick={() => handleResaleBuy(o.id)}
@@ -772,7 +776,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
               </div>
             ))}
           </div>
-          <div className="resale-note">Diese Tickets stammen von anderen Gästen. Fälschungsschutz &amp; Einlass funktionieren identisch.</div>
+          <div className="resale-note">Diese Tickets stammen von anderen Gästen. Fälschungsschutz und Einlass funktionieren identisch.</div>
           {resaleError && <div className="buy-error">{resaleError}</div>}
         </div>
       )}
@@ -789,7 +793,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
           Mit dem Kauf akzeptierst du die <Link href="/agb" style={{ color: 'var(--accent)', fontWeight: 500 }}>AGB</Link>.
           Der Vertrag kommt mit dem Veranstalter zustande. Für Tickets zu
           termingebundenen Veranstaltungen besteht kein Widerrufsrecht
-          (§&nbsp;312g Abs.&nbsp;2 Nr.&nbsp;9 BGB) — jeder Kauf ist verbindlich.
+          (§&nbsp;312g Abs.&nbsp;2 Nr.&nbsp;9 BGB). Jeder Kauf ist verbindlich.
           Hinweise zur Datenverarbeitung: <Link href="/datenschutz" style={{ color: 'var(--accent)', fontWeight: 500 }}>Datenschutzerklärung</Link>.
         </p>
       )}

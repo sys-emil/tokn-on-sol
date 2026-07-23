@@ -633,7 +633,7 @@ const seedEvents = [
   },
   {
     id: "evt_002",
-    title: "FC Lindental — Saisonfinale",
+    title: "FC Lindental · Saisonfinale",
     venue: "Sportplatz Am Wäldchen",
     city: "Lindental",
     date: new Date("2026-05-22T15:00:00"),
@@ -729,7 +729,7 @@ const Icon = ({ name, size = 16, strokeWidth = 1.7 }) => {
 
 /* ---------------- QR code placeholder (no external lib) ---------------- */
 const QR = ({ data, size = 180, dark = "currentColor", light = "transparent" }) => {
-  // Deterministic pseudo-random pattern based on string hash — looks like a QR, scales crisply.
+  // Deterministic pseudo-random pattern based on string hash; looks like a QR, scales crisply.
   const cells = 29;
   const cellSize = size / cells;
   const grid = useMemo(() => {
@@ -802,7 +802,7 @@ function OrganizerDashboard({ onOpenEvent, events, onCreate }) {
           <div className="eyebrow"><span className="pulse"/> Willkommen zurück, Martina</div>
           <h1>Deine Veranstaltungen <br/>auf einen Blick.</h1>
           <p className="lead">
-            Erstelle Tickets, teile sie per Link und prüfe den Einlass — alles fälschungssicher, ohne Papierchaos.
+            Erstelle Tickets, teile sie per Link und prüfe den Einlass, alles fälschungssicher, ohne Papierchaos.
           </p>
           <div className="row gap-2" style={{ marginTop: 22 }}>
             <button className="btn primary lg" onClick={onCreate}>
@@ -837,7 +837,7 @@ function OrganizerDashboard({ onOpenEvent, events, onCreate }) {
           <div className="kpi">
             <div className="label">Nächstes Event</div>
             <div className="value" style={{ fontSize: 20, letterSpacing: "-0.02em" }}>
-              {nextEvent ? shortDate(nextEvent.date) : "—"}
+              {nextEvent ? shortDate(nextEvent.date) : "keins"}
             </div>
             <div className="delta muted" style={{ color: "var(--ink-3)" }}>
               {nextEvent ? nextEvent.title : "Keine bevorstehende"}
@@ -923,7 +923,7 @@ function OrganizerDashboard({ onOpenEvent, events, onCreate }) {
           <div className="card">
             {[
               { icon: "ticket", text: "14 neue Tickets für Frühlingskonzert 2026", when: "vor 2 Stunden", tone: "accent" },
-              { icon: "doublecheck", text: "Einlass gestartet für FC Lindental — Saisonfinale", when: "vor 4 Stunden", tone: "ok" },
+              { icon: "doublecheck", text: "Einlass gestartet für FC Lindental · Saisonfinale", when: "vor 4 Stunden", tone: "ok" },
               { icon: "mail", text: "Ticket an clara.hoffmann@mail.de gesendet", when: "gestern", tone: "" },
               { icon: "shield", text: "Fälschungsschutz aktiviert für Theater-AG: Der Besuch", when: "vor 2 Tagen", tone: "" },
             ].map((a, i) => (
@@ -1332,7 +1332,7 @@ function AttendeeView({ events }) {
         </div>
 
         <div style={{ textAlign: "center", marginTop: 20, color: "var(--ink-3)", fontSize: 12, maxWidth: 380, marginLeft: "auto", marginRight: "auto" }}>
-          Gäste bekommen einen einfachen Link per E-Mail oder WhatsApp — keine App, kein Login, keine Krypto-Begriffe.
+          Gäste bekommen einen einfachen Link per E-Mail oder WhatsApp, keine App, kein Login, keine Krypto-Begriffe.
         </div>
       </div>
     </div>
@@ -1354,7 +1354,7 @@ function DoorView({ events }) {
       } else if (outcome === "used") {
         setLastScan({ guest: "Mira Schulz", serial: "053", time: new Date() });
       } else if (outcome === "invalid") {
-        setLastScan({ guest: "—", serial: "???", time: new Date() });
+        setLastScan({ guest: "–", serial: "???", time: new Date() });
       }
     }, 1100);
   };

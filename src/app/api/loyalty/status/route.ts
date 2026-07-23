@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * Buyer view of loyalty programs: for every organizer the wallet has attended,
  * report active programs of Pro organizers with progress and claim state.
- * Read-only and keyed by wallet, same access model as /api/my-tickets — the
+ * Read-only and keyed by wallet, same access model as /api/my-tickets; the
  * caller must prove ownership of the wallet (it reveals which events the wallet
  * has attended).
  */
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const organizerWallets = [...attendedPerOrganizer.keys()];
   if (organizerWallets.length === 0) return NextResponse.json({ programs: [] });
 
-  // Active programs whose organizer is currently on Pro — a lapsed
+  // Active programs whose organizer is currently on Pro; a lapsed
   // subscription silently hides the benefits.
   const [{ data: programs }, { data: proOrganizers }] = await Promise.all([
     supabaseAdmin

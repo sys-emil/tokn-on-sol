@@ -10,7 +10,7 @@ import {
 import { getOperatorKeypair } from "../src/lib/solana";
 
 async function main() {
-  // Network comes from NEXT_PUBLIC_HELIUS_RPC_URL (mainnet or devnet) — point
+  // Network comes from NEXT_PUBLIC_HELIUS_RPC_URL (mainnet or devnet); point
   // it at the target network before running. Cost on mainnet for this tree
   // size (depth 14 = 16,384 leaves, no canopy): roughly 0.1 SOL.
   const rpcUrl = process.env.NEXT_PUBLIC_HELIUS_RPC_URL;

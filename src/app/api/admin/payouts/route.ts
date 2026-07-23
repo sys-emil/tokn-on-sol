@@ -80,7 +80,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: true, status: "pending" });
   }
 
-  // 'refunded' is terminal — the buyer got the money back; nothing to retry,
+  // 'refunded' is terminal; the buyer got the money back; nothing to retry,
   // release, or cancel.
   if (action === "cancel" && payout.status !== "paid" && payout.status !== "refunded") {
     await supabaseAdmin

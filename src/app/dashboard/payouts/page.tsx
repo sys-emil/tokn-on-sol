@@ -102,7 +102,7 @@ export default function PayoutsPage() {
             <h1>Dein Geld, <br />nachvollziehbar.</h1>
             <p className="lead">
               Jeder Verkauf wird dir automatisch überwiesen, sobald die Schutzfrist
-              deines Events abgelaufen ist — hier siehst du den Stand.
+              deines Events abgelaufen ist, hier siehst du den Stand.
             </p>
           </div>
 
@@ -126,7 +126,7 @@ export default function PayoutsPage() {
                 <div className="label">In Klärung</div>
                 <div className="value">{summary?.heldCount ?? 0}</div>
                 <div className="delta" style={{ color: 'var(--ink-3)' }}>
-                  {summary && summary.heldCount > 0 ? 'wir kümmern uns — kein Handeln nötig' : 'alles sauber'}
+                  {summary && summary.heldCount > 0 ? 'wir kümmern uns, kein Handeln nötig' : 'alles sauber'}
                 </div>
               </div>
             </div>
@@ -144,7 +144,7 @@ export default function PayoutsPage() {
                 <div className="empty" style={{ padding: 28 }}>Lade …</div>
               ) : !data || data.payouts.length === 0 ? (
                 <div className="empty" style={{ padding: 28 }}>
-                  Noch keine Auszahlungen — sie erscheinen hier mit dem ersten Verkauf.
+                  Noch keine Auszahlungen, sie erscheinen hier mit dem ersten Verkauf.
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>

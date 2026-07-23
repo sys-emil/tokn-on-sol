@@ -1,5 +1,5 @@
 // Geist static TTFs (OFL, vercel/geist-font v1.7.2), base64-inlined so the
-// PDF route needs no filesystem/tracing setup on Vercel. Server-only —
+// PDF route needs no filesystem/tracing setup on Vercel. Server-only;
 // never import this from client code.
 
 const GEIST_REGULAR_B64 =

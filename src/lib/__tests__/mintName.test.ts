@@ -22,7 +22,7 @@ describe("onChainName", () => {
   });
 
   it("counts multi-byte characters by bytes, not chars", () => {
-    // 20 × 'ü' = 40 bytes — must be cut although only 20 characters long
+    // 20 × 'ü' = 40 bytes; must be cut although only 20 characters long
     const umlauts = "ü".repeat(20);
     const result = onChainName(umlauts);
     expect(utf8ByteLength(result)).toBeLessThanOrEqual(32);

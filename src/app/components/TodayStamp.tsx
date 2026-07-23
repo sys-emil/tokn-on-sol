@@ -11,7 +11,7 @@ function formatToday(): string {
 /**
  * Always-current date for the hero ticket mockup. The landing page is
  * statically prerendered, so a server-rendered date would freeze at build
- * time — this renders the build value first and corrects to "today" on
+ * time; this renders the build value first and corrects to "today" on
  * hydration (suppressHydrationWarning covers the swap).
  */
 export function TodayStamp({ suffix }: { suffix?: string }) {

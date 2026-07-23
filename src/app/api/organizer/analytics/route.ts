@@ -149,7 +149,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Conversion funnel from the consent-gated first-party analytics: distinct
   // visitors (cid) per stage, matched by shop path so legacy rows without an
-  // eventId prop count too. Only consented visitors appear here — the funnel
+  // eventId prop count too. Only consented visitors appear here; the funnel
   // shows relations, not absolute traffic.
   const eventIdSet = new Set(eventIds);
   const pathEventId = (path: string | null): string | null => {

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /**
- * Public waitlist signup for a sold-out event (Pro feature — active only when
+ * Public waitlist signup for a sold-out event (Pro feature; active only when
  * the event's organizer is on the Pro plan). Unauthenticated by design: the
  * buyer may not have an account yet. Rate-limited like the other entry routes.
  */
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { error } = await supabaseAdmin
     .from("waitlist_entries")
     .insert({ event_id: eventId, email });
-  // 23505 = already on the list — same answer, signing up twice is fine.
+  // 23505 = already on the list; same answer, signing up twice is fine.
   if (error && error.code !== "23505") {
     return NextResponse.json({ success: false, error: "Eintrag fehlgeschlagen. Bitte versuch es erneut." }, { status: 500 });
   }

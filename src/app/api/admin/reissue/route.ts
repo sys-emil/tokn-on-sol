@@ -16,7 +16,7 @@ interface DasAsset {
 /**
  * Support re-issue: a buyer lost access to their e-mail account (and with it
  * their embedded wallet). This creates a one-time claim link for their ticket
- * — the same escrow flow as buyer-initiated transfers, only initiated by the
+ *; the same escrow flow as buyer-initiated transfers, only initiated by the
  * admin instead of the (unreachable) owner. The buyer opens the link, logs in
  * with their NEW e-mail address, and the ticket moves to the new account.
  *
@@ -76,14 +76,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Asset not found on-chain" }, { status: 404 });
   }
   if (onChainOwner !== operatorWallet && onChainDelegate !== operatorWallet) {
-    return NextResponse.json({ success: false, error: "not_delegated — operator cannot move this asset" }, { status: 400 });
+    return NextResponse.json({ success: false, error: "not_delegated, operator cannot move this asset" }, { status: 400 });
   }
 
   const baseUrl = process.env.APP_URL
     ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
   // An unclaimed link may already exist (e.g. the buyer created one before
-  // losing the account, or support ran this twice) — reuse it.
+  // losing the account, or support ran this twice); reuse it.
   const { data: existingClaim } = await supabaseAdmin
     .from("claims")
     .select("token, claimed_at")

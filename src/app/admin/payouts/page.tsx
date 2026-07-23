@@ -183,7 +183,7 @@ export default function AdminPayouts() {
                     busyId={busyId}
                     onAction={act}
                     eur={eur}
-                    emptyText="Nichts zu tun — alle Auszahlungen laufen."
+                    emptyText="Nichts zu tun, alle Auszahlungen laufen."
                   />
                 </section>
 
@@ -248,7 +248,7 @@ function PayoutTable({
               <tr key={p.id}>
                 <td><span className={`chip ${chip.cls}`}><span className="d" />{chip.label}</span></td>
                 <td>
-                  {p.events?.name ?? '—'}
+                  {p.events?.name ?? '–'}
                   <div className="cell-sub">{p.events?.date ?? ''}</div>
                 </td>
                 <td>
@@ -259,7 +259,7 @@ function PayoutTable({
                 <td style={{ fontVariantNumeric: 'tabular-nums' }}>{eur(p.fee_cents)}</td>
                 <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{eur(p.net_cents)}</td>
                 <td className="mono" style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{new Date(p.available_at).toLocaleString('de-DE')}</td>
-                <td><div className="reason">{p.failure_reason ?? (p.dispute_id ? `Disput ${p.dispute_id}` : '—')}</div></td>
+                <td><div className="reason">{p.failure_reason ?? (p.dispute_id ? `Disput ${p.dispute_id}` : '–')}</div></td>
                 <td>
                   <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
                     {(p.status === 'held' || p.status === 'failed') && (

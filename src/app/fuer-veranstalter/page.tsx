@@ -5,9 +5,9 @@ import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
 
 export const metadata: Metadata = {
-  title: 'Für Veranstalter — Passly',
+  title: 'Für Veranstalter · Passly',
   description:
-    'Event anlegen, fälschungssichere Tickets verkaufen, mit dem Handy einlassen — und 100 % des Ticketpreises behalten. So funktioniert Passly für Veranstalter.',
+    'Event anlegen, fälschungssichere Tickets verkaufen, mit dem Handy einlassen und 100 % des Ticketpreises behalten. So funktioniert Passly für Veranstalter.',
 };
 
 const PAGE_CSS = `
@@ -298,7 +298,7 @@ export default function FuerVeranstalterPage() {
               </h1>
               <p className="lead">
                 Passly ist dein komplettes Ticketsystem: Event anlegen, Tickets
-                verkaufen, Einlass mit dem Handy — fälschungssicher und ohne
+                verkaufen, Einlass mit dem Handy, fälschungssicher und ohne
                 Fixkosten. Die Servicegebühr zahlen deine Gäste transparent
                 obendrauf, nicht du.
               </p>
@@ -310,7 +310,7 @@ export default function FuerVeranstalterPage() {
               </div>
             </section>
 
-            {/* Trust-Leiste — konkrete, nachprüfbare Zusagen statt Kundenstimmen */}
+            {/* Trust-Leiste: konkrete, nachprüfbare Zusagen statt Kundenstimmen */}
             <section>
               <div className="trust-bar" data-reveal>
                 <div className="trust-item">
@@ -343,11 +343,11 @@ export default function FuerVeranstalterPage() {
                 <div className="flow-step" data-reveal>
                   <div className="flow-num"><Icon name="calendar" size={18} /></div>
                   <div className="flow-body">
-                    <h3>Event anlegen — in wenigen Minuten</h3>
+                    <h3>Event anlegen, in wenigen Minuten</h3>
                     <p>
                       Du meldest dich mit deiner E-Mail-Adresse an und legst dein Event
                       an: Name, Datum, Ort, Preis, Kapazität, Bild. Danach ist es sofort
-                      verkaufsbereit — öffentlich auf Passly oder als privates Event,
+                      verkaufsbereit, öffentlich auf Passly oder als privates Event,
                       das nur über deinen Direktlink erreichbar ist.
                     </p>
                     <span className="flow-hint">
@@ -359,11 +359,11 @@ export default function FuerVeranstalterPage() {
                 <div className="flow-step" data-reveal>
                   <div className="flow-num"><Icon name="ticket" size={18} /></div>
                   <div className="flow-body">
-                    <h3>Tickets verkaufen — einfach per Link</h3>
+                    <h3>Tickets verkaufen, einfach per Link</h3>
                     <p>
                       Du teilst deinen Event-Link, deine Gäste zahlen mit Karte. Jedes
                       verkaufte Ticket ist ein einzigartiges, fälschungssicheres
-                      Original. Die Kapazität hält Passly automatisch ein — überverkauft
+                      Original. Die Kapazität hält Passly automatisch ein, überverkauft
                       wird nie, auch wenn viele gleichzeitig kaufen.
                     </p>
                   </div>
@@ -375,7 +375,7 @@ export default function FuerVeranstalterPage() {
                     <h3>Einlass mit dem Handy deines Teams</h3>
                     <p>
                       Für den Einlass öffnet dein Team einfach die Scanner-Seite deines
-                      Events im Browser — ohne App, auf beliebig vielen Handys
+                      Events im Browser, ohne App, auf beliebig vielen Handys
                       gleichzeitig. Jeder Scan prüft Echtheit und Besitz in Echtzeit und
                       löst das Ticket genau einmal ein. Screenshots, Kopien und doppelter
                       Einlass sind damit ausgeschlossen.
@@ -389,9 +389,9 @@ export default function FuerVeranstalterPage() {
                 <div className="flow-step" data-reveal>
                   <div className="flow-num"><Icon name="euro" size={18} /></div>
                   <div className="flow-body">
-                    <h3>Auszahlung — automatisch aufs Bankkonto</h3>
+                    <h3>Auszahlung: automatisch aufs Bankkonto</h3>
                     <p>
-                      Dein Ticketumsatz wird automatisch auf dein Bankkonto überwiesen —
+                      Dein Ticketumsatz wird automatisch auf dein Bankkonto überwiesen,
                       abgewickelt über unseren Zahlungspartner Stripe. Dafür verifizierst
                       du einmalig dein Auszahlungskonto (gesetzlich vorgeschrieben,
                       dauert nur ein paar Minuten). Auf Wunsch kannst du pro Event eine
@@ -417,7 +417,7 @@ export default function FuerVeranstalterPage() {
                   <p>
                     Keine Einrichtungskosten, keine monatliche Gebühr, kein Abzug vom
                     Ticketpreis. Deine Gäste zahlen pro Ticket eine Servicegebühr von
-                    1&nbsp;€ plus 4&nbsp;% — transparent im Warenkorb ausgewiesen.
+                    1&nbsp;€ plus 4&nbsp;%, transparent im Warenkorb ausgewiesen.
                     Kostenlose Events sind komplett kostenlos, für alle.
                   </p>
                 </div>
@@ -447,7 +447,7 @@ export default function FuerVeranstalterPage() {
               <div className="section-head" data-reveal>
                 <div>
                   <h2>Dein Dashboard</h2>
-                  <div className="sub">Alles im Blick — vor, während und nach dem Event</div>
+                  <div className="sub">Alles im Blick, vor, während und nach dem Event</div>
                 </div>
               </div>
               <div className="feat-list" data-reveal>
@@ -455,21 +455,21 @@ export default function FuerVeranstalterPage() {
                   <Icon name="sparkle" size={16} />
                   <div>
                     <h3>Verkäufe live verfolgen</h3>
-                    <p>Verkaufte Tickets, Umsatz und Restkapazität in Echtzeit — für jedes deiner Events.</p>
+                    <p>Verkaufte Tickets, Umsatz und Restkapazität in Echtzeit, für jedes deiner Events.</p>
                   </div>
                 </div>
                 <div className="feat">
                   <Icon name="users" size={16} />
                   <div>
                     <h3>Gästeliste &amp; Einlass-Status</h3>
-                    <p>Wer hat ein Ticket, wer ist schon drin — jede Einlösung erscheint sofort.</p>
+                    <p>Wer hat ein Ticket, wer ist schon drin: jede Einlösung erscheint sofort.</p>
                   </div>
                 </div>
                 <div className="feat">
                   <Icon name="shield" size={16} />
                   <div>
                     <h3>Private Events</h3>
-                    <p>Auf Wunsch taucht dein Event nicht in der öffentlichen Liste auf — nur wer den Link hat, kann kaufen.</p>
+                    <p>Auf Wunsch taucht dein Event nicht in der öffentlichen Liste auf, nur wer den Link hat, kann kaufen.</p>
                   </div>
                 </div>
                 <div className="feat">
@@ -498,7 +498,7 @@ export default function FuerVeranstalterPage() {
                   <div className="faq-a">
                     Nur eine E-Mail-Adresse. Damit legst du dein Konto und dein erstes
                     Event an. Für die Auszahlung verifizierst du einmalig dein
-                    Bankkonto über unseren Zahlungspartner Stripe — Events anlegen
+                    Bankkonto über unseren Zahlungspartner Stripe. Events anlegen
                     kannst du aber sofort.
                   </div>
                 </details>
@@ -508,7 +508,7 @@ export default function FuerVeranstalterPage() {
                     <span className="faq-chev"><Icon name="chevronRight" size={15} /></span>
                   </summary>
                   <div className="faq-a">
-                    Standardmäßig wird dein Umsatz laufend automatisch überwiesen — in
+                    Standardmäßig wird dein Umsatz laufend automatisch überwiesen, in
                     der Regel innerhalb eines Tages nach dem Verkauf. Optional kannst du
                     pro Event eine Haltefrist einstellen, sodass die Auszahlung erst
                     einige Tage nach dem Event erfolgt.
@@ -516,13 +516,13 @@ export default function FuerVeranstalterPage() {
                 </details>
                 <details>
                   <summary>
-                    Können private Feiern Passly nutzen — oder nur Unternehmen?
+                    Können private Feiern Passly nutzen, oder nur Unternehmen?
                     <span className="faq-chev"><Icon name="chevronRight" size={15} /></span>
                   </summary>
                   <div className="faq-a">
                     Beides. Bei der Anmeldung gibst du an, ob du privat oder als
                     Unternehmen veranstaltest. Vom Hausparty-Ticket für 5&nbsp;€ bis zum
-                    Konzert — das System ist dasselbe.
+                    Konzert, das System ist dasselbe.
                   </div>
                 </details>
                 <details>
@@ -544,7 +544,7 @@ export default function FuerVeranstalterPage() {
                     <span className="faq-chev"><Icon name="chevronRight" size={15} /></span>
                   </summary>
                   <div className="faq-a">
-                    Nichts. Der Scanner läuft im Browser auf jedem Handy mit Kamera —
+                    Nichts. Der Scanner läuft im Browser auf jedem Handy mit Kamera,
                     keine App, keine Geräte-Miete, keine Begrenzung, wie viele Personen
                     gleichzeitig scannen.
                   </div>
@@ -554,7 +554,7 @@ export default function FuerVeranstalterPage() {
 
             <section>
               <div className="cta-banner" data-reveal>
-                <h2>Leg dein erstes Event an — kostenlos.</h2>
+                <h2>Leg dein erstes Event an, kostenlos.</h2>
                 <p>In wenigen Minuten verkaufsbereit. Ohne Fixkosten, ohne Risiko.</p>
                 <Link href="/become-organizer" className="btn lg">
                   Jetzt Event anlegen <Icon name="arrow" size={14} />

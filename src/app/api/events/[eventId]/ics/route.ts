@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  * öffentlichen Event-Daten, die der Käufer ohnehin sieht.
  *
  * Mit `start_time` wird ein Termin in Europe/Berlin erzeugt (Ende +3 h als
- * Platzhalter — Events haben kein Endfeld); ohne Uhrzeit ein Ganztagstermin.
+ * Platzhalter; Events haben kein Endfeld); ohne Uhrzeit ein Ganztagstermin.
  */
 
 // RFC 5545: backslash, semicolon, comma and newlines must be escaped in text values.

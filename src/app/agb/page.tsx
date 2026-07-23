@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { LegalPageShell } from '@/app/components/LegalPageShell';
 
 export const metadata: Metadata = {
-  title: 'AGB — Passly',
+  title: 'AGB · Passly',
   description: 'Allgemeine Geschäftsbedingungen für die Nutzung der Passly-Plattform.',
   robots: { index: false },
 };
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
  * (Separate Charges & Transfers, Veranstalter erhält 100 % des Ticketpreises).
  *
  * Dieser Text ist ein sorgfältiger Entwurf, ERSETZT ABER KEINE anwaltliche
- * Prüfung — insbesondere §§ 3, 8, 9 und Teil B sollten vor Go-Live von einer
+ * Prüfung, insbesondere §§ 3, 8, 9 und Teil B sollten vor Go-Live von einer
  * auf IT-/Vertriebsrecht spezialisierten Kanzlei freigegeben werden.
  * VOR GO-LIVE: "PLATZHALTER" ausfüllen.
  */
@@ -44,7 +44,7 @@ export default function AgbPage() {
         Teil B gilt ergänzend für Veranstalter.
       </p>
 
-      <h2>Teil A — Für alle Nutzer</h2>
+      <h2>Teil A: Für alle Nutzer</h2>
 
       <h2>§ 2 Konto</h2>
       <p>
@@ -130,8 +130,8 @@ export default function AgbPage() {
         <strong>Belehrung:</strong> Ein Widerrufsrecht besteht beim Kauf von
         Tickets nicht. Gemäß §&nbsp;312g Abs.&nbsp;2 Nr.&nbsp;9 BGB sind Verträge
         über Dienstleistungen im Zusammenhang mit Freizeitbetätigungen vom
-        Widerrufsrecht ausgenommen, wenn der Vertrag — wie bei Veranstaltungen mit
-        festem Termin — einen spezifischen Zeitpunkt oder Zeitraum für die
+        Widerrufsrecht ausgenommen, wenn der Vertrag, wie bei Veranstaltungen mit
+        festem Termin, einen spezifischen Zeitpunkt oder Zeitraum für die
         Erbringung vorsieht. Jeder Ticketkauf ist daher verbindlich; eine Rückgabe
         ist ausgeschlossen, soweit nicht §&nbsp;9 etwas anderes bestimmt.
       </p>
@@ -150,7 +150,7 @@ export default function AgbPage() {
       <p>
         (3) Ein Anspruch auf Erstattung der Servicegebühr gegen Passly besteht bei
         Absage oder Verlegung durch den Veranstalter nicht, es sei denn, Passly hat
-        die Absage zu vertreten. [PLATZHALTER: Kulanzregelung prüfen — viele
+        die Absage zu vertreten. [PLATZHALTER: Kulanzregelung prüfen, viele
         Plattformen erstatten die Gebühr bei Absage freiwillig mit; das ist auch
         kommunikativ die stärkere Lösung.]
       </p>
@@ -172,7 +172,7 @@ export default function AgbPage() {
         Durchführung der Veranstaltung haftet ausschließlich der Veranstalter.
       </p>
 
-      <h2>Teil B — Zusätzlich für Veranstalter</h2>
+      <h2>Teil B: Zusätzlich für Veranstalter</h2>
 
       <h2>§ 11 Leistungen von Passly für Veranstalter</h2>
       <p>
@@ -213,7 +213,7 @@ export default function AgbPage() {
       <ul>
         <li>die ordnungsgemäße Durchführung der Veranstaltung und die Erfüllung des Veranstaltungsvertrags gegenüber den Gästen,</li>
         <li>die Richtigkeit und Rechtmäßigkeit aller Eventangaben (Beschreibung, Bilder, Preise) einschließlich der Rechte an verwendeten Bildern,</li>
-        <li>die Einhaltung aller ihn treffenden gesetzlichen Pflichten, insbesondere gewerbe-, steuer- und preisangabenrechtlicher Art sowie — bei gewerblichem Handeln — eigener Informationspflichten gegenüber Verbrauchern,</li>
+        <li>die Einhaltung aller ihn treffenden gesetzlichen Pflichten, insbesondere gewerbe-, steuer- und preisangabenrechtlicher Art sowie, bei gewerblichem Handeln, eigener Informationspflichten gegenüber Verbrauchern,</li>
         <li>die Abwicklung von Erstattungen bei Absage oder Verlegung (§&nbsp;9).</li>
       </ul>
       <p>

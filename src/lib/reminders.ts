@@ -2,13 +2,13 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { sendEventReminder } from "@/lib/email";
 
 /**
- * "Morgen ist es soweit" — day-before reminder to all ticket holders.
+ * "Morgen ist es soweit", day-before reminder to all ticket holders.
  *
  * Runs inside the daily payout cron (both Hobby-plan cron slots are taken, so
  * the reminder can't have its own schedule). The cron fires 03:00 UTC; events
  * whose date is tomorrow in Europe/Berlin get their batch, so the mail lands
  * the morning before the event. `events.reminder_sent_at` is the once-only
- * claim — set while NULL before sending, so re-runs never double-send.
+ * claim, set while NULL before sending, so re-runs never double-send.
  */
 
 function berlinDatePlusDays(days: number): string {
@@ -33,7 +33,7 @@ export async function sendDueEventReminders(baseUrl: string): Promise<{ events: 
   let sentMails = 0;
 
   for (const event of events ?? []) {
-    // Claim the event before sending — a concurrent/re-run cron loses here.
+    // Claim the event before sending; a concurrent/re-run cron loses here.
     const { data: claimed } = await supabaseAdmin
       .from("events")
       .update({ reminder_sent_at: new Date().toISOString() })

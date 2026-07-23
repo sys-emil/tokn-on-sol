@@ -53,7 +53,7 @@ export function ConsentBanner() {
       >
         <div style={{ fontSize: 13.5, fontWeight: 600 }}>Kurz gefragt: anonyme Statistik okay?</div>
         <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.55, marginTop: 4 }}>
-          Wir würden gern mit einem eigenen, anonymen Statistik-Cookie verstehen, wie Passly genutzt wird —
+          Wir würden gern mit einem eigenen, anonymen Statistik-Cookie verstehen, wie Passly genutzt wird,
           keine Werbung, keine Weitergabe an Dritte. Mehr dazu in der{' '}
           <Link href="/datenschutz" style={{ color: 'var(--accent)', fontWeight: 500 }}>Datenschutzerklärung</Link>.
         </div>
@@ -66,7 +66,7 @@ export function ConsentBanner() {
   );
 }
 
-/** Reopens the consent banner — used on /datenschutz for consent withdrawal. */
+/** Reopens the consent banner; used on /datenschutz for consent withdrawal. */
 export function ConsentSettingsButton() {
   return (
     <button
@@ -86,7 +86,7 @@ export function PageViewTracker() {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Skip the doorman scanner — venue staff, not visitors.
+    // Skip the doorman scanner; venue staff, not visitors.
     if (pathname.startsWith('/doorman')) return;
     track('page_view');
   }, [pathname]);

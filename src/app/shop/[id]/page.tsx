@@ -11,13 +11,13 @@ import type { TierView } from './ShopClient';
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const event = await getEvent(id);
-  if (!event) return { title: 'Event nicht gefunden — Passly' };
+  if (!event) return { title: 'Event nicht gefunden · Passly' };
 
   const dateLabel = formatDate(event.date);
-  const title = `${event.name} — ${dateLabel} — Passly`;
+  const title = `${event.name} · ${dateLabel} · Passly`;
   const description = event.venue
-    ? `${dateLabel} · ${event.venue}. Tickets sicher und fälschungssicher kaufen — Einlass per Handy.`
-    : `${dateLabel}. Tickets sicher und fälschungssicher kaufen — Einlass per Handy.`;
+    ? `${dateLabel} · ${event.venue}. Tickets sicher und fälschungssicher kaufen, Einlass per Handy.`
+    : `${dateLabel}. Tickets sicher und fälschungssicher kaufen, Einlass per Handy.`;
 
   return {
     title,
@@ -116,7 +116,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
   const tiers = await getTiers(id);
   const cancelled = Boolean((event as Event & { cancelled_at?: string | null }).cancelled_at);
 
-  // Waitlist is a Pro feature of the organizer — the shop only offers the
+  // Waitlist is a Pro feature of the organizer; the shop only offers the
   // signup when the plan is active (the join API enforces the same rule).
   // Name/type feed the "Veranstaltet von" trust block: every listed organizer
   // has passed the manual vetting, so the "Geprüft" badge is earned.
@@ -130,7 +130,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
     ? (organizerRow.type === 'business' && organizerRow.business_name ? organizerRow.business_name : organizerRow.name)
     : null;
 
-  // Per-tier availability, additionally capped by the event-level counters —
+  // Per-tier availability, additionally capped by the event-level counters.
   // the hard overselling gate in reserve_tickets uses the same numbers.
   const eventAvailable = Math.max(0, event.capacity - event.tickets_sold - (event.tickets_reserved ?? 0));
   const tierViews: TierView[] = tiers.map((t) => ({

@@ -15,7 +15,7 @@ interface CreateEventBody {
   date: string;
   /** Optional start time "HH:MM" (24h). */
   start_time?: string;
-  /** Legacy single-price form — used when `tiers` is absent. */
+  /** Legacy single-price form; used when `tiers` is absent. */
   price_eur?: number;
   capacity?: number;
   /** 1–5 price categories; event capacity = sum, display price = min. */
@@ -160,12 +160,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // The caller must prove ownership of organizer_wallet via their Privy auth
-  // token — otherwise anyone could create events in another organizer's name.
+  // token; otherwise anyone could create events in another organizer's name.
   if (!(await requestOwnsWallet(req, organizer_wallet))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  // Authoritative organizer gate — must be approved before creating events.
+  // Authoritative organizer gate; must be approved before creating events.
   // Incomplete Stripe Connect onboarding does NOT block event creation: paid
   // ticket sales are gated at checkout instead (/api/checkout/create returns
   // 503 until the organizer's Connect account has charges_enabled).
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Tiers are the price authority at checkout — without them the event is
+    // Tiers are the price authority at checkout; without them the event is
     // unsellable, so a failed insert removes the event again.
     const { error: tierError } = await supabaseAdmin.from("ticket_tiers").insert(
       tiers.map((t, i) => ({

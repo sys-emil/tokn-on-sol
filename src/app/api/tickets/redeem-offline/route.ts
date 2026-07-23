@@ -97,7 +97,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Offline scans count toward badges just like live scans — fire-and-forget,
+  // Offline scans count toward badges just like live scans; fire-and-forget,
   // the doorman response must not wait for badge mints.
   const baseUrl = process.env.APP_URL
     ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");

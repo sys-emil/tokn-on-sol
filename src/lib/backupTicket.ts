@@ -7,11 +7,11 @@ import { GEIST_REGULAR, GEIST_SEMIBOLD, GEIST_EXTRABOLD } from "@/lib/pdfFonts";
  * Backup-ticket PDF for events with bad connectivity: a static, personalized
  * QR the guest saves in advance. The QR carries a signature over
  * `passly:backup:<assetId>` (no time window); the printed name + birth date
- * let the door check an ID — that offsets the shareability of a static code.
+ * let the door check an ID; that offsets the shareability of a static code.
  * Nothing of the personalization is stored server-side; it exists only on
  * this document.
  *
- * Design: brand identity of the site — Geist, light surface, violet accent,
+ * Design: brand identity of the site, Geist, light surface, violet accent,
  * the Passly logo redrawn as vectors (frame strokes from passly-logo.svg,
  * lettering in Geist ExtraBold).
  */
@@ -73,7 +73,7 @@ function drawCentered(page: PDFPage, text: string, y: number, font: PDFFont, siz
   page.drawText(text, { x: (A4[0] - width) / 2, y, size, font, color });
 }
 
-/** Letter-spaced text (pdf-lib has no tracking option) — returns total width. */
+/** Letter-spaced text (pdf-lib has no tracking option), returns total width. */
 function trackedWidth(text: string, font: PDFFont, size: number, tracking: number): number {
   let w = 0;
   for (const ch of text) w += font.widthOfTextAtSize(ch, size) + tracking;
@@ -213,9 +213,9 @@ export async function buildBackupPdf(input: BackupTicketInput): Promise<Uint8Arr
     page.drawSvgPath(roundedRectPath(cardW - 2 * 26, warnH, 12), {
       x: cardX + 26, y: warnTop, color: ROSE_BG, borderColor: ROSE_LINE, borderWidth: 1,
     });
-    drawCentered(page, "Nicht zum Weitergeben oder Teilen gedacht — Weiterverkauf verboten.", warnTop - 26, semibold, 10.5, RED);
+    drawCentered(page, "Nicht zum Weitergeben oder Teilen gedacht, Weiterverkauf verboten.", warnTop - 26, semibold, 10.5, RED);
     drawCentered(page, "Nur gültig zusammen mit einem amtlichen Ausweis der oben genannten Person.", warnTop - 45, regular, 9, INK);
-    drawCentered(page, "Es gilt der erste Scan — Kopien werden am Einlass automatisch abgelehnt.", warnTop - 59, regular, 9, INK);
+    drawCentered(page, "Es gilt der erste Scan, Kopien werden am Einlass automatisch abgelehnt.", warnTop - 59, regular, 9, INK);
     drawCentered(page, "Dein Ticket in der App bleibt unverändert gültig.", warnTop - 76, regular, 9, MUTED);
 
     // ── Footer (outside the card) ────────────────────────────────────

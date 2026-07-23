@@ -7,7 +7,7 @@ interface MintRequestBody {
   ownerWallet: string;
 }
 
-// Manual admin/ops mint — nothing in the app calls this; the purchase flow
+// Manual admin/ops mint; nothing in the app calls this; the purchase flow
 // mints via the mint_jobs worker. Gated because an open endpoint would let
 // anyone mint real assets at the operator's expense.
 export async function POST(req: NextRequest): Promise<NextResponse> {

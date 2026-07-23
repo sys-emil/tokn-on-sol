@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  * once-only redemption is enforced locally until the queue is synced back
  * via /api/tickets/redeem-offline.
  *
- * Gated like the other door routes: organizer session or door access link —
+ * Gated like the other door routes: organizer session or door access link;
  * the wallet list is not public data.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {

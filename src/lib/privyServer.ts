@@ -16,7 +16,7 @@ export function getPrivyClient(): PrivyClient {
 /**
  * Verify that the request carries a valid Privy auth token AND that the given
  * wallet address belongs to that Privy user. This is the gate for all writing
- * organizer routes — a wallet address in the request body is meaningless on
+ * organizer routes; a wallet address in the request body is meaningless on
  * its own, anyone can send one.
  */
 export async function requestOwnsWallet(req: NextRequest, walletAddress: string): Promise<boolean> {

@@ -245,7 +245,7 @@ function OrganizerTable({
                         </button>
                       </>
                     )}
-                    {o.status !== 'pending' && <span style={{ fontSize: 12, color: 'var(--ink-4)' }}>—</span>}
+                    {o.status !== 'pending' && <span style={{ fontSize: 12, color: 'var(--ink-4)' }}>–</span>}
                   </div>
                 </td>
               </tr>

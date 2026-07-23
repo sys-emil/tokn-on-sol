@@ -4,13 +4,13 @@ import { requestOwnsWallet } from "@/lib/privyServer";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/credit?walletAddress=... — the wallet's Passly credit balance.
+// GET /api/credit?walletAddress=...; the wallet's Passly credit balance.
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const walletAddress = new URL(req.url).searchParams.get("walletAddress");
   if (!walletAddress) {
     return NextResponse.json({ error: "walletAddress is required" }, { status: 400 });
   }
-  // A wallet address is public — prove ownership before returning the balance.
+  // A wallet address is public; prove ownership before returning the balance.
   if (!(await requestOwnsWallet(req, walletAddress))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

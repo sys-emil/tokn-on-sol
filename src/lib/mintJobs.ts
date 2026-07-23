@@ -8,14 +8,14 @@ import { checkPurchaseBadges } from "@/lib/badges";
  * Async mint queue (decouples slow Bubblegum mints from the Stripe webhook).
  *
  * The webhook inserts a mint_jobs row and returns 200 immediately; the actual
- * minting runs afterwards — first via `after()` in the webhook invocation,
+ * minting runs afterwards; first via `after()` in the webhook invocation,
  * with a minute cron (`/api/cron/mint`) as retry fallback for crashed or
  * partially completed runs.
  *
  * Jobs are claimed atomically via the `claim_mint_jobs` SQL function
  * (FOR UPDATE SKIP LOCKED), so concurrent workers never process the same job.
  * The purchases table (one row per minted ticket, keyed by session) is the
- * authoritative minted count — a re-run only mints what is still missing.
+ * authoritative minted count; a re-run only mints what is still missing.
  */
 
 const MAX_ATTEMPTS = 5;
@@ -38,7 +38,7 @@ export const mintJobsSiteUrl = process.env.APP_URL
   ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
 /**
- * The buyer paid but (some of) their tickets could never be minted — refund
+ * The buyer paid but (some of) their tickets could never be minted; refund
  * the unminted share automatically. Returns a human-readable outcome line for
  * the admin alert. `refund_id` on the job is the once-only gate; the Stripe
  * call additionally carries an idempotency key derived from the job ID.
@@ -62,10 +62,10 @@ async function autoRefundFailedJob(job: MintJob, totalMinted: number): Promise<s
     return "No refund issued (free tickets or missing payout row)";
   }
   if (payout.status === "paid") {
-    return "NO auto-refund: funds were already transferred to the organizer — refund manually";
+    return "NO auto-refund: funds were already transferred to the organizer; refund manually";
   }
   if (payout.status === "refunded") return "Charge already fully refunded";
-  if (payout.status === "disputed") return "NO auto-refund: charge is disputed — resolve the dispute first";
+  if (payout.status === "disputed") return "NO auto-refund: charge is disputed; resolve the dispute first";
 
   // Claim the refund exactly once.
   const { data: gate } = await supabaseAdmin
@@ -115,7 +115,7 @@ async function autoRefundFailedJob(job: MintJob, totalMinted: number): Promise<s
       .from("mint_jobs")
       .update({ refund_id: null, updated_at: new Date().toISOString() })
       .eq("id", job.id);
-    return `Auto-refund FAILED (${message}) — refund manually`;
+    return `Auto-refund FAILED (${message}); refund manually`;
   }
 }
 
@@ -136,7 +136,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
   const alreadyMinted = existing?.length ?? 0;
   const toMint = job.quantity - alreadyMinted;
 
-  // Mint sequentially — Bubblegum appends one leaf at a time; parallel
+  // Mint sequentially; Bubblegum appends one leaf at a time; parallel
   // transactions to the same tree conflict. Retry each mint up to 3 times.
   let minted = 0;
   let lastError: string | null = null;
@@ -174,7 +174,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
       }
     }
 
-    // Stop the run on a persistent failure — remaining tickets are picked up
+    // Stop the run on a persistent failure; remaining tickets are picked up
     // by the next claim (this run's progress is already in purchases).
     if (!success) break;
   }
@@ -187,7 +187,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
       .update({ status: "done", last_error: null, updated_at: new Date().toISOString() })
       .eq("id", job.id);
 
-    // Purchase-time badges (Frühstarter, Early Bird) — must not delay the job.
+    // Purchase-time badges (Frühstarter, Early Bird); must not delay the job.
     void checkPurchaseBadges(job.buyer_wallet, job.event_id, baseUrl).catch((err) =>
       console.error("Purchase badge check failed:", err),
     );
@@ -223,18 +223,18 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
     .eq("id", job.id);
 
   if (exhausted) {
-    // Paid but not fully delivered — refund the undelivered share
+    // Paid but not fully delivered; refund the undelivered share
     // automatically, then tell a human what happened.
     let refundNote: string;
     try {
       refundNote = await autoRefundFailedJob(job, totalMinted);
     } catch (err) {
-      refundNote = `Auto-refund crashed (${err instanceof Error ? err.message : String(err)}) — refund manually`;
+      refundNote = `Auto-refund crashed (${err instanceof Error ? err.message : String(err)}); refund manually`;
     }
     console.error(`Mint job ${job.id} failed permanently: ${refundNote}`);
 
     void sendAdminAlert({
-      subject: `Mint job failed permanently — session ${job.stripe_session_id}`,
+      subject: `Mint job failed permanently; session ${job.stripe_session_id}`,
       text: `Mint job ${job.id} gave up after ${job.attempts} attempts.\n`
         + `Event: ${event.name} (${job.event_id})\n`
         + `Buyer wallet: ${job.buyer_wallet}\n`
@@ -251,7 +251,7 @@ export async function processMintJobs(limit = 5, baseUrl = mintJobsSiteUrl): Pro
   minted: number;
 }> {
   // Jobs whose final attempt crashed mid-run stay 'processing' forever and are
-  // no longer claimable — mark them failed and run the same refund + alert
+  // no longer claimable; mark them failed and run the same refund + alert
   // path as a normally exhausted job.
   const { data: crashedJobs } = await supabaseAdmin
     .from("mint_jobs")
@@ -272,12 +272,12 @@ export async function processMintJobs(limit = 5, baseUrl = mintJobsSiteUrl): Pro
     try {
       refundNote = await autoRefundFailedJob(job, totalMinted);
     } catch (err) {
-      refundNote = `Auto-refund crashed (${err instanceof Error ? err.message : String(err)}) — refund manually`;
+      refundNote = `Auto-refund crashed (${err instanceof Error ? err.message : String(err)}); refund manually`;
     }
     console.error(`Mint job ${job.id} failed permanently (crashed worker): ${refundNote}`);
 
     void sendAdminAlert({
-      subject: `Mint job failed permanently — session ${job.stripe_session_id}`,
+      subject: `Mint job failed permanently; session ${job.stripe_session_id}`,
       text: `Mint job ${job.id} was abandoned mid-run after ${job.attempts} attempts (worker crash).\n`
         + `Event ID: ${job.event_id}\n`
         + `Buyer wallet: ${job.buyer_wallet}\n`

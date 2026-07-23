@@ -3,10 +3,10 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 
 /*
  * Shared shell for legal pages (/impressum, /datenschutz, /agb).
- * Server component — plain content pages, no Privy.
+ * Server component: plain content pages, no Privy.
  *
  * Legal copy convention: unresolved facts are marked as [PLATZHALTER: …].
- * Grep for "PLATZHALTER" before go-live — none may remain.
+ * Grep for "PLATZHALTER" before go-live; none may remain.
  */
 
 const SHELL_CSS = `

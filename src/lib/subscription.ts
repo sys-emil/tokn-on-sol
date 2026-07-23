@@ -1,5 +1,5 @@
 /**
- * Pure subscription helpers — no server imports, safe to unit-test and to use
+ * Pure subscription helpers; no server imports, safe to unit-test and to use
  * from any context.
  */
 

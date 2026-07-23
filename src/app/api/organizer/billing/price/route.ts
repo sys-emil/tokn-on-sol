@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 
 // Without this the handler (no request APIs used) would be prerendered at
-// build time, freezing the Stripe price — or a build-time failure — forever.
+// build time, freezing the Stripe price; or a build-time failure; forever.
 // Freshness/caching is handled by the Cache-Control header instead.
 export const dynamic = "force-dynamic";
 
 /**
  * Public, unauthenticated: the Pro subscription's price, read straight from
  * Stripe so the upsell UI never drifts from what Checkout actually charges.
- * No wallet/organizer data involved — safe to expose and cache briefly.
+ * No wallet/organizer data involved; safe to expose and cache briefly.
  */
 export async function GET(): Promise<NextResponse> {
   const priceId = process.env.STRIPE_PRO_PRICE_ID;

@@ -9,7 +9,7 @@ export const contentType = 'image/png';
 /**
  * Share card for the public collection: "Ich war bei 12 Shows dabei" as an
  * OG image, so every shared profile link markets Passly. Private profiles get
- * the generic card — the image must never leak what the page itself hides.
+ * the generic card; the image must never leak what the page itself hides.
  */
 export default async function Image({
   params,

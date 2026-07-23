@@ -16,13 +16,13 @@ function appBaseUrl(): string {
     ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 }
 
-// Fire-and-forget admin alert — webhook latency must not depend on Resend.
+// Fire-and-forget admin alert; webhook latency must not depend on Resend.
 function alertAdmin(subject: string, text: string): void {
   void sendAdminAlert({ subject, text }).catch((err) => console.error("Admin alert failed:", err));
 }
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // seconds — minting continues in after() once the response is sent
+export const maxDuration = 300; // seconds; minting continues in after() once the response is sent
 
 // Two endpoints deliver to this route: the platform endpoint (checkout,
 // disputes) and the Connect endpoint (account.updated, payout.* on connected
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Idempotency gate: every relevant event ID is claimed exactly once via a
   // primary-key insert. Stripe retries deliveries and Connect events can arrive
-  // on multiple endpoints — a second delivery is acknowledged without reprocessing.
+  // on multiple endpoints; a second delivery is acknowledged without reprocessing.
   const handledTypes = new Set<string>([
     "checkout.session.completed",
     "checkout.session.expired",
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ received: true, duplicate: true });
   }
 
-  // Pro-subscription checkout sessions must never reach the ticket path below —
+  // Pro-subscription checkout sessions must never reach the ticket path below;
   // they carry no reservation and no ticket metadata, so falling through would
   // mean bogus release_reservation calls or 400-retry loops from Stripe.
   if (stripeEvent.type === "checkout.session.completed" || stripeEvent.type === "checkout.session.expired") {
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Resale (secondary-market) sessions carry metadata.purpose === 'resale'. They
   // transfer an EXISTING cNFT from operator escrow to the buyer and credit the
-  // seller — never mint. They must branch out before the primary ticket path.
+  // seller; never mint. They must branch out before the primary ticket path.
   if (stripeEvent.type === "checkout.session.completed" || stripeEvent.type === "checkout.session.expired") {
     const s = stripeEvent.data.object as Stripe.Checkout.Session;
     if (s.metadata?.purpose === "resale") {
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       } catch (err) {
         console.error(`Failed to settle resale for session ${s.id}:`, err);
         alertAdmin(
-          `Resale-Abwicklung fehlgeschlagen — Session ${s.id}`,
+          `Resale-Abwicklung fehlgeschlagen; Session ${s.id}`,
           `checkout.session.completed (Weiterverkauf) schlug fehl; Stripe stellt erneut zu.\n`
             + `Fehler: ${err instanceof Error ? err.message : String(err)}`,
         );
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!updatedRows || updatedRows.length === 0) {
       console.error(`Subscription ${sub.id}: no organizer matched (wallet=${organizerWallet ?? "-"}, customer=${customerId})`);
       alertAdmin(
-        `Abo-Webhook ohne passenden Organizer — ${sub.id}`,
+        `Abo-Webhook ohne passenden Organizer; ${sub.id}`,
         `customer.subscription.${deleted ? "deleted" : "updated"} konnte keinem Organizer zugeordnet werden.\n`
           + `Wallet-Metadata: ${organizerWallet ?? "fehlt"}, Stripe-Customer: ${customerId}.`,
       );
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Abandoned checkout: free the capacity that was reserved at session creation.
   if (stripeEvent.type === "checkout.session.expired") {
     const expiredSession = stripeEvent.data.object as Stripe.Checkout.Session;
-    // Release any Passly-credit hold placed for this checkout — best-effort.
+    // Release any Passly-credit hold placed for this checkout; best-effort.
     const expiredHoldId = expiredSession.metadata?.creditHoldId;
     if (expiredHoldId) {
       void supabaseAdmin.rpc("release_credit", { p_session_id: expiredHoldId }).then(({ error }) => {
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
       return NextResponse.json({ error: "Failed to release reservation" }, { status: 500 });
     }
-    // Freed seats may unlock waitlisted buyers — best-effort, never blocks the ack.
+    // Freed seats may unlock waitlisted buyers; best-effort, never blocks the ack.
     const expiredEventId = expiredSession.metadata?.eventId;
     if (expiredEventId) {
       void notifyWaitlistIfSeats(expiredEventId, appBaseUrl()).catch((err) =>
@@ -227,7 +227,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Connect-account payout lifecycle (event.account = connected account).
   // Money already left the platform via Transfer; these track the organizer's
   // bank payout. A failed bank payout is logged for the admin view but needs
-  // no balance action — Stripe returns funds to the connected account balance.
+  // no balance action; Stripe returns funds to the connected account balance.
   if (stripeEvent.type === "payout.paid" || stripeEvent.type === "payout.failed") {
     const payout = stripeEvent.data.object as Stripe.Payout;
     if (stripeEvent.type === "payout.failed") {
@@ -235,7 +235,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         `Connect payout failed for account ${stripeEvent.account}: ${payout.id} (${payout.failure_message ?? payout.failure_code ?? "unknown"})`,
       );
       alertAdmin(
-        `Bank-Auszahlung eines Organizers fehlgeschlagen — ${payout.id}`,
+        `Bank-Auszahlung eines Organizers fehlgeschlagen; ${payout.id}`,
         `Connected Account ${stripeEvent.account ?? "?"}: ${payout.failure_message ?? payout.failure_code ?? "unknown"}.\n`
           + `Weitere Transfers an diesen Organizer wurden auf 'held' gesetzt.`,
       );
@@ -291,12 +291,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         await supabaseAdmin
           .from("payouts")
           .update({
-            failure_reason: `Refund of ${charge.amount_refunded} ${payout.currency} received AFTER transfer — manual recovery needed`,
+            failure_reason: `Refund of ${charge.amount_refunded} ${payout.currency} received AFTER transfer; manual recovery needed`,
             updated_at: now,
           })
           .eq("id", payout.id);
         alertAdmin(
-          `Refund NACH Auszahlung — manuelle Klärung (Session ${payout.stripe_session_id})`,
+          `Refund NACH Auszahlung; manuelle Klärung (Session ${payout.stripe_session_id})`,
           `Charge ${charge.id} wurde um ${charge.amount_refunded} ${payout.currency} erstattet, `
             + `aber der Organizer-Transfer ist bereits gelaufen. Betrag muss manuell zurückgeholt werden.\n`
             + `Payout-Row: ${payout.id}`,
@@ -307,7 +307,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           .update({
             status: "refunded",
             net_cents: 0,
-            failure_reason: `Fully refunded — transfer cancelled`,
+            failure_reason: `Fully refunded; transfer cancelled`,
             updated_at: now,
           })
           .eq("id", payout.id);
@@ -324,14 +324,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         });
         if (seatError) throw new Error(seatError.message);
 
-        // Freed seats may unlock waitlisted buyers — best-effort.
+        // Freed seats may unlock waitlisted buyers; best-effort.
         if (payout.event_id) {
           void notifyWaitlistIfSeats(payout.event_id as string, appBaseUrl()).catch((err) =>
             console.error("Waitlist notify (refund) failed:", err),
           );
         }
 
-        // Stop a not-yet-minted job — no point delivering revoked tickets.
+        // Stop a not-yet-minted job; no point delivering revoked tickets.
         await supabaseAdmin
           .from("mint_jobs")
           .update({ status: "failed", last_error: "Charge fully refunded", updated_at: now })
@@ -366,7 +366,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     } catch (err) {
       console.error(`Failed to process refund for charge ${charge.id}:`, err);
       alertAdmin(
-        `Refund-Verarbeitung fehlgeschlagen — Charge ${charge.id}`,
+        `Refund-Verarbeitung fehlgeschlagen; Charge ${charge.id}`,
         `Der charge.refunded-Webhook ist fehlgeschlagen und wird von Stripe erneut zugestellt.\n`
           + `Fehler: ${err instanceof Error ? err.message : String(err)}`,
       );
@@ -396,17 +396,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       };
       if (payout.status === "pending" || payout.status === "held") {
         update.status = "disputed";
-        update.failure_reason = `Chargeback ${dispute.id} — transfer blocked`;
+        update.failure_reason = `Chargeback ${dispute.id}; transfer blocked`;
       } else {
-        update.failure_reason = `Chargeback ${dispute.id} received AFTER transfer — manual recovery needed`;
+        update.failure_reason = `Chargeback ${dispute.id} received AFTER transfer; manual recovery needed`;
       }
       await supabaseAdmin.from("payouts").update(update).eq("id", payout.id);
       alertAdmin(
-        `Chargeback eingegangen — ${dispute.id}`,
+        `Chargeback eingegangen; ${dispute.id}`,
         `Dispute über ${dispute.amount} ${dispute.currency} auf Charge ${chargeId}.\n`
           + (update.status === "disputed"
             ? `Der Organizer-Transfer wurde blockiert (Payout ${payout.id}).`
-            : `ACHTUNG: Der Transfer ist bereits gelaufen — manuelle Klärung nötig (Payout ${payout.id}).`)
+            : `ACHTUNG: Der Transfer ist bereits gelaufen; manuelle Klärung nötig (Payout ${payout.id}).`)
           + `\nFrist & Evidence im Stripe-Dashboard.`,
       );
     } else {
@@ -440,7 +440,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  // Convert the checkout reservation into a sale — atomic and idempotent, so a
+  // Convert the checkout reservation into a sale; atomic and idempotent, so a
   // webhook retry (partial mint) can never double-count. Capacity is accounted
   // by payment, independent of mint success.
   const { error: finalizeError } = await supabaseAdmin.rpc("finalize_ticket_sale", {
@@ -457,7 +457,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Consume any Passly-credit hold placed at checkout. Must be reliable: the
   // buyer already received the discount via the Stripe coupon, so a failure to
-  // deduct the balance would let the credit be spent twice — throw to retry.
+  // deduct the balance would let the credit be spent twice; throw to retry.
   const creditHoldId = session.metadata?.creditHoldId;
   const creditAppliedCents = parseInt(session.metadata?.creditAppliedCents ?? "0", 10) || 0;
   if (creditHoldId && creditAppliedCents > 0) {
@@ -469,7 +469,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Book the discount-code use (idempotent at the Stripe-event level — the
+  // Book the discount-code use (idempotent at the Stripe-event level; the
   // webhook claim above already deduplicates retries). Best-effort: a failed
   // counter must never fail the sale.
   const discountCodeId = session.metadata?.discountCodeId;
@@ -481,7 +481,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
   }
 
-  // Record the payout obligation before minting — money accounting must exist
+  // Record the payout obligation before minting; money accounting must exist
   // even if on-chain minting fails. Unique on stripe_session_id, so a webhook
   // retry after a partial mint can never create a second payout row.
   //
@@ -558,11 +558,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         if (payoutError) throw new Error(payoutError.message);
       }
     } catch (err) {
-      // Without a payout row the organizer would never be paid — release the
+      // Without a payout row the organizer would never be paid; release the
       // idempotency claim and let Stripe retry the whole event.
       console.error(`Failed to record payout for session ${session.id}:`, err);
       alertAdmin(
-        `Payout-Row konnte nicht geschrieben werden — Session ${session.id}`,
+        `Payout-Row konnte nicht geschrieben werden; Session ${session.id}`,
         `checkout.session.completed schlug beim Anlegen der Payout-Zeile fehl; Stripe stellt erneut zu.\n`
           + `Fehler: ${err instanceof Error ? err.message : String(err)}`,
       );
@@ -571,7 +571,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Enqueue the mint instead of minting inline — 10 tickets à 10-15 s would
+  // Enqueue the mint instead of minting inline; 10 tickets à 10-15 s would
   // blow Stripe's webhook timeout and risk endpoint deactivation. The job is
   // processed right after the response via after(); the minute cron
   // (/api/cron/mint) retries anything that crashed or only partially minted.
@@ -616,7 +616,7 @@ async function handleResaleCompleted(session: Stripe.Checkout.Session): Promise<
   const sellerWallet = session.metadata?.sellerWallet;
   const netCents = parseInt(session.metadata?.netCents ?? "0", 10) || 0;
   if (!listingId || !assetId || !buyerWallet || !sellerWallet) {
-    // Nothing we can do without the linkage — log and ack (no retry would help).
+    // Nothing we can do without the linkage; log and ack (no retry would help).
     console.error(`Resale session ${session.id} missing metadata`);
     return;
   }
@@ -643,7 +643,7 @@ async function handleResaleCompleted(session: Stripe.Checkout.Session): Promise<
     }
   }
 
-  // 1) Mark sold (idempotent — a retry keeps the existing sold state).
+  // 1) Mark sold (idempotent; a retry keeps the existing sold state).
   if (listing.status !== "sold") {
     await supabaseAdmin
       .from("resale_listings")
@@ -686,16 +686,16 @@ async function handleResaleCompleted(session: Stripe.Checkout.Session): Promise<
 
 /**
  * Refund on a resale (secondary-market) charge. Resale sales have no payouts
- * row — the money moved buyer→platform, and the seller got Passly credit. On a
- * refund we claw that credit back (proportionally, idempotent via
+ * row: the money moved buyer to platform, and the seller got Passly credit. On
+ * a refund we claw that credit back (proportionally, idempotent via
  * credit_reversed_cents since amount_refunded is cumulative) and, on a full
  * refund, revoke the resold ticket. A negative add_credit clamps the balance at
- * 0, so an already-spent credit leaves the platform short — hence the alert.
+ * 0, so an already-spent credit leaves the platform short, hence the alert.
  */
 async function handleResaleRefund(charge: Stripe.Charge): Promise<void> {
   const { data: listing } = await supabaseAdmin
     .from("resale_listings")
-    .select("id, seller_wallet, asset_id, net_cents, list_price_cents, credit_reversed_cents, stripe_session_id")
+    .select("id, seller_wallet, asset_id, net_cents, fee_cents, credit_reversed_cents, stripe_session_id")
     .eq("charge_id", charge.id)
     .maybeSingle();
   if (!listing) {
@@ -703,14 +703,16 @@ async function handleResaleRefund(charge: Stripe.Charge): Promise<void> {
     return;
   }
 
-  const listPrice = listing.list_price_cents as number;
   const net = listing.net_cents as number;
+  // The buyer paid the seller net plus the full fee; refunds are proportional to
+  // that total, not to the seller's list price.
+  const buyerTotal = net + (listing.fee_cents as number);
   const alreadyReversed = (listing.credit_reversed_cents as number) ?? 0;
   const refunded = charge.amount_refunded;
   const fullyRefunded = charge.refunded || charge.amount - refunded <= 0;
 
   // Reverse the seller's credit in proportion to how much of the sale was refunded.
-  const target = listPrice > 0 ? Math.min(net, Math.round((net * refunded) / listPrice)) : net;
+  const target = buyerTotal > 0 ? Math.min(net, Math.round((net * refunded) / buyerTotal)) : net;
   const delta = target - alreadyReversed;
   const nowIso = new Date().toISOString();
   if (delta > 0) {
@@ -728,7 +730,7 @@ async function handleResaleRefund(charge: Stripe.Charge): Promise<void> {
   }
 
   if (fullyRefunded) {
-    // Buyer got their money back — the resold ticket is no longer valid.
+    // Buyer got their money back, so the resold ticket is no longer valid.
     await supabaseAdmin
       .from("purchases")
       .update({ revoked_at: nowIso })
@@ -737,11 +739,11 @@ async function handleResaleRefund(charge: Stripe.Charge): Promise<void> {
   }
 
   alertAdmin(
-    `Weiterverkauf erstattet — Charge ${charge.id}`,
+    `Weiterverkauf erstattet, Charge ${charge.id}`,
     `Ein weiterverkauftes Ticket wurde erstattet (${refunded} von ${charge.amount} ${charge.currency}).\n`
       + `Verkäufer-Guthaben um ${delta} Cent zurückgebucht (Ziel ${target} von ${net}).\n`
       + (fullyRefunded
-        ? `Das Ticket ${listing.asset_id} wurde entwertet — der aktuelle Besitz ist ggf. manuell zu klären.`
+        ? `Das Ticket ${listing.asset_id} wurde entwertet. Der aktuelle Besitz ist ggf. manuell zu klären.`
         : `Teil-Erstattung.`)
       + `\nListing ${listing.id}, Session ${listing.stripe_session_id}.`,
   );
@@ -782,10 +784,10 @@ async function handleResaleDispute(dispute: Stripe.Dispute, chargeId: string): P
   }
 
   alertAdmin(
-    `Chargeback auf Weiterverkauf — ${dispute.id}`,
+    `Chargeback auf Weiterverkauf, ${dispute.id}`,
     `Dispute über ${dispute.amount} ${dispute.currency} auf Resale-Charge ${chargeId}.\n`
       + `Verkäufer-Guthaben (${delta} von ${net} Cent) zurückgebucht.\n`
-      + `Ticket ${listing.asset_id} ggf. entwerten / Besitz klären. Listing ${listing.id}, Session ${listing.stripe_session_id}.\n`
-      + `Frist & Evidence im Stripe-Dashboard.`,
+      + `Ticket ${listing.asset_id} ggf. entwerten oder Besitz klären. Listing ${listing.id}, Session ${listing.stripe_session_id}.\n`
+      + `Frist und Evidence im Stripe-Dashboard.`,
   );
 }

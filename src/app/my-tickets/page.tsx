@@ -11,7 +11,7 @@ import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { badgeDisplay, BADGE_META, type BadgeType } from '@/lib/badgeMeta';
-import { resaleFeeCents, resaleNetProceedsCents } from '@/lib/fees';
+import { resaleFeeBreakdown } from '@/lib/fees';
 import { useEffect, useRef, useState } from 'react';
 
 const PAGE_CSS = `
@@ -40,7 +40,7 @@ const PAGE_CSS = `
   }
 
   /* Frisch verdientes Abzeichen: Landung + pulsierender Medaillen-Glow
-     (Basis-Medaillen-Styles sind global — auch /collection nutzt sie) */
+     (Basis-Medaillen-Styles sind global, auch /collection nutzt sie) */
   .badge-tile.is-new {
     animation: badgeLand 0.7s cubic-bezier(0.18, 1.4, 0.3, 1) var(--fresh-delay, 150ms) both;
   }
@@ -244,8 +244,8 @@ export default function MyTickets() {
         emoji: '🎟️',
         title: 'Herzlichen Glückwunsch!',
         message: ids.length === 1
-          ? 'Dein neues Ticket ist da — sicher in deinem Konto und bereit für einen unvergesslichen Abend.'
-          : `Deine ${ids.length} neuen Tickets sind da — sicher in deinem Konto und bereit für einen unvergesslichen Abend.`,
+          ? 'Dein neues Ticket ist da, sicher in deinem Konto und bereit für einen unvergesslichen Abend.'
+          : `Deine ${ids.length} neuen Tickets sind da, sicher in deinem Konto und bereit für einen unvergesslichen Abend.`,
       });
     } catch { /* private mode */ }
   }, []);
@@ -269,8 +269,8 @@ export default function MyTickets() {
             emoji: '🏅',
             title: 'Neues Abzeichen!',
             message: fresh.length === 1
-              ? `Herzlichen Glückwunsch — du hast dir „${meta.name}“ verdient. Ein echter Meilenstein für deine Sammlung.`
-              : `Herzlichen Glückwunsch — du hast dir ${fresh.length} neue Abzeichen verdient. Echte Meilensteine für deine Sammlung.`,
+              ? `Herzlichen Glückwunsch, du hast dir „${meta.name}“ verdient. Ein echter Meilenstein für deine Sammlung.`
+              : `Herzlichen Glückwunsch, du hast dir ${fresh.length} neue Abzeichen verdient. Echte Meilensteine für deine Sammlung.`,
           });
         }
       }
@@ -278,7 +278,7 @@ export default function MyTickets() {
     } catch { /* private mode */ }
   }, [loaded, buyerWallet, badges]);
 
-  // Open the login modal at most once for signed-out visitors — never call
+  // Open the login modal at most once for signed-out visitors. Never call
   // login() from re-runs of this effect, or the modal resets mid-flow and the
   // e-mail code step never appears.
   const loginPrompted = useRef(false);
@@ -344,7 +344,7 @@ export default function MyTickets() {
 
   function openResale(t: Ticket) {
     setResaleError(null);
-    // Default the price to the face value — the "just get rid of it" case.
+    // Default the price to the face value (the "just get rid of it" case).
     setResalePrice((t.faceValueCents / 100).toFixed(2));
     setResaleModal(t);
   }
@@ -372,7 +372,7 @@ export default function MyTickets() {
       const data = (await res.json()) as { success: boolean; error?: string };
       if (data.success) {
         setResaleModal(null);
-        setLoaded(false); // reload — the ticket moves into the "angeboten" state
+        setLoaded(false); // reload, the ticket moves into the "angeboten" state
       } else if (data.error === 'not_delegated') {
         setResaleError('Dieses Ticket wurde gekauft, bevor der Weiterverkauf unterstützt wurde.');
       } else {
@@ -455,7 +455,7 @@ export default function MyTickets() {
               </div>
               <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Tickets warten hier.</div>
               <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.6 }}>
-                Melde dich mit deiner E-Mail-Adresse an — ohne Passwort, ein Code genügt.
+                Melde dich mit deiner E-Mail-Adresse an. Ohne Passwort, ein Code genügt.
               </div>
               <button className="btn primary" style={{ marginTop: 18 }} onClick={() => login()}>
                 Anmelden
@@ -480,7 +480,7 @@ export default function MyTickets() {
     const isFresh = freshAssetIds.has(t.assetId);
     const freshIndex = isFresh ? [...freshAssetIds].indexOf(t.assetId) : 0;
     // Priority: VIP tier > organizer border preset (Pro) > accent hue > event
-    // image — VIP always wins so its gold look stays an unambiguous signal.
+    // image. VIP always wins so its gold look stays an unambiguous signal.
     const isVip = /\bvip\b/i.test(t.tierName ?? '');
     const cardClasses = [
       'event-card',
@@ -615,7 +615,7 @@ export default function MyTickets() {
                     <Icon name="ticket" size={20} />
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Dein erstes Ticket wartet hier.</div>
-                  <div style={{ fontSize: 13, marginTop: 4, marginBottom: 16 }}>Kauf ein Ticket — es landet automatisch in dieser Übersicht.</div>
+                  <div style={{ fontSize: 13, marginTop: 4, marginBottom: 16 }}>Kauf ein Ticket, es landet automatisch in dieser Übersicht.</div>
                   <Link href="/events" className="btn primary">Events entdecken <Icon name="arrow" size={13} /></Link>
                 </div>
               </div>
@@ -851,8 +851,10 @@ export default function MyTickets() {
         const cents = Math.round(Number(resalePrice.replace(',', '.')) * 100);
         const valid = Number.isFinite(cents) && cents > 0
           && (resaleModal.resaleMaxPriceCents == null || cents <= resaleModal.resaleMaxPriceCents);
-        const fee = valid ? resaleFeeCents(cents, resaleModal.faceValueCents) : 0;
-        const net = valid ? resaleNetProceedsCents(cents, resaleModal.faceValueCents) : 0;
+        const breakdown = valid ? resaleFeeBreakdown(cents, resaleModal.faceValueCents) : null;
+        const sellerFee = breakdown?.sellerFeeCents ?? 0;
+        const net = breakdown?.sellerNetCents ?? 0;
+        const buyerTotal = breakdown?.buyerTotalCents ?? 0;
         return (
           <div className="modal-backdrop" onClick={() => !resaleBusy && setResaleModal(null)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -863,7 +865,7 @@ export default function MyTickets() {
               <div className="modal-body">
                 <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
                   <b style={{ color: 'var(--ink)' }}>{resaleModal.eventName}</b><br />
-                  Originalpreis {euro(resaleModal.faceValueCents)}. Höchstpreis {resaleModal.resaleMaxPriceCents != null ? euro(resaleModal.resaleMaxPriceCents) : '—'} ({resaleModal.resaleMaxMarkupPct}% Aufpreis). Der Erlös landet als Passly-Guthaben in deinem Konto.
+                  Originalpreis {euro(resaleModal.faceValueCents)}. Höchstpreis {resaleModal.resaleMaxPriceCents != null ? euro(resaleModal.resaleMaxPriceCents) : 'nicht festgelegt'} (bis {resaleModal.resaleMaxMarkupPct}% Aufpreis). Der Erlös landet als Passly-Guthaben in deinem Konto.
                 </p>
                 <div className="field">
                   <label>Dein Verkaufspreis</label>
@@ -875,11 +877,12 @@ export default function MyTickets() {
                   />
                 </div>
                 <div className="card" style={{ padding: '12px 14px', marginTop: 12, fontSize: 13, display: 'grid', gap: 6 }}>
-                  <div className="row" style={{ justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Verkaufspreis</span><span>{valid ? euro(cents) : '—'}</span></div>
-                  <div className="row" style={{ justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Verkaufsgebühr</span><span>{valid ? '− ' + euro(fee) : '—'}</span></div>
-                  <div className="row" style={{ justifyContent: 'space-between', fontWeight: 600, borderTop: '1px solid var(--line)', paddingTop: 6 }}><span>Dein Guthaben</span><span style={{ color: 'var(--accent)' }}>{valid ? euro(net) : '—'}</span></div>
+                  <div className="row" style={{ justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Dein Verkaufspreis</span><span>{valid ? euro(cents) : 'offen'}</span></div>
+                  <div className="row" style={{ justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Deine Gebühr (halbe Servicegebühr)</span><span>{valid ? '− ' + euro(sellerFee) : 'offen'}</span></div>
+                  <div className="row" style={{ justifyContent: 'space-between', fontWeight: 600, borderTop: '1px solid var(--line)', paddingTop: 6 }}><span>Dein Guthaben</span><span style={{ color: 'var(--accent)' }}>{valid ? euro(net) : 'offen'}</span></div>
                 </div>
                 <p style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5, marginTop: 10 }}>
+                  {valid ? <>Käufer zahlen {euro(buyerTotal)} (inkl. ihrer Hälfte der Servicegebühr). </> : null}
                   Solange dein Ticket angeboten wird, liegt es sicher bei Passly und kann nicht selbst genutzt werden. Du kannst das Angebot jederzeit zurückziehen.
                 </p>
                 {resaleError && (
@@ -906,7 +909,7 @@ export default function MyTickets() {
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
-                Schicke diesen Link an eine Freundin oder einen Freund. Sobald er eingelöst wird, geht das Ticket über — und der Link wird ungültig.
+                Schicke diesen Link an eine Freundin oder einen Freund. Sobald er eingelöst wird, geht das Ticket über und der Link wird ungültig.
               </p>
               <div className="input mono" style={{ fontSize: 12, wordBreak: 'break-all', userSelect: 'all' }}>{shareModal.url}</div>
             </div>

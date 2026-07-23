@@ -6,7 +6,7 @@ import { sendWaitlistEmail } from "@/lib/email";
  * page while an event is sold out; when seats free up (refund, expired
  * reservation, or the daily sweep) the not-yet-notified entries get a
  * one-shot "tickets are back" e-mail. Notification is first-come-first-serve
- * on the shop page — the mail reserves nothing.
+ * on the shop page; the mail reserves nothing.
  */
 
 /** Batch size per freed-seat wave: don't blast 300 people over one seat. */
@@ -35,7 +35,7 @@ export async function notifyWaitlistIfSeats(eventId: string, baseUrl: string): P
     .limit(available * NOTIFY_FACTOR);
   if (!entries || entries.length === 0) return 0;
 
-  // Claim before sending — a concurrent trigger (webhook + cron) must not
+  // Claim before sending; a concurrent trigger (webhook + cron) must not
   // double-mail the same entries.
   const ids = entries.map((e) => e.id as string);
   const { data: claimed } = await supabaseAdmin
@@ -57,7 +57,7 @@ export async function notifyWaitlistIfSeats(eventId: string, baseUrl: string): P
 
 /**
  * Daily catch-all (runs in the payout cron): notify every event that has
- * open waitlist entries and free seats — covers seat-freeing paths without
+ * open waitlist entries and free seats; covers seat-freeing paths without
  * their own hook (e.g. reservations swept by release_expired_reservations).
  */
 export async function sweepWaitlists(baseUrl: string): Promise<number> {

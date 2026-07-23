@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // LEGACY: organizer-side 3% fee. Only used for checkout sessions created
 // before the buyer-side service fee existed (no serviceFeeCents in the session
-// metadata). New sessions: see src/lib/fees.ts — the buyer pays €1 + 4% per
+// metadata). New sessions: see src/lib/fees.ts; the buyer pays €1 + 4% per
 // ticket on top and the organizer nets 100% of the face price.
 export const PLATFORM_FEE_BPS = 300;
 
@@ -11,20 +11,20 @@ export const PLATFORM_FEE_BPS = 300;
  * Payout architecture: Separate Charges & Transfers (NOT Destination Charges).
  *
  * Why:
- * - Payout timing — Destination Charges move funds to the connected account at
+ * - Payout timing; Destination Charges move funds to the connected account at
  *   charge time; delaying them requires manipulating the connected account's
  *   payout schedule, which is global per account, not per event. With Separate
  *   Charges & Transfers the money stays on the platform balance and we create
  *   the Transfer ourselves once `available_at` (event date + per-event hold
- *   period) has passed — exactly the per-event configurability we need.
- * - Disputes/chargebacks — with Destination Charges a chargeback debits the
+ *   period) has passed; exactly the per-event configurability we need.
+ * - Disputes/chargebacks; with Destination Charges a chargeback debits the
  *   connected account, which for small organizers is often empty → negative
  *   balances Stripe recovers from the *platform* anyway. Keeping the charge on
  *   the platform account means disputes debit us directly and, crucially, we
  *   can simply *not transfer* funds for a disputed charge (status 'disputed'
  *   blocks the cron transfer) instead of clawing money back from an organizer.
  * - Each Transfer uses `source_transaction` (the original charge) so it only
- *   executes once that charge's funds are actually available — no platform
+ *   executes once that charge's funds are actually available; no platform
  *   balance-timing races.
  *
  * Trade-off: the platform is merchant of record and carries dispute liability,
@@ -88,7 +88,7 @@ export function computeAvailableAt(eventDate: string, holdDays: number, now: Dat
   const anchor = Number.isNaN(parsed.getTime()) ? now : parsed;
   const available = new Date(anchor.getTime() + holdDays * 24 * 60 * 60 * 1000);
   // Never release before "now + hold" if the event is already in the past relative
-  // to purchase time — the hold is a chargeback window, not just an event offset.
+  // to purchase time; the hold is a chargeback window, not just an event offset.
   return available.getTime() < now.getTime() ? now : available;
 }
 
@@ -144,7 +144,7 @@ export function buildPayoutRow(params: {
  * Idempotency gate for Stripe webhooks: atomically claim an event ID.
  * Returns true if this call claimed the event (process it), false if it was
  * already processed (skip). Uses an INSERT with a primary-key conflict as the
- * atomic check — two concurrent deliveries can never both claim the event.
+ * atomic check; two concurrent deliveries can never both claim the event.
  */
 export async function claimWebhookEvent(
   db: SupabaseClient,

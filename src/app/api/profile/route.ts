@@ -12,7 +12,7 @@ export interface ProfileRow {
   is_private: boolean;
 }
 
-/** Own profile for the account editor — requires proof of wallet ownership. */
+/** Own profile for the account editor; requires proof of wallet ownership. */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const walletAddress = req.nextUrl.searchParams.get("walletAddress") ?? "";
   if (!(await requestOwnsWallet(req, walletAddress))) {

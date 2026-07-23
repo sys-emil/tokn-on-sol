@@ -32,7 +32,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Tickets missing? Kick the mint worker after responding. The success page
   // polls this route while the buyer waits, so a crashed webhook run gets
-  // retried within seconds — important on the Hobby plan, where the cron
+  // retried within seconds; important on the Hobby plan, where the cron
   // fallback (/api/cron/mint) only runs daily. Claiming is SKIP LOCKED and
   // ignores jobs touched within the last 10 minutes, so polling can't stampede.
   if ((data?.length ?? 0) < quantity) {

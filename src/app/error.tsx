@@ -25,7 +25,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       >
         <h1 style={{ fontSize: 19, fontWeight: 600 }}>Etwas ist schiefgelaufen</h1>
         <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.6 }}>
-          Diese Seite konnte nicht geladen werden. Versuch es noch einmal — falls es weiter
+          Diese Seite konnte nicht geladen werden. Versuch es noch einmal, falls es weiter
           nicht klappt, melde dich gerne bei uns.
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>

@@ -16,7 +16,7 @@ import {
  *  - mint time (purchase delivered): first ticket, early bird
  *
  * Awards are deduplicated by the partial unique indexes on badges
- * (wallet+type globally, wallet+type+organizer for Stammgast) — concurrent
+ * (wallet+type globally, wallet+type+organizer for Stammgast); concurrent
  * award paths lose the insert race with error 23505 and skip silently.
  */
 
@@ -41,7 +41,7 @@ async function awardBadge({ wallet, type, eventId, organizerWallet, baseUrl }: A
     .single();
 
   if (error) {
-    // 23505 = already earned (unique index) — the expected dedupe outcome.
+    // 23505 = already earned (unique index), the expected dedupe outcome.
     if (error.code !== "23505") {
       console.error(`Badge insert failed (${type} for ${wallet}):`, error.message);
     }
@@ -123,7 +123,7 @@ export async function checkRedemptionBadges(
   await Promise.all(awards);
 
   // Retention nudge: "one more event until the next badge". Must never fail
-  // the redemption path — the whole block is best-effort.
+  // the redemption path; the whole block is best-effort.
   try {
     await maybeSendBadgeNudge({
       wallet: walletAddress,
@@ -141,7 +141,7 @@ export async function checkRedemptionBadges(
 /**
  * E-mails the guest right after check-in when they are exactly one event away
  * from the Stammgast badge at this organizer or from the next attendance
- * milestone. Fires only on the wallet's first redeemed ticket at this event —
+ * milestone. Fires only on the wallet's first redeemed ticket at this event,
  * a second scanned ticket of the same purchase changes no progress and must
  * not re-send the mail.
  */
@@ -193,7 +193,7 @@ async function maybeSendBadgeNudge({
   const to = job?.buyer_email as string | undefined;
   if (!to) return;
 
-  // The Stammgast nudge is the more personal one — it wins when both apply.
+  // The Stammgast nudge is the more personal one; it wins when both apply.
   if (stammgastNudge && organizerWallet) {
     const { data: organizer } = await supabaseAdmin
       .from("organizers")
@@ -204,7 +204,7 @@ async function maybeSendBadgeNudge({
     await sendBadgeProgressEmail({
       to,
       headline: `Noch 1 Event bis zu deinem Stammgast-Abzeichen`,
-      detail: `Schön, dass du da warst! Du hast jetzt ${distinctOrganizerEvents} Events von ${organizerName} besucht — noch eins, und du bekommst das Stammgast-Abzeichen „${BADGE_META.loyal_organizer.name}“.`,
+      detail: `Schön, dass du da warst! Du hast jetzt ${distinctOrganizerEvents} Events von ${organizerName} besucht, noch eins, und du bekommst das Stammgast-Abzeichen „${BADGE_META.loyal_organizer.name}“.`,
       baseUrl,
     });
     return;
@@ -214,7 +214,7 @@ async function maybeSendBadgeNudge({
     await sendBadgeProgressEmail({
       to,
       headline: `Noch 1 Event bis zum Abzeichen „${BADGE_META[nextMilestone.type].name}“`,
-      detail: `Schön, dass du da warst! Das war dein ${attendedCount}. Event auf Passly — noch eins, und das Abzeichen „${BADGE_META[nextMilestone.type].name}“ gehört dir.`,
+      detail: `Schön, dass du da warst! Das war dein ${attendedCount}. Event auf Passly, noch eins, und das Abzeichen „${BADGE_META[nextMilestone.type].name}“ gehört dir.`,
       baseUrl,
     });
   }

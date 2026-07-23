@@ -7,7 +7,7 @@ import { useState } from 'react';
 /**
  * "Backup-Ticket erstellen": personalizes a static QR PDF for venues without
  * connectivity. The wallet signs `passly:backup:<assetId>` per ticket
- * (silently — the user already confirmed via the form), the server verifies
+ * (silently, the user already confirmed via the form), the server verifies
  * the signatures, builds the PDF, mails it, and returns it for download.
  */
 export function BackupTicketModal({
@@ -93,7 +93,7 @@ export function BackupTicketModal({
               <div style={{ fontSize: 15, fontWeight: 600 }}>Dein Backup-Ticket ist fertig 🎉</div>
               <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.6, marginTop: 8 }}>
                 Das PDF wurde heruntergeladen{done.emailed ? ' und zusätzlich an deine E-Mail-Adresse geschickt' : ''}.
-                Speichere es auf deinem Handy oder drucke es aus — es funktioniert
+                Speichere es auf deinem Handy oder drucke es aus, es funktioniert
                 auch ganz ohne Empfang, zusammen mit deinem Ausweis.
               </p>
               <button className="btn primary" style={{ marginTop: 16 }} onClick={onClose}>Fertig</button>
@@ -103,7 +103,7 @@ export function BackupTicketModal({
               <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.6, marginBottom: 16 }}>
                 Für Veranstaltungsorte ohne Empfang: ein PDF mit deinem Einlass-Code,
                 das ohne Internet funktioniert. Es wird auf dich personalisiert und
-                ist nur mit deinem Ausweis gültig — <b style={{ color: 'var(--ink)' }}>nicht
+                ist nur mit deinem Ausweis gültig, <b style={{ color: 'var(--ink)' }}>nicht
                 zum Weitergeben, Weiterverkauf verboten</b>. Deine Angaben werden nur
                 aufs PDF gedruckt und nicht gespeichert.
               </p>

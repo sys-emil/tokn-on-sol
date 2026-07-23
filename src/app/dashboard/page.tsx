@@ -149,7 +149,7 @@ export default function Dashboard() {
   }, [ready, authenticated, router]);
 
   // "Event duplizieren" on the event detail page drops a prefill payload into
-  // sessionStorage and navigates here — open the drawer with everything except
+  // sessionStorage and navigates here, opening the drawer with everything except
   // the date (a copy is almost always a new date).
   useEffect(() => {
     try {
@@ -175,7 +175,7 @@ export default function Dashboard() {
       if (d.tiers && d.tiers.length > 0) setTiers(d.tiers);
       setDrawerOpen(true);
       /* eslint-enable react-hooks/set-state-in-effect */
-    } catch { /* corrupt entry — ignore */ }
+    } catch { /* corrupt entry, ignore */ }
   }, []);
 
   // Stripe redirects here with ?billing=success after the Pro checkout.
@@ -559,7 +559,7 @@ export default function Dashboard() {
                   <div className="eyebrow"><span className="pulse" /> Willkommen zurück{displayName !== 'Organizer' ? `, ${displayName}` : ''}</div>
                   <h1>Deine Veranstaltungen <br />auf einen Blick.</h1>
                   <p className="lead">
-                    Erstelle Tickets, teile sie per Link und prüfe den Einlass — alles fälschungssicher, ohne Papierchaos.
+                    Erstelle Tickets, teile sie per Link und prüfe den Einlass, alles fälschungssicher, ohne Papierchaos.
                   </p>
                   <div className="row gap-2" style={{ marginTop: 22 }}>
                     <button className="btn primary lg" onClick={() => setDrawerOpen(true)}>
@@ -597,7 +597,7 @@ export default function Dashboard() {
                   <div className="kpi">
                     <div className="label">Nächstes Event</div>
                     <div className="value" style={{ fontSize: 20, letterSpacing: '-0.02em' }}>
-                      {nextEvent ? shortDate(nextEvent.date) : '—'}
+                      {nextEvent ? shortDate(nextEvent.date) : 'keins'}
                     </div>
                     <div className="delta" style={{ color: 'var(--ink-3)' }}>
                       {nextEvent ? nextEvent.name : 'Keine bevorstehende'}
@@ -618,7 +618,7 @@ export default function Dashboard() {
                         <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
                           {stripeStatus === 'pending'
                             ? 'Du kannst Events erstellen, aber bezahlte Ticketverkäufe bleiben deaktiviert, bis die Verifizierung abgeschlossen ist.'
-                            : 'Verbinde Stripe, um Einnahmen ausgezahlt zu bekommen. Du erhältst 100 % deines Ticketpreises — Käufer zahlen eine kleine Servicegebühr obendrauf.'}
+                            : 'Verbinde Stripe, um Einnahmen ausgezahlt zu bekommen. Du erhältst 100 % deines Ticketpreises, Käufer zahlen eine kleine Servicegebühr obendrauf.'}
                         </div>
                         {stripeError && (
                           <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>{stripeError}</div>
@@ -648,7 +648,7 @@ export default function Dashboard() {
                           ? planCancelAtPeriodEnd && planPeriodEnd
                             ? `Dein Abo endet am ${new Date(planPeriodEnd).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' })}.`
                             : 'Detaillierte Analytics, Gäste-Nachrichten und dein Treueprogramm sind freigeschaltet.'
-                          : 'Kenne deine Stammgäste, schreibe allen Ticketinhabern und belohne Wiederkehrer mit deinem eigenen Treueprogramm — alles in einem Abo, jederzeit kündbar.'}
+                          : 'Kenne deine Stammgäste, schreibe allen Ticketinhabern und belohne Wiederkehrer mit deinem eigenen Treueprogramm, alles in einem Abo, jederzeit kündbar.'}
                       </div>
                       {billingError && (
                         <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>{billingError}</div>
@@ -962,7 +962,7 @@ export default function Dashboard() {
                             <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>% über Nennwert</span>
                           </div>
                           <span className="hint">
-                            Gäste können ihr Ticket über Passly weiterverkaufen — höchstens {Math.floor(Number(resaleMaxMarkup)) || 0} % über dem Originalpreis. Höhere Aufpreise verursachen höhere Verkaufsgebühren.
+                            Gäste können ihr Ticket über Passly weiterverkaufen, höchstens {Math.floor(Number(resaleMaxMarkup)) || 0} % über dem Originalpreis. Höhere Aufpreise verursachen höhere Verkaufsgebühren.
                           </span>
                         </>
                       ) : (
@@ -1008,7 +1008,7 @@ export default function Dashboard() {
         <Celebration
           emoji="🚀"
           title="Willkommen bei Passly Pro!"
-          message="Herzlichen Glückwunsch — Analytics über alle Events, Gäste-Nachrichten und dein Treueprogramm sind jetzt für dich freigeschaltet. Zeit, deine Stammgäste zu begeistern."
+          message="Herzlichen Glückwunsch! Analytics über alle Events, Gäste-Nachrichten und dein Treueprogramm sind jetzt für dich freigeschaltet. Zeit, deine Stammgäste zu begeistern."
           actionLabel="Zum Pro-Bereich"
           actionHref="/dashboard/analytics"
           onClose={() => setShowProCelebration(false)}

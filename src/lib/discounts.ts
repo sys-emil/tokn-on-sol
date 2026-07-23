@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
- * Discount code validation — the single authority used by the public
+ * Discount code validation; the single authority used by the public
  * validate endpoint AND the checkout session creation, so the preview a
  * buyer sees can never diverge from what the checkout actually applies.
  */

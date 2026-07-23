@@ -53,7 +53,7 @@ export default function BecomeOrganizer() {
 
   const walletAddress = solanaWallets[0]?.address;
 
-  // If not authenticated, trigger login — but at most once. Re-invoking
+  // If not authenticated, trigger login, but at most once. Re-invoking
   // login() from effect re-runs (Privy re-renders during the modal flow)
   // resets the modal to the e-mail step, so the code input never shows.
   const loginPrompted = useRef(false);
@@ -65,7 +65,7 @@ export default function BecomeOrganizer() {
     }
   }, [ready, authenticated, login]);
 
-  // Check existing application status — if already approved, go straight to dashboard
+  // Check existing application status; if already approved, go straight to dashboard
   useEffect(() => {
     if (!walletAddress) return;
     async function checkStatus(): Promise<void> {
@@ -162,7 +162,7 @@ export default function BecomeOrganizer() {
                 <h1 style={{ fontSize: 32 }}>Eigene Events veranstalten</h1>
                 {pageState === 'form' && (
                   <p className="lead" style={{ fontSize: 14.5 }}>
-                    Erzähl uns kurz, wer du bist — wir prüfen jede Bewerbung von Hand und melden uns
+                    Erzähl uns kurz, wer du bist. Wir prüfen jede Bewerbung von Hand und melden uns
                     in der Regel innerhalb eines Werktags.
                   </p>
                 )}
@@ -172,7 +172,7 @@ export default function BecomeOrganizer() {
                 <div className="card" style={{ padding: '24px 24px 22px', textAlign: 'center' }}>
                   <div style={{ fontSize: 15, fontWeight: 600 }}>Deine Bewerbung wird geprüft</div>
                   <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.6 }}>
-                    Wir melden uns per E-Mail, sobald dein Account freigegeben ist — in der Regel
+                    Wir melden uns per E-Mail, sobald dein Account freigegeben ist, in der Regel
                     innerhalb eines Werktags. Danach kannst du direkt dein erstes Event anlegen.
                   </p>
                 </div>
@@ -183,7 +183,7 @@ export default function BecomeOrganizer() {
                   <div style={{ fontSize: 15, fontWeight: 600 }}>Bewerbung nicht freigegeben</div>
                   <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.6 }}>
                     Wir konnten deine Bewerbung als Veranstalter aktuell nicht freigeben. Details dazu
-                    haben wir dir per E-Mail geschickt — bei Fragen erreichst du uns unter{' '}
+                    haben wir dir per E-Mail geschickt. Bei Fragen erreichst du uns unter{' '}
                     <a href={`mailto:${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@getpassly.de'}`} style={{ color: 'var(--accent-ink)' }}>
                       {process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@getpassly.de'}
                     </a>.

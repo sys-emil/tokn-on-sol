@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       // Auth-gated app surfaces and API routes have nothing to index and no
-      // canonical public content — keep crawlers on the marketing/event pages.
+      // canonical public content; keep crawlers on the marketing/event pages.
       disallow: [
         '/api/',
         '/dashboard',

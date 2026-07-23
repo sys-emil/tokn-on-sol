@@ -12,7 +12,7 @@ import bs58 from 'bs58';
  * through /api/tickets/redeem-offline when the connection returns.
  *
  * Deliberate trade-off: two devices offline at once could both admit the
- * same ticket — the sync response reports those as conflicts instead of
+ * same ticket; the sync response reports those as conflicts instead of
  * pretending offline mode has a global lock.
  */
 
@@ -54,7 +54,7 @@ export function saveSnapshot(eventId: string, snapshot: Snapshot): void {
   try {
     localStorage.setItem(snapshotKey(eventId), JSON.stringify(snapshot));
   } catch {
-    // storage full/blocked — offline mode simply won't have fresh data
+    // storage full/blocked; offline mode simply won't have fresh data
   }
 }
 
@@ -71,7 +71,7 @@ export function savePending(eventId: string, pending: PendingRedemption[]): void
   try {
     localStorage.setItem(pendingKey(eventId), JSON.stringify(pending));
   } catch {
-    // keep going — the in-memory queue still syncs while the tab lives
+    // keep going; the in-memory queue still syncs while the tab lives
   }
 }
 
@@ -98,7 +98,7 @@ export async function verifyOffline(
   }
 
   // Same replay window as the server: current or previous minute. Backup
-  // tickets are static by design (saved in advance for dead spots) — no
+  // tickets are static by design (saved in advance for dead spots); no
   // window; once-only redemption + printed ID personalization carry it.
   if (!isBackup) {
     const nowMinute = Math.floor(Date.now() / 60000);
@@ -107,7 +107,7 @@ export async function verifyOffline(
     }
   }
 
-  // Ed25519 signature check — identical challenge to the server route.
+  // Ed25519 signature check; identical challenge to the server route.
   const challenge = isBackup ? `passly:backup:${assetId}` : `passly:verify:${assetId}:${t}`;
   let signatureValid: boolean;
   try {

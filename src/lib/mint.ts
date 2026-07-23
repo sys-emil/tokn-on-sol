@@ -58,7 +58,7 @@ async function parseLeafWithRetry(umi: Umi, signature: TransactionSignature) {
 }
 
 // Bubblegum caps the on-chain metadata name at 32 BYTES (error 6012
-// MetadataNameTooLong) — long event names must be truncated UTF-8-safely
+// MetadataNameTooLong); long event names must be truncated UTF-8-safely
 // (umlauts are 2 bytes). Display everywhere uses the DB / off-chain JSON,
 // so only the on-chain field is shortened.
 const MAX_ONCHAIN_NAME_BYTES = 32;
@@ -117,7 +117,7 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
   });
 
   // Parse the confirmed transaction to get the actual leaf index Bubblegum
-  // assigned. This is authoritative — unlike reading numMinted before the mint,
+  // assigned. This is authoritative; unlike reading numMinted before the mint,
   // it is never stale and is correct under concurrent mints to the same tree.
   const leaf = await parseLeafWithRetry(umi, signature);
   const leafIndex = Number(leaf.nonce);

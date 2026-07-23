@@ -5,7 +5,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 export const dynamic = "force-dynamic";
 
 /**
- * Public preview check for a discount code — the shop UI shows the reduced
+ * Public preview check for a discount code; the shop UI shows the reduced
  * total before redirecting. The checkout session re-validates with the same
  * logic; this endpoint is convenience, never authority.
  */

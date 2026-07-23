@@ -102,7 +102,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Fire-and-forget: nudges the admin to review the application at /admin/organizers.
   void sendAdminAlert({
     subject: "Neue Veranstalter-Bewerbung",
-    text: `${name.trim()} (${email.trim()}, ${type}${type === "business" ? ` — ${businessName?.trim()}` : ""}) wartet auf Freigabe.\nWallet: ${walletAddress}\n\nPrüfen unter /admin/organizers`,
+    text: `${name.trim()} (${email.trim()}, ${type}${type === "business" ? `, ${businessName?.trim()}` : ""}) wartet auf Freigabe.\nWallet: ${walletAddress}\n\nPrüfen unter /admin/organizers`,
   }).catch(() => {});
 
   return NextResponse.json({ success: true, status: "pending" });

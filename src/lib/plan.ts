@@ -24,7 +24,7 @@ type RequireProResult =
 /**
  * Auth gate for Pro-only organizer routes: Privy token must own the wallet,
  * the organizer must be approved and on the 'pro' plan. The server-side plan
- * check is the authority — client UI gating is cosmetic.
+ * check is the authority; client UI gating is cosmetic.
  */
 export async function requireProOrganizer(
   req: NextRequest,

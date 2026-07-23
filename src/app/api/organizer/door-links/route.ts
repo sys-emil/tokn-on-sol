@@ -119,7 +119,7 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   const gated = await gate(req, link.event_id as string);
   if (gated instanceof NextResponse) return gated;
 
-  // Revoke instead of delete — the row documents that the token existed.
+  // Revoke instead of delete; the row documents that the token existed.
   await supabaseAdmin
     .from("door_access_links")
     .update({ revoked_at: new Date().toISOString() })

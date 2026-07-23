@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Passly design system — "Tokn Based" light theme (template redesign 2026-07-06).
+ * Passly design system; "Tokn Based" light theme (template redesign 2026-07-06).
  * Light surfaces, violet accent driven by --hue, Geist fonts.
  * Tokens + shared component classes live here; every page is migrated.
  */
@@ -42,7 +42,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 html, body { background: var(--surface-2); }
-/* Decorative glows/auroras extend past the viewport — never allow horizontal
+/* Decorative glows/auroras extend past the viewport; never allow horizontal
    scrolling or swipe-overscroll. `clip` (unlike `hidden`) creates no scroll
    container, so the sticky topbar keeps working; the first line is the
    fallback for older engines. */
@@ -105,7 +105,7 @@ a { color: inherit; text-decoration: none; }
 
 /* App shell */
 .app { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
-/* `overflow: clip` (not `hidden`, so sticky descendants are unaffected — .main
+/* `overflow: clip` (not `hidden`, so sticky descendants are unaffected; .main
    has none) caps decorative absolutely-positioned glows/auroras at .main's own
    content-determined height. Without it, a glow placed with a hardcoded pixel
    offset past the actual content (e.g. a page-specific blob positioned deeper
@@ -365,7 +365,7 @@ section + section { margin-top: 36px; }
   50%      { box-shadow: 0 0 0 1px oklch(0.60 0.24 var(--hue) / 0.8), 0 0 22px oklch(0.60 0.24 var(--hue) / 0.5), var(--shadow); }
 }
 
-/* VIP ticket cards — ported from the ticket detail page's gold look
+/* VIP ticket cards; ported from the ticket detail page's gold look
    (.ticket-canvas.vip family); always wins over border/accent choices. */
 .event-card.vip {
   border-color: oklch(0.80 0.10 92) !important;
@@ -512,7 +512,7 @@ section + section { margin-top: 36px; }
 .textarea { resize: vertical; min-height: 72px; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-/* Date field — calendar icon prefix + weekday preview under a native
+/* Date field; calendar icon prefix + weekday preview under a native
    <input type="date">, so it reads clearer without a custom picker. */
 .date-field { position: relative; }
 .date-field .input { padding-left: 38px; }
@@ -528,7 +528,7 @@ section + section { margin-top: 36px; }
   padding: 5px 10px; border-radius: 7px; width: fit-content;
 }
 
-/* Event color-scheme swatches (free) + card-border presets (Pro) — used in
+/* Event color-scheme swatches (free) + card-border presets (Pro); used in
    the create/edit event forms. */
 .swatch-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
 .swatch {
@@ -602,7 +602,7 @@ section + section { margin-top: 36px; }
   padding: 48px 24px; text-align: center; color: var(--ink-3);
 }
 
-/* Badge medals — milestone tiles shared by /my-tickets and /collection.
+/* Badge medals; milestone tiles shared by /my-tickets and /collection.
    Per-badge color via --bh (hue from badgeMeta). */
 .badges-row { display: flex; flex-wrap: wrap; gap: 14px; }
 .badge-tile {
@@ -676,7 +676,7 @@ section + section { margin-top: 36px; }
   box-shadow: 0 1px 5px oklch(0.50 0.20 var(--bh) / 0.45);
 }
 
-/* Pro highlight — animated brand-gradient outline with soft glow.
+/* Pro highlight; animated brand-gradient outline with soft glow.
    Used on the Passly-Pro upsell cards (dashboard + /dashboard/analytics). */
 .pro-outline {
   position: relative;
@@ -717,7 +717,7 @@ section + section { margin-top: 36px; }
 .nav a.nav-pro:hover { background: var(--accent-line); color: var(--accent-ink); }
 
 /* Pro card in its *active* state (as opposed to .pro-outline, the free-plan
-   upsell rail) — a quieter, permanent "you're in" treatment: fixed gradient
+   upsell rail); a quieter, permanent "you're in" treatment: fixed gradient
    wash, no animation loop, so it doesn't read as a recurring ad. */
 .card.pro-active {
   background:
@@ -825,7 +825,7 @@ section + section { margin-top: 36px; }
   .nav::-webkit-scrollbar { display: none; }
   .nav a, .nav button { padding: 7px 8px; font-size: 12.5px; white-space: nowrap; }
   .topbar-right { gap: 8px; flex-shrink: 0; }
-  /* iOS Safari zooms into focused inputs below 16px — prevent the jump. */
+  /* iOS Safari zooms into focused inputs below 16px; prevent the jump. */
   .input, .textarea, .select { font-size: 16px; }
   .section-head { flex-wrap: wrap; }
   /* The create/edit drawer becomes a full-screen sheet; footer actions
@@ -835,7 +835,7 @@ section + section { margin-top: 36px; }
 }
 
 @media (max-width: 480px) {
-  /* Decorative sparklines crowd the halved KPI cells — drop them. */
+  /* Decorative sparklines crowd the halved KPI cells; drop them. */
   .spark { display: none; }
   .kpi { padding: 16px 18px; }
   .kpi .value { font-size: 24px; }
@@ -851,7 +851,7 @@ section + section { margin-top: 36px; }
   .seg button { padding: 8px 12px; }
 }
 
-/* Modals become bottom sheets on phones — full width, anchored at the
+/* Modals become bottom sheets on phones; full width, anchored at the
    thumb, scrolling inside. Desktop keeps the centered dialog. */
 @media (max-width: 620px) {
   .modal-backdrop { place-items: end stretch; padding: 0; }

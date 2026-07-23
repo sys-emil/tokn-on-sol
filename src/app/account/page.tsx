@@ -76,10 +76,10 @@ export default function AccountPage() {
         setHadProfile(true);
         setMessage({ ok: true, text: 'Gespeichert.' });
       } else {
-        setMessage({ ok: false, text: 'Speichern fehlgeschlagen — bitte versuch es noch einmal.' });
+        setMessage({ ok: false, text: 'Speichern fehlgeschlagen, bitte versuch es noch einmal.' });
       }
     } catch {
-      setMessage({ ok: false, text: 'Speichern fehlgeschlagen — bitte versuch es noch einmal.' });
+      setMessage({ ok: false, text: 'Speichern fehlgeschlagen, bitte versuch es noch einmal.' });
     } finally {
       setSaving(false);
     }
@@ -114,7 +114,7 @@ export default function AccountPage() {
             <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.6 }}>
               {hadProfile
                 ? 'Dein Name und deine Einstellungen für das öffentliche Profil.'
-                : 'Gib deinem Konto einen Namen — so erscheint dein öffentliches Profil nicht mehr als anonyme Kennung.'}
+                : 'Gib deinem Konto einen Namen, so erscheint dein öffentliches Profil nicht mehr als anonyme Kennung.'}
             </p>
           </div>
 
@@ -143,7 +143,7 @@ export default function AccountPage() {
             <div className="field" style={{ marginBottom: 0 }}>
               <label>E-Mail</label>
               <input className="input" value={email} disabled style={{ background: 'var(--surface-2)', color: 'var(--ink-3)' }} />
-              <div className="hint">Deine Anmelde-Adresse — Tickets und Bestätigungen gehen hierhin.</div>
+              <div className="hint">Deine Anmelde-Adresse, Tickets und Bestätigungen gehen hierhin.</div>
             </div>
           </div>
 
@@ -152,7 +152,7 @@ export default function AccountPage() {
               <div style={{ flex: 1, minWidth: 220 }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>Öffentliches Profil</div>
                 <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4, lineHeight: 1.55 }}>
-                  Deine Sammlung besuchter Events und deine Abzeichen — teilbar per Link.
+                  Deine Sammlung besuchter Events und deine Abzeichen, teilbar per Link.
                   Auf „privat“ gestellt ist die Seite für andere nicht mehr einsehbar.
                 </div>
                 {walletAddress && !isPrivate && (

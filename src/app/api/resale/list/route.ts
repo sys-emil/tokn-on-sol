@@ -2,7 +2,7 @@ import { PrivyClient } from "@privy-io/server-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { transferCnft, getOperatorWalletAddress } from "@/lib/transfer";
 import { checkResaleEligibility } from "@/lib/resale";
-import { resaleFeeCents, resaleNetProceedsCents } from "@/lib/fees";
+import { resaleFeeBreakdown } from "@/lib/fees";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -32,7 +32,7 @@ async function resolveSellerWallet(authToken: string): Promise<string | null> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // Each listing moves a cNFT into escrow (an on-chain transaction) — cap the rate.
+  // Each listing moves a cNFT into escrow (an on-chain transaction); cap the rate.
   const rl = rateLimit(`resale-list:${clientIp(req)}`, 10, 60_000);
   if (!rl.ok) {
     return NextResponse.json(
@@ -78,8 +78,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const feeCents = resaleFeeCents(listPriceCents, faceValueCents);
-  const netCents = resaleNetProceedsCents(listPriceCents, faceValueCents);
+  // fee_cents stores the full platform fee (both halves); net_cents is what the
+  // seller receives (list price minus their half). The buyer pays net + fee.
+  const { totalFeeCents: feeCents, sellerNetCents: netCents, sellerFeeCents } = resaleFeeBreakdown(listPriceCents, faceValueCents);
   const operatorWallet = getOperatorWalletAddress();
 
   // Insert the listing first; the partial unique index rejects a second live
@@ -116,6 +117,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({
     success: true,
-    listing: { id: inserted.id, listPriceCents, feeCents, netCents, status: "active" },
+    listing: { id: inserted.id, listPriceCents, sellerFeeCents, netCents, status: "active" },
   });
 }

@@ -124,7 +124,7 @@ function SuccessInner() {
   const params = useParams<{ id: string }>();
   const sessionId = searchParams.get('session_id') ?? '';
 
-  // The purchase is done — drop the "resume your checkout" state the shop
+  // The purchase is done, so drop the "resume your checkout" state the shop
   // page stored when this session was created.
   useEffect(() => {
     if (!params?.id) return;
@@ -173,7 +173,7 @@ function SuccessInner() {
             return;
           }
         } catch {
-          // network hiccup — keep trying
+          // network hiccup, keep trying
         }
       }
 
@@ -196,7 +196,7 @@ function SuccessInner() {
         </div>
         <div className="success-body">
           <div className="error-box">
-            Alles gut — deine Zahlung ist eingegangen. Die Tickets werden gerade im
+            Alles gut, deine Zahlung ist eingegangen. Die Tickets werden gerade im
             Hintergrund fertiggestellt; das dauert manchmal ein paar Minuten. Sie
             erscheinen automatisch in deiner Ticketübersicht, du musst nichts weiter tun.
             <code>{sessionId}</code>
@@ -237,7 +237,7 @@ function SuccessInner() {
             <div className="icon-wrap"><Icon name="share" size={14} strokeWidth={2.2} /></div>
             <div>
               <b>Für die Gruppe gekauft?</b> Gib jedes Ticket per Link an deine
-              Freunde weiter — sie bekommen es direkt in ihr eigenes Konto und
+              Freunde weiter, sie bekommen es direkt in ihr eigenes Konto und
               zeigen ihren QR-Code selbst am Einlass vor.
             </div>
           </div>

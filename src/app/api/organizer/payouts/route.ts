@@ -5,7 +5,7 @@ import { requestOwnsWallet } from "@/lib/privyServer";
 export const dynamic = "force-dynamic";
 
 /**
- * Payout transparency for organizers (free feature — trust in the money flow
+ * Payout transparency for organizers (free feature; trust in the money flow
  * shouldn't be paywalled): every payout row of the organizer plus a summary
  * of what's pending, when it arrives, and what already got transferred.
  */
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     summary: { pendingCents, paidCents, heldCount, nextAvailableAt },
     payouts: payouts.map((p) => ({
       id: p.id,
-      eventName: eventNames.get(p.event_id) ?? "—",
+      eventName: eventNames.get(p.event_id) ?? "–",
       netCents: p.net_cents,
       status: p.status,
       availableAt: p.available_at,

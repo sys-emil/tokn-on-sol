@@ -125,7 +125,7 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   const denied = await gate(req, walletAddress, codeRow.event_id as string);
   if (denied) return denied;
 
-  // Deactivate instead of delete — uses stay auditable.
+  // Deactivate instead of delete; uses stay auditable.
   await supabaseAdmin.from("discount_codes").update({ active: false }).eq("id", body.codeId);
   return NextResponse.json({ success: true });
 }

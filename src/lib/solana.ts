@@ -1,7 +1,7 @@
 import { Keypair, Connection } from "@solana/web3.js";
 
 // Single source of truth for the Solana network. NEXT_PUBLIC_HELIUS_RPC_URL
-// decides devnet vs mainnet — no other file may hardcode an RPC host, so the
+// decides devnet vs mainnet; no other file may hardcode an RPC host, so the
 // network switch is purely an env-var change.
 export function heliusRpcUrl(): string {
   const url = process.env.NEXT_PUBLIC_HELIUS_RPC_URL;

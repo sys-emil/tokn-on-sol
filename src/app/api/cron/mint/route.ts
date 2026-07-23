@@ -7,7 +7,7 @@ export const maxDuration = 300;
 /**
  * Minute cron (see vercel.json): retry fallback for the async mint queue.
  *
- * The happy path mints via after() in the Stripe webhook — this cron only
+ * The happy path mints via after() in the Stripe webhook; this cron only
  * picks up jobs whose worker crashed, timed out, or partially minted. Claiming
  * goes through claim_mint_jobs (SKIP LOCKED), so overlapping runs are safe.
  */

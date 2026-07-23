@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/resale/event/[eventId] — public list of active resale offers, cheapest first.
+// GET /api/resale/event/[eventId]: public list of active resale offers, cheapest first.
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ eventId: string }> },
@@ -12,7 +12,7 @@ export async function GET(
 
   const { data, error } = await supabaseAdmin
     .from("resale_listings")
-    .select("id, list_price_cents, face_value_cents, currency")
+    .select("id, list_price_cents, face_value_cents, fee_cents, net_cents, currency")
     .eq("event_id", eventId)
     .eq("status", "active")
     .order("list_price_cents", { ascending: true })
@@ -26,6 +26,9 @@ export async function GET(
     id: l.id as string,
     listPriceCents: l.list_price_cents as number,
     faceValueCents: l.face_value_cents as number,
+    // What the buyer actually pays: seller net plus the full fee (buyer's half
+    // is baked in). Money is conserved, so net + fee equals the buyer total.
+    buyerTotalCents: (l.net_cents as number) + (l.fee_cents as number),
     currency: (l.currency ?? "eur") as string,
   }));
 

@@ -22,7 +22,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "ownerWallet is required" }, { status: 400 });
   }
 
-  // Lists a wallet's tickets — same access model as the other wallet reads:
+  // Lists a wallet's tickets; same access model as the other wallet reads:
   // the caller must prove they own the wallet.
   if (!(await requestOwnsWallet(req, ownerWallet))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       name = url.searchParams.get("name") ?? name;
       date = url.searchParams.get("date") ?? "";
     } catch {
-      // malformed URI — fall back to on-chain name, no date
+      // malformed URI; fall back to on-chain name, no date
     }
 
     const key = `${name}||${date}`;

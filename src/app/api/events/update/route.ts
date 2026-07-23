@@ -47,7 +47,7 @@ const BORDER_STYLES = ["gold", "chrome", "aurora", "neon"] as const;
  * charge.refunded webhook then does the bookkeeping it already knows
  * (revoke tickets, free seats, mark payout refunded). Charges whose payout
  * was already transferred are reported back for manual handling instead of
- * refunded blindly — that money already left the platform.
+ * refunded blindly; that money already left the platform.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: UpdateEventBody;
@@ -273,7 +273,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 
-  // Regenerate the static cNFT metadata when displayed fields changed —
+  // Regenerate the static cNFT metadata when displayed fields changed;
   // upsert: true overwrites metadata/<eventId>.json in place, so already
   // minted tickets pick the change up too. Best effort, like at creation.
   if (update.name !== undefined || update.date !== undefined || update.venue !== undefined || update.description !== undefined) {
@@ -303,7 +303,7 @@ async function cancelEvent(
   }
 
   const now = new Date().toISOString();
-  // Claim the cancellation exactly once — a double-submit must not run the
+  // Claim the cancellation exactly once; a double-submit must not run the
   // refund loop twice (the Stripe idempotency keys would catch it, but this
   // keeps the response deterministic too).
   const { data: claimed, error: claimError } = await supabaseAdmin
@@ -330,7 +330,7 @@ async function cancelEvent(
     try {
       await stripe.checkout.sessions.expire(r.stripe_session_id as string);
     } catch {
-      // best effort — sessions die on their own after 30 minutes
+      // best effort; sessions die on their own after 30 minutes
     }
   }
 
@@ -348,11 +348,11 @@ async function cancelEvent(
   for (const p of payouts ?? []) {
     if (p.status === "refunded") continue;
     if (p.status === "paid") {
-      skipped.push({ session: p.stripe_session_id as string, reason: "Auszahlung bereits transferiert — manuell klären" });
+      skipped.push({ session: p.stripe_session_id as string, reason: "Auszahlung bereits transferiert, manuell klären" });
       continue;
     }
     if (p.status === "disputed") {
-      skipped.push({ session: p.stripe_session_id as string, reason: "Chargeback läuft — erst Dispute klären" });
+      skipped.push({ session: p.stripe_session_id as string, reason: "Chargeback läuft, erst Dispute klären" });
       continue;
     }
     if (!p.payment_intent_id && !p.charge_id) {
@@ -378,7 +378,7 @@ async function cancelEvent(
     }
   }
 
-  // Free tickets have no payout row — revoke their purchases directly and
+  // Free tickets have no payout row; revoke their purchases directly and
   // stop queued mints.
   const paidSessions = new Set((payouts ?? []).map((p) => p.stripe_session_id as string));
   const { data: purchases } = await supabaseAdmin
@@ -401,7 +401,7 @@ async function cancelEvent(
   // Anything the automatic refund loop could not settle needs a human.
   if (skipped.length > 0 || failed.length > 0) {
     void sendAdminAlert({
-      subject: `Event abgesagt — ${skipped.length + failed.length} Zahlung(en) brauchen manuelle Klärung`,
+      subject: `Event abgesagt; ${skipped.length + failed.length} Zahlung(en) brauchen manuelle Klärung`,
       text: `Event „${event.name}" (${eventId}) wurde abgesagt; ${refunded} Zahlung(en) automatisch erstattet.\n\n`
         + (skipped.length > 0
           ? `Übersprungen:\n${skipped.map((s) => `- ${s.session}: ${s.reason}`).join("\n")}\n\n`

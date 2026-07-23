@@ -2,7 +2,7 @@
  * First-party analytics, strictly consent-gated (DSGVO/TDDDG).
  *
  * Two cookies, both set client-side:
- *  - passly_consent: 'granted' | 'denied' — the banner decision, 12 months
+ *  - passly_consent: 'granted' | 'denied'; the banner decision, 12 months
  *  - passly_cid: random UUID, only exists while consent is granted
  *
  * Without consent every call here is a no-op and no identifier exists.

@@ -6,9 +6,9 @@ import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
 
 export const metadata: Metadata = {
-  title: 'So funktioniert’s — Passly',
+  title: 'So funktioniert’s · Passly',
   description:
-    'Ticket kaufen, per E-Mail anmelden, QR-Code am Einlass zeigen — so einfach funktioniert Passly für Gäste.',
+    'Ticket kaufen, per E-Mail anmelden, QR-Code am Einlass zeigen, so einfach funktioniert Passly für Gäste.',
 };
 
 const PAGE_CSS = `
@@ -177,7 +177,7 @@ export default function SoFunktioniertsPage() {
               <div className="info-eyebrow">
                 <Icon name="ticket" size={13} /> Für Gäste
               </div>
-              <h1>Vom Kauf bis zum Einlass — so einfach geht’s.</h1>
+              <h1>Vom Kauf bis zum Einlass, so einfach geht’s.</h1>
               <p className="lead">
                 Keine App, kein Ausdrucken, kein Passwort. Du kaufst dein Ticket mit
                 Karte und zeigst am Eingang einfach dein Handy. Alles dazwischen
@@ -193,11 +193,11 @@ export default function SoFunktioniertsPage() {
                     <h3>Ticket aussuchen und mit Karte zahlen</h3>
                     <p>
                       Du findest dein Event auf Passly oder bekommst den Link direkt
-                      vom Veranstalter. Bezahlt wird ganz normal mit Karte — den
+                      vom Veranstalter. Bezahlt wird ganz normal mit Karte, den
                       Gesamtpreis inklusive Servicegebühr siehst du vor dem Kauf.
                     </p>
                     <span className="flow-hint">
-                      <Icon name="check" size={13} /> Kein Konto nötig — es entsteht automatisch mit deiner E-Mail-Adresse
+                      <Icon name="check" size={13} /> Kein Konto nötig, es entsteht automatisch mit deiner E-Mail-Adresse
                     </span>
                   </div>
                 </div>
@@ -209,7 +209,7 @@ export default function SoFunktioniertsPage() {
                     <p>
                       Direkt nach dem Kauf liegt dein Ticket unter „Meine Tickets“.
                       Anmelden geht auf jedem Gerät mit einem Code an deine
-                      E-Mail-Adresse — Handy leer oder verloren? Einfach woanders
+                      E-Mail-Adresse. Handy leer oder verloren? Einfach woanders
                       anmelden, dein Ticket ist noch da.
                     </p>
                   </div>
@@ -221,11 +221,11 @@ export default function SoFunktioniertsPage() {
                     <h3>Am Einlass den QR-Code zeigen</h3>
                     <p>
                       Dein Ticket zeigt einen QR-Code, der sich jede Minute erneuert.
-                      Das Team am Eingang scannt ihn und du bist drin — geprüft in
+                      Das Team am Eingang scannt ihn und du bist drin, geprüft in
                       unter einer Sekunde.
                     </p>
                     <span className="flow-hint">
-                      <Icon name="shield" size={13} /> Screenshots und Kopien sind am Einlass wertlos — nur dein echtes Ticket zählt
+                      <Icon name="shield" size={13} /> Screenshots und Kopien sind am Einlass wertlos, nur dein echtes Ticket zählt
                     </span>
                   </div>
                 </div>
@@ -236,7 +236,7 @@ export default function SoFunktioniertsPage() {
                     <h3>Verhindert? Ticket weitergeben</h3>
                     <p>
                       Du kannst dein Ticket per Link an Freunde weitergeben. Ab der
-                      Übergabe gehört es eindeutig der neuen Person — sicher,
+                      Übergabe gehört es eindeutig der neuen Person, sicher,
                       nachvollziehbar und ohne Zettelwirtschaft.
                     </p>
                   </div>
@@ -258,7 +258,7 @@ export default function SoFunktioniertsPage() {
                     <span className="faq-chev"><Icon name="chevronRight" size={15} /></span>
                   </summary>
                   <div className="faq-a">
-                    Nein. Alles läuft im Browser deines Handys — kaufen, aufbewahren,
+                    Nein. Alles läuft im Browser deines Handys, kaufen, aufbewahren,
                     vorzeigen. Es gibt nichts zu installieren.
                   </div>
                 </details>
@@ -272,7 +272,7 @@ export default function SoFunktioniertsPage() {
                     zu deinem Konto gehört. Der QR-Code erneuert sich jede Minute, und
                     jeder Scan prüft in Echtzeit, ob das Ticket echt ist und wirklich
                     dir gehört. Ein abfotografierter Code ist deshalb nach spätestens
-                    einer Minute wertlos — und jedes Ticket lässt sich nur genau einmal
+                    einer Minute wertlos, und jedes Ticket lässt sich nur genau einmal
                     einlösen.
                   </div>
                 </details>
@@ -283,18 +283,18 @@ export default function SoFunktioniertsPage() {
                   </summary>
                   <div className="faq-a">
                     Zum Ticketpreis kommt eine Servicegebühr von 1&nbsp;€ plus 4&nbsp;%
-                    pro Ticket. Die siehst du transparent vor dem Bezahlen — versteckte
+                    pro Ticket. Die siehst du transparent vor dem Bezahlen, versteckte
                     Kosten gibt es nicht. Kostenlose Events sind komplett kostenlos.
                   </div>
                 </details>
                 <details>
                   <summary>
-                    Mein Handy ist leer oder kaputt — komme ich trotzdem rein?
+                    Mein Handy ist leer oder kaputt, komme ich trotzdem rein?
                     <span className="faq-chev"><Icon name="chevronRight" size={15} /></span>
                   </summary>
                   <div className="faq-a">
                     Ja. Dein Ticket hängt an deinem Konto, nicht an deinem Gerät. Melde
-                    dich einfach auf einem anderen Handy mit deiner E-Mail-Adresse an —
+                    dich einfach auf einem anderen Handy mit deiner E-Mail-Adresse an,
                     dein Ticket und der QR-Code sind sofort wieder da.
                   </div>
                 </details>
@@ -305,7 +305,7 @@ export default function SoFunktioniertsPage() {
                   </summary>
                   <div className="faq-a">
                     Weitergeben ja: Du schickst einen Übergabe-Link, die andere Person
-                    nimmt das Ticket mit ihrer E-Mail-Adresse an. Danach gehört es ihr —
+                    nimmt das Ticket mit ihrer E-Mail-Adresse an. Danach gehört es ihr,
                     dein alter QR-Code funktioniert dann nicht mehr. So bleibt immer
                     eindeutig, wem ein Ticket gehört.
                   </div>
@@ -317,7 +317,7 @@ export default function SoFunktioniertsPage() {
               <div className="info-cta" data-reveal>
                 <div>
                   <h2>Bereit für dein nächstes Event?</h2>
-                  <p>Schau dich um — bezahlt ist in einer Minute.</p>
+                  <p>Schau dich um, bezahlt ist in einer Minute.</p>
                 </div>
                 <Link href="/events" className="btn primary lg">
                   Events entdecken <Icon name="arrow" size={14} />

@@ -12,7 +12,7 @@ export default function TicketClient({ assetId }: { assetId: string }) {
   const wallet = wallets[0];
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'refreshing'>('loading');
-  // Bumped on every fresh signature — restarts the drain bar below the QR so
+  // Bumped on every fresh signature, restarts the drain bar below the QR so
   // door staff and guests can see the code is alive and current.
   const [cycle, setCycle] = useState(0);
   const hadQr = useRef(false);
@@ -40,7 +40,7 @@ export default function TicketClient({ assetId }: { assetId: string }) {
         const msgBytes = new TextEncoder().encode(challenge);
         // First signature shows a friendly confirmation (no crypto wording,
         // per design language); the automatic per-minute refreshes sign
-        // silently — a popup every 55 s would make the ticket unusable.
+        // silently; a popup every 55 s would make the ticket unusable.
         const output = await signMessage({
           message: msgBytes,
           wallet: walletObj,
@@ -98,7 +98,7 @@ export default function TicketClient({ assetId }: { assetId: string }) {
           width={240}
           height={240}
           role="img"
-          aria-label="Dein persönlicher Einlass-Code — beim Einlass einscannen lassen"
+          aria-label="Dein persönlicher Einlass-Code, beim Einlass einscannen lassen"
           style={{ display: 'block', opacity: status === 'loading' ? 0 : 1 }}
         />
         {status !== 'ready' && (

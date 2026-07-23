@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 
 /**
  * Loyalty program helpers (Pro feature). Qualification = distinct redeemed
- * events at the program organizer — the same signal as the Stammgast badge.
+ * events at the program organizer; the same signal as the Stammgast badge.
  */
 
 /** Distinct redeemed events of a wallet at one organizer. */
@@ -57,7 +57,7 @@ export async function qualifiedCustomers(
     .sort((a, b) => b.attendedEvents - a.attendedEvents);
 }
 
-/** Human-friendly claim code — no ambiguous characters (0/O, 1/I/L). */
+/** Human-friendly claim code; no ambiguous characters (0/O, 1/I/L). */
 export function generateClaimCode(): string {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let code = "";

@@ -7,7 +7,7 @@ interface CtaButtonProps {
   className?: string;
 }
 
-// Deliberately no auto-redirect for authenticated visitors — logged-in users
+// Deliberately no auto-redirect for authenticated visitors; logged-in users
 // must be able to browse the landing page (logo links back to "/"). Only an
 // actively completed login (onComplete) navigates to the ticket overview.
 export default function CtaButton({ className }: CtaButtonProps) {

@@ -1,19 +1,19 @@
 # Passly logo exports
 
-## SVG (vector — recommended for everything)
-- mark/  — square mark, 7 color treatments
-- wordmark/  — text only, 3 color treatments
-- lockup/  — mark + wordmark, 5 color treatments
+## SVG (vector, recommended for everything)
+- mark/: square mark, 7 color treatments
+- wordmark/: text only, 3 color treatments
+- lockup/: mark + wordmark, 5 color treatments
 
 ## PNG raster
-- png/transparent/  — accent brackets, off-white P, transparent bg
-- png/dark/  — on indigo
-- png/light/  — on warm white
+- png/transparent/: accent brackets, off-white P, transparent bg
+- png/dark/: on indigo
+- png/light/: on warm white
 Sizes: 16, 32, 48, 64, 128, 256, 512, 1024 px
 
 ## Quick files
-- favicon-32.png  — drop into web root
-- app-icon-1024.png  — iOS/Android source
+- favicon-32.png: drop into web root
+- app-icon-1024.png: iOS/Android source
 
 ## Fonts
 SVGs reference Unbounded (Google Fonts). For platforms that won't load it,

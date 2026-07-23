@@ -6,7 +6,7 @@ import { requestOwnsWallet } from "@/lib/privyServer";
 /**
  * Door access links: a time-limited token per event that lets venue staff run
  * the doorman scanner without the organizer's login. The token grants exactly
- * the door surface (verify, snapshot, offline sync) for one event — nothing
+ * the door surface (verify, snapshot, offline sync) for one event; nothing
  * else, and only until `expires_at` or revocation.
  */
 
@@ -50,7 +50,7 @@ export async function doorTokenValidFor(req: NextRequest, eventId: string): Prom
 /**
  * The gate for door routes (verify / snapshot / offline sync): the organizer's
  * own Privy session OR a valid door access link for exactly this event. Every
- * other organizer route keeps requiring `requestOwnsWallet` — door tokens must
+ * other organizer route keeps requiring `requestOwnsWallet`; door tokens must
  * never unlock dashboards, payouts, or guest e-mail addresses beyond the
  * snapshot the door needs.
  */
@@ -59,7 +59,7 @@ export async function requestMayWorkTheDoor(
   eventId: string,
   organizerWallet: string,
 ): Promise<boolean> {
-  // Cheap DB lookup first — most doorman devices use the link, and the Privy
+  // Cheap DB lookup first; most doorman devices use the link, and the Privy
   // check costs two upstream API calls.
   if (await doorTokenValidFor(req, eventId)) return true;
   return requestOwnsWallet(req, organizerWallet);

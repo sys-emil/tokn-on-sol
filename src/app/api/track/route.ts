@@ -4,7 +4,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
-// Only allowlisted event names are stored — the table never becomes a dumping
+// Only allowlisted event names are stored; the table never becomes a dumping
 // ground for arbitrary client input.
 const ALLOWED_EVENTS = new Set([
   "page_view",
@@ -17,7 +17,7 @@ const MAX_PROPS_BYTES = 1024;
 
 /**
  * First-party analytics sink. Requires the consent + cid cookies; anything
- * else is dropped silently. Always responds 204 — tracking must never surface
+ * else is dropped silently. Always responds 204; tracking must never surface
  * errors to the client or block anything.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const cid = req.cookies.get("passly_cid")?.value;
   if (consent !== "granted" || !cid || cid.length > 64) return noContent;
 
-  // The cid cookie is client-set and forgeable, so cap by both cid and IP —
+  // The cid cookie is client-set and forgeable, so cap by both cid and IP,
   // a script can't flood analytics_events (table bloat / poisoned stats).
   // Silently drop over-limit hits: tracking never surfaces errors. The ceiling
   // is well above real browsing (page_view + a few events per navigation).

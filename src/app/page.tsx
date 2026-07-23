@@ -174,7 +174,7 @@ const PAGE_CSS = `
     position: relative;
     overflow: hidden;
   }
-  /* Scan-Beam: der QR lebt — genau das Verkaufsargument */
+  /* Scan-Beam: der QR lebt, genau das Verkaufsargument */
   .mock-qr::after {
     content: "";
     position: absolute; left: 8px; right: 8px; top: 0;
@@ -345,7 +345,7 @@ export default function Home() {
                 </h1>
                 <p className="lead">
                   Jedes Ticket ist einzigartig und lässt sich weder kopieren noch abfotografieren.
-                  Keine Fälschungen am Einlass, kein Weiterverkaufs-Chaos — nur ein Code, der
+                  Keine Fälschungen am Einlass, kein Weiterverkaufs-Chaos, nur ein Code, der
                   eindeutig dir gehört.
                 </p>
                 <div className="hero-ctas">
@@ -381,7 +381,7 @@ export default function Home() {
               </div>
             </section>
 
-            {/* Trust-Leiste — konkrete, nachprüfbare Zusagen statt Kundenstimmen */}
+            {/* Trust-Leiste: konkrete, nachprüfbare Zusagen statt Kundenstimmen */}
             <section>
               <div className="trust-bar" data-reveal>
                 <div className="trust-item">
@@ -408,7 +408,7 @@ export default function Home() {
               <div className="section-head" data-reveal>
                 <div>
                   <h2>Für Gäste &amp; Veranstalter</h2>
-                  <div className="sub">Was Passly für beide Seiten macht — kurz erklärt</div>
+                  <div className="sub">Was Passly für beide Seiten macht, kurz erklärt</div>
                 </div>
               </div>
               <div className="audience-grid">
@@ -416,13 +416,13 @@ export default function Home() {
                   <span className="aud-tag"><Icon name="ticket" size={12} /> Für Gäste</span>
                   <h3>Kaufen, anmelden, reingehen.</h3>
                   <p>
-                    Dein Ticket lebt in deinem Konto, nicht auf einem Zettel — und ist
+                    Dein Ticket lebt in deinem Konto, nicht auf einem Zettel, und ist
                     auf jedem Gerät sofort wieder da.
                   </p>
                   <ul className="aud-points">
-                    <li><Icon name="check" size={14} /> Mit Karte zahlen — ohne App, ohne Passwort</li>
+                    <li><Icon name="check" size={14} /> Mit Karte zahlen, ohne App, ohne Passwort</li>
                     <li><Icon name="check" size={14} /> Ticket auf jedem Gerät, Anmeldung per E-Mail-Code</li>
-                    <li><Icon name="check" size={14} /> QR-Code erneuert sich jede Minute — nicht kopierbar</li>
+                    <li><Icon name="check" size={14} /> QR-Code erneuert sich jede Minute, nicht kopierbar</li>
                     <li><Icon name="check" size={14} /> Verhindert? Ticket sicher per Link weitergeben</li>
                   </ul>
                   <div className="aud-cta">
@@ -436,11 +436,11 @@ export default function Home() {
                   <span className="aud-tag"><Icon name="calendar" size={12} /> Für Veranstalter</span>
                   <h3>Dein komplettes Ticketsystem.</h3>
                   <p>
-                    Event anlegen, Tickets verkaufen, mit dem Handy einlassen — ohne
+                    Event anlegen, Tickets verkaufen, mit dem Handy einlassen, ohne
                     Fixkosten und ohne Technik-Aufwand.
                   </p>
                   <ul className="aud-points">
-                    <li><Icon name="check" size={14} /> Event in Minuten live — öffentlich oder privat per Link</li>
+                    <li><Icon name="check" size={14} /> Event in Minuten live, öffentlich oder privat per Link</li>
                     <li><Icon name="check" size={14} /> 100&nbsp;% des Ticketpreises gehören dir</li>
                     <li><Icon name="check" size={14} /> Einlass-Scanner im Browser, für dein ganzes Team</li>
                     <li><Icon name="check" size={14} /> Automatische Auszahlung aufs Bankkonto</li>
@@ -460,7 +460,7 @@ export default function Home() {
               <div className="section-head" data-reveal>
                 <div>
                   <h2>Warum Passly</h2>
-                  <div className="sub">Gebaut gegen Fälschungen — und für entspannte Abende</div>
+                  <div className="sub">Gebaut gegen Fälschungen und für entspannte Abende</div>
                 </div>
               </div>
               <div className="why-grid">
@@ -472,7 +472,7 @@ export default function Home() {
                     <h3>Nicht kopierbar</h3>
                     <p>
                       Der QR-Code erneuert sich jede Minute. Ein Screenshot ist am Einlass
-                      wertlos — nur das echte Ticket kommt durch.
+                      wertlos, nur das echte Ticket kommt durch.
                     </p>
                   </div>
                 </div>
@@ -495,7 +495,7 @@ export default function Home() {
                   <div>
                     <h3>Faire Auszahlung</h3>
                     <p>
-                      Der Ticketpreis geht zu 100&nbsp;% an dich als Veranstalter — die
+                      Der Ticketpreis geht zu 100&nbsp;% an dich als Veranstalter, die
                       Servicegebühr zahlen die Käufer transparent obendrauf.
                     </p>
                   </div>
@@ -507,7 +507,7 @@ export default function Home() {
                   <div>
                     <h3>Weitergeben per Link</h3>
                     <p>
-                      Verhindert? Ticket per Link an Freunde weitergeben — sicher und
+                      Verhindert? Ticket per Link an Freunde weitergeben, sicher und
                       nachvollziehbar, ohne Zettelwirtschaft.
                     </p>
                   </div>
@@ -530,7 +530,7 @@ export default function Home() {
             <section>
               <div className="cta-banner" data-reveal>
                 <h2>Bereit für Tickets, die man nicht fälschen kann?</h2>
-                <p>Leg dein erstes Event an — kostenlos und in wenigen Minuten.</p>
+                <p>Leg dein erstes Event an, kostenlos und in wenigen Minuten.</p>
                 <Link href="/become-organizer" className="btn lg btn-shine">
                   Jetzt Event anlegen <Icon name="arrow" size={14} />
                 </Link>

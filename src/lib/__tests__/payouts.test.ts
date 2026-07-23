@@ -173,7 +173,7 @@ describe("buildPayoutRow (from Stripe test-mode checkout session)", () => {
     });
   });
 
-  it("returns null for free sessions — nothing to pay out", () => {
+  it("returns null for free sessions; nothing to pay out", () => {
     const row = buildPayoutRow({
       session: { ...session, amount_total: 0 },
       chargeId: null,

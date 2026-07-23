@@ -27,7 +27,7 @@ interface BackupBody {
  * Issues a personalized backup-ticket PDF (static QR for venues without
  * connectivity). Auth is the signatures themselves: only the owner of the
  * buyer wallet can produce them, so no separate session check is needed.
- * The personalization is printed onto the PDF and mailed — never stored.
+ * The personalization is printed onto the PDF and mailed; never stored.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const rl = rateLimit(`backup:${clientIp(req)}`, 5, 60_000);
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Ein Ticket wurde storniert." }, { status: 409 });
   }
 
-  // Verify each signature against the ticket's buyer wallet — that IS the
+  // Verify each signature against the ticket's buyer wallet; that IS the
   // authorization: only the wallet owner can sign the backup challenge.
   for (const item of items) {
     const purchase = byAsset.get(item.assetId)!;
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     })),
   });
 
-  // Mail goes to the buyer address of the purchase — never to a
+  // Mail goes to the buyer address of the purchase; never to a
   // client-supplied recipient.
   let emailed = false;
   const sessionId = [...byAsset.values()].find((p) => p.stripe_session_id)?.stripe_session_id;

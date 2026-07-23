@@ -35,7 +35,7 @@ function makeConfetti(count: number): ConfettiPiece[] {
 }
 
 /**
- * Full-screen congratulation overlay with a confetti burst — shown after a
+ * Full-screen congratulation overlay with a confetti burst, shown after a
  * ticket purchase, a newly earned badge, or the Pro upgrade.
  */
 export function Celebration({

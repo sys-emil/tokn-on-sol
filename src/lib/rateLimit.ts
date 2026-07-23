@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 /**
  * Best-effort in-memory rate limiter (sliding fixed window).
  *
- * No external store — the bucket map lives in the module scope of a single
+ * No external store; the bucket map lives in the module scope of a single
  * serverless instance. On Vercel Fluid Compute instances are reused across
  * requests, so this reliably throttles bursts from one source hitting a warm
  * instance (the naive "reserve every ticket in a loop" attack). A determined

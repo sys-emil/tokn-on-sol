@@ -47,7 +47,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Own-purchase guard: a seller buying back their own listing would credit
-  // themselves the net while paying the full price — block it.
+  // themselves the net while paying the full price; block it.
   if (listing.seller_wallet === buyerWallet) {
     return NextResponse.json(
       { success: false, error: "Du kannst dein eigenes Angebot nicht kaufen." },
@@ -66,6 +66,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const origin = `${protocol}://${host}`;
   const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MINUTES * 60;
 
+  // The buyer pays the seller's list price plus their half of the platform fee.
+  // Money is conserved: buyer total = seller net + total fee.
+  const buyerTotalCents = (listing.net_cents as number) + (listing.fee_cents as number);
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -75,10 +79,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           quantity: 1,
           price_data: {
             currency: (listing.currency as string) ?? "eur",
-            unit_amount: listing.list_price_cents as number,
+            unit_amount: buyerTotalCents,
             product_data: {
-              name: `${(event?.name as string) ?? "Ticket"} — Weiterverkauf`,
-              description: `Ticket für ${(event?.date as string) ?? ""}`,
+              name: `${(event?.name as string) ?? "Ticket"}, Weiterverkauf`,
+              description: `Ticket für ${(event?.date as string) ?? ""} inkl. Servicegebühr`,
             },
           },
         },
@@ -108,7 +112,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       try {
         await stripe.checkout.sessions.expire(session.id);
       } catch {
-        // best effort — the session dies on its own after 30 minutes
+        // best effort; the session dies on its own after 30 minutes
       }
       return NextResponse.json(
         { success: false, error: "Dieses Angebot ist nicht mehr verfügbar." },

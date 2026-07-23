@@ -51,7 +51,7 @@ interface TierDraft {
   // and type a new value without it snapping back; parsed at submit time.
   priceEur: string; // euros in the form, cents on the wire
   capacity: string;
-  committed: number; // sold + reserved — the capacity floor
+  committed: number; // sold + reserved, the capacity floor
 }
 
 const PAGE_SIZE = 12;
@@ -220,14 +220,14 @@ export default function EventDetailPage() {
           setTickets(data.tickets);
           setCheckedIn(data.stats.checkedIn);
         } catch {
-          // transient — next tick retries
+          // transient, next tick retries
         }
       })();
     }, 30_000);
     return () => { stopped = true; clearInterval(timer); };
   }, [liveDay, id, loaded, getAccessToken]);
 
-  // Door access links load once after the event itself — not part of the
+  // Door access links load once after the event itself, not part of the
   // 30 s live polling, they only change through actions on this page.
   useEffect(() => {
     if (!loaded || !event || !id) return;
@@ -242,7 +242,7 @@ export default function EventDetailPage() {
         const data = (await res.json()) as { links: DoorLink[] };
         if (!cancelled) setDoorLinks(data.links);
       } catch {
-        // non-critical — the card just shows no links
+        // non-critical, the card just shows no links
       }
     }
     void loadLinks();
@@ -250,7 +250,7 @@ export default function EventDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, id]);
 
-  // Discount codes are Pro — the card only renders (and this only loads)
+  // Discount codes are Pro, so the card only renders (and this only loads)
   // when the plan check came back 'pro'.
   useEffect(() => {
     if (plan !== 'pro' || !walletAddress || !id) return;
@@ -458,7 +458,7 @@ export default function EventDetailPage() {
         borderStyle: event.border_style,
         tiers: tiers.map((t) => ({ name: t.name, priceEur: String(t.price_eur / 100), capacity: String(t.capacity) })),
       }));
-    } catch { /* private mode — the drawer just opens empty */ }
+    } catch { /* private mode, the drawer just opens empty */ }
     router.push('/dashboard');
   }
 
@@ -583,7 +583,7 @@ export default function EventDetailPage() {
       if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} übersprungen (manuell klären)`);
       if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} fehlgeschlagen`);
       setCancelResult(parts.join(' · '));
-      setLoaded(false); // reload — event is now cancelled
+      setLoaded(false); // reload, event is now cancelled
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : 'Absagen fehlgeschlagen.');
     } finally {
@@ -822,7 +822,7 @@ export default function EventDetailPage() {
                           <h3 style={{ fontSize: 14.5, fontWeight: 600 }}>Türsteher-Zugang</h3>
                         </div>
                         <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55 }}>
-                          Links für dein Einlass-Personal — öffnen den Scanner ohne dein Konto.
+                          Links für dein Einlass-Personal, öffnen den Scanner ohne dein Konto.
                           Gültig bis 2 Tage nach dem Event, jederzeit widerrufbar.
                         </p>
                         {doorLinks.length > 0 && (
@@ -881,7 +881,7 @@ export default function EventDetailPage() {
                           <h3 style={{ fontSize: 14.5, fontWeight: 600 }}>Rabattcodes</h3>
                         </div>
                         <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55 }}>
-                          Prozent-Rabatt oder Gästeliste (100 %) — Käufer geben den Code im Shop ein.
+                          Prozent-Rabatt oder Gästeliste (100 %), Käufer geben den Code im Shop ein.
                         </p>
                         {codes.length > 0 && (
                           <div style={{ borderTop: '1px solid var(--line)', marginTop: 14, paddingTop: 6 }}>
@@ -1048,7 +1048,7 @@ export default function EventDetailPage() {
           <div className="drawer" role="dialog" aria-label="Event bearbeiten">
             <div className="drawer-head">
               <h3>Event bearbeiten</h3>
-              <p>Änderungen gelten sofort — auch auf der Shop-Seite.</p>
+              <p>Änderungen gelten sofort, auch auf der Shop-Seite.</p>
             </div>
             <div className="drawer-body">
               <div className="field">
@@ -1164,7 +1164,7 @@ export default function EventDetailPage() {
                         onChange={(e) => setFResaleMaxMarkup(e.target.value)} disabled={editSaving} />
                       <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>% über Nennwert</span>
                     </div>
-                    <span className="hint">Gäste dürfen ihr Ticket über Passly weiterverkaufen — höchstens {Math.floor(Number(fResaleMaxMarkup)) || 0} % über dem Originalpreis. Höhere Aufpreise verursachen höhere Verkaufsgebühren.</span>
+                    <span className="hint">Gäste dürfen ihr Ticket über Passly weiterverkaufen, höchstens {Math.floor(Number(fResaleMaxMarkup)) || 0} % über dem Originalpreis. Höhere Aufpreise verursachen höhere Verkaufsgebühren.</span>
                   </>
                 ) : (
                   <span className="hint">Gäste können ihre Tickets nicht offiziell weiterverkaufen.</span>

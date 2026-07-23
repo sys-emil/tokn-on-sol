@@ -192,7 +192,7 @@ export default function ClaimPage() {
                 <div className="date">{formatDate(preview.eventDate ?? '')}</div>
               </div>
               <p className="claim-text">
-                Übernimm dieses Ticket in dein Passly-Konto. Danach gehört es dir — der ursprüngliche Link wird ungültig.
+                Übernimm dieses Ticket in dein Passly-Konto. Danach gehört es dir, der ursprüngliche Link wird ungültig.
               </p>
               <button className="btn primary lg" style={{ justifyContent: 'center' }} onClick={handleClaimClick}>
                 Ticket übernehmen

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Atomically pull the listing out of the market before returning the ticket,
   // so a buyer can't reserve it mid-cancel. Only the seller's own ACTIVE listing
-  // can be withdrawn — a reserved listing has a buyer in checkout.
+  // can be withdrawn; a reserved listing has a buyer in checkout.
   const { data: cancelled } = await supabaseAdmin
     .from("resale_listings")
     .update({ status: "cancelled", updated_at: new Date().toISOString() })

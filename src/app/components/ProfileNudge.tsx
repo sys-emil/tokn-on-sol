@@ -68,7 +68,7 @@ export function ProfileNudge({ walletAddress }: { walletAddress?: string }) {
         </div>
         <div className="modal-body">
           <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.6, marginBottom: 14 }}>
-            Gib deinem Konto einen Namen — er erscheint auf deinem öffentlichen Profil
+            Gib deinem Konto einen Namen, er erscheint auf deinem öffentlichen Profil
             statt einer anonymen Kennung. Alles Weitere kannst du jederzeit unter{' '}
             <Link href="/account" style={{ color: 'var(--accent)', fontWeight: 500 }}>Konto &amp; Profil</Link> anpassen.
           </p>

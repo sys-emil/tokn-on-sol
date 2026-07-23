@@ -2,15 +2,15 @@
  * Buyer-side service fee: €1.00 + 4% per ticket, added on top of the face
  * price at checkout. The organizer receives 100% of the face price.
  *
- * Why base + percentage: Stripe's processing cost is fixed-plus-percentage
- * (~€0.25 + 1.5–2.9%), so a pure percentage loses money on cheap tickets
- * (backlog #13 — a €5 ticket at the old organizer-side 3% lost ~€0.18).
+ * Why base plus percentage: Stripe's processing cost is fixed-plus-percentage
+ * (about €0.25 plus 1.5 to 2.9%), so a pure percentage loses money on cheap
+ * tickets (backlog #13: a €5 ticket at the old organizer-side 3% lost ~€0.18).
  * €1.00 + 4% clears Stripe cost plus VAT on the fee at every price point.
  *
- * Free tickets (price 0) carry no fee — free events skip Stripe entirely.
+ * Free tickets (price 0) carry no fee, since free events skip Stripe entirely.
  *
- * This module is imported by client components (shop page fee display) —
- * keep it dependency-free and side-effect-free.
+ * This module is imported by client components (shop page fee display), so it
+ * must stay dependency-free and side-effect-free.
  */
 
 export const SERVICE_FEE_BASE_CENTS = 100; // €1.00 per ticket
@@ -32,54 +32,80 @@ export function serviceFeeTotalCents(unitPriceCents: number, quantity: number): 
 }
 
 /**
- * Resale (secondary market) fee — borne by the SELLER, deducted from the sale
- * price. The seller receives (listPrice − fee) as Passly credit.
+ * Resale (secondary market) fee, split 50/50 between buyer and seller.
  *
- * The percentage RISES with the markup over the ticket's face value (its tier's
- * original price) to make scalping unattractive:
- *   - markup < 10%           → 8%
- *   - markup ≥ 10%           → 12%
- *   - each further +5% markup → +2%   (15%→14%, 20%→16%, 25%→18%, …)
- * Selling at or below face value (markup ≤ 0) stays at the 8% base.
+ * The percentage of the list price is a gentle ramp: an 8% base when selling at
+ * or below face value, rising by 1 percentage point per 5% of markup over the
+ * ticket's face value, capped at 15%. There is no fixed base amount, so cheap
+ * tickets are not punished. Scalping is bounded by the organizer's markup cap,
+ * not by this fee, hence the ramp stays mild.
  *
- * On top of the percentage there is a flat €1.00 base charge. Percentages are
- * applied to the resale list price. Kept dependency-free — imported by the
- * seller-facing listing UI to preview the net proceeds live.
+ * The buyer pays the seller's list price plus their half of the fee; the
+ * seller's half is deducted from their proceeds (paid out as Passly credit).
+ * Kept dependency-free, since the seller and buyer UI import it to preview the
+ * split live.
  */
-export const RESALE_FEE_BASE_CENTS = 100; // €1.00 flat
-export const RESALE_FEE_BASE_BPS = 800; // 8% baseline
+export const RESALE_FEE_BASE_BPS = 800; // 8% baseline at or below face value
+export const RESALE_FEE_MAX_BPS = 1_500; // capped at 15%
+export const RESALE_MARKUP_STEP_BPS = 500; // each 5% of markup
+export const RESALE_FEE_STEP_BPS = 100; // adds 1 percentage point
 
 /** Fee percentage (in basis points) for a given markup over face value (bps). */
 export function resaleFeeBps(markupBps: number): number {
-  if (markupBps < 1_000) return RESALE_FEE_BASE_BPS; // < 10% markup → 8%
-  const steps = Math.floor((markupBps - 1_000) / 500); // each additional 5%
-  return 1_200 + steps * 200; // 10% → 12%, then +2% per 5%
+  const steps = Math.floor(Math.max(0, markupBps) / RESALE_MARKUP_STEP_BPS);
+  return Math.min(RESALE_FEE_MAX_BPS, RESALE_FEE_BASE_BPS + steps * RESALE_FEE_STEP_BPS);
+}
+
+export interface ResaleFeeBreakdown {
+  /** Total platform fee in cents (buyer half plus seller half). */
+  totalFeeCents: number;
+  /** Buyer's half, added on top of the list price. */
+  buyerFeeCents: number;
+  /** Seller's half, deducted from their proceeds. */
+  sellerFeeCents: number;
+  /** Credit the seller receives: list price minus their half of the fee. */
+  sellerNetCents: number;
+  /** What the buyer actually pays: list price plus their half of the fee. */
+  buyerTotalCents: number;
 }
 
 /**
- * Seller-side resale fee in cents for a ticket listed at `listPriceCents` whose
- * original face value is `faceValueCents`. Flat €1 + a markup-scaled percentage
- * of the list price.
+ * Full split for a ticket listed at `listPriceCents` whose original face value
+ * is `faceValueCents`. Money is conserved: buyerTotal = sellerNet + totalFee.
  */
-export function resaleFeeCents(listPriceCents: number, faceValueCents: number): number {
+export function resaleFeeBreakdown(listPriceCents: number, faceValueCents: number): ResaleFeeBreakdown {
   if (!Number.isInteger(listPriceCents) || listPriceCents <= 0) {
     throw new Error(`listPriceCents must be a positive integer, got ${listPriceCents}`);
   }
   if (!Number.isInteger(faceValueCents) || faceValueCents < 0) {
     throw new Error(`faceValueCents must be a non-negative integer, got ${faceValueCents}`);
   }
-  // Markup relative to face value; clamped at 0 so selling below face never
+  // Markup relative to face value, clamped at 0 so selling below face never
   // yields a negative (fee-reducing) markup.
   const markupBps = faceValueCents > 0
     ? Math.max(0, Math.round(((listPriceCents - faceValueCents) / faceValueCents) * 10_000))
     : 0;
   const bps = resaleFeeBps(markupBps);
-  return RESALE_FEE_BASE_CENTS + Math.round((listPriceCents * bps) / 10_000);
+  const totalFeeCents = Math.round((listPriceCents * bps) / 10_000);
+  const buyerFeeCents = Math.round(totalFeeCents / 2);
+  const sellerFeeCents = totalFeeCents - buyerFeeCents;
+  return {
+    totalFeeCents,
+    buyerFeeCents,
+    sellerFeeCents,
+    sellerNetCents: Math.max(0, listPriceCents - sellerFeeCents),
+    buyerTotalCents: listPriceCents + buyerFeeCents,
+  };
 }
 
-/** Net proceeds the seller receives as credit: list price minus the resale fee. */
+/** Total platform fee (both halves) for a resale at the given list and face value. */
+export function resaleFeeCents(listPriceCents: number, faceValueCents: number): number {
+  return resaleFeeBreakdown(listPriceCents, faceValueCents).totalFeeCents;
+}
+
+/** Net proceeds the seller receives as credit (list price minus their half of the fee). */
 export function resaleNetProceedsCents(listPriceCents: number, faceValueCents: number): number {
-  return Math.max(0, listPriceCents - resaleFeeCents(listPriceCents, faceValueCents));
+  return resaleFeeBreakdown(listPriceCents, faceValueCents).sellerNetCents;
 }
 
 /** Highest list price the organizer's markup cap allows for a given face value. */

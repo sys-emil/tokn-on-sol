@@ -13,7 +13,7 @@ export function ShareButton({ title }: { title: string }) {
         await navigator.share({ title, url });
         return;
       } catch {
-        // dismissed — fall through to clipboard
+        // dismissed, fall through to clipboard
       }
     }
     try {
@@ -21,7 +21,7 @@ export function ShareButton({ title }: { title: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // clipboard blocked — nothing sensible left to do
+      // clipboard blocked, nothing sensible left to do
     }
   }
 
