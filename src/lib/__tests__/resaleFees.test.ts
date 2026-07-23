@@ -62,10 +62,17 @@ describe("resaleFeeBreakdown (50/50 split)", () => {
     expect(b.buyerFeeCents + b.sellerFeeCents).toBe(b.totalFeeCents);
   });
 
-  it("has no fixed base amount (cheap tickets are not punished)", () => {
-    // €5 face, €5 list -> 8% = €0.40 total, no €1 base.
-    expect(resaleFeeCents(500, 500)).toBe(40);
-    expect(resaleNetProceedsCents(500, 500)).toBe(480);
+  it("floors the fee at €0.50 for cheap resales", () => {
+    // €5 face, €5 list -> 8% = €0.40, below the €0.50 floor -> €0.50 total.
+    const b = resaleFeeCents(500, 500);
+    expect(b).toBe(50);
+    // Seller keeps list minus their (floored) half.
+    expect(resaleNetProceedsCents(500, 500)).toBe(475);
+  });
+
+  it("uses the percentage once it exceeds the floor", () => {
+    // €7 list -> 8% = €0.56, above the €0.50 floor -> percentage wins.
+    expect(resaleFeeCents(700, 700)).toBe(56);
   });
 
   it("falls back to the base rate when face value is unknown (0)", () => {

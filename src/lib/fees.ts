@@ -36,9 +36,13 @@ export function serviceFeeTotalCents(unitPriceCents: number, quantity: number): 
  *
  * The percentage of the list price is a gentle ramp: an 8% base when selling at
  * or below face value, rising by 1 percentage point per 5% of markup over the
- * ticket's face value, capped at 15%. There is no fixed base amount, so cheap
- * tickets are not punished. Scalping is bounded by the organizer's markup cap,
- * not by this fee, hence the ramp stays mild.
+ * ticket's face value, capped at 15%. Scalping is bounded by the organizer's
+ * markup cap, not by this fee, hence the ramp stays mild.
+ *
+ * A minimum fee of €0.50 floors the percentage so a cheap resale still covers
+ * Stripe's fixed per-charge cost (~€0.25): below roughly €4 the 8% alone would
+ * leave the platform underwater on Stripe fees. The floor kicks in only there;
+ * at normal prices the percentage dominates.
  *
  * The buyer pays the seller's list price plus their half of the fee; the
  * seller's half is deducted from their proceeds (paid out as Passly credit).
@@ -49,6 +53,7 @@ export const RESALE_FEE_BASE_BPS = 800; // 8% baseline at or below face value
 export const RESALE_FEE_MAX_BPS = 1_500; // capped at 15%
 export const RESALE_MARKUP_STEP_BPS = 500; // each 5% of markup
 export const RESALE_FEE_STEP_BPS = 100; // adds 1 percentage point
+export const RESALE_FEE_MIN_CENTS = 50; // €0.50 floor to cover Stripe's fixed cost
 
 /** Fee percentage (in basis points) for a given markup over face value (bps). */
 export function resaleFeeBps(markupBps: number): number {
@@ -86,7 +91,9 @@ export function resaleFeeBreakdown(listPriceCents: number, faceValueCents: numbe
     ? Math.max(0, Math.round(((listPriceCents - faceValueCents) / faceValueCents) * 10_000))
     : 0;
   const bps = resaleFeeBps(markupBps);
-  const totalFeeCents = Math.round((listPriceCents * bps) / 10_000);
+  const percentageFee = Math.round((listPriceCents * bps) / 10_000);
+  // Floor at the minimum so cheap resales still cover Stripe's fixed per-charge cost.
+  const totalFeeCents = Math.max(percentageFee, RESALE_FEE_MIN_CENTS);
   const buyerFeeCents = Math.round(totalFeeCents / 2);
   const sellerFeeCents = totalFeeCents - buyerFeeCents;
   return {
