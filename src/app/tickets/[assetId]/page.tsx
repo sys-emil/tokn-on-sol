@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import TicketClient from './TicketClient';
+import { BackupTicketButton } from './BackupTicketButton';
 import { heliusRpcUrl } from '@/lib/solana';
 import { supabaseAdmin } from '@/lib/supabase';
 import { LegalLinks } from '@/app/components/LegalLinks';
@@ -257,6 +258,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
                 Zum Kalender hinzufügen
               </a>
             )}
+            {status === 'valid' && <BackupTicketButton assetId={assetId} />}
           </div>
 
         </div>
