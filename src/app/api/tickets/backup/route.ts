@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bs58 from "bs58";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildBackupPdf } from "@/lib/backupTicket";
+import { backupChallenge } from "@/lib/backupChallenge";
 import { sendBackupTicketEmail } from "@/lib/email";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         "Ed25519",
         key,
         Uint8Array.from(bs58.decode(item.signature)),
-        new TextEncoder().encode(`passly:backup:${item.assetId}`),
+        new TextEncoder().encode(backupChallenge(item.assetId, { firstName, lastName, birthDate })),
       );
     } catch {
       ok = false;
@@ -129,6 +130,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         w: byAsset.get(i.assetId)!.buyer_wallet,
         s: i.signature,
         b: 1,
+        // Identity bound into the signed challenge above; the door reads it
+        // from here, not from the (editable) printed text.
+        p: { f: firstName, l: lastName, d: birthDate },
       }),
     })),
   });

@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { heliusRpcUrl } from "@/lib/solana";
 import { checkRedemptionBadges } from "@/lib/badges";
 import { requestMayWorkTheDoor } from "@/lib/doorAccess";
+import { backupChallenge } from "@/lib/backupChallenge";
 import bs58 from "bs58";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -19,6 +20,7 @@ interface QrPayload {
   w: string; // walletAddress (base58)
   s: string; // Ed25519 signature (base58)
   b?: number; // 1 = static backup ticket (challenge without time window)
+  p?: { f: string; l: string; d: string }; // backup identity bound into the signature (firstName/lastName/birthDate)
 }
 
 interface DasAsset {
@@ -73,6 +75,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ valid: false, reason: "Invalid QR code" });
   }
 
+  // Backup identity, when present, is bound into the signed challenge below;
+  // editing any field breaks the signature. Absent on legacy backup tickets.
+  const person = isBackup && payload.p
+    ? { firstName: payload.p.f, lastName: payload.p.l, birthDate: payload.p.d }
+    : null;
+
   // Step 1; Replay protection: accept current minute and previous minute.
   // Backup tickets are deliberately static (saved in advance for venues
   // without connectivity); no time window; once-only redemption plus the
@@ -85,7 +93,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Step 2; Reconstruct the challenge the client signed
-  const challenge = isBackup ? `passly:backup:${assetId}` : `passly:verify:${assetId}:${t}`;
+  const challenge = isBackup ? backupChallenge(assetId, person) : `passly:verify:${assetId}:${t}`;
 
   // Step 3; Decode base58 pubkey and signature, then verify Ed25519
   let pubkeyBytes: Uint8Array<ArrayBuffer>;
@@ -169,6 +177,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       eventName: event?.name ?? "",
       redeemedAt: now,
       backup: isBackup,
+      person: person ?? undefined,
     });
   }
 

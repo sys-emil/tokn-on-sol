@@ -1,4 +1,11 @@
 import bs58 from 'bs58';
+import { backupChallenge } from '@/lib/backupChallenge';
+
+export interface BackupPersonView {
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+}
 
 /**
  * Offline verification layer for the doorman scanner.
@@ -35,7 +42,7 @@ export interface PendingRedemption {
 }
 
 export type OfflineVerdict =
-  | { valid: true; assetId: string; backup?: boolean }
+  | { valid: true; assetId: string; backup?: boolean; person?: BackupPersonView }
   | { valid: false; reason: string; redeemedAt?: string };
 
 const snapshotKey = (eventId: string) => `passly-doorman-snapshot-${eventId}`;
@@ -85,7 +92,7 @@ export async function verifyOffline(
     return { valid: false, reason: 'Offline und keine Ticketliste geladen' };
   }
 
-  let payload: { a?: string; t?: number; w?: string; s?: string; b?: number };
+  let payload: { a?: string; t?: number; w?: string; s?: string; b?: number; p?: { f: string; l: string; d: string } };
   try {
     payload = JSON.parse(rawToken) as typeof payload;
   } catch {
@@ -96,6 +103,9 @@ export async function verifyOffline(
   if (!assetId || (!isBackup && typeof t !== 'number') || !walletAddress || !sigBase58) {
     return { valid: false, reason: 'Invalid QR code' };
   }
+  const person = isBackup && payload.p
+    ? { firstName: payload.p.f, lastName: payload.p.l, birthDate: payload.p.d }
+    : undefined;
 
   // Same replay window as the server: current or previous minute. Backup
   // tickets are static by design (saved in advance for dead spots); no
@@ -107,8 +117,10 @@ export async function verifyOffline(
     }
   }
 
-  // Ed25519 signature check; identical challenge to the server route.
-  const challenge = isBackup ? `passly:backup:${assetId}` : `passly:verify:${assetId}:${t}`;
+  // Ed25519 signature check; identical challenge to the server route. For
+  // backup tickets the identity (payload.p) is bound in, so editing a name
+  // on a shared QR breaks the signature here too.
+  const challenge = isBackup ? backupChallenge(assetId, person) : `passly:verify:${assetId}:${t}`;
   let signatureValid: boolean;
   try {
     const key = await crypto.subtle.importKey(
@@ -145,5 +157,5 @@ export async function verifyOffline(
     return { valid: false, reason: 'Already redeemed' };
   }
 
-  return { valid: true, assetId, backup: isBackup };
+  return { valid: true, assetId, backup: isBackup, person };
 }

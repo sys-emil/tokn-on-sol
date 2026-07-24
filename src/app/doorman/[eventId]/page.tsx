@@ -13,6 +13,7 @@ import {
   savePending,
   saveSnapshot,
   verifyOffline,
+  type BackupPersonView,
   type PendingRedemption,
   type Snapshot,
 } from './offline';
@@ -30,7 +31,7 @@ type Phase =
   | { tag: 'camera-error'; message: string }
   | { tag: 'scanning' }
   | { tag: 'verifying' }
-  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string; offline?: boolean; backup?: boolean }
+  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string; offline?: boolean; backup?: boolean; person?: BackupPersonView; awaitConfirm?: boolean }
   | { tag: 'result-used'; redeemedAt: string }
   | { tag: 'result-invalid'; reason: string };
 
@@ -162,6 +163,38 @@ const PAGE_CSS = `
     display: grid; place-items: center;
     margin: 0 auto 10px;
   }
+
+  .id-card {
+    margin: 14px 0 4px;
+    padding: 18px 16px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.28);
+  }
+  .id-label {
+    font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    opacity: 0.72;
+  }
+  .id-name {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
+    line-height: 1.15; margin-top: 3px;
+  }
+  .id-bday {
+    font-size: 18px; font-weight: 600; margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .id-confirm {
+    margin-top: 16px;
+    width: 100%;
+    padding: 15px;
+    border: none; border-radius: 12px;
+    background: white; color: oklch(0.40 0.14 150);
+    font-size: 16px; font-weight: 700; font-family: inherit;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.22);
+  }
+  .id-confirm:active { transform: translateY(1px); }
 
   .spinner {
     width: 32px; height: 32px;
@@ -409,6 +442,10 @@ export default function DoormanPage() {
 
     setPhase({ tag: 'verifying' });
 
+    // Backup tickets pause on the result until the doorman confirms the ID
+    // check (see confirmAndResume); everything else auto-advances after 3 s.
+    let awaitConfirm = false;
+
     try {
       // 5 s budget for the live check; at the door a hanging request is
       // worse than falling back to the offline snapshot.
@@ -419,14 +456,15 @@ export default function DoormanPage() {
         signal: AbortSignal.timeout(5000),
       });
       const data = (await res.json()) as
-        | { valid: true; assetId: string; eventName: string; redeemedAt: string; backup?: boolean }
+        | { valid: true; assetId: string; eventName: string; redeemedAt: string; backup?: boolean; person?: BackupPersonView }
         | { valid: false; reason: string; redeemedAt?: string };
 
       if (data.valid) {
         locallyRedeemedRef.current.add(data.assetId);
         setScannedToday((n) => n + 1);
         setLastScan(new Date().toISOString());
-        setPhase({ tag: 'result-valid', assetId: data.assetId, eventName: data.eventName, redeemedAt: data.redeemedAt, backup: data.backup });
+        awaitConfirm = Boolean(data.backup);
+        setPhase({ tag: 'result-valid', assetId: data.assetId, eventName: data.eventName, redeemedAt: data.redeemedAt, backup: data.backup, person: data.person, awaitConfirm });
       } else if (data.reason === 'Already redeemed') {
         setPhase({ tag: 'result-used', redeemedAt: data.redeemedAt ?? '' });
       } else {
@@ -444,7 +482,8 @@ export default function DoormanPage() {
         setPendingCount(pendingRef.current.length);
         setScannedToday((n) => n + 1);
         setLastScan(at);
-        setPhase({ tag: 'result-valid', assetId: verdict.assetId, eventName: event?.name ?? '', redeemedAt: at, offline: true, backup: verdict.backup });
+        awaitConfirm = Boolean(verdict.backup);
+        setPhase({ tag: 'result-valid', assetId: verdict.assetId, eventName: event?.name ?? '', redeemedAt: at, offline: true, backup: verdict.backup, person: verdict.person, awaitConfirm });
       } else if (verdict.reason === 'Already redeemed') {
         setPhase({ tag: 'result-used', redeemedAt: verdict.redeemedAt ?? '' });
       } else {
@@ -452,11 +491,20 @@ export default function DoormanPage() {
       }
     }
 
+    // Backup scans stay on screen (ID check) until the doorman taps "Weiter";
+    // confirmAndResume clears processingRef and restarts the scanner.
+    if (awaitConfirm) return;
     setTimeout(() => {
       processingRef.current = false;
       setPhase({ tag: 'scanning' });
     }, 3000);
   }, [eventId, event?.name, doorAuthHeaders]);
+
+  // Resume scanning after the doorman confirms a backup ticket's ID check.
+  const confirmAndResume = useCallback(() => {
+    processingRef.current = false;
+    setPhase({ tag: 'scanning' });
+  }, []);
 
   // Start / stop camera based on phase
   useEffect(() => {
@@ -647,7 +695,39 @@ export default function DoormanPage() {
               </div>
             )}
 
-            {phase.tag === 'result-valid' && (
+            {phase.tag === 'result-valid' && phase.awaitConfirm && (
+              <div className="result-overlay" style={{ background: 'oklch(0.40 0.14 150)', placeItems: 'stretch', padding: 20 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 360, margin: 'auto', textAlign: 'center' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.85 }}>
+                    Backup-Ticket · Ausweis abgleichen
+                  </div>
+                  <div className="id-card">
+                    {phase.person ? (
+                      <>
+                        <div className="id-label">Name</div>
+                        <div className="id-name">{phase.person.firstName} {phase.person.lastName}</div>
+                        <div className="id-label" style={{ marginTop: 10 }}>Geburtsdatum</div>
+                        <div className="id-bday">{formatDate(phase.person.birthDate)}</div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>
+                        Ältere PDF-Version: Name und Geburtsdatum auf dem ausgedruckten Ticket mit dem Ausweis abgleichen.
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.8, marginTop: 10 }}>
+                    {phase.eventName} · {shortId(phase.assetId)}
+                    {phase.offline ? ' · offline geprüft' : ''}
+                  </div>
+                  <button className="id-confirm" onClick={confirmAndResume}>
+                    <Icon name="check" size={18} strokeWidth={3} />
+                    Ausweis passt, Einlass
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {phase.tag === 'result-valid' && !phase.awaitConfirm && (
               <div className="result-overlay" style={{ background: 'oklch(0.40 0.14 150)' }}>
                 <div>
                   <div className="result-circle" style={{ color: 'var(--ok)' }}>
@@ -655,15 +735,6 @@ export default function DoormanPage() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>Willkommen!</div>
                   <div style={{ fontSize: 13, marginTop: 4, opacity: 0.85 }}>{phase.eventName} · {shortId(phase.assetId)}</div>
-                  {phase.backup && (
-                    <div style={{
-                      fontSize: 12.5, fontWeight: 600, marginTop: 8,
-                      padding: '6px 12px', borderRadius: 999,
-                      background: 'rgba(255,255,255,0.18)', display: 'inline-block',
-                    }}>
-                      Backup-Ticket: Ausweis mit PDF abgleichen
-                    </div>
-                  )}
                   {phase.offline && (
                     <div style={{ fontSize: 11.5, marginTop: 6, opacity: 0.75 }}>Offline geprüft, wird später synchronisiert</div>
                   )}
@@ -701,7 +772,8 @@ export default function DoormanPage() {
           <div className="door-foot" aria-live="polite">
             {phase.tag === 'scanning' && 'QR-Code in den Rahmen halten'}
             {phase.tag === 'verifying' && 'Wird geprüft …'}
-            {isResult && 'Scanner startet gleich wieder …'}
+            {phase.tag === 'result-valid' && phase.awaitConfirm && 'Ausweis prüfen, dann auf „Einlass“ tippen'}
+            {isResult && !(phase.tag === 'result-valid' && phase.awaitConfirm) && 'Scanner startet gleich wieder …'}
           </div>
           <LegalLinks style={{ marginTop: 10, opacity: 0.75 }} />
         </div>

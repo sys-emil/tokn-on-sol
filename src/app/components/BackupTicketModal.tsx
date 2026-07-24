@@ -3,6 +3,7 @@
 import { useSignMessage, useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import bs58 from 'bs58';
 import { useState } from 'react';
+import { backupChallenge } from '@/lib/backupChallenge';
 
 /**
  * "Backup-Ticket erstellen": personalizes a static QR PDF for venues without
@@ -39,9 +40,12 @@ export function BackupTicketModal({
     setBusy(true);
     setError(null);
     try {
+      // Sign the person-bound challenge so the name/birth date the doorman
+      // reads come from the signature, not the (editable) printed PDF.
+      const person = { firstName: firstName.trim(), lastName: lastName.trim(), birthDate };
       const items: { assetId: string; signature: string }[] = [];
       for (const assetId of assetIds) {
-        const msg = new TextEncoder().encode(`passly:backup:${assetId}`);
+        const msg = new TextEncoder().encode(backupChallenge(assetId, person));
         const output = await signMessage({
           message: msg,
           wallet,
@@ -104,8 +108,9 @@ export function BackupTicketModal({
                 Für Veranstaltungsorte ohne Empfang: ein PDF mit deinem Einlass-Code,
                 das ohne Internet funktioniert. Es wird auf dich personalisiert und
                 ist nur mit deinem Ausweis gültig, <b style={{ color: 'var(--ink)' }}>nicht
-                zum Weitergeben, Weiterverkauf verboten</b>. Deine Angaben werden nur
-                aufs PDF gedruckt und nicht gespeichert.
+                zum Weitergeben, Weiterverkauf verboten</b>. Deine Angaben werden
+                fälschungssicher in den Code eingebettet und am Einlass mit deinem
+                Ausweis abgeglichen, wir speichern sie nicht.
               </p>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div className="field">
