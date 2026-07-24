@@ -10,7 +10,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data } = await supabaseAdmin
     .from("organizers")
-    .select("status, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, plan, plan_period_end, plan_cancel_at_period_end")
+    .select("status, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, plan, plan_period_end, plan_cancel_at_period_end, handle, public_name, is_verified, verified_label")
     .eq("wallet_address", walletAddress)
     .maybeSingle();
 
@@ -26,5 +26,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     plan: (data.plan as string) ?? "free",
     plan_period_end: (data.plan_period_end as string | null) ?? null,
     plan_cancel_at_period_end: (data.plan_cancel_at_period_end as boolean) ?? false,
+    handle: (data.handle as string | null) ?? null,
+    public_name: (data.public_name as string | null) ?? null,
+    is_verified: (data.is_verified as boolean) ?? false,
+    verified_label: (data.verified_label as string | null) ?? null,
   });
 }

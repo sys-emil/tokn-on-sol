@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
 import type { Event, TicketTier } from '@/lib/supabase';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-import { Icon } from '@/app/components/passlyUi';
+import { Icon, VerifiedCheck } from '@/app/components/passlyUi';
 import ShopClient from './ShopClient';
 import type { TierView } from './ShopClient';
 
@@ -122,13 +122,17 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
   // has passed the manual vetting, so the "Geprüft" badge is earned.
   const { data: organizerRow } = await supabaseAdmin
     .from('organizers')
-    .select('plan, name, business_name, type')
+    .select('plan, name, business_name, type, public_name, handle, is_verified, verified_label')
     .eq('wallet_address', event.organizer_wallet)
     .maybeSingle();
   const waitlistEnabled = organizerRow?.plan === 'pro';
   const organizerName = organizerRow
-    ? (organizerRow.type === 'business' && organizerRow.business_name ? organizerRow.business_name : organizerRow.name)
+    ? (organizerRow.public_name?.trim()
+        || (organizerRow.type === 'business' && organizerRow.business_name ? organizerRow.business_name : organizerRow.name))
     : null;
+  const organizerHandle = (organizerRow?.handle as string | null) ?? null;
+  const organizerVerified = Boolean(organizerRow?.is_verified);
+  const organizerVerifiedLabel = (organizerRow?.verified_label as string | null) ?? null;
 
   // Per-tier availability, additionally capped by the event-level counters.
   // the hard overselling gate in reserve_tickets uses the same numbers.
@@ -209,9 +213,22 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
             {organizerName && (
               <div className="shop-row">
                 <span className="label">Veranstalter</span>
-                <span className="value" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 500 }}>
-                  {organizerName}
+                <span className="value" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 500, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {organizerHandle ? (
+                    <Link href={`/@${organizerHandle}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'inherit' }}>
+                      {organizerName}
+                      {organizerVerified && <VerifiedCheck size={15} title={organizerVerifiedLabel ?? 'Verifiziert'} />}
+                    </Link>
+                  ) : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {organizerName}
+                      {organizerVerified && <VerifiedCheck size={15} title={organizerVerifiedLabel ?? 'Verifiziert'} />}
+                    </span>
+                  )}
                   <span className="chip ok" title="Dieser Veranstalter wurde von Passly geprüft."><Icon name="shield" size={11} /> Geprüft</span>
+                  {organizerVerified && organizerVerifiedLabel && (
+                    <span className="chip" style={{ color: 'var(--accent-ink)', background: 'var(--accent-wash)', borderColor: 'var(--accent-line)' }}>{organizerVerifiedLabel}</span>
+                  )}
                 </span>
               </div>
             )}

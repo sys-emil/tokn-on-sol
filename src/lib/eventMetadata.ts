@@ -45,6 +45,28 @@ export async function uploadEventImage(
 }
 
 /**
+ * Uploads an organizer profile image (avatar or banner) into the same public
+ * bucket under its own prefix; returns the public URL. Reuses the event-image
+ * validation constants and long cache TTL.
+ */
+export async function uploadProfileImage(
+  bytes: ArrayBuffer,
+  contentType: string,
+  kind: "avatar" | "banner",
+): Promise<string> {
+  const ext = ALLOWED_IMAGE_TYPES[contentType];
+  if (!ext) throw new Error(`Unsupported image type: ${contentType}`);
+
+  const path = `${kind === "avatar" ? "avatars" : "banners"}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .upload(path, bytes, { contentType, cacheControl: "31536000" });
+  if (error) throw new Error(`Image upload failed: ${error.message}`);
+
+  return publicUrl(path);
+}
+
+/**
  * Writes the metadata JSON for an event and returns its public URL.
  * Upserts, so re-running (e.g. after adding an image) refreshes the file;
  * minted assets keep pointing at the same URL.

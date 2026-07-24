@@ -54,6 +54,32 @@ export function Icon({ name, size = 16, strokeWidth = 1.7 }: { name: IconName; s
   );
 }
 
+/**
+ * Purple brand-verification seal (like the social-media blue check, in Passly
+ * violet). Shown next to a verified organizer's name on their profile, the
+ * shop page and the dashboard. Decorative when unlabeled; pass `title` to give
+ * it an accessible name / tooltip (e.g. the admin-set "Offizielle Marke").
+ */
+export function VerifiedCheck({ size = 16, title }: { size?: number; title?: string }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24"
+      role="img" aria-label={title ?? 'Verifiziert'}
+      style={{ display: 'inline-block', flexShrink: 0, verticalAlign: 'text-bottom' }}
+    >
+      {title ? <title>{title}</title> : null}
+      <path
+        fill="oklch(0.55 0.22 285)"
+        d="M12 1.5l2.3 1.68 2.84-.09.86 2.71 2.3 1.66-.9 2.7.9 2.7-2.3 1.66-.86 2.71-2.84-.09L12 22.5l-2.3-1.68-2.84.09-.86-2.71-2.3-1.66.9-2.7-.9-2.7 2.3-1.66.86-2.71 2.84.09z"
+      />
+      <path
+        d="M8 12l2.6 2.6L16 9.2" fill="none" stroke="#fff"
+        strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 // Curated palette; same oklch chroma/lightness formula as --accent, just a
 // fixed hue, so every choice stays inside the design system's saturation.
 const ACCENT_HUES: { hue: number | null; name: string }[] = [

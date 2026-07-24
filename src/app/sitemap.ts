@@ -29,11 +29,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
+  // Public organizer profiles (approved + handle set).
+  const { data: orgs } = await supabaseAdmin
+    .from('organizers')
+    .select('handle')
+    .eq('status', 'approved')
+    .not('handle', 'is', null);
+
+  const organizerEntries: MetadataRoute.Sitemap = (orgs ?? [])
+    .filter((o) => o.handle)
+    .map((o) => ({
+      url: `${siteUrl}/@${o.handle as string}`,
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    }));
+
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
     url: `${siteUrl}${path}`,
     changeFrequency: 'weekly',
     priority: path === '/' ? 1 : 0.6,
   }));
 
-  return [...staticEntries, ...eventEntries];
+  return [...staticEntries, ...eventEntries, ...organizerEntries];
 }

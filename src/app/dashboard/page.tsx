@@ -9,7 +9,7 @@ import { Celebration } from '@/app/components/Celebration';
 import { ProfileNudge } from '@/app/components/ProfileNudge';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-import { Icon, Spark, EventStyleFields } from '@/app/components/passlyUi';
+import { Icon, Spark, EventStyleFields, VerifiedCheck } from '@/app/components/passlyUi';
 import { useEffect, useState } from 'react';
 
 interface EventRow {
@@ -135,6 +135,9 @@ export default function Dashboard() {
   const [connectingStripe, setConnectingStripe] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [plan, setPlan] = useState<'free' | 'pro'>('free');
+  const [orgName, setOrgName] = useState<string | null>(null);
+  const [orgVerified, setOrgVerified] = useState(false);
+  const [orgVerifiedLabel, setOrgVerifiedLabel] = useState<string | null>(null);
   const [planCancelAtPeriodEnd, setPlanCancelAtPeriodEnd] = useState(false);
   const [planPeriodEnd, setPlanPeriodEnd] = useState<string | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
@@ -206,6 +209,9 @@ export default function Dashboard() {
         plan?: string;
         plan_period_end?: string | null;
         plan_cancel_at_period_end?: boolean;
+        public_name?: string | null;
+        is_verified?: boolean;
+        verified_label?: string | null;
       };
       const s = data.status;
       setOrgStatus(s === 'approved' ? 'approved' : 'none');
@@ -214,6 +220,9 @@ export default function Dashboard() {
         else if (!data.stripe_charges_enabled) setStripeStatus('pending');
         else setStripeStatus('connected');
         setPlan(data.plan === 'pro' ? 'pro' : 'free');
+        setOrgName(data.public_name?.trim() || null);
+        setOrgVerified(Boolean(data.is_verified));
+        setOrgVerifiedLabel(data.verified_label ?? null);
         setPlanPeriodEnd(data.plan_period_end ?? null);
         setPlanCancelAtPeriodEnd(data.plan_cancel_at_period_end ?? false);
       }
@@ -276,7 +285,7 @@ export default function Dashboard() {
 
   const ownerWallet = solanaWalletAddress;
   const email = user?.email?.address ?? '';
-  const displayName = email ? email.split('@')[0] : 'Organizer';
+  const displayName = orgName || (email ? email.split('@')[0] : 'Organizer');
   const loadingEvents = !!ownerWallet && !eventsLoaded;
 
   const totalRevenueCents = events.reduce((a, e) => a + e.tickets_sold * e.price_eur, 0);
@@ -536,6 +545,7 @@ export default function Dashboard() {
             <PasslyLogo height={24} />
             <div className="nav">
               <Link href="/dashboard" className="active">Übersicht</Link>
+              <Link href="/dashboard/profile">Profil</Link>
               <Link href="/dashboard/payouts">Auszahlungen</Link>
               <Link href="/dashboard/analytics" className={plan === 'pro' ? 'nav-pro' : undefined}>
                 {plan === 'pro' && <Icon name="sparkle" size={12} strokeWidth={2} />} Pro
@@ -556,7 +566,10 @@ export default function Dashboard() {
               <div className="container">
 
                 <div className="hero">
-                  <div className="eyebrow"><span className="pulse" /> Willkommen zurück{displayName !== 'Organizer' ? `, ${displayName}` : ''}</div>
+                  <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span className="pulse" /> Willkommen zurück{displayName !== 'Organizer' ? `, ${displayName}` : ''}
+                    {orgVerified && <VerifiedCheck size={14} title={orgVerifiedLabel ?? 'Verifiziert'} />}
+                  </div>
                   <h1>Deine Veranstaltungen <br />auf einen Blick.</h1>
                   <p className="lead">
                     Erstelle Tickets, teile sie per Link und prüfe den Einlass, alles fälschungssicher, ohne Papierchaos.
