@@ -86,21 +86,28 @@ const PAGE_CSS = `
   .org-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
   @media (max-width: 620px) { .org-banner { height: 140px; } }
 
+  /* Short header row so the avatar reliably overlaps the banner; the tall
+     bio/links live in .org-about below (a tall row here would push the
+     flex-end-aligned avatar down past the banner). */
   .org-head {
     display: flex; align-items: flex-end; gap: 20px;
-    padding: 0 8px; margin-top: -46px; position: relative; z-index: 2;
-    flex-wrap: wrap;
+    padding: 0 8px; margin-top: -54px; position: relative; z-index: 2;
   }
+  .org-headinfo { flex: 1; min-width: 0; padding-bottom: 6px; }
+  .org-about { padding: 0 8px; margin-top: 18px; }
   .org-avatar {
-    width: 108px; height: 108px; border-radius: 50%; flex-shrink: 0;
+    width: 116px; height: 116px; border-radius: 50%; flex-shrink: 0;
     background: linear-gradient(135deg, oklch(0.82 0.08 var(--hue)), oklch(0.66 0.17 calc(var(--hue) + 40)));
     display: grid; place-items: center; overflow: hidden;
-    color: white; font-size: 38px; font-weight: 600; letter-spacing: -0.02em;
+    color: white; font-size: 40px; font-weight: 600; letter-spacing: -0.02em;
     border: 4px solid var(--surface);
     box-shadow: 0 8px 24px oklch(0.52 0.20 var(--hue) / 0.30);
   }
   .org-avatar img { width: 100%; height: 100%; object-fit: cover; }
-  @media (max-width: 620px) { .org-avatar { width: 84px; height: 84px; font-size: 30px; } }
+  @media (max-width: 620px) {
+    .org-head { margin-top: -44px; align-items: flex-start; flex-direction: column; gap: 10px; }
+    .org-avatar { width: 92px; height: 92px; font-size: 32px; }
+  }
 
   .org-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
   .org-link {
@@ -260,12 +267,12 @@ export default async function OrganizerPublicPage({
             initials
           )}
         </div>
-        <div style={{ flex: 1, minWidth: 220, paddingBottom: 4 }}>
-          <h1 style={{ fontSize: 30, letterSpacing: '-0.03em', fontWeight: 600, lineHeight: 1.1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="org-headinfo">
+          <h1 style={{ fontSize: 30, letterSpacing: '-0.03em', fontWeight: 600, lineHeight: 1.15, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {name}
-            {organizer.is_verified && <VerifiedCheck size={22} title={organizer.verified_label ?? 'Verifiziert'} />}
+            {organizer.is_verified && <VerifiedCheck size={26} title={organizer.verified_label ?? 'Verifiziert'} />}
           </h1>
-          <div className="row gap-2" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+          <div className="row gap-2" style={{ marginTop: 10, flexWrap: 'wrap' }}>
             <span className="chip ok"><Icon name="shield" size={11} /> Geprüft</span>
             {organizer.is_verified && organizer.verified_label && (
               <span className="chip" style={{ color: 'var(--accent-ink)', background: 'var(--accent-wash)', borderColor: 'var(--accent-line)' }}>
@@ -273,8 +280,13 @@ export default async function OrganizerPublicPage({
               </span>
             )}
           </div>
+        </div>
+      </div>
+
+      {(organizer.bio || links.length > 0) && (
+        <div className="org-about">
           {organizer.bio && (
-            <p style={{ fontSize: 13.5, color: 'var(--ink-2)', marginTop: 12, lineHeight: 1.6, maxWidth: 560 }}>{organizer.bio}</p>
+            <p style={{ fontSize: 13.5, color: 'var(--ink-2)', lineHeight: 1.6, maxWidth: 560 }}>{organizer.bio}</p>
           )}
           {links.length > 0 && (
             <div className="org-links">
@@ -286,9 +298,9 @@ export default async function OrganizerPublicPage({
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      <section style={{ marginTop: 40 }}>
+      <section style={{ marginTop: 36 }}>
         <div className="section-head">
           <div>
             <h2>Kommende Events</h2>

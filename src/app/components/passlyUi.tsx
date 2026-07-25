@@ -54,28 +54,55 @@ export function Icon({ name, size = 16, strokeWidth = 1.7 }: { name: IconName; s
   );
 }
 
+const SEAL_D =
+  'M100 4 L119.15 28.52 L148 16.86 L152.33 47.67 L183.14 52 L171.48 80.85 L196 100 ' +
+  'L171.48 119.15 L183.14 148 L152.33 152.33 L148 183.14 L119.15 171.48 L100 196 ' +
+  'L80.85 171.48 L52 183.14 L47.67 152.33 L16.86 148 L28.52 119.15 L4 100 L28.52 80.85 ' +
+  'L16.86 52 L47.67 47.67 L52 16.86 L80.85 28.52 Z';
+
 /**
  * Purple brand-verification seal (like the social-media blue check, in Passly
- * violet). Shown next to a verified organizer's name on their profile, the
- * shop page and the dashboard. Decorative when unlabeled; pass `title` to give
- * it an accessible name / tooltip (e.g. the admin-set "Offizielle Marke").
+ * violet): a scalloped seal with a gradient fill, gloss highlight and a white
+ * check. Shown next to a verified organizer's name on their profile, the shop
+ * page and the dashboard. Decorative when unlabeled; pass `title` for an
+ * accessible name / tooltip (e.g. the admin-set "Offizielle Marke").
+ *
+ * Gradient ids are static: every instance defines identical gradients in a
+ * 200-unit user space, so sharing an id across instances renders the same at
+ * any size and needs no client-only useId (this also renders in server
+ * components: the profile + shop pages).
  */
 export function VerifiedCheck({ size = 16, title }: { size?: number; title?: string }) {
   return (
     <svg
-      width={size} height={size} viewBox="0 0 24 24"
+      width={size} height={size} viewBox="0 0 200 200" fill="none"
       role="img" aria-label={title ?? 'Verifiziert'}
-      style={{ display: 'inline-block', flexShrink: 0, verticalAlign: 'text-bottom' }}
+      style={{
+        display: 'inline-block', flexShrink: 0, verticalAlign: 'text-bottom',
+        filter: `drop-shadow(0 ${size * 0.05}px ${size * 0.12}px oklch(0.54 0.22 285 / 0.42))`,
+      }}
     >
       {title ? <title>{title}</title> : null}
-      <path
-        fill="oklch(0.55 0.22 285)"
-        d="M12 1.5l2.3 1.68 2.84-.09.86 2.71 2.3 1.66-.9 2.7.9 2.7-2.3 1.66-.86 2.71-2.84-.09L12 22.5l-2.3-1.68-2.84.09-.86-2.71-2.3-1.66.9-2.7-.9-2.7 2.3-1.66.86-2.71 2.84.09z"
-      />
-      <path
-        d="M8 12l2.6 2.6L16 9.2" fill="none" stroke="#fff"
-        strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"
-      />
+      <defs>
+        <linearGradient id="passlySealFill" x1="30" y1="8" x2="170" y2="192" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="oklch(0.66 0.20 288)" />
+          <stop offset="0.48" stopColor="oklch(0.54 0.22 285)" />
+          <stop offset="1" stopColor="oklch(0.42 0.22 283)" />
+        </linearGradient>
+        <linearGradient id="passlySealStroke" x1="30" y1="8" x2="170" y2="192" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="oklch(0.80 0.14 290)" />
+          <stop offset="0.5" stopColor="oklch(0.58 0.22 285)" />
+          <stop offset="1" stopColor="oklch(0.36 0.18 283)" />
+        </linearGradient>
+        <radialGradient id="passlySealGloss" cx="0.5" cy="0.28" r="0.65">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.55" />
+          <stop offset="0.55" stopColor="#ffffff" stopOpacity="0.08" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <path d={SEAL_D} fill="url(#passlySealFill)" stroke="url(#passlySealStroke)" strokeWidth="5" strokeLinejoin="round" />
+      <path d={SEAL_D} fill="url(#passlySealGloss)" />
+      <path d="M71 101 L91 121 L131 78" fill="none" stroke="#ffffff" strokeWidth="15" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
