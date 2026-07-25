@@ -10,8 +10,8 @@ const PAGE_CSS = `
   .aurora {
     inset: -46% -12% auto -12%;
     height: 680px;
-    filter: blur(64px) saturate(1.45);
-    opacity: 1;
+    filter: blur(64px) saturate(1.1);
+    opacity: 0.85;
   }
   .aurora::before {
     left: 2%; top: 4%;
@@ -43,23 +43,25 @@ const PAGE_CSS = `
     filter: blur(90px);
     z-index: 0;
   }
+  /* Positioned as a share of page height so each glow lands behind a real
+     section (hero · mid · CTA) instead of in a dead-zone at a guessed pixel. */
   .glow-violet {
     width: 560px; height: 560px;
-    left: -160px; top: 820px;
+    left: -160px; top: 16%;
     background: radial-gradient(circle at 50% 50%, oklch(0.76 0.20 var(--hue)) 0%, transparent 68%);
     opacity: 0.68;
     animation: glowFloatA 14s ease-in-out infinite alternate;
   }
-  .glow-blue {
+  .glow-cool {
     width: 600px; height: 600px;
-    right: -180px; top: 1450px;
-    background: radial-gradient(circle at 50% 50%, oklch(0.78 0.17 235) 0%, transparent 68%);
-    opacity: 0.62;
+    right: -180px; top: 46%;
+    background: radial-gradient(circle at 50% 50%, oklch(0.78 0.18 calc(var(--hue) - 20)) 0%, transparent 68%);
+    opacity: 0.6;
     animation: glowFloatB 18s ease-in-out infinite alternate;
   }
   .glow-violet-2 {
     width: 480px; height: 480px;
-    left: 8%; top: 2150px;
+    left: 8%; top: 76%;
     background: radial-gradient(circle at 50% 50%, oklch(0.77 0.18 calc(var(--hue) + 25)) 0%, transparent 68%);
     opacity: 0.56;
     animation: glowFloatA 20s ease-in-out infinite alternate-reverse;
@@ -71,11 +73,6 @@ const PAGE_CSS = `
   @keyframes glowFloatB {
     from { transform: translate3d(0, 0, 0) scale(1); }
     to   { transform: translate3d(-40px, 28px, 0) scale(1.05); }
-  }
-  @media (max-width: 920px) {
-    .glow-violet { top: 900px; }
-    .glow-blue { top: 1700px; }
-    .glow-violet-2 { top: 2600px; }
   }
   @media (max-width: 640px) {
     /* "Für Veranstalter" bleibt über Hero, Karte und Footer erreichbar */
@@ -275,6 +272,15 @@ const PAGE_CSS = `
     background: radial-gradient(600px 300px at 70% -20%, rgba(255,255,255,0.22), transparent 70%);
     pointer-events: none;
   }
+  /* Der Abschluss-CTA ist selbst ein Ticket: Stanz-Kerben wie im Hero-Mockup */
+  .cta-banner::after {
+    content: "";
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 0 50%, var(--surface-2) 9px, transparent 10px),
+      radial-gradient(circle at 100% 50%, var(--surface-2) 9px, transparent 10px);
+  }
   .cta-banner h2 {
     font-size: clamp(24px, 3.4vw, 34px);
     font-weight: 600; letter-spacing: -0.03em; line-height: 1.15;
@@ -329,7 +335,7 @@ export default function Home() {
           <ScrollReveal />
           <div className="aurora" aria-hidden="true" />
           <div className="glow glow-violet" aria-hidden="true" />
-          <div className="glow glow-blue" aria-hidden="true" />
+          <div className="glow glow-cool" aria-hidden="true" />
           <div className="glow glow-violet-2" aria-hidden="true" />
           <div className="container">
 
