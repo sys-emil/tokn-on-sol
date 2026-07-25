@@ -19,14 +19,19 @@ export function getOperatorKeypair(): Keypair {
   return Keypair.fromSecretKey(secretKey);
 }
 
-// Merkle trees: MERKLE_TREE_ADDRESSES (comma-separated) with round-robin-by-
-// random pick spreads concurrent mints across trees so their transactions
-// don't conflict. Falls back to the single legacy MERKLE_TREE_ADDRESS.
-export function pickMerkleTree(): string {
-  const list = (process.env.MERKLE_TREE_ADDRESSES ?? process.env.MERKLE_TREE_ADDRESS ?? "")
+// Merkle trees: MERKLE_TREE_ADDRESSES (comma-separated). Falls back to the
+// single legacy MERKLE_TREE_ADDRESS. Empty list when neither is configured.
+export function listMerkleTrees(): string[] {
+  return (process.env.MERKLE_TREE_ADDRESSES ?? process.env.MERKLE_TREE_ADDRESS ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+// Round-robin-by-random pick spreads concurrent mints across trees so their
+// transactions don't conflict.
+export function pickMerkleTree(): string {
+  const list = listMerkleTrees();
   if (list.length === 0) throw new Error("MERKLE_TREE_ADDRESSES / MERKLE_TREE_ADDRESS is not configured");
   return list[Math.floor(Math.random() * list.length)];
 }
