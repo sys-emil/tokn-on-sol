@@ -12,14 +12,268 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { badgeDisplay, BADGE_META, type BadgeType } from '@/lib/badgeMeta';
 import { resaleFeeBreakdown } from '@/lib/fees';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const PAGE_CSS = `
+  /* ── Kopfbereich ─────────────────────────────────────────── */
+  .tk-head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 24px; padding: 26px 0 22px; flex-wrap: wrap;
+  }
+  .tk-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--accent-ink); font-weight: 500;
+    background: var(--accent-wash); border: 1px solid var(--accent-line);
+    padding: 4px 10px; border-radius: 999px; margin-bottom: 14px;
+  }
+  .tk-eyebrow .pulse {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+    animation: tkPulse 2s infinite;
+  }
+  @keyframes tkPulse {
+    0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent); }
+    70%  { box-shadow: 0 0 0 10px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .tk-title { font-size: 38px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; }
+  .tk-subline { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+  .tk-subline .sep { width: 1px; height: 12px; background: var(--line-2); }
+
+  /* ── Brieftaschen-Stapel ─────────────────────────────────── */
+  .tk-lane { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 36px; align-items: start; }
+  .tk-lane-label {
+    font: 600 11px/1 var(--mono); letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  .tk-stackarea { position: relative; transition: height 0.34s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .tk-wcard {
+    position: absolute; left: 0;
+    display: flex; flex-direction: column; align-items: stretch;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; overflow: hidden; text-align: left; padding: 0; cursor: pointer;
+    transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+                top 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+                left 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 0.2s;
+  }
+  .tk-wcard:hover { box-shadow: 0 14px 40px rgba(17, 20, 45, 0.16); }
+  .tk-wcard-head {
+    display: flex; align-items: center; gap: 11px; padding: 0 14px; height: 62px;
+    flex: none; border-bottom: 1px solid var(--line); background: var(--surface);
+  }
+  .tk-datechip {
+    width: 44px; flex: none; border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden; text-align: center;
+  }
+  .tk-datechip .m {
+    font-family: var(--mono); font-size: 8.5px; font-weight: 600; letter-spacing: 0.12em;
+    background: var(--accent); color: #fff; padding: 3px 0;
+  }
+  .tk-datechip .d {
+    font-size: 15px; font-weight: 600; padding: 2px 0 3px;
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .tk-wcard-title {
+    font-size: 13.5px; font-weight: 600; letter-spacing: -0.015em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tk-wcard-venue {
+    font-size: 11.5px; color: var(--ink-3); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; margin-top: 2px;
+  }
+  .tk-cover {
+    height: 74px; flex: none; display: grid; place-items: center;
+    background-size: cover; background-position: center;
+  }
+  .tk-cover span {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em;
+    color: rgba(255, 255, 255, 0.86); text-transform: uppercase;
+    padding: 0 12px; text-align: center; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  .tk-wcard-facts { padding: 12px 14px 0; display: flex; gap: 18px; }
+  .tk-fact-k {
+    font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-4); font-weight: 600;
+  }
+  .tk-fact-v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .tk-perf { position: absolute; left: 0; right: 0; bottom: 52px; border-top: 1px dashed var(--line-2); }
+  .tk-notch {
+    position: absolute; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--line); bottom: 44px;
+  }
+  .tk-wcard-foot {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 52px;
+    display: flex; align-items: center; gap: 8px; padding: 0 14px; background: var(--surface);
+  }
+
+  /* ── Ticket-Stubs (Listen + Sammlung) ────────────────────── */
+  .tk-stub {
+    position: relative; display: flex; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; box-shadow: var(--shadow); text-align: left;
+    transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  }
+  .tk-stub:hover { box-shadow: var(--shadow-lg); border-color: var(--line-2); }
+  .tk-stub.is-muted { opacity: 0.78; }
+
+  /* Rand-Presets des Veranstalters (Pro) + VIP; gleiche Rangfolge wie auf den
+     Event-Karten: VIP > Rand-Preset > Akzentfarbe > Bild. */
+  .tk-stub.border-gold, .tk-wcard.border-gold {
+    border-color: oklch(0.80 0.10 92);
+    box-shadow: 0 0 0 1px oklch(0.80 0.10 92 / 0.5), 0 4px 16px oklch(0.55 0.10 90 / 0.22), var(--shadow);
+  }
+  .tk-stub.border-chrome, .tk-wcard.border-chrome {
+    border-color: oklch(0.82 0.006 275);
+    box-shadow: 0 0 0 1px oklch(0.82 0.006 275 / 0.6), 0 4px 16px rgba(17,20,45,0.12), var(--shadow);
+  }
+  .tk-stub.border-aurora, .tk-wcard.border-aurora {
+    border: 1.5px solid transparent;
+    background:
+      linear-gradient(var(--surface), var(--surface)) padding-box,
+      linear-gradient(115deg,
+        oklch(0.62 0.22 var(--hue)),
+        oklch(0.74 0.18 calc(var(--hue) + 90)),
+        oklch(0.66 0.20 calc(var(--hue) - 90)),
+        oklch(0.62 0.22 var(--hue))) border-box;
+    background-size: auto, 320% 320%;
+    animation: cardAuroraDrift 8s linear infinite;
+  }
+  .tk-stub.border-neon, .tk-wcard.border-neon {
+    border-color: oklch(0.60 0.24 var(--hue));
+    animation: cardNeonPulse 2.6s ease-in-out infinite;
+  }
+  .tk-stub.vip, .tk-wcard.vip {
+    border-color: oklch(0.80 0.10 92) !important;
+    box-shadow: 0 0 0 1px oklch(0.80 0.10 92 / 0.5), 0 6px 18px oklch(0.55 0.10 90 / 0.24), var(--shadow) !important;
+    animation: none !important;
+  }
+  .tk-stub.vip .tk-stubcol, .tk-wcard.vip .tk-wcard-head, .tk-wcard.vip .tk-wcard-foot {
+    background: linear-gradient(150deg, oklch(0.99 0.015 95), oklch(0.965 0.045 92));
+  }
+  .tk-wcard.vip .tk-datechip .m {
+    background: linear-gradient(110deg, oklch(0.62 0.11 88), oklch(0.78 0.12 92) 30%, oklch(0.92 0.09 95) 50%, oklch(0.78 0.12 92) 70%, oklch(0.62 0.11 88));
+    color: oklch(0.28 0.06 85);
+  }
+  .tk-motif {
+    flex: 1; min-width: 0; padding: 16px 18px; color: #fff;
+    background-size: cover; background-position: center;
+  }
+  .tk-motif-kicker { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.2em; opacity: 0.82; }
+  .tk-motif-vip {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+    padding: 2px 7px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.34);
+  }
+  .tk-motif-title {
+    font-size: 18px; font-weight: 600; letter-spacing: -0.025em;
+    line-height: 1.2; margin-top: 22px; text-wrap: pretty;
+  }
+  .tk-motif-venue { font-size: 12.5px; opacity: 0.86; margin-top: 5px; }
+  .tk-motif-facts { display: flex; gap: 20px; margin-top: 16px; flex-wrap: wrap; }
+  .tk-motif-k { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; opacity: 0.72; }
+  .tk-motif-v { font-size: 14px; font-weight: 600; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .tk-motif-count {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 16px;
+    font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  .tk-stubcol {
+    width: 150px; flex: none; border-left: 2px dashed var(--line-2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 7px; padding: 16px 12px; background: var(--surface);
+  }
+  .tk-stubcol.narrow { width: 146px; gap: 6px; }
+  .tk-stub-notch {
+    position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--surface-2); transform: translateX(9px); pointer-events: none;
+  }
+  .tk-stub-link { position: absolute; inset: 0; z-index: 1; }
+  .tk-stub-actions { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tk-stub-action {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11.5px; font-weight: 500; color: var(--ink-3);
+    border-radius: 6px; padding: 2px 6px;
+  }
+  .tk-stub-action:hover:not(:disabled) { color: var(--accent); background: var(--accent-wash); }
+  .tk-stub-action:disabled { opacity: 0.6; cursor: default; }
+  .tk-qrbox {
+    width: 60px; height: 60px; border: 1px solid var(--line);
+    border-radius: 9px; display: grid; place-items: center; color: var(--ink-2);
+  }
+  .tk-groups-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tk-group-head { display: flex; align-items: center; gap: 12px; margin-bottom: 13px; }
+  .tk-group-head h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
+  .tk-group-head .n { font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+  .tk-group-head .rule { flex: 1; height: 1px; background: var(--line); }
+
+  /* ── Sticky Filterleiste ─────────────────────────────────── */
+  .tk-filters {
+    position: sticky; top: 60px; z-index: 20;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 0; margin-top: 22px;
+    background: color-mix(in oklab, var(--surface-2) 88%, transparent);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .tk-search { position: relative; margin-left: auto; width: 260px; max-width: 100%; }
+  .tk-search .ic { position: absolute; left: 10px; top: 9px; color: var(--ink-4); pointer-events: none; }
+
+  /* ── Sammlung ────────────────────────────────────────────── */
+  .tk-stats { display: flex; gap: 22px; text-align: right; }
+  .tk-stat-n { font-size: 24px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .tk-stat-l { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .tk-timeline-row {
+    display: grid; grid-template-columns: 120px 1fr; gap: 24px;
+    padding: 18px 0; border-top: 1px solid var(--line);
+  }
+  .tk-timeline-label {
+    font-size: 13px; font-weight: 600; letter-spacing: -0.01em;
+    position: sticky; top: 120px; height: max-content;
+  }
+  .tk-timeline-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: var(--shadow-sm);
+  }
+
+  /* ── Vorteile ────────────────────────────────────────────── */
+  .tk-perk {
+    display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2);
+    flex-wrap: wrap;
+  }
+  .tk-perk-ic {
+    width: 34px; height: 34px; flex: none; border-radius: 9px;
+    background: var(--accent-wash); border: 1px solid var(--accent-line);
+    color: var(--accent); display: grid; place-items: center;
+  }
+  .tk-perk-code {
+    font-family: var(--mono); font-size: 15px; font-weight: 600;
+    letter-spacing: 0.13em; color: var(--accent);
+  }
+
+  @media (max-width: 1080px) {
+    .tk-lane { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+    .tk-lane .tk-front { position: static !important; }
+  }
+  @media (max-width: 760px) {
+    .tk-title { font-size: 30px; }
+    .tk-groups-grid { grid-template-columns: 1fr; }
+    .tk-search { margin-left: 0; width: 100%; }
+    .tk-stats { gap: 16px; }
+    .tk-timeline-row { grid-template-columns: 1fr; gap: 10px; }
+    .tk-timeline-label { position: static; }
+    .tk-stubcol, .tk-stubcol.narrow { width: 118px; }
+    .tk-stub-notch { display: none; }
+    .tk-motif-title { font-size: 16px; }
+  }
+
   /* ── Frisch gekauftes Ticket: Entrance + Akzent-Halo ─────── */
-  .event-card.is-fresh {
+  .is-fresh {
     animation: freshIn 0.6s cubic-bezier(0.18, 1.2, 0.3, 1) var(--fresh-delay, 0ms) both;
   }
-  .event-card.is-fresh::after {
+  .is-fresh::after {
     content: "";
     position: absolute; inset: 0;
     border-radius: inherit;
@@ -28,6 +282,7 @@ const PAGE_CSS = `
     opacity: 0;
     animation: freshHalo 2.8s ease-out calc(var(--fresh-delay, 0ms) + 250ms);
     pointer-events: none;
+    z-index: 3;
   }
   @keyframes freshIn {
     from { opacity: 0; transform: scale(0.9) translateY(14px); }
@@ -71,6 +326,15 @@ const PAGE_CSS = `
   .badge-tile.is-clickable { cursor: pointer; }
   .badge-tile.is-clickable:focus-visible {
     outline: 2px solid oklch(0.56 0.20 var(--bh)); outline-offset: 2px;
+  }
+  .badge-slot {
+    width: 152px; text-align: center; color: var(--ink-4);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 18px 12px;
+  }
+  .badge-slot .ring {
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 1px dashed var(--line-2); display: grid; place-items: center;
   }
 
   .badge-detail-overlay {
@@ -122,9 +386,13 @@ const PAGE_CSS = `
   @keyframes bdRise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 
   @media (prefers-reduced-motion: reduce) {
-    .event-card.is-fresh, .event-card.is-fresh::after,
+    .is-fresh, .is-fresh::after,
+    .tk-stub.border-aurora, .tk-wcard.border-aurora,
+    .tk-stub.border-neon, .tk-wcard.border-neon,
     .badge-tile.is-new, .badge-tile.is-new .badge-medal { animation: none; }
-    .event-card.is-fresh::after { opacity: 0; }
+    .is-fresh::after { opacity: 0; }
+    .tk-eyebrow .pulse { animation: none; }
+    .tk-wcard, .tk-stackarea { transition: none; }
     .badge-tile::after { transition: none; }
     .badge-detail-overlay, .badge-detail-overlay.is-closing,
     .badge-detail-card, .badge-detail-overlay.is-closing .badge-detail-card,
@@ -136,6 +404,8 @@ interface Ticket {
   assetId: string;
   eventName: string;
   eventDate: string;
+  startTime: string | null;
+  venue: string | null;
   purchasedAt: string;
   eventId: string;
   redeemedAt: string | null;
@@ -175,9 +445,12 @@ interface LoyaltyProgramView {
   claim: { code: string; redeemedAt: string | null } | null;
 }
 
+const MONTHS_FULL = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+
 const monthShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
 const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
 const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+const formatDateShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 function daysUntil(iso: string): number {
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -185,6 +458,93 @@ function daysUntil(iso: string): number {
 }
 
 function isUpcoming(iso: string): boolean { return daysUntil(iso) >= 0; }
+
+function relativeDayLabel(iso: string): string {
+  const n = daysUntil(iso);
+  if (n <= 0) return 'Heute';
+  if (n === 1) return 'Morgen';
+  return `in ${n} Tagen`;
+}
+
+/** Startzeitpunkt als ms; ohne `start_time` gilt Mitternacht. */
+function eventStartMs(t: Pick<Ticket, 'eventDate' | 'startTime'>): number {
+  const time = t.startTime ? t.startTime.slice(0, 5) : '00:00';
+  return new Date(`${t.eventDate}T${time}:00`).getTime();
+}
+
+/** Live-Countdown bis zum Einlass: Tage/Stunden, unter 24 h sekundengenau. */
+function countdownLabel(targetMs: number, nowMs: number): string {
+  const diff = targetMs - nowMs;
+  if (diff <= 0) return 'Es geht los';
+  const totalMinutes = Math.floor(diff / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  if (days >= 1) {
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    return `${days} ${days === 1 ? 'Tag' : 'Tage'} ${hours} Std`;
+  }
+  const secs = Math.floor(diff / 1000);
+  const hh = String(Math.floor(secs / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+  const ss = String(secs % 60).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+/**
+ * Ticket-Code fürs Auge: stabil aus Eventname + Ticket-ID abgeleitet, damit
+ * Gäste ihr Ticket am Einlass ansprechen können. Kein Sicherheitsmerkmal —
+ * geprüft wird ausschließlich der signierte QR-Code.
+ */
+function ticketCode(eventName: string, assetId: string): string {
+  const letters = (eventName.toUpperCase().match(/[A-Z]/g) ?? []).join('');
+  const prefix = (letters.slice(0, 3) || 'PSY').padEnd(3, 'X');
+  const suffix = (assetId.replace(/[^A-Za-z0-9]/g, '').slice(-4) || '0000').toUpperCase();
+  return `${prefix}-${suffix}`;
+}
+
+/** Ort → Stadt: der letzte Teil hinter dem Komma („Zenith, München"). */
+function cityOf(venue: string | null): string | null {
+  if (!venue) return null;
+  const parts = venue.split(',').map((p) => p.trim()).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : null;
+}
+
+/** Stabiler Farbton, wenn der Veranstalter keinen Akzent gesetzt hat. */
+function hueOf(t: Ticket): number {
+  if (t.accentHue != null) return t.accentHue;
+  let h = 0;
+  for (const ch of t.eventId || t.assetId) h = (h * 31 + ch.charCodeAt(0)) % 100000;
+  return 250 + (h % 80); // 250–329: bleibt im violett/magenta-Korridor der Marke
+}
+
+/**
+ * Großflächige Farbflächen zeigen das Eventbild, sobald der Veranstalter eins
+ * hinterlegt hat; der Verlauf bleibt als Overlay drüber, damit die weiße
+ * Schrift lesbar bleibt. Ohne Bild bleibt es der reine Verlauf.
+ */
+function motifStyle(t: Ticket, hue: number, muted: boolean): React.CSSProperties {
+  const gradient = muted
+    ? 'linear-gradient(150deg, oklch(0.68 0.03 275), oklch(0.48 0.025 275))'
+    : `linear-gradient(150deg, oklch(0.62 0.19 ${hue + 8}), oklch(0.38 0.16 ${hue - 12}))`;
+  if (t.imageUrl) {
+    const veil = muted
+      ? 'linear-gradient(150deg, oklch(0.34 0.02 275 / 0.86), oklch(0.22 0.02 275 / 0.80))'
+      : `linear-gradient(150deg, oklch(0.36 0.14 ${hue + 8} / 0.84), oklch(0.20 0.10 ${hue - 12} / 0.80))`;
+    return { backgroundImage: `${veil}, url("${t.imageUrl}")` };
+  }
+  return { backgroundImage: gradient };
+}
+
+function coverStyle(t: Ticket, hue: number): React.CSSProperties {
+  const gradient = `linear-gradient(135deg, oklch(0.66 0.17 ${hue}), oklch(0.44 0.20 ${hue - 26}))`;
+  if (t.imageUrl) {
+    return {
+      backgroundImage: `linear-gradient(135deg, oklch(0.40 0.13 ${hue} / 0.78), oklch(0.24 0.12 ${hue - 26} / 0.74)), url("${t.imageUrl}")`,
+    };
+  }
+  return { backgroundImage: gradient };
+}
+
+const isVipTier = (t: Ticket) => /\bvip\b/i.test(t.tierName ?? '');
 
 export default function MyTickets() {
   const router = useRouter();
@@ -214,10 +574,34 @@ export default function MyTickets() {
   const [resaleError, setResaleError] = useState<string | null>(null);
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
 
-  const closeBadgeDetail = () => {
+  // Ansichtszustand der neuen Brieftaschen-Oberfläche
+  const [tab, setTab] = useState<'upcoming' | 'collection'>('upcoming');
+  const [collectionLayout, setCollectionLayout] = useState<'mosaik' | 'timeline'>('mosaik');
+  const [query, setQuery] = useState('');
+  const [fanned, setFanned] = useState(true);
+  const [frontId, setFrontId] = useState<string | null>(null);
+  const [stackWidth, setStackWidth] = useState(700);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  // Der Fächer richtet sich nach der tatsächlichen Spaltenbreite; die Karte
+  // erscheint erst nach dem Laden, deshalb ein Callback-Ref statt eines Effekts.
+  const resizeObs = useRef<ResizeObserver | null>(null);
+  const stackRef = useCallback((el: HTMLDivElement | null) => {
+    resizeObs.current?.disconnect();
+    resizeObs.current = null;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (w) setStackWidth((prev) => (Math.abs(w - prev) > 2 ? w : prev));
+    });
+    ro.observe(el);
+    resizeObs.current = ro;
+  }, []);
+
+  const closeBadgeDetail = useCallback(() => {
     setBadgeClosing(true);
     setTimeout(() => { setBadgeDetail(null); setBadgeClosing(false); }, 240);
-  };
+  }, []);
 
   // Escape schließt die Abzeichen-Detailkarte
   useEffect(() => {
@@ -225,7 +609,13 @@ export default function MyTickets() {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeBadgeDetail(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [badgeDetail]);
+  }, [badgeDetail, closeBadgeDetail]);
+
+  // Sekundentakt für den Einlass-Countdown
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const buyerWallet = solanaWallets[0]?.address;
 
@@ -432,6 +822,87 @@ export default function MyTickets() {
     setTimeout(() => setCopyConfirmed(false), 2000);
   }
 
+  const upcoming = useMemo(
+    () => tickets.filter((t) => isUpcoming(t.eventDate)).sort((a, b) => a.eventDate.localeCompare(b.eventDate)),
+    [tickets],
+  );
+  const past = useMemo(
+    () => tickets.filter((t) => !isUpcoming(t.eventDate)).sort((a, b) => b.eventDate.localeCompare(a.eventDate)),
+    [tickets],
+  );
+
+  const matches = useCallback((t: Ticket) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return `${t.eventName} ${t.venue ?? ''} ${t.tierName ?? ''} ${ticketCode(t.eventName, t.assetId)}`.toLowerCase().includes(q);
+  }, [query]);
+
+  const upcomingFiltered = useMemo(() => upcoming.filter(matches), [upcoming, matches]);
+  const pastFiltered = useMemo(() => past.filter(matches), [past, matches]);
+
+  // Brieftaschen-Stapel: das ausgewählte Ticket liegt vorn, der Rest nach Datum.
+  const stackOrder = useMemo(() => {
+    const front = upcoming.find((t) => t.assetId === frontId);
+    if (!front) return upcoming;
+    return [front, ...upcoming.filter((t) => t.assetId !== frontId)];
+  }, [upcoming, frontId]);
+
+  const stackGeometry = useMemo(() => {
+    const n = stackOrder.length;
+    const availW = Math.max(300, stackWidth);
+    const gaps = Math.max(1, n - 1);
+    // Gefächert wird nur, wenn von jeder Karte noch der volle 62px-Kopf sichtbar bleibt.
+    const canFan = n > 1 && availW - 44 - gaps * 62 >= 260;
+    const cardW = canFan
+      ? Math.max(260, Math.min(352, availW - gaps * 62 - 44))
+      : Math.max(260, Math.min(352, availW - 8));
+    const fanStep = Math.max(62, Math.min(78, (availW - cardW - 44) / gaps));
+    return { n, availW, gaps, canFan, cardW, fanStep, fan: fanned && canFan };
+  }, [stackOrder.length, stackWidth, fanned]);
+
+  const { canFan, cardW, fanStep, fan, n: stackCount } = stackGeometry;
+  // Eingeklappt bleibt die Spalte in der Höhe des Info-Panels: Front + 3 Kanten.
+  const visibleStack = fan ? stackOrder : stackOrder.slice(0, 4);
+  const restCount = stackOrder.length - visibleStack.length;
+  // Gefächert bestimmt der tiefste Bogenpunkt die Höhe (die Karten hängen nach
+  // außen durch), eingeklappt die Kette aus Frontkarte + 48px-Kanten.
+  const stackHeight = fan
+    ? Math.max(420, Math.round(46 + Math.pow((stackCount - 1) / 2, 2) * 7) + 296 + 20)
+    : visibleStack.length < 2 ? 300 : 300 + (visibleStack.length - 2) * 48 + 296;
+
+  const frontTicket = stackOrder[0] ?? null;
+
+  // Gruppen der Bevorstehend-Liste: „Diese Woche" bzw. „Im <Monat>"
+  const groups = useMemo(() => {
+    const out: { label: string; items: Ticket[] }[] = [];
+    for (const t of upcomingFiltered) {
+      const label = daysUntil(t.eventDate) <= 7
+        ? 'Diese Woche'
+        : `Im ${MONTHS_FULL[new Date(t.eventDate + 'T00:00:00').getMonth()]}`;
+      let g = out.find((x) => x.label === label);
+      if (!g) { g = { label, items: [] }; out.push(g); }
+      g.items.push(t);
+    }
+    return out;
+  }, [upcomingFiltered]);
+
+  const collectionMonths = useMemo(() => {
+    const out: { label: string; items: Ticket[] }[] = [];
+    for (const t of pastFiltered) {
+      const d = new Date(t.eventDate + 'T00:00:00');
+      const label = `${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`;
+      let m = out.find((x) => x.label === label);
+      if (!m) { m = { label, items: [] }; out.push(m); }
+      m.items.push(t);
+    }
+    return out;
+  }, [pastFiltered]);
+
+  const cityCount = useMemo(
+    () => new Set(past.map((t) => cityOf(t.venue)).filter(Boolean)).size,
+    [past],
+  );
+
   if (!ready) return null;
 
   // Signed out and the login modal was dismissed: show an explicit sign-in
@@ -469,91 +940,147 @@ export default function MyTickets() {
 
   const email = user?.email?.address ?? '';
   const loading = !!buyerWallet && !loaded;
-  const upcoming = tickets.filter((t) => isUpcoming(t.eventDate));
-  const past = tickets.filter((t) => !isUpcoming(t.eventDate));
   const isAllEmpty = loaded && tickets.length === 0 && badges.length === 0;
 
-  const ticketCard = (t: Ticket, kind: 'upcoming' | 'past') => {
-    const attended = !!t.redeemedAt;
-    const days = daysUntil(t.eventDate);
-    const daysLabel = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : `in ${days} Tagen`;
+  /** VIP > Rand-Preset des Veranstalters; identische Rangfolge wie auf /events. */
+  const decorClass = (t: Ticket) => isVipTier(t) ? ' vip' : t.borderStyle ? ` border-${t.borderStyle}` : '';
+
+  /** Aktionen auf einem bevorstehenden Ticket (Teilen / Verkaufen / Zurückziehen). */
+  const ticketActions = (t: Ticket) => {
+    if (t.resaleListing) {
+      return (
+        <div className="tk-stub-actions">
+          <span className="chip accent" style={{ whiteSpace: 'nowrap' }}>
+            <span className="d" />{euro(t.resaleListing.listPriceCents)}
+          </span>
+          <button
+            className="tk-stub-action"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); void withdrawResale(t.resaleListing!.id); }}
+            disabled={cancelBusyId === t.resaleListing.id}
+          >
+            <Icon name="x" size={13} />{cancelBusyId === t.resaleListing.id ? '…' : 'Zurückziehen'}
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="tk-stub-actions">
+        <button
+          className="tk-stub-action"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); void handleShare(t.assetId, t.claimUrl); }}
+          disabled={sharingAssetId === t.assetId}
+        >
+          <Icon name="share" size={13} />
+          {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Link kopieren' : 'Teilen'}
+        </button>
+        {t.resaleMaxPriceCents != null && (
+          <button
+            className="tk-stub-action"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openResale(t); }}
+          >
+            <Icon name="euro" size={13} />Verkaufen
+          </button>
+        )}
+        <Link href={`/tickets/${t.assetId}`} className="tk-stub-action">
+          <Icon name="qr" size={13} />Vorzeigen
+        </Link>
+      </div>
+    );
+  };
+
+  /** Ticket-Stub der Bevorstehend-Liste. */
+  const upcomingStub = (t: Ticket) => {
+    const hue = hueOf(t);
+    const vip = isVipTier(t);
     const isFresh = freshAssetIds.has(t.assetId);
     const freshIndex = isFresh ? [...freshAssetIds].indexOf(t.assetId) : 0;
-    // Priority: VIP tier > organizer border preset (Pro) > accent hue > event
-    // image. VIP always wins so its gold look stays an unambiguous signal.
-    const isVip = /\bvip\b/i.test(t.tierName ?? '');
-    const cardClasses = [
-      'event-card',
-      isFresh && 'is-fresh',
-      isVip ? 'vip' : t.borderStyle ? `border-${t.borderStyle}` : '',
-      t.imageUrl && 'has-image',
-    ].filter(Boolean).join(' ');
-    const cardStyle: Record<string, string | number> = {};
-    if (isFresh) cardStyle['--fresh-delay'] = `${freshIndex * 120}ms`;
-    if (t.accentHue != null) cardStyle['--hue'] = t.accentHue;
-    if (t.imageUrl) cardStyle.backgroundImage = `url(${t.imageUrl})`;
+    const style: React.CSSProperties = { '--hue': hue } as React.CSSProperties;
+    if (isFresh) (style as Record<string, string | number>)['--fresh-delay'] = `${freshIndex * 120}ms`;
     return (
-      <Link
-        key={t.assetId}
-        href={`/tickets/${t.assetId}`}
-        className={cardClasses}
-        style={cardStyle as React.CSSProperties}
-      >
-        <div className="row gap-3">
-          <div className="date-chip">
-            <div className="m">{monthShort(t.eventDate)}</div>
-            <div className="d">{dayNum(t.eventDate)}</div>
+      <div key={t.assetId} className={`tk-stub${decorClass(t)}${isFresh ? ' is-fresh' : ''}`} style={style}>
+        <Link href={`/tickets/${t.assetId}`} className="tk-stub-link" aria-label={`Ticket öffnen: ${t.eventName}`} />
+        <div className="tk-motif" style={motifStyle(t, hue, false)}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="tk-motif-kicker">EINTRITTSKARTE · PASSLY</span>
+            {vip && <span className="tk-motif-vip">VIP</span>}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="title row gap-2">
-              {t.eventName}
-              {isVip && <span className="vip-tag"><span className="star">★</span>VIP</span>}
+          <div className="tk-motif-title">{t.eventName}</div>
+          <div className="tk-motif-venue">{t.venue ?? 'Ort wird bekannt gegeben'}</div>
+          <div className="tk-motif-facts">
+            <div>
+              <div className="tk-motif-k">DATUM</div>
+              <div className="tk-motif-v">{formatDateShort(t.eventDate)}</div>
             </div>
-            <div className="meta">
-              <Icon name="calendar" size={12} /> {formatDate(t.eventDate)}
-            </div>
+            {t.startTime && (
+              <div>
+                <div className="tk-motif-k">EINLASS</div>
+                <div className="tk-motif-v">{t.startTime.slice(0, 5)}</div>
+              </div>
+            )}
+            {t.tierName && (
+              <div>
+                <div className="tk-motif-k">PLATZ</div>
+                <div className="tk-motif-v">{t.tierName}</div>
+              </div>
+            )}
+          </div>
+          <div className="tk-motif-count">
+            <Icon name="clock" size={13} />{relativeDayLabel(t.eventDate)}
           </div>
         </div>
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          {kind === 'upcoming' ? (
-            <span className="chip accent"><span className="d" />{daysLabel}</span>
-          ) : attended ? (
-            <span className="chip ok"><span className="d" />Dabei gewesen</span>
-          ) : (
-            <span className="chip"><span className="d" />Nicht eingelöst</span>
-          )}
-          {kind === 'upcoming' && t.resaleListing ? (
-            <div className="row gap-2" style={{ alignItems: 'center' }}>
-              <span className="chip accent"><span className="d" />Zum Verkauf · {euro(t.resaleListing.listPriceCents)}</span>
-              <button
-                className="btn subtle sm"
-                onClick={(e) => { e.preventDefault(); void withdrawResale(t.resaleListing!.id); }}
-                disabled={cancelBusyId === t.resaleListing.id}
-              >
-                {cancelBusyId === t.resaleListing.id ? '…' : 'Zurückziehen'}
-              </button>
-            </div>
-          ) : kind === 'upcoming' && (
-            <div className="row gap-2">
-              {t.resaleMaxPriceCents != null && (
-                <button
-                  className="btn subtle sm"
-                  onClick={(e) => { e.preventDefault(); openResale(t); }}
-                >
-                  <Icon name="tag" size={12} /> Verkaufen
-                </button>
-              )}
-              <button
-                className="btn subtle sm"
-                onClick={(e) => { e.preventDefault(); void handleShare(t.assetId, t.claimUrl); }}
-                disabled={sharingAssetId === t.assetId}
-              >
-                <Icon name="share" size={12} /> {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Link kopieren' : 'Teilen'}
-              </button>
-            </div>
-          )}
+        <div className="tk-stubcol">
+          <div className="tk-qrbox"><Icon name="qr" size={40} /></div>
+          <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.1em', color: 'var(--ink-3)' }}>
+            {ticketCode(t.eventName, t.assetId)}
+          </div>
+          {ticketActions(t)}
         </div>
-      </Link>
+        <div className="tk-stub-notch" style={{ right: 150, top: -9 }} />
+        <div className="tk-stub-notch" style={{ right: 150, bottom: -9 }} />
+      </div>
+    );
+  };
+
+  /** Abgerissener Stub der Sammlung. */
+  const collectionStub = (t: Ticket) => {
+    const hue = hueOf(t);
+    const attended = !!t.redeemedAt;
+    const d = new Date(t.eventDate + 'T00:00:00');
+    return (
+      <div key={t.assetId} className={`tk-stub${decorClass(t)}${attended ? '' : ' is-muted'}`} style={{ '--hue': hue } as React.CSSProperties}>
+        <Link href={`/tickets/${t.assetId}`} className="tk-stub-link" aria-label={`Ticket öffnen: ${t.eventName}`} />
+        <div className="tk-motif" style={motifStyle(t, hue, !attended)}>
+          <div className="tk-motif-kicker">EINTRITTSKARTE · PASSLY</div>
+          <div className="tk-motif-title">{t.eventName}</div>
+          <div className="tk-motif-venue">{t.venue ?? '—'}</div>
+          <div className="tk-motif-facts">
+            <div>
+              <div className="tk-motif-k">DATUM</div>
+              <div className="tk-motif-v">{formatDateShort(t.eventDate)}</div>
+            </div>
+            {cityOf(t.venue) && (
+              <div>
+                <div className="tk-motif-k">STADT</div>
+                <div className="tk-motif-v">{cityOf(t.venue)}</div>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="tk-stubcol narrow">
+          <div className="mono" style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-4)' }}>
+            {monthShort(t.eventDate).toUpperCase()} {d.getFullYear()}
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: '-0.045em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+            {String(dayNum(t.eventDate)).padStart(2, '0')}
+          </div>
+          <span className={attended ? 'chip ok' : 'chip'} style={{ marginTop: 4, whiteSpace: 'nowrap' }}>
+            <span className="d" />{attended ? 'Besucht' : 'Offen'}
+          </span>
+          {isVipTier(t) && <span className="chip accent">VIP</span>}
+        </div>
+        <div className="tk-stub-notch" style={{ right: 146, top: -9 }} />
+        <div className="tk-stub-notch" style={{ right: 146, bottom: -9 }} />
+      </div>
     );
   };
 
@@ -577,25 +1104,31 @@ export default function MyTickets() {
         </div>
 
         <div className="main">
-          <div className="container">
+          <div className="aurora" aria-hidden="true" />
+          <div className="container" style={{ paddingTop: 28 }}>
 
-            <div className="row gap-3" style={{ justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, flexWrap: 'wrap' }}>
+            <div className="tk-head">
               <div>
-                <h1 style={{ fontSize: 30, letterSpacing: '-0.03em', fontWeight: 600, lineHeight: 1.1 }}>Meine Tickets</h1>
-                {buyerWallet && (
-                  <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6 }}>
-                    <Link href={`/collection/${buyerWallet}`} style={{ color: 'var(--accent)', fontWeight: 500 }}>
+                <div className="tk-eyebrow"><span className="pulse" />Deine Brieftasche</div>
+                <h1 className="tk-title">Meine Tickets</h1>
+                <div className="tk-subline">
+                  {buyerWallet && (
+                    <Link href={`/collection/${buyerWallet}`} style={{ fontSize: 13.5, color: 'var(--accent)', fontWeight: 500 }}>
                       Öffentliches Profil ansehen →
                     </Link>
-                  </div>
-                )}
-                {creditCents > 0 && (
-                  <div className="chip accent" style={{ marginTop: 10 }} title="Wird beim nächsten Ticketkauf automatisch verrechnet.">
-                    <Icon name="euro" size={12} /> {euro(creditCents)} Guthaben
-                  </div>
-                )}
+                  )}
+                  {buyerWallet && <span className="sep" />}
+                  <span style={{ fontSize: 13.5, color: 'var(--ink-3)' }}>
+                    {upcoming.length} bevorstehend · {past.length} besucht · {badges.length} Abzeichen
+                  </span>
+                  {creditCents > 0 && (
+                    <span className="chip accent" title="Wird beim nächsten Ticketkauf automatisch verrechnet.">
+                      <Icon name="euro" size={12} /> {euro(creditCents)} Guthaben
+                    </span>
+                  )}
+                </div>
               </div>
-              <Link href="/events" className="btn ghost"><Icon name="ticket" size={14} /> Events entdecken</Link>
+              <Link href="/events" className="btn primary"><Icon name="search" size={15} /> Events entdecken</Link>
             </div>
 
             {shareError && (
@@ -623,191 +1156,443 @@ export default function MyTickets() {
 
             {!loading && !isAllEmpty && (
               <>
-                <section>
-                  <div className="section-head">
+                {/* ── Brieftasche + nächstes Ticket ─────────────── */}
+                {frontTicket && (
+                  <div className="tk-lane" style={{ marginBottom: 14 }}>
                     <div>
-                      <h2>Bevorstehend</h2>
-                      <div className="sub">{upcoming.length} Ticket{upcoming.length !== 1 ? 's' : ''}</div>
-                    </div>
-                  </div>
-                  {upcoming.length === 0 ? (
-                    <div className="card">
-                      <div className="empty">
-                        Keine bevorstehenden Tickets. <Link href="/events" style={{ color: 'var(--accent)', fontWeight: 500 }}>Events entdecken →</Link>
+                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
+                        <div className="tk-lane-label">Als nächstes</div>
+                        {canFan && (
+                          <button
+                            className="btn ghost sm"
+                            style={{ borderColor: 'var(--accent-line)', background: 'var(--accent-wash)', color: 'var(--accent-ink)', fontWeight: 600 }}
+                            onClick={() => setFanned((f) => !f)}
+                            aria-pressed={fan}
+                          >
+                            <Icon name={fan ? 'chevronLeft' : 'chevronRight'} size={14} />
+                            {fan ? 'Stapeln' : 'Fächern'}
+                          </button>
+                        )}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="events-grid">
-                      {upcoming.map((t) => ticketCard(t, 'upcoming'))}
-                    </div>
-                  )}
-                </section>
-
-                <section>
-                  <div className="section-head">
-                    <div>
-                      <h2>Sammlung</h2>
-                      <div className="sub">Besuchte Events</div>
-                    </div>
-                  </div>
-                  {past.length === 0 ? (
-                    <div className="card">
-                      <div className="empty">Events, bei denen du warst, erscheinen hier als Erinnerung.</div>
-                    </div>
-                  ) : (
-                    <div className="events-grid">
-                      {past.map((t) => ticketCard(t, 'past'))}
-                    </div>
-                  )}
-                </section>
-
-                {loyalty.length > 0 && (
-                  <section>
-                    <div className="section-head">
-                      <div>
-                        <h2>Deine Vorteile</h2>
-                        <div className="sub">Treueprogramme deiner Veranstalter</div>
-                      </div>
-                    </div>
-                    <div style={{ display: 'grid', gap: 10 }}>
-                      {loyalty.map((p) => {
-                        const remaining = Math.max(0, p.threshold - p.attendedEvents);
-                        const pct = Math.min(100, Math.round((p.attendedEvents / p.threshold) * 100));
-                        return (
-                          <div key={p.programId} className="card" style={{ padding: '16px 20px' }}>
-                            <div className="row gap-3" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-                              <div style={{ flex: 1, minWidth: 200 }}>
-                                <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.benefitTitle}</div>
-                                <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 2 }}>
-                                  von {p.organizerName}{p.benefitDescription ? ` · ${p.benefitDescription}` : ''}
+                      <div className="tk-stackarea" ref={stackRef} style={{ height: stackHeight }}>
+                        {visibleStack.map((t, i) => {
+                          const hue = hueOf(t);
+                          const vip = isVipTier(t);
+                          const slot = fan ? (i === 0 ? stackCount - 1 : i - 1) : i;
+                          const center = (stackCount - 1) / 2;
+                          const pos: React.CSSProperties = fan
+                            ? {
+                                top: Math.round(46 + Math.pow(slot - center, 2) * 7 + (i === 0 ? -14 : 0)),
+                                left: Math.round(20 + slot * fanStep),
+                                transform: `rotate(${((slot - center) * (stackGeometry.availW < 660 ? 0 : 2.6)).toFixed(2)}deg)`,
+                                transformOrigin: 'bottom center',
+                                zIndex: 10 + slot,
+                                boxShadow: 'var(--shadow-lg)',
+                              }
+                            : {
+                                top: i === 0 ? 0 : 300 + (i - 1) * 48,
+                                zIndex: i === 0 ? 5 : 10 + i,
+                                boxShadow: i === 0 ? 'var(--shadow-lg)' : '0 -6px 18px rgba(17,20,45,.07)',
+                              };
+                          // Eingeklappt bringt ein Klick auf eine Kante das Ticket
+                          // nach vorn; gefächert (oder auf der Frontkarte) öffnet er es.
+                          const bringToFront = !fan && i > 0;
+                          return (
+                            <button
+                              key={t.assetId}
+                              className={`tk-wcard${decorClass(t)}`}
+                              style={{ width: cardW, height: 296, '--hue': hue, ...pos } as React.CSSProperties}
+                              onClick={() => bringToFront ? setFrontId(t.assetId) : router.push(`/tickets/${t.assetId}`)}
+                              aria-label={bringToFront ? `${t.eventName} nach vorn holen` : `Ticket öffnen: ${t.eventName}`}
+                            >
+                              <div className="tk-wcard-head">
+                                <div className="tk-datechip">
+                                  <div className="m">{monthShort(t.eventDate).toUpperCase()}</div>
+                                  <div className="d">{dayNum(t.eventDate)}</div>
                                 </div>
-                                {!p.qualified && (
-                                  <>
-                                    <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 8 }}>
-                                      Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis zu deinem Vorteil ({p.attendedEvents}/{p.threshold})
-                                    </div>
-                                    <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', marginTop: 6, overflow: 'hidden', maxWidth: 320 }}>
-                                      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: 'var(--accent)' }} />
-                                    </div>
-                                  </>
-                                )}
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div className="tk-wcard-title">{t.eventName}</div>
+                                  <div className="tk-wcard-venue">{t.venue ?? 'Ort wird bekannt gegeben'}</div>
+                                </div>
+                                {vip && <span className="chip accent" style={{ flex: 'none' }}>VIP</span>}
                               </div>
-                              {p.qualified && (
-                                p.claim ? (
-                                  p.claim.redeemedAt ? (
-                                    <span className="chip"><span className="d" />Eingelöst</span>
-                                  ) : (
-                                    <div style={{ textAlign: 'center' }}>
-                                      <div className="mono" style={{ fontSize: 18, fontWeight: 600, letterSpacing: '0.14em', color: 'var(--accent)' }}>{p.claim.code}</div>
-                                      <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>Am Einlass vorzeigen</div>
-                                    </div>
-                                  )
-                                ) : (
-                                  <button
-                                    className="btn primary sm"
-                                    onClick={() => void handleClaimBenefit(p.programId)}
-                                    disabled={claimingProgramId === p.programId}
-                                  >
-                                    {claimingProgramId === p.programId ? '…' : 'Vorteil abholen'}
-                                  </button>
-                                )
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                              <div className="tk-cover" style={coverStyle(t, hue)}>
+                                <span>{t.eventName}</span>
+                              </div>
+                              <div className="tk-wcard-facts">
+                                <div>
+                                  <div className="tk-fact-k">Einlass</div>
+                                  <div className="tk-fact-v">{t.startTime ? t.startTime.slice(0, 5) : '—'}</div>
+                                </div>
+                                <div>
+                                  <div className="tk-fact-k">Platz</div>
+                                  <div className="tk-fact-v">{t.tierName ?? 'Standard'}</div>
+                                </div>
+                                <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                                  <div className="tk-fact-k">Ticket</div>
+                                  <div className="mono" style={{ fontSize: 12, marginTop: 3, color: 'var(--ink-2)' }}>
+                                    {ticketCode(t.eventName, t.assetId)}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="tk-perf" />
+                              <div className="tk-notch" style={{ left: -8 }} />
+                              <div className="tk-notch" style={{ right: -8 }} />
+                              <div className="tk-wcard-foot">
+                                <span className="chip accent"><span className="d" />{relativeDayLabel(t.eventDate)}</span>
+                                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 500, color: 'var(--accent)' }}>
+                                  <Icon name="qr" size={15} />{bringToFront ? 'Nach vorn' : 'Vorzeigen'}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {restCount > 0 && (
+                        <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--ink-3)' }}>
+                          {restCount === 1
+                            ? 'Noch 1 weiteres Ticket unten in der Liste'
+                            : `Noch ${restCount} weitere Tickets unten in der Liste`}
+                        </div>
+                      )}
                     </div>
-                  </section>
+
+                    <div className="card tk-front" style={{ padding: 22, position: 'sticky', top: 76 }}>
+                      <div className="tk-lane-label">Dein nächstes Ticket</div>
+                      <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.028em', lineHeight: 1.2, marginTop: 12 }}>
+                        {frontTicket.eventName}
+                      </h2>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 14 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--ink-2)' }}>
+                          <Icon name="calendar" size={15} />
+                          <span>{formatDate(frontTicket.eventDate)}{frontTicket.startTime ? `, ${frontTicket.startTime.slice(0, 5)}` : ''}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--ink-2)' }}>
+                          <Icon name="location" size={15} />
+                          <span>{frontTicket.venue ?? 'Ort wird bekannt gegeben'}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--ink-2)' }}>
+                          <Icon name="ticket" size={15} />
+                          <span>
+                            {frontTicket.tierName ?? 'Standard'} · <span className="mono" style={{ fontSize: 12.5 }}>{ticketCode(frontTicket.eventName, frontTicket.assetId)}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)' }}>
+                        <div style={{ fontSize: 12, color: 'var(--accent-ink)', fontWeight: 500 }}>Türöffnung in</div>
+                        <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--accent-ink)', marginTop: 2 }}>
+                          {countdownLabel(eventStartMs(frontTicket), nowMs)}
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
+                        <Link href={`/tickets/${frontTicket.assetId}`} className="btn primary lg" style={{ justifyContent: 'center' }}>
+                          <Icon name="qr" size={17} /> QR am Einlass vorzeigen
+                        </Link>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                          <button
+                            className="btn ghost"
+                            style={{ justifyContent: 'center' }}
+                            onClick={() => void handleShare(frontTicket.assetId, frontTicket.claimUrl)}
+                            disabled={sharingAssetId === frontTicket.assetId}
+                          >
+                            <Icon name="share" size={15} />
+                            {sharingAssetId === frontTicket.assetId ? '…' : frontTicket.claimUrl ? 'Link' : 'Teilen'}
+                          </button>
+                          {frontTicket.resaleListing ? (
+                            <button
+                              className="btn ghost"
+                              style={{ justifyContent: 'center' }}
+                              onClick={() => void withdrawResale(frontTicket.resaleListing!.id)}
+                              disabled={cancelBusyId === frontTicket.resaleListing.id}
+                            >
+                              <Icon name="x" size={15} />
+                              {cancelBusyId === frontTicket.resaleListing.id ? '…' : 'Zurückziehen'}
+                            </button>
+                          ) : (
+                            <button
+                              className="btn ghost"
+                              style={{ justifyContent: 'center' }}
+                              onClick={() => openResale(frontTicket)}
+                              disabled={frontTicket.resaleMaxPriceCents == null}
+                              title={frontTicket.resaleMaxPriceCents == null ? 'Der Veranstalter hat den Weiterverkauf für dieses Event nicht freigegeben.' : undefined}
+                            >
+                              <Icon name="euro" size={15} /> Verkaufen
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)', color: 'var(--ink-3)' }}>
+                        <Icon name="shield" size={15} />
+                        <p style={{ fontSize: 12.5, lineHeight: 1.55 }}>
+                          Fälschungssicher: der QR-Code erneuert sich jede Minute. Auch offline gültig.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
-                {(badges.length > 0 || progress?.nextMilestone || progress?.topOrganizer) && (
-                  <section>
-                    <div className="section-head">
-                      <div>
-                        <h2>Abzeichen</h2>
-                        <div className="sub">{badges.length > 0 ? `${badges.length} verdient` : 'Dein erstes Abzeichen wartet'}</div>
-                      </div>
-                    </div>
-                    <div className="badges-row">
-                      {badges.map((b, i) => {
-                        const meta = badgeDisplay(b.badgeType);
-                        const earned = new Date(b.earnedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
-                        const isNew = newBadgeTypes.has(b.badgeType);
-                        return (
-                          <div
-                            key={b.badgeType}
-                            role="button"
-                            tabIndex={0}
-                            aria-label={`${meta.name} – Details anzeigen`}
-                            onClick={() => setBadgeDetail({ type: b.badgeType, earnedAt: b.earnedAt })}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBadgeDetail({ type: b.badgeType, earnedAt: b.earnedAt }); } }}
-                            className={`badge-tile is-clickable${isNew ? ' is-new' : ''}`}
-                            style={{ '--bh': meta.hue, ...(isNew ? { '--fresh-delay': `${150 + i * 100}ms` } : null) } as React.CSSProperties}
-                          >
-                            {isNew && <span className="badge-new-tag">Neu</span>}
-                            <div className="badge-medal">{meta.symbol}</div>
-                            <div className="badge-name">{meta.name}</div>
-                            <div className="badge-date">{earned}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {(progress?.nextMilestone || progress?.topOrganizer) && (
-                      <div style={{ display: 'grid', gap: 10, marginTop: badges.length > 0 ? 14 : 0 }}>
-                        {progress?.nextMilestone && (() => {
-                          const meta = badgeDisplay(progress.nextMilestone.type);
-                          const remaining = progress.nextMilestone.threshold - progress.attendedCount;
-                          const pct = Math.min(100, Math.round((progress.attendedCount / progress.nextMilestone.threshold) * 100));
-                          return (
-                            <div className="card" style={{ padding: '14px 18px' }}>
-                              <div className="row gap-3" style={{ alignItems: 'center' }}>
-                                <div className="badge-medal sm locked" style={{ '--bh': meta.hue } as React.CSSProperties}>{meta.symbol}</div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 600 }}>
-                                    Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis „{meta.name}“
+                {/* ── Vorteile + Abzeichen ──────────────────────── */}
+                {(loyalty.length > 0 || badges.length > 0 || progress?.nextMilestone || progress?.topOrganizer) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: loyalty.length > 0 ? 'minmax(0, 1.1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 16, marginTop: 30, alignItems: 'stretch' }}>
+                    {loyalty.length > 0 && (
+                      <div className="card" style={{ padding: '18px 20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                          <h2 style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Vorteile</h2>
+                          <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Code am Einlass vorzeigen</span>
+                        </div>
+                        <div style={{ display: 'grid', gap: 10 }}>
+                          {loyalty.map((p) => {
+                            const remaining = Math.max(0, p.threshold - p.attendedEvents);
+                            const pct = Math.min(100, Math.round((p.attendedEvents / p.threshold) * 100));
+                            return (
+                              <div key={p.programId} className="tk-perk">
+                                <div className="tk-perk-ic"><Icon name="sparkle" size={17} /></div>
+                                <div style={{ flex: 1, minWidth: 160 }}>
+                                  <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.012em' }}>{p.benefitTitle}</div>
+                                  <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 2 }}>
+                                    von {p.organizerName}{p.benefitDescription ? ` · ${p.benefitDescription}` : ''}
                                   </div>
-                                  <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', marginTop: 8, overflow: 'hidden' }}>
-                                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: `linear-gradient(90deg, oklch(0.66 0.16 ${meta.hue}), oklch(0.54 0.21 ${meta.hue}))`, transition: 'width .4s ease' }} />
+                                  {!p.qualified && (
+                                    <>
+                                      <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 8 }}>
+                                        Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis zu deinem Vorteil ({p.attendedEvents}/{p.threshold})
+                                      </div>
+                                      <div className="progress" style={{ marginTop: 6, maxWidth: 320 }}><span style={{ width: `${pct}%` }} /></div>
+                                    </>
+                                  )}
+                                </div>
+                                {p.qualified && (
+                                  <div style={{ textAlign: 'right', paddingLeft: 14, borderLeft: '1px dashed var(--line-2)' }}>
+                                    {p.claim ? (
+                                      p.claim.redeemedAt ? (
+                                        <span className="chip"><span className="d" />Eingelöst</span>
+                                      ) : (
+                                        <>
+                                          <div className="tk-perk-code">{p.claim.code}</div>
+                                          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>Am Einlass vorzeigen</div>
+                                        </>
+                                      )
+                                    ) : (
+                                      <button
+                                        className="btn primary sm"
+                                        onClick={() => void handleClaimBenefit(p.programId)}
+                                        disabled={claimingProgramId === p.programId}
+                                      >
+                                        {claimingProgramId === p.programId ? '…' : 'Vorteil abholen'}
+                                      </button>
+                                    )}
                                   </div>
-                                </div>
-                                <div style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
-                                  {progress.attendedCount}/{progress.nextMilestone.threshold}
-                                </div>
+                                )}
                               </div>
-                            </div>
-                          );
-                        })()}
-                        {progress?.topOrganizer && (() => {
-                          const meta = badgeDisplay('loyal_organizer');
-                          const remaining = progress.topOrganizer.threshold - progress.topOrganizer.attendedEvents;
-                          const pct = Math.min(100, Math.round((progress.topOrganizer.attendedEvents / progress.topOrganizer.threshold) * 100));
-                          return (
-                            <div className="card" style={{ padding: '14px 18px' }}>
-                              <div className="row gap-3" style={{ alignItems: 'center' }}>
-                                <div className="badge-medal sm locked" style={{ '--bh': meta.hue } as React.CSSProperties}>{meta.symbol}</div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 600 }}>
-                                    Noch {remaining} Event{remaining !== 1 ? 's' : ''} bei {progress.topOrganizer.name} bis „{meta.name}“
-                                  </div>
-                                  <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', marginTop: 8, overflow: 'hidden' }}>
-                                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: `linear-gradient(90deg, oklch(0.66 0.16 ${meta.hue}), oklch(0.54 0.21 ${meta.hue}))`, transition: 'width .4s ease' }} />
-                                  </div>
-                                </div>
-                                <div style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
-                                  {progress.topOrganizer.attendedEvents}/{progress.topOrganizer.threshold}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
-                  </section>
+
+                    {(badges.length > 0 || progress?.nextMilestone || progress?.topOrganizer) && (
+                      <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                          <h2 style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.015em' }}>Abzeichen</h2>
+                          <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
+                            {badges.length > 0 ? `${badges.length} verdient` : 'Dein erstes Abzeichen wartet'}
+                          </span>
+                        </div>
+                        <div className="badges-row">
+                          {badges.map((b, i) => {
+                            const meta = badgeDisplay(b.badgeType);
+                            const earned = new Date(b.earnedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
+                            const isNew = newBadgeTypes.has(b.badgeType);
+                            return (
+                              <div
+                                key={b.badgeType}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`${meta.name} – Details anzeigen`}
+                                onClick={() => setBadgeDetail({ type: b.badgeType, earnedAt: b.earnedAt })}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBadgeDetail({ type: b.badgeType, earnedAt: b.earnedAt }); } }}
+                                className={`badge-tile is-clickable${isNew ? ' is-new' : ''}`}
+                                style={{ '--bh': meta.hue, ...(isNew ? { '--fresh-delay': `${150 + i * 100}ms` } : null) } as React.CSSProperties}
+                              >
+                                {isNew && <span className="badge-new-tag">Neu</span>}
+                                <div className="badge-medal">{meta.symbol}</div>
+                                <div className="badge-name">{meta.name}</div>
+                                <div className="badge-date">{earned}</div>
+                              </div>
+                            );
+                          })}
+                          {progress?.nextMilestone && (() => {
+                            const meta = badgeDisplay(progress.nextMilestone.type);
+                            return (
+                              <div className="badge-slot" title={`Nächstes Abzeichen: ${meta.name}`}>
+                                <div className="ring"><Icon name="plus" size={16} /></div>
+                                <div style={{ fontSize: 11.5, marginTop: 8, color: 'var(--ink-3)', lineHeight: 1.25 }}>{meta.name}</div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        <div style={{ marginTop: 'auto', paddingTop: 16, display: 'grid', gap: 12 }}>
+                          {progress?.nextMilestone && (() => {
+                            const meta = badgeDisplay(progress.nextMilestone.type);
+                            const remaining = progress.nextMilestone.threshold - progress.attendedCount;
+                            const pct = Math.min(100, Math.round((progress.attendedCount / progress.nextMilestone.threshold) * 100));
+                            return (
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                                  <span style={{ fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500 }}>
+                                    Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis „{meta.name}“
+                                  </span>
+                                  <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                                    {progress.attendedCount}/{progress.nextMilestone.threshold}
+                                  </span>
+                                </div>
+                                <div className="progress" style={{ marginTop: 9 }}><span style={{ width: `${pct}%` }} /></div>
+                              </div>
+                            );
+                          })()}
+                          {progress?.topOrganizer && (() => {
+                            const meta = badgeDisplay('loyal_organizer');
+                            const remaining = progress.topOrganizer.threshold - progress.topOrganizer.attendedEvents;
+                            const pct = Math.min(100, Math.round((progress.topOrganizer.attendedEvents / progress.topOrganizer.threshold) * 100));
+                            return (
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                                  <span style={{ fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500 }}>
+                                    Noch {remaining} Event{remaining !== 1 ? 's' : ''} bei {progress.topOrganizer.name} bis „{meta.name}“
+                                  </span>
+                                  <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                                    {progress.topOrganizer.attendedEvents}/{progress.topOrganizer.threshold}
+                                  </span>
+                                </div>
+                                <div className="progress" style={{ marginTop: 9 }}><span style={{ width: `${pct}%` }} /></div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Filterleiste ──────────────────────────────── */}
+                <div className="tk-filters">
+                  <div className="seg">
+                    <button className={tab === 'upcoming' ? 'active' : ''} onClick={() => setTab('upcoming')}>
+                      Bevorstehend · {upcoming.length}
+                    </button>
+                    <button className={tab === 'collection' ? 'active' : ''} onClick={() => setTab('collection')}>
+                      Sammlung · {past.length}
+                    </button>
+                  </div>
+                  {tab === 'collection' && (
+                    <div className="seg">
+                      <button className={collectionLayout === 'mosaik' ? 'active' : ''} onClick={() => setCollectionLayout('mosaik')}>Mosaik</button>
+                      <button className={collectionLayout === 'timeline' ? 'active' : ''} onClick={() => setCollectionLayout('timeline')}>Zeitstrahl</button>
+                    </div>
+                  )}
+                  <div className="tk-search">
+                    <span className="ic"><Icon name="search" size={15} /></span>
+                    <input
+                      className="input"
+                      style={{ paddingLeft: 32 }}
+                      aria-label="Tickets durchsuchen"
+                      placeholder="Event, Ort oder Ticket-Code"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* ── Bevorstehend ──────────────────────────────── */}
+                {tab === 'upcoming' && (
+                  <div style={{ paddingTop: 26 }}>
+                    {groups.map((g) => (
+                      <div key={g.label} style={{ marginBottom: 30 }}>
+                        <div className="tk-group-head">
+                          <h2>{g.label}</h2>
+                          <span className="n">{g.items.length}</span>
+                          <span className="rule" />
+                        </div>
+                        <div className="tk-groups-grid">
+                          {g.items.map(upcomingStub)}
+                        </div>
+                      </div>
+                    ))}
+                    {groups.length === 0 && (
+                      <div className="card">
+                        <div className="empty">
+                          {query.trim()
+                            ? <>Keine Tickets für „{query}“. Probier einen anderen Suchbegriff.</>
+                            : <>Keine bevorstehenden Tickets. <Link href="/events" style={{ color: 'var(--accent)', fontWeight: 500 }}>Events entdecken →</Link></>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Sammlung ──────────────────────────────────── */}
+                {tab === 'collection' && (
+                  <div style={{ paddingTop: 26 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 20, flexWrap: 'wrap' }}>
+                      <div>
+                        <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Sammlung</h2>
+                        <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3 }}>
+                          Abgerissene Stubs deiner besuchten Events — dein Archiv.
+                        </p>
+                      </div>
+                      <div className="tk-stats">
+                        <div><div className="tk-stat-n">{past.length}</div><div className="tk-stat-l">Events</div></div>
+                        <div><div className="tk-stat-n">{cityCount}</div><div className="tk-stat-l">Städte</div></div>
+                        <div><div className="tk-stat-n">{badges.length}</div><div className="tk-stat-l">Abzeichen</div></div>
+                      </div>
+                    </div>
+
+                    {pastFiltered.length === 0 ? (
+                      <div className="card">
+                        <div className="empty">
+                          {query.trim()
+                            ? <>Nichts gefunden für „{query}“.</>
+                            : <>Events, bei denen du warst, erscheinen hier als Erinnerung.</>}
+                        </div>
+                      </div>
+                    ) : collectionLayout === 'mosaik' ? (
+                      <div className="tk-groups-grid">
+                        {pastFiltered.map(collectionStub)}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {collectionMonths.map((m) => (
+                          <div key={m.label} className="tk-timeline-row">
+                            <div className="tk-timeline-label">
+                              {m.label}
+                              <div className="mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 3 }}>{m.items.length} Events</div>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                              {m.items.map((t) => (
+                                <Link key={t.assetId} href={`/tickets/${t.assetId}`} className="tk-timeline-item">
+                                  <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-2)' }}>
+                                    {String(dayNum(t.eventDate)).padStart(2, '0')}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em' }}>{t.eventName}</div>
+                                    <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 1 }}>{t.venue ?? '—'}</div>
+                                  </div>
+                                  <span className={t.redeemedAt ? 'chip ok' : 'chip'} style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>
+                                    <span className="d" />{t.redeemedAt ? 'Dabei gewesen' : 'Nicht eingelöst'}
+                                  </span>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </>
             )}
 
-            <LegalLinks style={{ marginTop: 56, justifyContent: 'flex-start' }} />
+            <LegalLinks style={{ marginTop: 44, justifyContent: 'flex-start' }} />
 
           </div>
         </div>
