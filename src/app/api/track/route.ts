@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 // ground for arbitrary client input.
 const ALLOWED_EVENTS = new Set([
   "page_view",
+  "ticket_selected",
   "checkout_started",
   "purchase_completed",
   "ticket_viewed",

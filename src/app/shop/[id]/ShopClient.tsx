@@ -46,6 +46,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const selectionTracked = useRef(false);
   const [tierId, setTierId] = useState<string>(
     () => (tiers.find((t) => t.available > 0) ?? tiers[0])?.id ?? '',
   );
@@ -96,9 +97,23 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
   const creditApplicable = useCredit ? Math.min(creditCents, grandTotal) : 0;
   const dueAfterCredit = Math.max(0, grandTotal - creditApplicable);
 
+  // Funnel stage between "Shop besucht" and "Checkout gestartet": the visitor
+  // actively configured a ticket. Once per visit, so the funnel counts people.
+  function trackSelection() {
+    if (selectionTracked.current) return;
+    selectionTracked.current = true;
+    track('ticket_selected', { eventId });
+  }
+
+  function changeQuantity(next: number) {
+    setQuantity(next);
+    trackSelection();
+  }
+
   function selectTier(id: string) {
     setTierId(id);
     setError(null);
+    trackSelection();
     const next = tiers.find((t) => t.id === id);
     if (next) setQuantity((q) => Math.min(q, Math.min(MAX_QTY, Math.max(1, next.available))));
   }
@@ -625,7 +640,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
           <div className="qty-controls">
             <button
               className="qty-btn"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              onClick={() => changeQuantity(Math.max(1, quantity - 1))}
               disabled={quantity <= 1 || loading}
               aria-label="Weniger Tickets"
             >
@@ -634,7 +649,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
             <div className="qty-num">{quantity}</div>
             <button
               className="qty-btn"
-              onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
+              onClick={() => changeQuantity(Math.min(maxQty, quantity + 1))}
               disabled={quantity >= maxQty || loading}
               aria-label="Mehr Tickets"
             >

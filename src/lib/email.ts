@@ -89,6 +89,53 @@ export async function sendOrganizerMessage({
 }
 
 /**
+ * Pro segment campaign: one plaintext mail to a customer segment (Stammgäste,
+ * Gefährdet, …). Unlike `sendOrganizerMessage` this is not tied to a single
+ * event, so the footer names the organizer as the reason the guest is hearing
+ * from them and points at the ticket collection.
+ */
+export async function sendOrganizerCampaign({
+  recipients,
+  organizerName,
+  segmentLabel,
+  subject,
+  text,
+  baseUrl,
+}: {
+  recipients: string[];
+  organizerName: string;
+  segmentLabel: string;
+  subject: string;
+  text: string;
+  baseUrl: string;
+}): Promise<number> {
+  if (!process.env.RESEND_API_KEY || recipients.length === 0) return 0;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const body = `${text}\n\n--\nDu bekommst diese E-Mail, weil du bereits Tickets von ${organizerName} über Passly gekauft hast (Segment: ${segmentLabel}).\nDeine Tickets: ${baseUrl}/my-tickets\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  let sent = 0;
+  const CHUNK = 50;
+  for (let i = 0; i < recipients.length; i += CHUNK) {
+    const chunk = recipients.slice(i, i + CHUNK);
+    const { error } = await resend.batch.send(
+      chunk.map((to) => ({
+        from: FROM,
+        to,
+        subject: `${organizerName}: ${subject}`,
+        text: body,
+      })),
+    );
+    if (error) {
+      console.error("Organizer campaign batch failed:", error.message);
+      continue;
+    }
+    sent += chunk.length;
+  }
+  return sent;
+}
+
+/**
  * Retention nudge after a check-in: "one more event until your next badge".
  * Sent at most once per redemption path (the caller guards against repeats);
  * plaintext like the organizer messages, no HTML injection surface.

@@ -437,6 +437,8 @@ interface Progress {
 interface LoyaltyProgramView {
   programId: string;
   organizerName: string;
+  /** Name der erreichten (oder angepeilten) Stufe, z. B. "Gold". */
+  tierName?: string | null;
   benefitTitle: string;
   benefitDescription: string | null;
   threshold: number;
@@ -1350,7 +1352,9 @@ export default function MyTickets() {
                                 <div style={{ flex: 1, minWidth: 160 }}>
                                   <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.012em' }}>{p.benefitTitle}</div>
                                   <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 2 }}>
-                                    von {p.organizerName}{p.benefitDescription ? ` · ${p.benefitDescription}` : ''}
+                                    von {p.organizerName}
+                                    {p.tierName ? ` · ${p.tierName}` : ''}
+                                    {p.benefitDescription ? ` · ${p.benefitDescription}` : ''}
                                   </div>
                                   {!p.qualified && (
                                     <>

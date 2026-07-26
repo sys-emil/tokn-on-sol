@@ -186,9 +186,13 @@ export default function DatenschutzPage() {
         Cookie-Banner „Alle akzeptieren“ wählst, setzen wir zusätzlich einen
         eigenen Statistik-Cookie (<code>passly_cid</code>, Speicherdauer 12
         Monate). Er enthält eine zufällig erzeugte, pseudonyme Kennung, über die
-        wir aufgerufene Seiten, Zeitpunkt und grundlegende Nutzungsschritte
-        (z.&nbsp;B. Start eines Ticketkaufs) in unserer eigenen Datenbank
-        (Supabase, siehe Ziffer 5) auswerten. Es findet keine Weitergabe an
+        wir aufgerufene Seiten, Zeitpunkt, die verweisende Seite (Referrer, um
+        zu erkennen, über welchen Kanal ein Shop aufgerufen wurde) und
+        grundlegende Nutzungsschritte (z.&nbsp;B. Auswahl eines Tickets, Start
+        eines Ticketkaufs) in unserer eigenen Datenbank
+        (Supabase, siehe Ziffer 5) auswerten. Veranstalter sehen daraus
+        ausschließlich zusammengefasste Statistiken, nie einzelne Verläufe.
+        Es findet keine Weitergabe an
         Dritte und kein Werbetracking statt; IP-Adressen speichern wir dabei
         nicht. Rechtsgrundlage: Art. 6 Abs. 1 lit. a DSGVO und § 25 Abs. 1
         TDDDG (Einwilligung).

@@ -5,6 +5,12 @@ import { supabaseAdmin } from "@/lib/supabase";
  * events at the program organizer; the same signal as the Stammgast badge.
  */
 
+/**
+ * Tiers per organizer (Bronze/Silber/Gold …). Each row in `loyalty_programs`
+ * is one tier; more than a handful turns into noise at the door.
+ */
+export const MAX_TIERS = 5;
+
 /** Distinct redeemed events of a wallet at one organizer. */
 export async function countAttendedEvents(
   wallet: string,
