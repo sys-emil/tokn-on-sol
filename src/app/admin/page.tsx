@@ -39,7 +39,7 @@ const PAGE_CSS = `
   .kpi-label { font-size: 12.5px; color: var(--ink-3); font-weight: 500; }
   .kpi-value { font-size: 30px; font-weight: 650; letter-spacing: -0.02em; margin-top: 6px; font-variant-numeric: tabular-nums; }
   .kpi-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--ink-4); }
-  .growth { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; padding: 2px 7px; border-radius: 999px; font-size: 11.5px; }
+  .growth { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; padding: 2px 7px; border-radius: 6px; font-size: 11.5px; }
   .growth.up { color: var(--ok, #157a4a); background: color-mix(in oklab, var(--ok, #157a4a) 12%, transparent); }
   .growth.down { color: var(--bad, #c0392b); background: var(--bad-wash, #fdeceb); }
   .growth.flat { color: var(--ink-4); background: var(--surface-2, #f5f3fb); }
@@ -53,7 +53,7 @@ const PAGE_CSS = `
   .bal-stat .v { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .bal-addr { font-family: var(--mono); font-size: 11px; color: var(--ink-4); word-break: break-all; }
   .bal-spacer { flex: 1 1 auto; }
-  .bal-net { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; background: var(--surface-2, #f5f3fb); color: var(--ink-3); }
+  .bal-net { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 6px; background: var(--surface-2, #f5f3fb); color: var(--ink-3); }
   .bal-card.low { border-color: oklch(0.86 0.10 25); background: var(--bad-wash, #fdeceb); }
   .bal-warn { font-size: 12px; font-weight: 600; color: var(--bad, #c0392b); }
 

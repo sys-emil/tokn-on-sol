@@ -138,7 +138,7 @@ const PAGE_CSS = `
   .vip-ink { color: oklch(0.46 0.09 85) !important; }
   .vip-chip {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 2px 10px; border-radius: 999px;
+    padding: 2px 10px; border-radius: 6px;
     background: linear-gradient(110deg, oklch(0.72 0.12 90), oklch(0.85 0.11 94));
     color: oklch(0.26 0.06 85);
     font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em;

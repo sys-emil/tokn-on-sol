@@ -30,11 +30,9 @@ const PAGE_CSS = `
   }
   .info-eyebrow {
     display: inline-flex; align-items: center; gap: 8px;
-    font-size: 12px; font-weight: 500;
+    font-size: 11.5px; font-weight: 600;
     color: var(--accent-ink);
-    background: var(--accent-wash);
-    border: 1px solid var(--accent-line);
-    padding: 4px 10px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.08em;
     margin-bottom: 18px;
   }
   .hero-ctas { margin-top: 26px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -81,7 +79,7 @@ const PAGE_CSS = `
     font-size: 12.5px; color: var(--ink-2);
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 999px;
+    border-radius: 8px;
     padding: 5px 12px;
     box-shadow: var(--shadow-sm);
   }

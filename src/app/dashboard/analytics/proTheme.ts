@@ -143,7 +143,7 @@ export const PRO_CSS = `
   .kpi-cell .sub { font-size: 11.5px; color: var(--ink-4); }
   .delta {
     display: inline-flex; align-items: center; gap: 4px;
-    font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 6px;
     font-variant-numeric: tabular-nums;
     background: oklch(0.26 0.02 285); color: var(--ink-3);
   }
@@ -277,7 +277,7 @@ export const PRO_CSS = `
   .cust-av { width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600; background: oklch(0.28 0.04 285); color: var(--ink-2); }
   .cust-mail { font-size: 13px; font-weight: 520; }
   .cust-id { font-size: 11px; color: var(--ink-4); font-family: var(--mono); }
-  .tier-pill { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--accent-wash); color: var(--accent-ink); }
+  .tier-pill { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 6px; background: var(--accent-wash); color: var(--accent-ink); }
   .tier-pill.none { background: oklch(0.24 0.02 285); color: var(--ink-4); }
 
   /* ── Treue-Stufen ───────────────────────────────────────────────────── */

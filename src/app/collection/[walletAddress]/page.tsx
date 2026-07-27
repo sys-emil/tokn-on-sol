@@ -196,7 +196,7 @@ export default async function CollectionPage({
       <div className="profile-head">
         <div className="profile-avatar">{initials}</div>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--accent-ink)', fontWeight: 500, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', padding: '3px 9px', borderRadius: 999, marginBottom: 8 }}>
+          <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--accent-ink)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
             Öffentliches Profil
           </div>
           <h1 style={{ fontSize: 30, letterSpacing: '-0.03em', fontWeight: 600, lineHeight: 1.1 }}>{displayName}</h1>

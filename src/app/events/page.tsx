@@ -78,7 +78,7 @@ const PAGE_CSS = `
     display: inline-flex; align-items: center; gap: 8px;
     margin-top: 14px; padding: 6px 12px;
     background: var(--accent-wash); border: 1px solid var(--accent-line);
-    border-radius: 999px; font-size: 12.5px; color: var(--accent-ink);
+    border-radius: 8px; font-size: 12.5px; color: var(--accent-ink);
   }
   .filter-note a { color: var(--accent); font-weight: 500; }
   .event-card .price-row {

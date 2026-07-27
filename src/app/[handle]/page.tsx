@@ -113,7 +113,7 @@ const PAGE_CSS = `
   .org-link {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 12.5px; font-weight: 500; color: var(--ink-2);
-    padding: 6px 12px; border-radius: 999px;
+    padding: 6px 12px; border-radius: 8px;
     border: 1px solid var(--line); background: var(--surface);
   }
   .org-link:hover { border-color: var(--accent-line); color: var(--accent-ink); }

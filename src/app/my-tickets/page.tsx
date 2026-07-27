@@ -22,9 +22,8 @@ const PAGE_CSS = `
   }
   .tk-eyebrow {
     display: inline-flex; align-items: center; gap: 8px;
-    font-size: 12px; color: var(--accent-ink); font-weight: 500;
-    background: var(--accent-wash); border: 1px solid var(--accent-line);
-    padding: 4px 10px; border-radius: 999px; margin-bottom: 14px;
+    font-size: 11.5px; color: var(--accent-ink); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px;
   }
   .tk-eyebrow .pulse {
     width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
@@ -162,7 +161,7 @@ const PAGE_CSS = `
   .tk-motif-kicker { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.2em; opacity: 0.82; }
   .tk-motif-vip {
     font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
-    padding: 2px 7px; border-radius: 999px;
+    padding: 2px 7px; border-radius: 5px;
     background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.34);
   }
   .tk-motif-title {
@@ -175,7 +174,7 @@ const PAGE_CSS = `
   .tk-motif-v { font-size: 14px; font-weight: 600; margin-top: 3px; font-variant-numeric: tabular-nums; }
   .tk-motif-count {
     display: inline-flex; align-items: center; gap: 6px; margin-top: 16px;
-    font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 6px;
     background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.3);
   }
   .tk-stubcol {

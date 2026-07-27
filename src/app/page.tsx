@@ -197,11 +197,9 @@ const PAGE_CSS = `
   .aud-tag {
     align-self: flex-start;
     display: inline-flex; align-items: center; gap: 7px;
-    font-size: 11.5px; font-weight: 500;
+    font-size: 11px; font-weight: 600;
     color: var(--accent-ink);
-    background: var(--accent-wash);
-    border: 1px solid var(--accent-line);
-    padding: 3px 9px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.08em;
   }
   .audience-card h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.025em; }
   .audience-card > p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: -8px; }
@@ -342,7 +340,7 @@ export default function Home() {
             {/* Hero */}
             <section className="landing-hero">
               <div data-reveal>
-                <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--accent-ink)', fontWeight: 500, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', padding: '4px 10px', borderRadius: 999, marginBottom: 18 }}>
+                <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--accent-ink)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 18 }}>
                   <Icon name="shield" size={13} /> Fälschungssichere Tickets
                 </div>
                 <h1>

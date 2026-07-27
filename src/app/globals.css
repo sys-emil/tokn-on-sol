@@ -155,9 +155,9 @@ a { color: inherit; text-decoration: none; }
 }
 .hero .eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
-  font-size: 12px; color: var(--accent-ink); font-weight: 500;
-  background: var(--accent-wash); border: 1px solid var(--accent-line);
-  padding: 4px 10px; border-radius: 999px; margin-bottom: 16px;
+  font-size: 11.5px; color: var(--accent-ink); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 16px;
 }
 .hero .eyebrow .pulse {
   width: 6px; height: 6px; border-radius: 50%;
@@ -382,7 +382,7 @@ section + section { margin-top: 36px; }
 .event-card.vip .title { color: oklch(0.32 0.07 85); }
 .vip-tag {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px; border-radius: 999px;
+  padding: 2px 8px; border-radius: 6px;
   background: linear-gradient(110deg, oklch(0.72 0.12 90), oklch(0.85 0.11 94));
   color: oklch(0.26 0.06 85);
   font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
@@ -408,7 +408,7 @@ section + section { margin-top: 36px; }
 /* Chips */
 .chip {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 8px; border-radius: 999px;
+  padding: 3px 8px; border-radius: 6px;
   font-size: 11.5px; font-weight: 500; letter-spacing: -0.005em;
   border: 1px solid var(--line);
   background: var(--surface-2); color: var(--ink-3);
@@ -545,7 +545,7 @@ section + section { margin-top: 36px; }
 .preset-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
 .preset-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 12px; border-radius: 999px;
+  padding: 7px 12px; border-radius: 9px;
   font-size: 12.5px; font-weight: 500;
   border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-2);
   cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, color 0.15s;
@@ -672,7 +672,7 @@ section + section { margin-top: 36px; }
   font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   color: #fff;
   background: linear-gradient(115deg, oklch(0.60 0.21 var(--bh)), oklch(0.68 0.17 calc(var(--bh) + 40)));
-  padding: 2px 7px; border-radius: 999px;
+  padding: 2px 7px; border-radius: 5px;
   box-shadow: 0 1px 5px oklch(0.50 0.20 var(--bh) / 0.45);
 }
 
