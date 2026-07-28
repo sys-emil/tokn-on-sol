@@ -7,8 +7,9 @@ import type { SolanaBalance } from '@/app/api/admin/solana-balance/route';
 import { GlobeCard } from './GlobeCard';
 import { OrganizersTab } from './OrganizersTab';
 import { PayoutsTab } from './PayoutsTab';
+import { TrafficTab } from './TrafficTab';
 
-type Tab = 'overview' | 'organizers' | 'payouts';
+type Tab = 'overview' | 'traffic' | 'organizers' | 'payouts';
 
 interface OverviewData {
   kpis: {
@@ -71,6 +72,64 @@ const PAGE_CSS = `
   .tree-row .addr { font-family: var(--mono); color: var(--ink-4); }
   .tree-row .cnt { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-3); }
   .tree-row.err .cnt { color: var(--bad, #c0392b); }
+
+  /* ── Traffic-Tab ─────────────────────────────────────────────────────── */
+  .range-picker { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--surface-2, #f5f3fb); border: 1px solid var(--surface-3, #ece9f5); }
+  .range-btn { appearance: none; border: none; background: none; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 500; color: var(--ink-3); padding: 5px 10px; border-radius: 6px; }
+  .range-btn:hover { color: var(--ink-1); }
+  .range-btn.active { background: var(--surface-1, #fff); color: var(--accent-ink); box-shadow: 0 1px 2px rgba(20, 12, 45, .08); }
+
+  .chart-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+  .chart-title { font-size: 13px; font-weight: 600; margin-right: auto; }
+  .legend { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-4); }
+  .legend .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+  .legend .dot.cur { background: var(--accent, #7c5cff); }
+  .legend .dot.prev { background: var(--ink-4, #9a94ad); }
+
+  .trend { width: 100%; height: auto; display: block; overflow: visible; }
+  .trend .axis { stroke: var(--surface-3, #ece9f5); stroke-width: 1; }
+  .trend .axis.dashed { stroke-dasharray: 3 4; }
+  .trend .tick { font-size: 10px; fill: var(--ink-4); font-variant-numeric: tabular-nums; }
+  .trend .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .trend .ln.cur { stroke: var(--accent, #7c5cff); }
+  .trend .ln.prev { stroke: var(--ink-4, #9a94ad); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: .7; }
+
+  .traffic-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+  .panel { padding: 18px 20px; }
+  .panel-title { font-size: 13.5px; font-weight: 600; margin: 0 0 14px; }
+
+  .bars { display: flex; flex-direction: column; gap: 9px; }
+  .bar-row { position: relative; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 4px 10px; padding: 6px 10px; border-radius: 6px; overflow: hidden; }
+  .bar-track { position: absolute; inset: 0; background: var(--surface-2, #f5f3fb); border-radius: 6px; }
+  .bar-fill { height: 100%; background: var(--accent-wash, #efeaff); border-radius: 6px; }
+  .bar-label { position: relative; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-label.mono { font-family: var(--mono); font-size: 11.5px; }
+  .bar-value { position: relative; font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .bar-sub { position: relative; grid-column: 3; font-size: 11px; color: var(--ink-4); font-variant-numeric: tabular-nums; min-width: 82px; text-align: right; }
+
+  .funnel { display: flex; flex-direction: column; gap: 12px; }
+  .funnel-row { display: grid; grid-template-columns: 170px 1fr auto; align-items: center; gap: 4px 12px; }
+  .funnel-label { font-size: 12.5px; font-weight: 500; }
+  .funnel-track { height: 22px; border-radius: 6px; background: var(--surface-2, #f5f3fb); overflow: hidden; }
+  .funnel-fill { height: 100%; background: var(--accent, #7c5cff); border-radius: 6px; transition: width .3s ease; }
+  .funnel-count { font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .funnel-pct { grid-column: 2 / -1; font-size: 11px; color: var(--ink-4); font-variant-numeric: tabular-nums; }
+
+  .feed { display: flex; flex-direction: column; }
+  .feed-row { display: grid; grid-template-columns: 150px 1fr auto auto; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--surface-3, #ece9f5); font-size: 12.5px; }
+  .feed-row:last-child { border-bottom: none; }
+  .feed-path { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .feed-src { font-size: 11.5px; color: var(--ink-4); }
+  .feed-time { font-size: 11.5px; color: var(--ink-4); min-width: 82px; text-align: right; font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: var(--surface-2, #f5f3fb); color: var(--ink-3); }
+  .tag.ok { background: color-mix(in oklab, var(--ok, #157a4a) 12%, transparent); color: var(--ok, #157a4a); }
+
+  @media (max-width: 640px) {
+    .funnel-row { grid-template-columns: 1fr auto; }
+    .funnel-track { grid-column: 1 / -1; }
+    .feed-row { grid-template-columns: 1fr auto; }
+    .feed-src { display: none; }
+  }
 `;
 
 function eur(cents: number): string {
@@ -88,7 +147,7 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window === 'undefined') return 'overview';
     const t = new URLSearchParams(window.location.search).get('tab');
-    return t === 'organizers' || t === 'payouts' ? t : 'overview';
+    return t === 'organizers' || t === 'payouts' || t === 'traffic' ? t : 'overview';
   });
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -170,6 +229,7 @@ export default function AdminDashboard() {
               <>
                 <div className="admin-tabs" role="tablist">
                   <button className={`admin-tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Übersicht</button>
+                  <button className={`admin-tab ${tab === 'traffic' ? 'active' : ''}`} onClick={() => setTab('traffic')}>Traffic</button>
                   <button className={`admin-tab ${tab === 'organizers' ? 'active' : ''}`} onClick={() => setTab('organizers')}>Veranstalter</button>
                   <button className={`admin-tab ${tab === 'payouts' ? 'active' : ''}`} onClick={() => setTab('payouts')}>Auszahlungen</button>
                 </div>
@@ -177,6 +237,7 @@ export default function AdminDashboard() {
                 {tab === 'overview' && overview && (
                   <OverviewTab data={overview} loading={loading} onRefresh={() => void loadOverview(secret)} secret={secret} />
                 )}
+                {tab === 'traffic' && <TrafficTab secret={secret} />}
                 {tab === 'organizers' && <OrganizersTab secret={secret} />}
                 {tab === 'payouts' && <PayoutsTab secret={secret} />}
               </>
