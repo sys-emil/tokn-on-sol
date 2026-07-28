@@ -101,7 +101,7 @@ export default function OrganizerProfilePage() {
         if (!token) return;
         const [profRes, evRes] = await Promise.all([
           fetch(`/api/organizer/profile?walletAddress=${walletAddress}`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`/api/events/list?organizerWallet=${walletAddress}`),
+          fetch(`/api/events/list?organizerWallet=${walletAddress}`, { headers: { Authorization: `Bearer ${token}` } }),
         ]);
         if (profRes.status === 403 || profRes.status === 404) {
           router.replace('/dashboard');

@@ -332,9 +332,10 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
     setResaleBuyingId(listingId);
     setResaleError(null);
     try {
+      const token = await getAccessToken();
       const res = await fetch('/api/resale/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ listingId, buyerWallet: wallet }),
       });
       const data = (await res.json()) as { success: boolean; url?: string; error?: string };

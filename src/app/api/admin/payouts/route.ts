@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,15 +14,9 @@ export const dynamic = "force-dynamic";
  *   - "release": disputed → pending (dispute resolved in platform's favour)
  *   - "cancel":  → failed with reason (funds stay on platform, e.g. dispute lost)
  */
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.ADMIN_SECRET;
-  return !!secret && req.headers.get("x-admin-secret") === secret;
-}
-
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdmin(req);
+  if (denied) return denied;
 
   const { data, error } = await supabaseAdmin
     .from("payouts")
@@ -36,9 +31,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdmin(req);
+  if (denied) return denied;
 
   let body: { payoutId?: string; action?: string };
   try {

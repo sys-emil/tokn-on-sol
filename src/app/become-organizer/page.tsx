@@ -69,7 +69,10 @@ export default function BecomeOrganizer() {
   useEffect(() => {
     if (!walletAddress) return;
     async function checkStatus(): Promise<void> {
-      const res = await fetch(`/api/organizers/status?walletAddress=${walletAddress}`);
+      const token = await getAccessToken();
+      const res = await fetch(`/api/organizers/status?walletAddress=${walletAddress}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) { setPageState('form'); return; }
       const data = (await res.json()) as { status: string };
       if (data.status === 'approved') {
@@ -83,7 +86,7 @@ export default function BecomeOrganizer() {
       }
     }
     void checkStatus();
-  }, [walletAddress, router]);
+  }, [walletAddress, router, getAccessToken]);
 
   const effectiveEmail = email || (user?.email?.address ?? '');
 

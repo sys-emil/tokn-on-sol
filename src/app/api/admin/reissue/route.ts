@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/adminAuth";
 import { transferCnft, getOperatorWalletAddress } from "@/lib/transfer";
 import { heliusRpcUrl } from "@/lib/solana";
 
@@ -28,9 +29,8 @@ interface DasAsset {
  * and send the returned claim URL to the buyer's new address.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  if (!process.env.ADMIN_SECRET || req.headers.get("x-admin-secret") !== process.env.ADMIN_SECRET) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdmin(req);
+  if (denied) return denied;
 
   let body: ReissueBody;
   try {

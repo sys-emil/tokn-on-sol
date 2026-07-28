@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { geocodeVenues } from "@/lib/geocode";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,6 @@ export const dynamic = "force-dynamic";
  * Growth compares the last 30 days against the 30 days before that, using each
  * row's created_at.
  */
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.ADMIN_SECRET;
-  return !!secret && req.headers.get("x-admin-secret") === secret;
-}
-
 const WINDOW_DAYS = 30;
 
 export type Metric = {
@@ -61,9 +57,8 @@ function bucketSum(
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdmin(req);
+  if (denied) return denied;
 
   const now = Date.now();
   const currentFrom = now - WINDOW_DAYS * 24 * 60 * 60 * 1000;

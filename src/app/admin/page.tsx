@@ -163,6 +163,11 @@ export default function AdminDashboard() {
         setUnlocked(false);
         return;
       }
+      if (res.status === 429) {
+        setError('Zu viele Fehlversuche. Bitte eine Minute warten.');
+        setUnlocked(false);
+        return;
+      }
       const data = (await res.json()) as OverviewData & { error?: string };
       if (!res.ok || !data.kpis) {
         setError(data.error ?? `HTTP ${res.status}`);

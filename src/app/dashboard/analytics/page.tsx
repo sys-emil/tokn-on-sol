@@ -83,14 +83,16 @@ export default function ProDashboard() {
   useEffect(() => {
     if (!wallet) return;
     async function check(): Promise<void> {
-      const res = await fetch(`/api/organizers/status?walletAddress=${wallet}`);
+      const res = await fetch(`/api/organizers/status?walletAddress=${wallet}`, {
+        headers: { Authorization: `Bearer ${await token()}` },
+      });
       if (!res.ok) { setOrgStatus('none'); return; }
       const data = (await res.json()) as { status: string; plan?: string };
       setOrgStatus(data.status === 'approved' ? 'approved' : 'none');
       setPlan(data.plan === 'pro' ? 'pro' : 'free');
     }
     void check();
-  }, [wallet]);
+  }, [wallet, token]);
 
   useEffect(() => {
     if (orgStatus === 'none') router.push('/dashboard');

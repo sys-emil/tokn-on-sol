@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { RESALE_HOLD_MINUTES } from "@/lib/resale";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { requestOwnsWallet } from "@/lib/privyServer";
 
 interface ResaleCheckoutBody {
   listingId: string;
@@ -30,6 +31,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { listingId, buyerWallet } = body;
   if (!listingId || !buyerWallet) {
     return NextResponse.json({ success: false, error: "listingId and buyerWallet are required" }, { status: 400 });
+  }
+
+  // buyerWallet is where the ticket lands after payment, and reserving a
+  // listing takes it off the market for the hold window. Both need proof that
+  // the caller actually owns the wallet they are buying for.
+  if (!(await requestOwnsWallet(req, buyerWallet))) {
+    return NextResponse.json(
+      { success: false, error: "Bitte melde dich an, um ein Ticket zu kaufen." },
+      { status: 401 },
+    );
   }
 
   // Load the listing and its event; only an active listing is purchasable.

@@ -191,13 +191,16 @@ export default function EventDetailPage() {
   useEffect(() => {
     if (!walletAddress) return;
     async function checkPlan(): Promise<void> {
-      const res = await fetch(`/api/organizers/status?walletAddress=${walletAddress}`);
+      const token = await getAccessToken();
+      const res = await fetch(`/api/organizers/status?walletAddress=${walletAddress}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) return;
       const data = (await res.json()) as { plan?: string };
       setPlan(data.plan === 'pro' ? 'pro' : 'free');
     }
     void checkPlan();
-  }, [walletAddress]);
+  }, [walletAddress, getAccessToken]);
 
   // Live refresh on the day of the event: doormen write redemptions while the
   // organizer watches this page, so the check-in numbers poll every 30 s.

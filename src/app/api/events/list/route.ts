@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requestOwnsWallet } from "@/lib/privyServer";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { error: "organizerWallet is required" },
       { status: 400 }
     );
+  }
+
+  // The wallet param proves nothing on its own; organizer wallets are public
+  // (every shop page links to /events?veranstalter=<wallet>). Without this gate
+  // anyone could read a competitor's private events and exact sales figures.
+  if (!(await requestOwnsWallet(req, organizerWallet))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { data, error } = await supabaseAdmin

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { connection, getOperatorKeypair, heliusRpcUrl } from "@/lib/solana";
 import { fetchTreeCapacities, type TreeCapacity } from "@/lib/treeCapacity";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +18,6 @@ export const dynamic = "force-dynamic";
  * fee. We use a slightly padded estimate so the "remaining mints" figure stays
  * conservative against occasional retries.
  */
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.ADMIN_SECRET;
-  return !!secret && req.headers.get("x-admin-secret") === secret;
-}
-
 // Padded estimate of the per-mint cost in lamports (base fee is 5000; the
 // padding absorbs the odd retry / minor priority fee so the estimate errs low).
 const LAMPORTS_PER_MINT = 7000;
@@ -45,9 +41,8 @@ export type SolanaBalance = {
 };
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdmin(req);
+  if (denied) return denied;
 
   let address: string;
   try {

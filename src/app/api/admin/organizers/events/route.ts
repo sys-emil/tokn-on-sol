@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -7,15 +8,9 @@ export const dynamic = "force-dynamic";
  * Admin lookup: all events of one organizer. Gated by ADMIN_SECRET
  * (x-admin-secret), same as /api/admin/organizers. Read-only.
  */
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.ADMIN_SECRET;
-  return !!secret && req.headers.get("x-admin-secret") === secret;
-}
-
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdmin(req);
+  if (denied) return denied;
 
   const wallet = req.nextUrl.searchParams.get("wallet") ?? "";
   if (!wallet) {

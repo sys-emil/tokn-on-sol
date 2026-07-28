@@ -199,7 +199,10 @@ export default function Dashboard() {
   useEffect(() => {
     if (!solanaWalletAddress) return;
     async function checkOrg(): Promise<void> {
-      const res = await fetch(`/api/organizers/status?walletAddress=${solanaWalletAddress}`);
+      const token = await getAccessToken();
+      const res = await fetch(`/api/organizers/status?walletAddress=${solanaWalletAddress}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) { setOrgStatus('none'); setStripeStatus('disconnected'); return; }
       const data = (await res.json()) as {
         status: string;
@@ -228,7 +231,7 @@ export default function Dashboard() {
       }
     }
     void checkOrg();
-  }, [solanaWalletAddress, statusNonce]);
+  }, [solanaWalletAddress, statusNonce, getAccessToken]);
 
   useEffect(() => {
     if (orgStatus === 'none') router.push('/become-organizer');
@@ -238,7 +241,10 @@ export default function Dashboard() {
     if (!solanaWalletAddress || eventsLoaded || orgStatus !== 'approved') return;
     async function loadEvents(): Promise<void> {
       try {
-        const res = await fetch(`/api/events/list?organizerWallet=${solanaWalletAddress}`);
+        const token = await getAccessToken();
+        const res = await fetch(`/api/events/list?organizerWallet=${solanaWalletAddress}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (res.ok) {
           const data = (await res.json()) as {
             events: EventRow[];
@@ -260,7 +266,7 @@ export default function Dashboard() {
       }
     }
     void loadEvents();
-  }, [solanaWalletAddress, eventsLoaded, orgStatus]);
+  }, [solanaWalletAddress, eventsLoaded, orgStatus, getAccessToken]);
 
   // After returning from Stripe Express onboarding, refresh Connect status from Stripe.
   useEffect(() => {
@@ -269,7 +275,10 @@ export default function Dashboard() {
     async function refreshStripeStatus(): Promise<void> {
       setStripeStatus('loading');
       try {
-        const r = await fetch(`/api/stripe/connect/status?walletAddress=${solanaWalletAddress}`);
+        const token = await getAccessToken();
+        const r = await fetch(`/api/stripe/connect/status?walletAddress=${solanaWalletAddress}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = (await r.json()) as { connected: boolean; charges_enabled?: boolean };
         if (!data.connected) setStripeStatus('disconnected');
         else if (!data.charges_enabled) setStripeStatus('pending');
@@ -279,7 +288,7 @@ export default function Dashboard() {
       }
     }
     void refreshStripeStatus();
-  }, [solanaWalletAddress]);
+  }, [solanaWalletAddress, getAccessToken]);
 
   if (!ready || !authenticated) return null;
 

@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requestOwnsWallet } from "@/lib/privyServer";
 
+export const dynamic = "force-dynamic";
+
+/**
+ * Connect onboarding state for the signed-in organizer's own account. Gated:
+ * it returns the Stripe account id and the KYC flags, and it calls the Stripe
+ * API plus writes the refreshed flags back, so it must not be triggerable for
+ * an arbitrary wallet.
+ */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const walletAddress = new URL(req.url).searchParams.get("walletAddress");
   if (!walletAddress) {
     return NextResponse.json({ connected: false }, { status: 400 });
+  }
+
+  if (!(await requestOwnsWallet(req, walletAddress))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { data: organizer } = await supabaseAdmin

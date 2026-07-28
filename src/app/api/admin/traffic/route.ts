@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/adminAuth";
 import {
   DAY_MS,
   channelFromReferrer,
@@ -25,11 +26,6 @@ export const dynamic = "force-dynamic";
  * /api/admin/* routes. Row volume is tiny (one row per tracked interaction),
  * so the aggregation runs in-process instead of in SQL.
  */
-function authorized(req: NextRequest): boolean {
-  const secret = process.env.ADMIN_SECRET;
-  return !!secret && req.headers.get("x-admin-secret") === secret;
-}
-
 /** Hard ceiling so a traffic spike can never blow up the response. */
 const MAX_ROWS = 100_000;
 
@@ -164,9 +160,8 @@ function round1(n: number): number {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdmin(req);
+  if (denied) return denied;
 
   const range = parseRange(new URL(req.url).searchParams.get("range"));
   const today = startOfDay(new Date());

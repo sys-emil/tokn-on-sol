@@ -1,11 +1,23 @@
 import { supabaseAdmin } from "@/lib/supabase";
+import { requestOwnsWallet } from "@/lib/privyServer";
 import { NextRequest, NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
+/**
+ * Organizer status for the signed-in user's own wallet. Gated: the response
+ * carries the application status, the plan and the Stripe account id, which is
+ * business data about that organizer, not public information.
+ */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const walletAddress = new URL(req.url).searchParams.get("walletAddress");
 
   if (!walletAddress) {
     return NextResponse.json({ status: "none" });
+  }
+
+  if (!(await requestOwnsWallet(req, walletAddress))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { data } = await supabaseAdmin

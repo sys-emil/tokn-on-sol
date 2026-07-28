@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mintTicket } from "@/lib/mint";
+import { requireAdmin } from "@/lib/adminAuth";
 
 interface MintRequestBody {
   eventName: string;
@@ -11,9 +12,8 @@ interface MintRequestBody {
 // mints via the mint_jobs worker. Gated because an open endpoint would let
 // anyone mint real assets at the operator's expense.
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  if (!process.env.ADMIN_SECRET || req.headers.get("x-admin-secret") !== process.env.ADMIN_SECRET) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireAdmin(req);
+  if (denied) return denied;
 
   let body: MintRequestBody;
 
