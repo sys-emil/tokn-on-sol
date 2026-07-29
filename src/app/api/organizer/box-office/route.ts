@@ -43,8 +43,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const eventId = (body.eventId ?? "").trim();
   const quantity = Math.max(1, Math.min(10, Math.floor(body.quantity ?? 1)));
   const email = (body.email ?? "").trim().toLowerCase() || null;
+  const admitNow = body.admitNow === true;
   if (!eventId) {
     return NextResponse.json({ success: false, error: "eventId is required" }, { status: 400 });
+  }
+
+  // A sale that neither admits the guest nor has a delivery address would
+  // leave them with nothing: the ticket sits in escrow and no link to it
+  // exists. Refuse rather than take the money.
+  if (!admitNow && !email) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Ohne Einlass brauchen wir eine E-Mail-Adresse, sonst bekommt der Gast sein Ticket nicht.",
+      },
+      { status: 400 },
+    );
   }
 
   const { data: event } = await supabaseAdmin
@@ -116,9 +130,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: finalizeError.message }, { status: 500 });
   }
 
-  // The ticket is minted to operator escrow like a guest purchase. When an
-  // e-mail was given, the buyer also gets an order link and can move it into
-  // their own account later.
+  // Minted to operator escrow like a guest purchase, regardless of whether an
+  // e-mail was given: the ticket has to exist for the count and the record.
+  // The e-mail only decides whether the buyer is told about it.
   const { error: jobError } = await supabaseAdmin.from("mint_jobs").insert({
     stripe_session_id: sessionId,
     event_id: eventId,
@@ -127,22 +141,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     buyer_email: email,
     quantity,
     source: "box_office",
-    admit_immediately: body.admitNow === true,
+    admit_immediately: admitNow,
   });
   if (jobError) {
     return NextResponse.json({ success: false, error: jobError.message }, { status: 500 });
   }
 
+  // Always recorded, even for a walk-up who was let straight in: the token is
+  // the only handle anyone has on an escrowed ticket, and without it a later
+  // support request ("I did buy at the door") is unanswerable.
   let orderToken: string | null = null;
-  if (email) {
-    try {
-      const order = await ensureGuestOrder({ stripeSessionId: sessionId, eventId, email });
-      orderToken = order?.token ?? null;
-    } catch (err) {
-      // The sale itself is already booked; a missing order link is recoverable
-      // by hand and must not fail the door.
-      console.error("Box office guest order failed:", err);
-    }
+  try {
+    const order = await ensureGuestOrder({ stripeSessionId: sessionId, eventId, email });
+    orderToken = order?.token ?? null;
+  } catch (err) {
+    // The sale itself is already booked; a missing order link is recoverable
+    // by hand and must not fail the door.
+    console.error("Box office guest order failed:", err);
   }
 
   after(async () => {
@@ -160,7 +175,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     tierName: tier.name,
     priceCents: tier.price_eur,
     totalCents: tier.price_eur * quantity,
-    admitted: body.admitNow === true,
+    admitted: admitNow,
     orderToken,
   });
 }

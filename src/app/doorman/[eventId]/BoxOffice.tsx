@@ -115,13 +115,24 @@ export function BoxOffice({ eventId, tiers, authHeaders, onSold }: Props) {
             className="bo-input"
             type="email"
             inputMode="email"
-            placeholder="E-Mail für Beleg (optional)"
+            placeholder={admitNow ? 'E-Mail für Beleg (optional)' : 'E-Mail für das Ticket (nötig)'}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={busy}
           />
+          {!admitNow && !email.trim() && (
+            <div className="bo-hint">
+              Ohne Einlass geht das Ticket per E-Mail raus. Ohne Adresse hätte der Gast
+              keinen Weg, es zu bekommen.
+            </div>
+          )}
 
-          <button type="button" className="bo-sell" onClick={() => void sell()} disabled={busy || !tier}>
+          <button
+            type="button"
+            className="bo-sell"
+            onClick={() => void sell()}
+            disabled={busy || !tier || (!admitNow && !email.trim())}
+          >
             {busy ? 'Wird gebucht …' : `${eur(total)} kassieren`}
           </button>
 
@@ -188,6 +199,7 @@ export function BoxOffice({ eventId, tiers, authHeaders, onSold }: Props) {
           font-variant-numeric: tabular-nums;
         }
         .bo-sell:disabled { opacity: 0.5; cursor: not-allowed; }
+        .bo-hint { font-size: 11.5px; color: var(--ink-3); line-height: 1.5; margin-top: -4px; }
         .bo-done {
           font-size: 13px; line-height: 1.5; padding: 10px 12px; border-radius: 9px;
           background: var(--ok-wash); color: oklch(0.38 0.12 150);
