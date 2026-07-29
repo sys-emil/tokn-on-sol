@@ -8,6 +8,7 @@ import { findValidDiscount, discountedUnitPrice, type ValidDiscount } from "@/li
 import { requestOwnsWallet } from "@/lib/privyServer";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { getOperatorWalletAddress } from "@/lib/transfer";
+import { isBot, botDenied } from "@/lib/botCheck";
 
 interface CheckoutBody {
   eventId: string;
@@ -77,6 +78,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  if (await isBot()) return botDenied();
+
   let body: CheckoutBody;
 
   try {
@@ -117,8 +120,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Guest tickets are static QR codes; an organizer can require accounts for
-  // events where that trade-off is unacceptable.
+  // Guests pay first and unlock the ticket by signing in afterwards. An
+  // organizer can require the account up front instead.
   if (isGuest && event.guest_checkout_enabled === false) {
     return NextResponse.json(
       { success: false, error: "Für dieses Event ist ein Konto nötig." },

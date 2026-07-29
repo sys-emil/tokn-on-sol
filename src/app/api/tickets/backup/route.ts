@@ -5,6 +5,7 @@ import { buildBackupPdf } from "@/lib/backupTicket";
 import { backupChallenge } from "@/lib/backupChallenge";
 import { sendBackupTicketEmail } from "@/lib/email";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { isBot, botDenied } from "@/lib/botCheck";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -38,6 +39,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     );
   }
+
+  if (await isBot()) return botDenied();
 
   let body: BackupBody;
   try {

@@ -4,6 +4,7 @@ import { PrivyClient } from "@privy-io/server-auth";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { sendAdminAlert } from "@/lib/email";
+import { isBot, botDenied } from "@/lib/botCheck";
 import { NextRequest, NextResponse } from "next/server";
 
 const privy = new PrivyClient(
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     );
   }
+
+  if (await isBot()) return botDenied();
 
   const authToken = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!authToken) {

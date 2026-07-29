@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { isBot, botDenied } from "@/lib/botCheck";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     );
   }
+
+  if (await isBot()) return botDenied();
 
   let body: { eventId?: string; email?: string };
   try {

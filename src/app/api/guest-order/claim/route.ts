@@ -5,6 +5,7 @@ import { getOperatorWalletAddress, transferCnft } from "@/lib/transfer";
 import { getAssetOwner } from "@/lib/resale";
 import { requestOwnsWallet } from "@/lib/privyServer";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { isBot, botDenied } from "@/lib/botCheck";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // one on-chain transfer per ticket
@@ -30,6 +31,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     );
   }
+
+  if (await isBot()) return botDenied();
 
   let body: { token?: string; claimerWallet?: string };
   try {

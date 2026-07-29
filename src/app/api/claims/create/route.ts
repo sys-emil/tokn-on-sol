@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { transferCnft, getOperatorWalletAddress } from "@/lib/transfer";
 import { heliusRpcUrl } from "@/lib/solana";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { isBot, botDenied } from "@/lib/botCheck";
 import { NextRequest, NextResponse } from "next/server";
 
 const privy = new PrivyClient(
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     );
   }
+
+  if (await isBot()) return botDenied();
 
   const authToken = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!authToken) {

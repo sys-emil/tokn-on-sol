@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { RESALE_HOLD_MINUTES } from "@/lib/resale";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { requestOwnsWallet } from "@/lib/privyServer";
+import { isBot, botDenied } from "@/lib/botCheck";
 
 interface ResaleCheckoutBody {
   listingId: string;
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
     );
   }
+
+  if (await isBot()) return botDenied();
 
   let body: ResaleCheckoutBody;
   try {
