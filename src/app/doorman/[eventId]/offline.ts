@@ -26,8 +26,9 @@ export interface BackupPersonView {
 export interface SnapshotTicket {
   a: string; // assetId
   w: string; // owner wallet
-  r: 0 | 1; // redeemed
+  r: 0 | 1; // redeemed (for THIS event; a season pass may be used at others)
   x: 0 | 1; // revoked
+  p?: 1; // season pass, admitted to this date among others
 }
 
 /** Price categories, so the door can sell without a second request. */
@@ -51,7 +52,7 @@ export interface PendingRedemption {
 }
 
 export type OfflineVerdict =
-  | { valid: true; assetId: string; backup?: boolean; person?: BackupPersonView }
+  | { valid: true; assetId: string; backup?: boolean; person?: BackupPersonView; seasonPass?: boolean }
   | { valid: false; reason: string; redeemedAt?: string };
 
 const snapshotKey = (eventId: string) => `passly-doorman-snapshot-${eventId}`;
@@ -166,5 +167,5 @@ export async function verifyOffline(
     return { valid: false, reason: 'Already redeemed' };
   }
 
-  return { valid: true, assetId, backup: isBackup, person };
+  return { valid: true, assetId, backup: isBackup, person, seasonPass: ticket.p === 1 };
 }

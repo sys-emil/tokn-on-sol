@@ -29,6 +29,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
+  // Season passes still on sale, i.e. active and with at least one date left.
+  // A pass whose whole series has passed is dead content, not a sale page.
+  const upcomingEventIds = (data ?? []).map((e) => e.id as string);
+  const { data: passLinks } = upcomingEventIds.length > 0
+    ? await supabaseAdmin
+        .from('season_pass_events')
+        .select('pass_id')
+        .in('event_id', upcomingEventIds)
+    : { data: [] };
+
+  const livePassIds = [...new Set(((passLinks ?? []) as { pass_id: string }[]).map((l) => l.pass_id))];
+  const { data: passes } = livePassIds.length > 0
+    ? await supabaseAdmin
+        .from('season_passes')
+        .select('id')
+        .in('id', livePassIds)
+        .eq('active', true)
+    : { data: [] };
+
+  const passEntries: MetadataRoute.Sitemap = ((passes ?? []) as { id: string }[]).map((p) => ({
+    url: `${siteUrl}/pass/${p.id}`,
+    changeFrequency: 'daily',
+    priority: 0.7,
+  }));
+
   // Public organizer profiles (approved + handle set).
   const { data: orgs } = await supabaseAdmin
     .from('organizers')
@@ -50,5 +75,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: path === '/' ? 1 : 0.6,
   }));
 
-  return [...staticEntries, ...eventEntries, ...organizerEntries];
+  return [...staticEntries, ...eventEntries, ...passEntries, ...organizerEntries];
 }

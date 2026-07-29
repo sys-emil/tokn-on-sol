@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
+import { passTicketsForEvent } from "@/lib/seasonPass";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order("sort")
     .order("created_at");
 
+  // Season-pass holders admitted to this date. Kept out of `tickets`: the
+  // serial there is this event's mint order, and a pass was never minted for
+  // it. What the organizer needs is the head count, so that's what they get.
+  const passTickets = await passTicketsForEvent(id);
+  const passStats = {
+    total: passTickets.filter((p) => !p.revoked).length,
+    checkedIn: passTickets.filter((p) => !p.revoked && p.redeemedHere).length,
+  };
+
   const eventPublic = { ...(event as Record<string, unknown>) };
   delete eventPublic.organizer_wallet;
 
@@ -80,5 +90,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     tiers: tiers ?? [],
     tickets,
     stats: { checkedIn, revoked },
+    passStats,
   });
 }

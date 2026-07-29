@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestMayWorkTheDoor } from "@/lib/doorAccess";
+import { passTicketsForEvent } from "@/lib/seasonPass";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [{ data: purchases }, { data: tiers }] = await Promise.all([
+  const [{ data: purchases }, { data: tiers }, passTickets] = await Promise.all([
     supabaseAdmin
       .from("purchases")
       .select("asset_id, buyer_wallet, redeemed_at, revoked_at")
@@ -49,6 +50,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .eq("event_id", id)
       .order("sort")
       .order("created_at"),
+    // Season passes admit to this date too. Their admission is per-event
+    // (pass_redemptions), so the flag is resolved here and folded into the
+    // same list; the offline verifier needs no pass logic of its own.
+    passTicketsForEvent(id),
   ]);
 
   return NextResponse.json({
@@ -59,11 +64,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       name: t.name as string,
       priceCents: t.price_eur as number,
     })),
-    tickets: (purchases ?? []).map((p) => ({
-      a: p.asset_id as string,
-      w: p.buyer_wallet as string,
-      r: p.redeemed_at ? 1 : 0,
-      x: p.revoked_at ? 1 : 0,
-    })),
+    tickets: [
+      ...(purchases ?? []).map((p) => ({
+        a: p.asset_id as string,
+        w: p.buyer_wallet as string,
+        r: p.redeemed_at ? 1 : 0,
+        x: p.revoked_at ? 1 : 0,
+      })),
+      ...passTickets.map((p) => ({
+        a: p.assetId,
+        w: p.buyerWallet,
+        r: p.redeemedHere ? 1 : 0,
+        x: p.revoked ? 1 : 0,
+        p: 1 as const,
+      })),
+    ],
   });
 }

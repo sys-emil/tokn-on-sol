@@ -47,6 +47,44 @@ async function getEvent(id: string): Promise<Event | null> {
   return data as Event;
 }
 
+/**
+ * Season passes on sale that include this date. Shown as an alternative to a
+ * single ticket; the pass has its own capacity and does not touch this event's.
+ */
+async function getPasses(eventId: string): Promise<{ id: string; name: string; priceCents: number; dates: number }[]> {
+  const { data: links } = await supabaseAdmin
+    .from('season_pass_events')
+    .select('pass_id')
+    .eq('event_id', eventId);
+
+  const passIds = ((links ?? []) as { pass_id: string }[]).map((l) => l.pass_id);
+  if (passIds.length === 0) return [];
+
+  const [{ data: passes }, { data: allDates }] = await Promise.all([
+    supabaseAdmin
+      .from('season_passes')
+      .select('id, name, price_eur, capacity, tickets_sold, tickets_reserved')
+      .in('id', passIds)
+      .eq('active', true),
+    supabaseAdmin.from('season_pass_events').select('pass_id').in('pass_id', passIds),
+  ]);
+
+  const dateCount = new Map<string, number>();
+  for (const row of (allDates ?? []) as { pass_id: string }[]) {
+    dateCount.set(row.pass_id, (dateCount.get(row.pass_id) ?? 0) + 1);
+  }
+
+  type PassRow = { id: string; name: string; price_eur: number; capacity: number; tickets_sold: number; tickets_reserved: number };
+  return ((passes ?? []) as PassRow[])
+    .filter((p) => p.capacity - p.tickets_sold - p.tickets_reserved > 0)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      priceCents: p.price_eur,
+      dates: dateCount.get(p.id) ?? 0,
+    }));
+}
+
 async function getTiers(eventId: string): Promise<TicketTier[]> {
   const { data } = await supabaseAdmin
     .from('ticket_tiers')
@@ -100,12 +138,28 @@ const PAGE_CSS = `
   .shop-row .value { font-weight: 600; font-variant-numeric: tabular-nums; }
   .shop-row .value.big { font-size: 19px; letter-spacing: -0.01em; }
   .shop-foot { border-top: 1px solid var(--line); padding: 20px 24px 24px; background: var(--surface-2); }
+  .shop-pass {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 14px; padding: 13px 15px;
+    border: 1px solid var(--accent-line);
+    background: var(--accent-wash);
+    border-radius: var(--radius);
+    font-size: 13px; line-height: 1.5; color: var(--ink-2);
+    text-decoration: none;
+  }
+  .shop-pass .n { font-weight: 600; color: var(--ink); display: block; }
+  .shop-pass .go { margin-left: auto; flex-shrink: 0; color: var(--accent-ink); font-weight: 600; }
   .shop-trust {
     margin-top: 22px;
     display: flex; align-items: center; gap: 8px;
     font-size: 12px; color: var(--ink-3);
   }
 `;
+
+/** cancelled_at is not on the Event type; the page reads it the same way below. */
+function cancelledCheck(event: Event): boolean {
+  return Boolean((event as Event & { cancelled_at?: string | null }).cancelled_at);
+}
 
 export default async function ShopPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -114,7 +168,8 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
   if (!event) notFound();
 
   const tiers = await getTiers(id);
-  const cancelled = Boolean((event as Event & { cancelled_at?: string | null }).cancelled_at);
+  const cancelled = cancelledCheck(event);
+  const passes = cancelled ? [] : await getPasses(id);
 
   // Waitlist is a Pro feature of the organizer; the shop only offers the
   // signup when the plan is active (the join API enforces the same rule).
@@ -261,6 +316,18 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
                 queueEnabled={event.queue_enabled === true}
               />
             )}
+
+            {passes.map((p) => (
+              <Link key={p.id} href={`/pass/${p.id}`} className="shop-pass">
+                <Icon name="ticket" size={16} />
+                <span>
+                  <span className="n">{p.name}</span>
+                  Ein Pass für {p.dates} {p.dates === 1 ? 'Termin' : 'Termine'}
+                  {p.priceCents > 0 && ` · ${(p.priceCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}`}
+                </span>
+                <span className="go">→</span>
+              </Link>
+            ))}
           </div>
         </div>
 

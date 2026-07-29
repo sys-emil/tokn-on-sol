@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 import { checkRedemptionBadges } from "@/lib/badges";
+import { loadPassTicket, passCoversEvent, redeemPassForEvent } from "@/lib/seasonPass";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (updated && updated.length > 0) {
       synced.push(r.assetId);
       redeemedWallets.add((updated[0] as { buyer_wallet: string }).buyer_wallet);
+      continue;
+    }
+
+    // Season passes carry no event_id, so the update above never matches one.
+    // Their admission is booked per date in pass_redemptions, with the unique
+    // index playing the role that `redeemed_at IS NULL` plays above.
+    const passTicket = await loadPassTicket(r.assetId);
+    if (passTicket) {
+      if (passTicket.revokedAt) {
+        conflicts.push({ assetId: r.assetId, reason: "revoked" });
+      } else if (!(await passCoversEvent(passTicket.passId, eventId))) {
+        conflicts.push({ assetId: r.assetId, reason: "not_found" });
+      } else {
+        const result = await redeemPassForEvent(passTicket.purchaseId, eventId, at);
+        if (result.ok) {
+          synced.push(r.assetId);
+          redeemedWallets.add(passTicket.buyerWallet);
+        } else {
+          conflicts.push({
+            assetId: r.assetId,
+            reason: "already_redeemed",
+            redeemedAt: result.redeemedAt ?? undefined,
+          });
+        }
+      }
       continue;
     }
 

@@ -3,6 +3,7 @@ import bs58 from "bs58";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildBackupPdf } from "@/lib/backupTicket";
 import { backupChallenge } from "@/lib/backupChallenge";
+import { passEventDates } from "@/lib/seasonPass";
 import { sendBackupTicketEmail } from "@/lib/email";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
@@ -66,18 +67,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "items are required" }, { status: 400 });
   }
 
-  // All tickets must exist, be unrevoked, and belong to one event.
+  // All tickets must exist, be unrevoked, and belong to ONE product; either
+  // the same event or the same season pass. Mixing them on one sheet would
+  // print a single date over tickets that don't share it.
   const assetIds = items.map((i) => i.assetId);
   const { data: purchases } = await supabaseAdmin
     .from("purchases")
-    .select("asset_id, buyer_wallet, event_id, revoked_at, stripe_session_id")
+    .select("asset_id, buyer_wallet, event_id, season_pass_id, revoked_at, stripe_session_id")
     .in("asset_id", assetIds);
   const byAsset = new Map(
-    ((purchases ?? []) as { asset_id: string; buyer_wallet: string; event_id: string; revoked_at: string | null; stripe_session_id: string | null }[])
+    ((purchases ?? []) as { asset_id: string; buyer_wallet: string; event_id: string | null; season_pass_id: string | null; revoked_at: string | null; stripe_session_id: string | null }[])
       .map((p) => [p.asset_id, p]),
   );
-  const eventIds = new Set([...byAsset.values()].map((p) => p.event_id));
-  if (byAsset.size !== assetIds.length || eventIds.size !== 1) {
+  const productIds = new Set([...byAsset.values()].map((p) => p.event_id ?? `pass:${p.season_pass_id}`));
+  if (byAsset.size !== assetIds.length || productIds.size !== 1) {
     return NextResponse.json({ success: false, error: "Ticket nicht gefunden." }, { status: 404 });
   }
   if ([...byAsset.values()].some((p) => p.revoked_at)) {
@@ -111,20 +114,45 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const eventId = [...eventIds][0];
-  const { data: event } = await supabaseAdmin
-    .from("events")
-    .select("name, date, venue, cancelled_at")
-    .eq("id", eventId)
-    .single();
-  if (!event || event.cancelled_at) {
-    return NextResponse.json({ success: false, error: "Event nicht gefunden." }, { status: 404 });
+  // A backup pass carries no single date; the printed line names the series
+  // instead. At the door the token verifies exactly like a live pass scan
+  // (the verify route redeems it per event), so nothing else changes.
+  const passId = [...byAsset.values()][0].season_pass_id;
+  let headline: { name: string; date: string; venue: string | null };
+  if (passId) {
+    const [{ data: pass }, dates] = await Promise.all([
+      supabaseAdmin.from("season_passes").select("name, active").eq("id", passId).maybeSingle(),
+      passEventDates(passId),
+    ]);
+    if (!pass) {
+      return NextResponse.json({ success: false, error: "Saisonpass nicht gefunden." }, { status: 404 });
+    }
+    headline = {
+      name: pass.name as string,
+      date: dates[0] ?? "",
+      venue: dates.length > 1 ? `Saisonpass · ${dates.length} Termine` : "Saisonpass",
+    };
+  } else {
+    const eventId = [...byAsset.values()][0].event_id as string;
+    const { data: event } = await supabaseAdmin
+      .from("events")
+      .select("name, date, venue, cancelled_at")
+      .eq("id", eventId)
+      .single();
+    if (!event || event.cancelled_at) {
+      return NextResponse.json({ success: false, error: "Event nicht gefunden." }, { status: 404 });
+    }
+    headline = {
+      name: event.name as string,
+      date: event.date as string,
+      venue: (event.venue ?? null) as string | null,
+    };
   }
 
   const pdf = await buildBackupPdf({
-    eventName: event.name as string,
-    eventDate: event.date as string,
-    venue: (event.venue ?? null) as string | null,
+    eventName: headline.name,
+    eventDate: headline.date,
+    venue: headline.venue,
     person: { firstName, lastName, birthDate },
     tickets: items.map((i) => ({
       assetId: i.assetId,
@@ -156,7 +184,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       try {
         await sendBackupTicketEmail({
           to: job.buyer_email as string,
-          eventName: event.name as string,
+          eventName: headline.name,
           pdf,
           baseUrl,
         });

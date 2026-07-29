@@ -92,7 +92,7 @@ export async function checkResaleEligibility(
   // 2) Purchase record: must not be redeemed (scanned) or revoked (refunded).
   const { data: purchase } = await supabaseAdmin
     .from("purchases")
-    .select("event_id, tier_id, redeemed_at, revoked_at")
+    .select("event_id, season_pass_id, tier_id, redeemed_at, revoked_at")
     .eq("asset_id", assetId)
     .maybeSingle();
   if (!purchase) {
@@ -103,6 +103,12 @@ export async function checkResaleEligibility(
   }
   if (purchase.revoked_at) {
     return { ok: false, status: 409, error: "Dieses Ticket ist nicht mehr gültig." };
+  }
+  // A season pass spans many dates with its own per-date redemption state and
+  // no face value in a tier; the markup cap and the resale fee have nothing to
+  // compute against. Not supported, and not silently mispriced.
+  if (purchase.season_pass_id) {
+    return { ok: false, status: 403, error: "Saisonpässe können nicht weiterverkauft werden." };
   }
 
   // 3) Event: must exist, not be cancelled, not be in the past, and have resale on.

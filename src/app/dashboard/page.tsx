@@ -555,6 +555,7 @@ export default function Dashboard() {
             <div className="nav">
               <Link href="/dashboard" className="active">Übersicht</Link>
               <Link href="/dashboard/profile">Profil</Link>
+              <Link href="/dashboard/passes">Saisonpässe</Link>
               <Link href="/dashboard/payouts">Auszahlungen</Link>
               <Link href="/dashboard/analytics" className={plan === 'pro' ? 'nav-pro' : undefined}>
                 {plan === 'pro' && <Icon name="sparkle" size={12} strokeWidth={2} />} Pro

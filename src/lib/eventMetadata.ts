@@ -95,7 +95,45 @@ export async function uploadEventMetadata(params: {
     ],
   };
 
-  const path = `metadata/${eventId}.json`;
+  return writeMetadata(`metadata/${eventId}.json`, metadata);
+}
+
+/**
+ * Metadata JSON for a season pass. Same bucket and shape as an event's, so
+ * wallets and the ticket page read it identically; the "Event Date" attribute
+ * is replaced by the pass validity, which spans many dates.
+ */
+export async function uploadPassMetadata(params: {
+  passId: string;
+  name: string;
+  imageUrl?: string | null;
+  description?: string | null;
+  /** Sorted event dates the pass admits to; used for the human-readable validity. */
+  eventDates?: string[];
+}): Promise<string> {
+  const { passId, name, imageUrl, description, eventDates = [] } = params;
+
+  const validity = eventDates.length > 1
+    ? `${eventDates[0]} – ${eventDates[eventDates.length - 1]}`
+    : eventDates[0] ?? "";
+
+  const metadata = {
+    name,
+    symbol: "TOKN",
+    description: description || `Saisonpass für ${eventDates.length} Termine`,
+    image: imageUrl ?? "",
+    attributes: [
+      { trait_type: "Event Name", value: name },
+      ...(validity ? [{ trait_type: "Pass Validity", value: validity }] : []),
+      { trait_type: "Pass Dates", value: String(eventDates.length) },
+      { trait_type: "Season Pass ID", value: passId },
+    ],
+  };
+
+  return writeMetadata(`metadata/pass-${passId}.json`, metadata);
+}
+
+async function writeMetadata(path: string, metadata: unknown): Promise<string> {
   const { error } = await supabaseAdmin.storage
     .from(BUCKET)
     .upload(path, JSON.stringify(metadata), {

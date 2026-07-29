@@ -33,7 +33,7 @@ type Phase =
   | { tag: 'camera-error'; message: string }
   | { tag: 'scanning' }
   | { tag: 'verifying' }
-  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string; offline?: boolean; backup?: boolean; person?: BackupPersonView; awaitConfirm?: boolean }
+  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string; offline?: boolean; backup?: boolean; person?: BackupPersonView; awaitConfirm?: boolean; seasonPass?: boolean }
   | { tag: 'result-used'; redeemedAt: string }
   | { tag: 'result-invalid'; reason: string };
 
@@ -467,7 +467,7 @@ export default function DoormanPage() {
         signal: AbortSignal.timeout(5000),
       });
       const data = (await res.json()) as
-        | { valid: true; assetId: string; eventName: string; redeemedAt: string; backup?: boolean; person?: BackupPersonView }
+        | { valid: true; assetId: string; eventName: string; redeemedAt: string; backup?: boolean; person?: BackupPersonView; seasonPass?: boolean }
         | { valid: false; reason: string; redeemedAt?: string };
 
       if (data.valid) {
@@ -475,7 +475,7 @@ export default function DoormanPage() {
         setScannedToday((n) => n + 1);
         setLastScan(new Date().toISOString());
         awaitConfirm = Boolean(data.backup);
-        setPhase({ tag: 'result-valid', assetId: data.assetId, eventName: data.eventName, redeemedAt: data.redeemedAt, backup: data.backup, person: data.person, awaitConfirm });
+        setPhase({ tag: 'result-valid', assetId: data.assetId, eventName: data.eventName, redeemedAt: data.redeemedAt, backup: data.backup, person: data.person, awaitConfirm, seasonPass: data.seasonPass });
       } else if (data.reason === 'Already redeemed') {
         setPhase({ tag: 'result-used', redeemedAt: data.redeemedAt ?? '' });
       } else {
@@ -494,7 +494,7 @@ export default function DoormanPage() {
         setScannedToday((n) => n + 1);
         setLastScan(at);
         awaitConfirm = Boolean(verdict.backup);
-        setPhase({ tag: 'result-valid', assetId: verdict.assetId, eventName: event?.name ?? '', redeemedAt: at, offline: true, backup: verdict.backup, person: verdict.person, awaitConfirm });
+        setPhase({ tag: 'result-valid', assetId: verdict.assetId, eventName: event?.name ?? '', redeemedAt: at, offline: true, backup: verdict.backup, person: verdict.person, awaitConfirm, seasonPass: verdict.seasonPass });
       } else if (verdict.reason === 'Already redeemed') {
         setPhase({ tag: 'result-used', redeemedAt: verdict.redeemedAt ?? '' });
       } else {
@@ -755,6 +755,9 @@ export default function DoormanPage() {
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>Willkommen!</div>
                   <div style={{ fontSize: 13, marginTop: 4, opacity: 0.85 }}>{phase.eventName} · {shortId(phase.assetId)}</div>
+                  {phase.seasonPass && (
+                    <div style={{ fontSize: 12, marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Saisonpass · gilt heute</div>
+                  )}
                   {phase.offline && (
                     <div style={{ fontSize: 11.5, marginTop: 6, opacity: 0.75 }}>Offline geprüft, wird später synchronisiert</div>
                   )}

@@ -6,6 +6,7 @@ import { heliusRpcUrl } from "@/lib/solana";
 import { checkRedemptionBadges } from "@/lib/badges";
 import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 import { backupChallenge } from "@/lib/backupChallenge";
+import { loadPassTicket, passCoversEvent, redeemPassForEvent } from "@/lib/seasonPass";
 import bs58 from "bs58";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -178,6 +179,52 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       redeemedAt: now,
       backup: isBackup,
       person: person ?? undefined,
+    });
+  }
+
+  // No purchase row matched (event_id + redeemed_at IS NULL). A season pass
+  // always lands here: it carries no event_id, and its single redeemed_at
+  // could only ever admit to one of its dates. Admission is recorded per date
+  // in pass_redemptions instead; see src/lib/seasonPass.ts.
+  const passTicket = await loadPassTicket(assetId);
+  if (passTicket) {
+    if (passTicket.revokedAt) {
+      return NextResponse.json({ valid: false, reason: "Ticket revoked (refunded)" });
+    }
+    // A pass for a different series reads as "not found", same as a ticket for
+    // another event; the door learns nothing about tickets it may not scan.
+    if (!(await passCoversEvent(passTicket.passId, eventId))) {
+      return NextResponse.json({ valid: false, reason: "Ticket not found" });
+    }
+
+    const result = await redeemPassForEvent(passTicket.purchaseId, eventId, now);
+    if (!result.ok) {
+      return NextResponse.json({
+        valid: false,
+        reason: "Already redeemed",
+        redeemedAt: result.redeemedAt,
+      });
+    }
+
+    const { data: passEvent } = await supabaseAdmin
+      .from("events")
+      .select("name")
+      .eq("id", eventId)
+      .single();
+
+    const baseUrl = process.env.APP_URL
+      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    void checkRedemptionBadges(walletAddress, eventId, baseUrl);
+
+    return NextResponse.json({
+      valid: true,
+      assetId,
+      eventName: passEvent?.name ?? "",
+      redeemedAt: result.redeemedAt,
+      backup: isBackup,
+      person: person ?? undefined,
+      seasonPass: true,
+      passName: passTicket.passName,
     });
   }
 

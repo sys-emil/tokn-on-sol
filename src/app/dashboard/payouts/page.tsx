@@ -12,6 +12,8 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 interface PayoutRow {
   id: string;
   eventName: string;
+  /** Season-pass sales have no event; the name is the pass's. */
+  seasonPass?: boolean;
   netCents: number;
   status: string;
   availableAt: string;
@@ -84,6 +86,7 @@ export default function PayoutsPage() {
           <PasslyLogo height={24} />
           <div className="nav">
             <Link href="/dashboard">Übersicht</Link>
+            <Link href="/dashboard/passes">Saisonpässe</Link>
             <Link href="/dashboard/payouts" className="active">Auszahlungen</Link>
             <Link href="/dashboard/analytics">Pro</Link>
             <Link href="/events">Events</Link>
@@ -161,7 +164,12 @@ export default function PayoutsPage() {
                     <tbody>
                       {data.payouts.map((p) => (
                         <tr key={p.id} style={{ borderTop: '1px solid var(--line)' }}>
-                          <td style={{ padding: '12px 18px', fontWeight: 500 }}>{p.eventName}</td>
+                          <td style={{ padding: '12px 18px', fontWeight: 500 }}>
+                            {p.eventName}
+                            {p.seasonPass && (
+                              <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-3)', fontWeight: 500, marginTop: 2 }}>Saisonpass</span>
+                            )}
+                          </td>
                           <td style={{ padding: '12px 10px', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{shortStamp(p.createdAt)}</td>
                           <td style={{ padding: '12px 10px', color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{shortStamp(p.availableAt)}</td>
                           <td style={{ padding: '12px 10px', whiteSpace: 'nowrap', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{eur(p.netCents)}</td>

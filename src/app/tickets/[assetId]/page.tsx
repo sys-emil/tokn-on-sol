@@ -23,6 +23,17 @@ async function getAsset(assetId: string): Promise<DasAsset | null> {
   return json.result ?? null;
 }
 
+/** One date of a season pass, with this ticket's admission state for it. */
+interface PassDateView {
+  id: string;
+  name: string;
+  date: string;
+  startTime: string | null;
+  venue: string | null;
+  cancelled: boolean;
+  redeemedAt: string | null;
+}
+
 interface PurchaseInfo {
   redeemedAt: string | null;
   revokedAt: string | null;
@@ -32,17 +43,21 @@ interface PurchaseInfo {
   startTime: string | null;
   venue: string | null;
   tierName: string | null;
+  /** Set when this asset is a season pass rather than a single-event ticket. */
+  pass: { name: string; dates: PassDateView[] } | null;
 }
 
 async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
   const { data } = await supabaseAdmin
     .from('purchases')
-    .select('redeemed_at, revoked_at, event_id, events(name, date, start_time, venue), ticket_tiers(name)')
+    .select('id, redeemed_at, revoked_at, event_id, season_pass_id, events(name, date, start_time, venue), ticket_tiers(name), season_passes(name)')
     .eq('asset_id', assetId)
     .maybeSingle();
   if (!data) return null;
   const ev = Array.isArray(data.events) ? data.events[0] : data.events;
   const tier = Array.isArray(data.ticket_tiers) ? data.ticket_tiers[0] : data.ticket_tiers;
+  const passRow = Array.isArray(data.season_passes) ? data.season_passes[0] : data.season_passes;
+
   return {
     redeemedAt: (data.redeemed_at as string | null) ?? null,
     revokedAt: (data.revoked_at as string | null) ?? null,
@@ -52,7 +67,54 @@ async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
     startTime: (ev?.start_time as string | undefined) ?? null,
     venue: (ev?.venue as string | undefined) ?? null,
     tierName: (tier?.name as string | undefined) ?? null,
+    pass: data.season_pass_id
+      ? {
+          name: (passRow?.name as string | undefined) ?? 'Saisonpass',
+          dates: await getPassDates(data.season_pass_id as string, data.id as string),
+        }
+      : null,
   };
+}
+
+/**
+ * The pass's dates plus which of them this ticket has already been used for.
+ * A pass is never globally "redeemed"; it burns once per date, which is why
+ * the state lives in pass_redemptions rather than purchases.redeemed_at.
+ */
+async function getPassDates(passId: string, purchaseId: string): Promise<PassDateView[]> {
+  const [{ data: links }, { data: used }] = await Promise.all([
+    supabaseAdmin
+      .from('season_pass_events')
+      .select('events(id, name, date, start_time, venue, cancelled_at)')
+      .eq('pass_id', passId),
+    supabaseAdmin
+      .from('pass_redemptions')
+      .select('event_id, redeemed_at')
+      .eq('purchase_id', purchaseId),
+  ]);
+
+  const redeemed = new Map(
+    ((used ?? []) as { event_id: string; redeemed_at: string }[]).map((r) => [r.event_id, r.redeemed_at]),
+  );
+
+  type Row = { events: Record<string, unknown> | Record<string, unknown>[] | null };
+  return ((links ?? []) as Row[])
+    .map((row) => {
+      const ev = Array.isArray(row.events) ? row.events[0] : row.events;
+      if (!ev) return null;
+      const id = ev.id as string;
+      return {
+        id,
+        name: ev.name as string,
+        date: ev.date as string,
+        startTime: (ev.start_time as string | null) ?? null,
+        venue: (ev.venue as string | null) ?? null,
+        cancelled: Boolean(ev.cancelled_at),
+        redeemedAt: redeemed.get(id) ?? null,
+      };
+    })
+    .filter((d): d is PassDateView => d !== null)
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -152,19 +214,26 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
 
   if (!asset && !purchase) notFound();
 
-  const name = purchase?.eventName
+  const pass = purchase?.pass ?? null;
+
+  const name = pass?.name
+    ?? purchase?.eventName
     ?? asset?.content?.metadata?.name
     ?? 'Unbekanntes Event';
   const dateAttr = asset?.content?.metadata?.attributes?.find((a) => a.trait_type === 'Event Date');
-  const date = purchase?.eventDate ?? dateAttr?.value ?? '';
+  const date = pass ? '' : purchase?.eventDate ?? dateAttr?.value ?? '';
   const venueAttr = asset?.content?.metadata?.attributes?.find((a) => a.trait_type === 'Venue');
-  const venue = purchase?.venue ?? venueAttr?.value ?? null;
+  const venue = pass ? null : purchase?.venue ?? venueAttr?.value ?? null;
 
+  // A pass is never globally "eingelöst"; it burns once per date, so its
+  // headline status only distinguishes valid from revoked.
   const status: 'valid' | 'checked' | 'revoked' = purchase?.revokedAt
     ? 'revoked'
-    : purchase?.redeemedAt
+    : !pass && purchase?.redeemedAt
       ? 'checked'
       : 'valid';
+
+  const openDates = pass ? pass.dates.filter((d) => !d.cancelled && !d.redeemedAt).length : 0;
 
   const serial = `PSL-${assetId.slice(-4).toUpperCase()}`;
   const tierName = purchase?.tierName ?? null;
@@ -189,11 +258,18 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
 
           <div style={{ padding: '16px 22px 14px' }}>
             <div style={{ fontSize: 11.5, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {isVip ? 'Dein VIP-Ticket' : 'Dein Ticket'}
+              {pass ? 'Dein Saisonpass' : isVip ? 'Dein VIP-Ticket' : 'Dein Ticket'}
             </div>
             <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.015em', lineHeight: 1.25, marginTop: 4 }}>{name}</div>
             {date && (
               <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>{formatDate(date)}</div>
+            )}
+            {pass && (
+              <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>
+                {openDates > 0
+                  ? `Noch ${openDates} von ${pass.dates.length} ${pass.dates.length === 1 ? 'Termin' : 'Terminen'} offen`
+                  : `Alle ${pass.dates.length} Termine eingelöst`}
+              </div>
             )}
           </div>
 
@@ -208,7 +284,11 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
               <TicketClient assetId={assetId} />
             </div>
             <div className={isVip ? 'vip-ink' : undefined} style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'var(--accent-ink)', fontWeight: 500 }}>
-              {status === 'revoked' ? 'Dieses Ticket wurde storniert.' : 'Beim Einlass einscannen lassen'}
+              {status === 'revoked'
+                ? 'Dieses Ticket wurde storniert.'
+                : pass
+                  ? 'Bei jedem Termin einscannen lassen'
+                  : 'Beim Einlass einscannen lassen'}
             </div>
             <div className="perf" style={{ left: -9 }} />
             <div className="perf" style={{ right: -9 }} />
@@ -247,8 +327,34 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
               </div>
             )}
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <span className="muted">Ticket-Nr.</span><span style={{ fontWeight: 500, fontFamily: 'var(--mono)', fontSize: 11.5 }}>#{serial}</span>
+              <span className="muted">{pass ? 'Pass-Nr.' : 'Ticket-Nr.'}</span><span style={{ fontWeight: 500, fontFamily: 'var(--mono)', fontSize: 11.5 }}>#{serial}</span>
             </div>
+
+            {pass && pass.dates.length > 0 && (
+              <div style={{ marginTop: 6, borderTop: '1px solid var(--line)', paddingTop: 12, display: 'grid', gap: 9 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                  Termine
+                </div>
+                {pass.dates.map((d) => (
+                  <div key={d.id} className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ fontWeight: 500 }}>{d.name}</span>
+                      <span style={{ display: 'block', color: 'var(--ink-3)', fontSize: 11.5, marginTop: 2 }}>
+                        {formatDate(d.date)}{d.startTime ? ` · ${d.startTime} Uhr` : ''}
+                      </span>
+                    </span>
+                    {d.cancelled ? (
+                      <span className="chip bad" style={{ flexShrink: 0 }}><span className="d" />Abgesagt</span>
+                    ) : d.redeemedAt ? (
+                      <span className="chip" style={{ flexShrink: 0 }}><span className="d" />Eingelöst</span>
+                    ) : (
+                      <span className="chip ok" style={{ flexShrink: 0 }}><span className="d" />Offen</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {purchase?.eventId && status !== 'revoked' && (
               <a
                 href={`/api/events/${purchase.eventId}/ics`}

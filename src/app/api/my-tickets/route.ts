@@ -6,6 +6,90 @@ import { maxResalePriceCents } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
+interface PassPurchaseRow {
+  id: string;
+  asset_id: string;
+  created_at: string;
+  season_pass_id: string;
+}
+
+export interface PassView {
+  assetId: string;
+  passId: string;
+  passName: string;
+  purchasedAt: string;
+  dates: {
+    eventId: string;
+    eventName: string;
+    eventDate: string;
+    startTime: string | null;
+    venue: string | null;
+    cancelled: boolean;
+    redeemedAt: string | null;
+  }[];
+}
+
+/**
+ * Resolves the buyer's season passes with every date and its admission state.
+ * A pass burns once per date (pass_redemptions), never globally, so there is
+ * no single redeemed_at to report.
+ */
+async function loadPasses(rows: PassPurchaseRow[]): Promise<PassView[]> {
+  if (rows.length === 0) return [];
+
+  const passIds = [...new Set(rows.map((r) => r.season_pass_id))];
+  const [{ data: passes }, { data: links }, { data: redemptions }] = await Promise.all([
+    supabaseAdmin.from("season_passes").select("id, name").in("id", passIds),
+    supabaseAdmin
+      .from("season_pass_events")
+      .select("pass_id, events(id, name, date, start_time, venue, cancelled_at)")
+      .in("pass_id", passIds),
+    supabaseAdmin
+      .from("pass_redemptions")
+      .select("purchase_id, event_id, redeemed_at")
+      .in("purchase_id", rows.map((r) => r.id)),
+  ]);
+
+  const nameById = new Map(((passes ?? []) as { id: string; name: string }[]).map((p) => [p.id, p.name]));
+
+  type LinkRow = { pass_id: string; events: Record<string, unknown> | Record<string, unknown>[] | null };
+  const datesByPass = new Map<string, PassView["dates"]>();
+  for (const link of (links ?? []) as LinkRow[]) {
+    const ev = Array.isArray(link.events) ? link.events[0] : link.events;
+    if (!ev) continue;
+    const entry = {
+      eventId: ev.id as string,
+      eventName: ev.name as string,
+      eventDate: ev.date as string,
+      startTime: (ev.start_time as string | null) ?? null,
+      venue: (ev.venue as string | null) ?? null,
+      cancelled: Boolean(ev.cancelled_at),
+      redeemedAt: null as string | null,
+    };
+    datesByPass.set(link.pass_id, [...(datesByPass.get(link.pass_id) ?? []), entry]);
+  }
+
+  const usedByPurchase = new Map<string, Map<string, string>>();
+  for (const r of (redemptions ?? []) as { purchase_id: string; event_id: string; redeemed_at: string }[]) {
+    const inner = usedByPurchase.get(r.purchase_id) ?? new Map<string, string>();
+    inner.set(r.event_id, r.redeemed_at);
+    usedByPurchase.set(r.purchase_id, inner);
+  }
+
+  return rows.map((row) => {
+    const used = usedByPurchase.get(row.id);
+    return {
+      assetId: row.asset_id,
+      passId: row.season_pass_id,
+      passName: nameById.get(row.season_pass_id) ?? "Saisonpass",
+      purchasedAt: row.created_at,
+      dates: (datesByPass.get(row.season_pass_id) ?? [])
+        .map((d) => ({ ...d, redeemedAt: used?.get(d.eventId) ?? null }))
+        .sort((a, b) => a.eventDate.localeCompare(b.eventDate)),
+    };
+  });
+}
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const buyerWallet = new URL(req.url).searchParams.get("buyerWallet");
 
@@ -24,15 +108,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data: allRows, error } = await supabaseAdmin
     .from("purchases")
-    .select("asset_id, created_at, event_id, redeemed_at, events(name, date, start_time, venue, image_url, accent_hue, border_style, price_eur, resale_max_markup_pct), ticket_tiers(name, price_eur)")
+    .select("id, asset_id, created_at, event_id, season_pass_id, redeemed_at, events(name, date, start_time, venue, image_url, accent_hue, border_style, price_eur, resale_max_markup_pct), ticket_tiers(name, price_eur)")
     .eq("buyer_wallet", buyerWallet)
     .order("created_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  // Season passes belong to no single date, so they can't be folded into the
+  // date-keyed ticket list (grouping, countdowns, resale all assume one event).
+  // They get their own section on /my-tickets instead.
+  const passRows = (allRows ?? []).filter((row) => row.season_pass_id);
+  const data = (allRows ?? []).filter((row) => !row.season_pass_id);
+  const passes = await loadPasses(passRows as PassPurchaseRow[]);
 
   const assetIds = (data ?? []).map((row) => row.asset_id as string);
 
@@ -131,15 +222,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     earnedAt: b.earned_at,
   }));
 
-  // Progress toward the next badges; the hook that brings buyers back.
+  // Progress toward the next badges; the hook that brings buyers back. Pass
+  // admissions count exactly like ticket ones — the door awards the same
+  // badges for them, so the progress bar has to agree.
   const redeemedRows = (data ?? []).filter((row) => row.redeemed_at);
-  const attendedCount = redeemedRows.length;
+  const passAttendedEventIds = passes.flatMap((p) =>
+    p.dates.filter((d) => d.redeemedAt).map((d) => d.eventId),
+  );
+  const attendedCount = redeemedRows.length + passAttendedEventIds.length;
   const nextMilestone = MILESTONES.find((m) => attendedCount < m.threshold) ?? null;
 
   // Best Stammgast candidate: distinct redeemed events per organizer, skipping
   // organizers where the badge is already earned. Shown by name, never wallet.
   let topOrganizer: { name: string; attendedEvents: number; threshold: number } | null = null;
-  const redeemedEventIds = [...new Set(redeemedRows.map((row) => row.event_id as string))];
+  const redeemedEventIds = [
+    ...new Set([...redeemedRows.map((row) => row.event_id as string), ...passAttendedEventIds]),
+  ];
   if (redeemedEventIds.length > 0) {
     const { data: eventOwners } = await supabaseAdmin
       .from("events")
@@ -174,5 +272,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const progress = { attendedCount, nextMilestone, topOrganizer };
 
-  return NextResponse.json({ tickets, badges, progress, creditCents });
+  return NextResponse.json({ tickets, passes, badges, progress, creditCents });
 }

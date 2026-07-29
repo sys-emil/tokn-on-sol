@@ -17,14 +17,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: rows } = await supabaseAdmin
     .from("payouts")
-    .select("id, event_id, gross_cents, net_cents, status, available_at, updated_at, created_at, failure_reason")
+    .select("id, event_id, season_pass_id, gross_cents, net_cents, status, available_at, updated_at, created_at, failure_reason")
     .eq("organizer_wallet", walletAddress)
     .order("created_at", { ascending: false })
     .limit(200);
 
   const payouts = (rows ?? []) as {
     id: string;
-    event_id: string;
+    event_id: string | null;
+    /** Set instead of event_id when the sale was a season pass. */
+    season_pass_id: string | null;
     gross_cents: number;
     net_cents: number;
     status: string;
@@ -34,15 +36,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     failure_reason: string | null;
   }[];
 
-  const eventIds = [...new Set(payouts.map((p) => p.event_id))];
+  // A payout belongs to either an event or a season pass; both need a name
+  // for the list.
+  const eventIds = [...new Set(payouts.map((p) => p.event_id).filter((id): id is string => Boolean(id)))];
+  const passIds = [...new Set(payouts.map((p) => p.season_pass_id).filter((id): id is string => Boolean(id)))];
   const eventNames = new Map<string, string>();
-  if (eventIds.length > 0) {
-    const { data: events } = await supabaseAdmin
-      .from("events")
-      .select("id, name")
-      .in("id", eventIds);
-    for (const e of (events ?? []) as { id: string; name: string }[]) eventNames.set(e.id, e.name);
-  }
+  const passNames = new Map<string, string>();
+  const [{ data: events }, { data: passes }] = await Promise.all([
+    eventIds.length > 0
+      ? supabaseAdmin.from("events").select("id, name").in("id", eventIds)
+      : Promise.resolve({ data: [] }),
+    passIds.length > 0
+      ? supabaseAdmin.from("season_passes").select("id, name").in("id", passIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  for (const e of (events ?? []) as { id: string; name: string }[]) eventNames.set(e.id, e.name);
+  for (const p of (passes ?? []) as { id: string; name: string }[]) passNames.set(p.id, p.name);
 
   let pendingCents = 0;
   let paidCents = 0;
@@ -63,7 +72,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     summary: { pendingCents, paidCents, heldCount, nextAvailableAt },
     payouts: payouts.map((p) => ({
       id: p.id,
-      eventName: eventNames.get(p.event_id) ?? "–",
+      eventName: (p.event_id ? eventNames.get(p.event_id) : null)
+        ?? (p.season_pass_id ? passNames.get(p.season_pass_id) : null)
+        ?? "–",
+      seasonPass: Boolean(p.season_pass_id),
       netCents: p.net_cents,
       status: p.status,
       availableAt: p.available_at,

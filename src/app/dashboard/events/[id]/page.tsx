@@ -97,6 +97,8 @@ interface EventApiResponse {
   tiers: TierRow[];
   tickets: TicketRow[];
   stats: { checkedIn: number; revoked: number };
+  /** Season-pass holders admitted to this date; not part of `tickets`. */
+  passStats?: { total: number; checkedIn: number };
 }
 
 export default function EventDetailPage() {
@@ -110,6 +112,7 @@ export default function EventDetailPage() {
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [checkedIn, setCheckedIn] = useState(0);
+  const [passStats, setPassStats] = useState<{ total: number; checkedIn: number } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -185,6 +188,7 @@ export default function EventDetailPage() {
         setTiers(data.tiers ?? []);
         setTickets(data.tickets);
         setCheckedIn(data.stats.checkedIn);
+        setPassStats(data.passStats ?? null);
       } catch {
         setLoadError('Verbindungsfehler. Bitte lade die Seite neu.');
       } finally {
@@ -228,6 +232,7 @@ export default function EventDetailPage() {
           setTiers(data.tiers ?? []);
           setTickets(data.tickets);
           setCheckedIn(data.stats.checkedIn);
+          setPassStats(data.passStats ?? null);
         } catch {
           // transient, next tick retries
         }
@@ -771,6 +776,11 @@ export default function EventDetailPage() {
                           <span style={{ fontSize: 18, color: 'var(--ink-3)', fontWeight: 500 }}> / {event.tickets_sold} eingecheckt</span>
                         </div>
                         <div className="progress" style={{ marginTop: 10 }}><span style={{ width: redemptionPct + '%' }} /></div>
+                        {passStats && passStats.total > 0 && (
+                          <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--ink-3)' }}>
+                            Dazu {passStats.checkedIn} von {passStats.total} Saisonpässen eingecheckt.
+                          </div>
+                        )}
                         <div style={{ marginTop: 10, fontSize: 12, color: 'var(--ink-3)' }}>
                           Aktualisiert sich alle 30 Sekunden automatisch.
                         </div>
@@ -825,6 +835,12 @@ export default function EventDetailPage() {
                           <span className="muted">Bereits eingelöst</span>
                           <span style={{ fontWeight: 500, color: 'var(--ok)' }}>{checkedIn}</span>
                         </div>
+                        {passStats && passStats.total > 0 && (
+                          <div className="row" style={{ justifyContent: 'space-between' }}>
+                            <span className="muted">Saisonpässe für diesen Termin</span>
+                            <span style={{ fontWeight: 500 }}>{passStats.checkedIn} / {passStats.total}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

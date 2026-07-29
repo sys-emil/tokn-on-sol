@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { mintTicket } from "@/lib/mint";
 import { sendTicketConfirmation, sendAdminAlert } from "@/lib/email";
 import { checkPurchaseBadges } from "@/lib/badges";
+import { passEventDates } from "@/lib/seasonPass";
 
 /**
  * Async mint queue (decouples slow Bubblegum mints from the Stripe webhook).
@@ -23,7 +24,10 @@ const MAX_ATTEMPTS = 5;
 export interface MintJob {
   id: string;
   stripe_session_id: string;
-  event_id: string;
+  /** NULL for season-pass jobs, which belong to no single event. */
+  event_id: string | null;
+  /** Set instead of event_id when the job mints season passes. */
+  season_pass_id?: string | null;
   tier_id: string | null;
   buyer_wallet: string;
   buyer_email: string | null;
@@ -103,11 +107,16 @@ async function autoRefundFailedJob(job: MintJob, totalMinted: number): Promise<s
     // Partial failure: free the seats of the unminted tickets so they can be
     // resold. (Full failure is handled by the charge.refunded webhook.)
     if (totalMinted > 0) {
-      await supabaseAdmin.rpc("release_sold_seats", {
-        p_event_id: job.event_id,
-        p_quantity: missing,
-        p_tier_id: job.tier_id,
-      });
+      await (job.season_pass_id
+        ? supabaseAdmin.rpc("release_sold_passes", {
+            p_pass_id: job.season_pass_id,
+            p_quantity: missing,
+          })
+        : supabaseAdmin.rpc("release_sold_seats", {
+            p_event_id: job.event_id,
+            p_quantity: missing,
+            p_tier_id: job.tier_id,
+          }));
     }
 
     return `Auto-refunded ${(amountCents / 100).toFixed(2)} ${payout.currency ?? "eur"} for ${missing} unminted ticket(s): ${refund.id}`;
@@ -121,7 +130,31 @@ async function autoRefundFailedJob(job: MintJob, totalMinted: number): Promise<s
   }
 }
 
-async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
+/**
+ * What the job mints: an event ticket or a season pass. Both end up as one
+ * cNFT per unit, so the mint loop below only needs a name, a date for the
+ * legacy metadata fallback, and the metadata URI.
+ */
+async function loadMintSubject(job: MintJob): Promise<{ name: string; date: string; metadataUri: string | null }> {
+  if (job.season_pass_id) {
+    const { data: pass, error } = await supabaseAdmin
+      .from("season_passes")
+      .select("name, metadata_uri")
+      .eq("id", job.season_pass_id)
+      .single();
+    if (error || !pass) {
+      throw new Error(`Season pass ${job.season_pass_id} not found: ${error?.message ?? "no row"}`);
+    }
+    // A pass has many dates; the first one stands in for the legacy metadata
+    // route, which every pass avoids anyway by carrying its own metadata_uri.
+    const dates = await passEventDates(job.season_pass_id);
+    return {
+      name: pass.name as string,
+      date: dates[0] ?? "",
+      metadataUri: (pass.metadata_uri as string | null) ?? null,
+    };
+  }
+
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
     .select("name, date, metadata_uri")
@@ -130,6 +163,15 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
   if (eventError || !event) {
     throw new Error(`Event ${job.event_id} not found: ${eventError?.message ?? "no row"}`);
   }
+  return {
+    name: event.name as string,
+    date: event.date as string,
+    metadataUri: (event.metadata_uri as string | null) ?? null,
+  };
+}
+
+async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
+  const event = await loadMintSubject(job);
 
   const { data: existing } = await supabaseAdmin
     .from("purchases")
@@ -154,11 +196,12 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           eventDate: event.date,
           ownerWallet: job.buyer_wallet,
           baseUrl,
-          metadataUri: event.metadata_uri,
+          metadataUri: event.metadataUri,
         });
 
         await supabaseAdmin.from("purchases").insert({
           event_id: job.event_id,
+          season_pass_id: job.season_pass_id ?? null,
           tier_id: job.tier_id,
           buyer_wallet: job.buyer_wallet,
           asset_id: assetId,
@@ -195,9 +238,12 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
       .eq("id", job.id);
 
     // Purchase-time badges (Frühstarter, Early Bird); must not delay the job.
-    void checkPurchaseBadges(job.buyer_wallet, job.event_id, baseUrl).catch((err) =>
-      console.error("Purchase badge check failed:", err),
-    );
+    // Both are event-scoped, so a season pass earns them at the door instead.
+    if (job.event_id) {
+      void checkPurchaseBadges(job.buyer_wallet, job.event_id, baseUrl).catch((err) =>
+        console.error("Purchase badge check failed:", err),
+      );
+    }
 
     // One confirmation email per completed job, listing every ticket of the session.
     if (job.buyer_email) {
@@ -251,7 +297,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
     void sendAdminAlert({
       subject: `Mint job failed permanently; session ${job.stripe_session_id}`,
       text: `Mint job ${job.id} gave up after ${job.attempts} attempts.\n`
-        + `Event: ${event.name} (${job.event_id})\n`
+        + `${job.season_pass_id ? "Saisonpass" : "Event"}: ${event.name} (${job.season_pass_id ?? job.event_id})\n`
         + `Buyer wallet: ${job.buyer_wallet}\n`
         + `Minted ${totalMinted}/${job.quantity} tickets.\n`
         + `Last error: ${lastError ?? "unknown"}\n\n`
@@ -294,7 +340,7 @@ export async function processMintJobs(limit = 5, baseUrl = mintJobsSiteUrl): Pro
     void sendAdminAlert({
       subject: `Mint job failed permanently; session ${job.stripe_session_id}`,
       text: `Mint job ${job.id} was abandoned mid-run after ${job.attempts} attempts (worker crash).\n`
-        + `Event ID: ${job.event_id}\n`
+        + `${job.season_pass_id ? "Saisonpass-ID" : "Event ID"}: ${job.season_pass_id ?? job.event_id}\n`
         + `Buyer wallet: ${job.buyer_wallet}\n`
         + `Minted ${totalMinted}/${job.quantity} tickets.\n\n`
         + `Refund: ${refundNote}`,

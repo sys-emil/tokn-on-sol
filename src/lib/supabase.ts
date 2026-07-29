@@ -70,6 +70,28 @@ export type Event = {
   created_at: string;
 };
 
+/**
+ * One ticket, many dates. The pass has its own capacity pot and deliberately
+ * claims no seats in the individual events (see src/lib/seasonPass.ts).
+ */
+export type SeasonPass = {
+  id: string;
+  organizer_wallet: string;
+  name: string;
+  description: string | null;
+  /** Cents, like events.price_eur. */
+  price_eur: number;
+  capacity: number;
+  tickets_sold: number;
+  tickets_reserved: number;
+  active: boolean;
+  image_url: string | null;
+  metadata_uri: string | null;
+  /** Days after purchase before the revenue is transferred (chargeback buffer). */
+  payout_hold_days: number;
+  created_at: string;
+};
+
 export type ResaleListingStatus = 'active' | 'reserved' | 'sold' | 'cancelled';
 
 export type ResaleListing = {

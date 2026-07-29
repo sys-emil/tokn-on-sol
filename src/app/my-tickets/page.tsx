@@ -399,6 +399,23 @@ const PAGE_CSS = `
   }
 `;
 
+/** A season pass: one ticket, many dates, each burned at most once. */
+interface PassView {
+  assetId: string;
+  passId: string;
+  passName: string;
+  purchasedAt: string;
+  dates: {
+    eventId: string;
+    eventName: string;
+    eventDate: string;
+    startTime: string | null;
+    venue: string | null;
+    cancelled: boolean;
+    redeemedAt: string | null;
+  }[];
+}
+
 interface Ticket {
   assetId: string;
   eventName: string;
@@ -554,6 +571,7 @@ export default function MyTickets() {
   const { wallets: solanaWallets } = useSolanaWallets();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [passes, setPasses] = useState<PassView[]>([]);
   const [badges, setBadges] = useState<BadgeItem[]>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [loyalty, setLoyalty] = useState<LoyaltyProgramView[]>([]);
@@ -691,8 +709,9 @@ export default function MyTickets() {
           fetch(`/api/loyalty/status?buyerWallet=${buyerWallet}`, { headers: authHeaders }),
         ]);
         if (res.ok) {
-          const data = (await res.json()) as { tickets: Ticket[]; badges: BadgeItem[]; progress?: Progress; creditCents?: number };
+          const data = (await res.json()) as { tickets: Ticket[]; passes?: PassView[]; badges: BadgeItem[]; progress?: Progress; creditCents?: number };
           setTickets(data.tickets);
+          setPasses(data.passes ?? []);
           setBadges(data.badges ?? []);
           setProgress(data.progress ?? null);
           setCreditCents(data.creditCents ?? 0);
@@ -1474,6 +1493,46 @@ export default function MyTickets() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* ── Saisonpässe ───────────────────────────────
+                    Eigener Block: ein Pass hat kein einzelnes Datum und
+                    passt deshalb weder in "Bevorstehend" noch in die
+                    nach Monaten sortierte Sammlung. */}
+                {passes.length > 0 && (
+                  <div style={{ paddingTop: 26 }}>
+                    <div className="tk-group-head">
+                      <h2>Saisonpässe</h2>
+                      <span className="n">{passes.length}</span>
+                      <span className="rule" />
+                    </div>
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      {passes.map((p) => {
+                        const open = p.dates.filter((d) => !d.cancelled && !d.redeemedAt);
+                        const next = open[0] ?? null;
+                        return (
+                          <Link key={p.assetId} href={`/tickets/${p.assetId}`} className="card" style={{ display: 'grid', gap: 10, color: 'inherit' }}>
+                            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-ink)' }}>
+                                  Saisonpass
+                                </div>
+                                <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', marginTop: 4 }}>{p.passName}</div>
+                              </div>
+                              {open.length > 0
+                                ? <span className="chip ok" style={{ flexShrink: 0 }}><span className="d" />{open.length} offen</span>
+                                : <span className="chip" style={{ flexShrink: 0 }}><span className="d" />Alle eingelöst</span>}
+                            </div>
+                            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+                              {next
+                                ? `Als Nächstes: ${next.eventName} · ${formatDate(next.eventDate)}${next.startTime ? `, ${next.startTime.slice(0, 5)}` : ''}`
+                                : `${p.dates.length} ${p.dates.length === 1 ? 'Termin' : 'Termine'} · alle besucht`}
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 

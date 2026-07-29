@@ -218,6 +218,7 @@ export default function OrganizerProfilePage() {
           <PasslyLogo height={24} />
           <div className="nav">
             <Link href="/dashboard">Übersicht</Link>
+            <Link href="/dashboard/passes">Saisonpässe</Link>
             <Link href="/dashboard/payouts">Auszahlungen</Link>
             <Link href="/dashboard/profile" className="active">Profil</Link>
             <Link href="/events">Events</Link>

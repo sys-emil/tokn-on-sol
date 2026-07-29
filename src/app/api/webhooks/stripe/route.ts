@@ -142,6 +142,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Season-pass sessions (metadata.purpose === 'season_pass') book against the
+  // pass's own capacity pot and belong to no single event, so they must branch
+  // out before the primary ticket path, which resolves an eventId. Expiry falls
+  // through to the generic release_reservation below; that SQL function reads
+  // the reservation row and handles pass rows itself.
+  if (stripeEvent.type === "checkout.session.completed") {
+    const s = stripeEvent.data.object as Stripe.Checkout.Session;
+    if (s.metadata?.purpose === "season_pass") {
+      try {
+        await handlePassCompleted(s);
+      } catch (err) {
+        console.error(`Failed to settle season pass for session ${s.id}:`, err);
+        alertAdmin(
+          `Saisonpass-Abwicklung fehlgeschlagen; Session ${s.id}`,
+          `checkout.session.completed (Saisonpass) schlug fehl; Stripe stellt erneut zu.\n`
+            + `Fehler: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
+        return NextResponse.json({ error: "Failed to settle season pass" }, { status: 500 });
+      }
+      after(async () => {
+        try {
+          await processMintJobs(3, siteUrl);
+        } catch (err) {
+          console.error("Post-response mint processing failed:", err);
+        }
+      });
+      return NextResponse.json({ received: true });
+    }
+  }
+
   // Pro-subscription lifecycle: created/updated set the plan from the current
   // status (past_due/canceled/unpaid downgrade automatically), deleted resets
   // to free. Organizer resolved via subscription metadata, customer as fallback.
@@ -641,6 +672,109 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
 
   return NextResponse.json({ received: true });
+}
+
+/**
+ * Settle a completed season-pass checkout. Same three steps as the ticket path
+ * — convert the reservation, record the payout obligation, enqueue the mint —
+ * but against the pass instead of an event.
+ *
+ * The payout hold is anchored on the purchase date, not an event date: a pass
+ * spans many dates, and holding the organizer's money until the last one would
+ * turn a season sale into a season-long loan. Throws on a genuine failure so
+ * the caller releases the idempotency claim and Stripe retries.
+ */
+async function handlePassCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  const passId = session.metadata?.passId;
+  const buyerWallet = session.metadata?.buyerWallet;
+  const quantity = Math.max(1, Math.min(10, parseInt(session.metadata?.quantity ?? "1", 10) || 1));
+  if (!passId || !buyerWallet) {
+    // Nothing we can do without the linkage; a retry wouldn't help.
+    console.error(`Season-pass session ${session.id} missing metadata`);
+    return;
+  }
+
+  const { data: pass, error: passError } = await supabaseAdmin
+    .from("season_passes")
+    .select("id, name, organizer_wallet, payout_hold_days")
+    .eq("id", passId)
+    .single();
+  if (passError || !pass) throw new Error(`Season pass ${passId} not found`);
+
+  const { error: finalizeError } = await supabaseAdmin.rpc("finalize_pass_sale", {
+    p_session_id: session.id,
+    p_pass_id: passId,
+    p_quantity: quantity,
+  });
+  if (finalizeError) throw new Error(`finalize_pass_sale: ${finalizeError.message}`);
+
+  const grossCents = session.amount_total ?? 0;
+  if (grossCents > 0) {
+    let chargeId: string | null = null;
+    let paymentMethod: string | null = null;
+    if (typeof session.payment_intent === "string") {
+      const pi = await stripe.paymentIntents.retrieve(session.payment_intent, {
+        expand: ["latest_charge"],
+      });
+      const latest = pi.latest_charge;
+      if (typeof latest === "string") {
+        chargeId = latest;
+      } else if (latest) {
+        chargeId = latest.id;
+        paymentMethod = latest.payment_method_details?.type ?? null;
+      }
+      if (!paymentMethod) paymentMethod = pi.payment_method_types?.[0] ?? null;
+    }
+
+    const { data: organizer } = await supabaseAdmin
+      .from("organizers")
+      .select("stripe_account_id")
+      .eq("wallet_address", pass.organizer_wallet)
+      .maybeSingle();
+
+    const serviceFeeRaw = session.metadata?.serviceFeeCents;
+    const parsedFee = serviceFeeRaw != null && /^\d+$/.test(serviceFeeRaw)
+      ? parseInt(serviceFeeRaw, 10)
+      : null;
+    const feeCents = parsedFee != null && parsedFee <= grossCents
+      ? parsedFee
+      : computeFeeSplit(grossCents).feeCents;
+
+    const { error: payoutError } = await supabaseAdmin.from("payouts").upsert(
+      {
+        stripe_session_id: session.id,
+        payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
+        charge_id: chargeId,
+        event_id: null,
+        season_pass_id: passId,
+        organizer_wallet: pass.organizer_wallet,
+        stripe_account_id: (organizer?.stripe_account_id as string | null) ?? null,
+        gross_cents: grossCents,
+        fee_cents: feeCents,
+        net_cents: grossCents - feeCents,
+        currency: session.currency ?? "eur",
+        // Empty date → computeAvailableAt anchors the hold on now (purchase time).
+        available_at: computeAvailableAt("", (pass.payout_hold_days as number) ?? 0).toISOString(),
+        payment_method: paymentMethod,
+      },
+      { onConflict: "stripe_session_id", ignoreDuplicates: true },
+    );
+    if (payoutError) throw new Error(`payout row: ${payoutError.message}`);
+  }
+
+  const { error: jobError } = await supabaseAdmin.from("mint_jobs").upsert(
+    {
+      stripe_session_id: session.id,
+      event_id: null,
+      season_pass_id: passId,
+      tier_id: null,
+      buyer_wallet: buyerWallet,
+      buyer_email: session.customer_details?.email ?? null,
+      quantity,
+    },
+    { onConflict: "stripe_session_id", ignoreDuplicates: true },
+  );
+  if (jobError) throw new Error(`mint job: ${jobError.message}`);
 }
 
 /**
