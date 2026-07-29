@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Optional upgrade path off the guest order page: sign in and pull every ticket
- * of the order out of escrow into a real account. After that the account's
- * rotating QR replaces the static one, so this also removes the copyable-code
- * trade-off for buyers who care.
+ * The one action on a guest order page: sign in, which moves the tickets out of
+ * operator escrow into the buyer's own account and makes the rotating QR
+ * available. Until this happens no scannable code exists anywhere — that is
+ * deliberate, see the page component.
  */
 export function ClaimTickets({ token, count }: { token: string; count: number }) {
   const { ready, authenticated, login } = usePrivy();
@@ -33,11 +33,11 @@ export function ClaimTickets({ token, count }: { token: string; count: number })
       });
       const data = (await res.json()) as { success: boolean; error?: string };
       if (!res.ok || !data.success) {
-        setError(data.error ?? 'Übernahme fehlgeschlagen.');
+        setError(data.error ?? 'Freischalten fehlgeschlagen.');
         return;
       }
-      // The page recomputes owners and QR codes server-side.
-      router.refresh();
+      // Straight to the ticket; the rotating QR lives there.
+      router.push('/my-tickets');
     } catch {
       setError('Netzwerkfehler. Bitte versuch es erneut.');
     } finally {
@@ -45,12 +45,12 @@ export function ClaimTickets({ token, count }: { token: string; count: number })
     }
   }
 
-  // Resume automatically once the login the user just started has produced a wallet.
+  // Resume automatically once the login the user just started produced a wallet.
   useEffect(() => {
     if (!pending.current || !ready || !authenticated || !wallet) return;
     pending.current = false;
     void claim(wallet);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- claim is stable enough; re-running on wallet change is the intent
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-running on wallet arrival is the intent
   }, [ready, authenticated, wallet]);
 
   function handleClick(): void {
@@ -63,22 +63,34 @@ export function ClaimTickets({ token, count }: { token: string; count: number })
     void claim(wallet);
   }
 
+  const waitingForWallet = authenticated && !wallet;
+
   return (
     <div className="claim-box">
-      <button type="button" className="btn ghost sm" onClick={handleClick} disabled={busy || !ready}>
-        {busy ? 'Wird übernommen …' : count > 1 ? 'Tickets in mein Konto übernehmen' : 'Ticket in mein Konto übernehmen'}
+      <button
+        type="button"
+        className="btn primary lg"
+        onClick={handleClick}
+        disabled={busy || !ready || waitingForWallet}
+      >
+        {busy
+          ? 'Wird freigeschaltet …'
+          : waitingForWallet
+          ? 'Konto wird eingerichtet …'
+          : count > 1
+          ? 'Anmelden und Tickets anzeigen'
+          : 'Anmelden und Ticket anzeigen'}
       </button>
       <div className="claim-hint">
-        Optional. Im Konto bekommst du einen QR, der sich jede Minute erneuert, und findest deine
-        Tickets ohne diesen Link wieder.
+        Es genügt deine E-Mail-Adresse, kein Passwort. Nimm am besten die, mit der du bezahlt hast.
       </div>
       {error && <div className="claim-error">{error}</div>}
 
       <style>{`
-        .claim-box { border-top: 1px solid var(--surface-3); padding-top: 16px; margin-top: 4px; text-align: center; }
+        .claim-box { text-align: center; }
         .claim-box .btn { width: 100%; justify-content: center; }
-        .claim-hint { font-size: 11.5px; color: var(--ink-4); line-height: 1.55; margin-top: 9px; }
-        .claim-error { font-size: 12px; color: var(--bad); margin-top: 9px; line-height: 1.5; }
+        .claim-hint { font-size: 11.5px; color: var(--ink-4); line-height: 1.55; margin-top: 10px; }
+        .claim-error { font-size: 12px; color: var(--bad); margin-top: 10px; line-height: 1.5; }
       `}</style>
     </div>
   );

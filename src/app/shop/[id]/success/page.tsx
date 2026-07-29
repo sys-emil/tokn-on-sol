@@ -257,8 +257,8 @@ function SuccessInner() {
                   {quantity > 1 ? 'Zu meinen Tickets' : 'Zu meinem Ticket'}
                 </Link>
                 <div style={{ fontSize: 11.5, color: 'var(--ink-4)', lineHeight: 1.55, marginTop: 8, textAlign: 'center' }}>
-                  Wir haben dir den Link auch per E-Mail geschickt. Bewahre ihn wie eine
-                  Eintrittskarte auf.
+                  Dort meldest du dich kurz mit deiner E-Mail-Adresse an, dann ist dein
+                  Einlass-Code da. Den Link haben wir dir auch gemailt.
                 </div>
               </>
             ) : (

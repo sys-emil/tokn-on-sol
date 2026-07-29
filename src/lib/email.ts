@@ -31,8 +31,10 @@ function ticketRow(assetId: string, baseUrl: string, index: number, total: numbe
 }
 
 /**
- * Guest orders have no account to log into, so the mail carries a single link
- * to all tickets of the order. This link IS the ticket; that is said plainly.
+ * Guest orders: the buyer paid without an account, so the mail carries one link
+ * for the whole order. The link is not the ticket — it opens the page where the
+ * ticket is unlocked after signing in. Saying so prevents people from turning
+ * up at the door with just this mail.
  */
 function orderRow(token: string, baseUrl: string, total: number): string {
   const url = `${baseUrl}/order/${token}`;
@@ -42,7 +44,7 @@ function orderRow(token: string, baseUrl: string, total: number): string {
       <td style="padding:12px 0;border-bottom:1px solid #ececf2;">
         <span style="font-family:'SF Mono',Menlo,monospace;font-size:12px;color:#8a8a99;">${label}</span><br/>
         <a href="${url}" style="font-size:14px;color:#7c3aed;text-decoration:none;word-break:break-all;">${url}</a><br/>
-        <span style="font-size:12px;color:#8a8a99;line-height:1.5;">Bewahre diesen Link wie eine Eintrittskarte auf; wer ihn hat, kommt rein. Du kannst die Tickets dort jederzeit in ein Konto übernehmen.</span>
+        <span style="font-size:12px;color:#8a8a99;line-height:1.5;">Öffne den Link und melde dich mit deiner E-Mail-Adresse an; danach ist dein Einlass-Code da. Am besten vor dem Event erledigen, nicht erst in der Schlange.</span>
       </td>
     </tr>`;
 }

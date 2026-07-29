@@ -1,12 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import QRCode from 'qrcode';
 import type { Metadata } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
-import { loadGuestOrder, guestTicketQr } from '@/lib/guestOrders';
-import { getAssetOwner } from '@/lib/resale';
+import { loadGuestOrder } from '@/lib/guestOrders';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
+import { Icon } from '@/app/components/passlyUi';
 import { ClaimTickets } from './ClaimTickets';
 
 export const dynamic = 'force-dynamic';
@@ -24,19 +23,18 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-interface TicketView {
-  assetId: string;
-  qrDataUrl: string | null;
-  claimed: boolean;
-}
-
 /**
- * Guest order page: the tickets of someone who bought without an account.
+ * Guest order page: what someone sees who bought without an account.
  *
- * Everything is rendered server-side because the QR is signed with the operator
- * key — it can never be produced in the browser. Once a ticket has left escrow
- * (the guest claimed it into an account) the static code is no longer valid and
- * the page points at the normal ticket page instead.
+ * It deliberately shows NO scannable code. The ticket only becomes visible and
+ * valid after signing in, at which point the tickets move out of operator
+ * escrow into the buyer's own account and the rotating QR takes over. That
+ * keeps every ticket on the strong model — a static code sitting behind a link
+ * would be copyable, and the link travels through e-mail.
+ *
+ * The account is therefore still required; the point of guest checkout is that
+ * it is required *after* paying rather than before, which is where buyers drop
+ * out.
  */
 export default async function GuestOrderPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -61,22 +59,7 @@ export default async function GuestOrderPage({ params }: { params: Promise<{ tok
 
   const rows = (purchases ?? []) as { asset_id: string; revoked_at: string | null; redeemed_at: string | null }[];
   const valid = rows.filter((r) => !r.revoked_at);
-
-  const tickets: TicketView[] = await Promise.all(
-    valid.map(async (row) => {
-      const owner = await getAssetOwner(row.asset_id);
-      const payload = guestTicketQr(row.asset_id, owner);
-      return {
-        assetId: row.asset_id,
-        qrDataUrl: payload
-          ? await QRCode.toDataURL(payload, { width: 560, margin: 1, errorCorrectionLevel: 'M' })
-          : null,
-        claimed: payload === null,
-      };
-    }),
-  );
-
-  const allClaimed = tickets.length > 0 && tickets.every((t) => t.claimed);
+  const claimed = order.claimed_at !== null;
   const redeemedCount = valid.filter((r) => r.redeemed_at).length;
 
   return (
@@ -86,7 +69,7 @@ export default async function GuestOrderPage({ params }: { params: Promise<{ tok
         <div className="order-card">
           <div className="order-head">
             <PasslyLogo height={22} />
-            <span className="eyebrow">Deine Tickets</span>
+            <span className="eyebrow">{valid.length > 1 ? `${valid.length} Tickets` : 'Dein Ticket'}</span>
           </div>
 
           <h1>{event.name as string}</h1>
@@ -102,44 +85,39 @@ export default async function GuestOrderPage({ params }: { params: Promise<{ tok
             </div>
           )}
 
-          {tickets.length === 0 && (
+          {valid.length === 0 && !event.cancelled_at && (
             <div className="notice">
               Deine Tickets werden gerade erstellt. Lade die Seite in ein paar Sekunden neu.
             </div>
           )}
 
-          {redeemedCount > 0 && (
-            <div className="notice">
-              {redeemedCount === valid.length
-                ? 'Bereits eingelöst. Dieser Code öffnet die Tür nicht noch einmal.'
-                : `${redeemedCount} von ${valid.length} Tickets wurden bereits eingelöst.`}
-            </div>
-          )}
-
-          {tickets.map((ticket, i) => (
-            <div key={ticket.assetId} className="ticket">
-              {tickets.length > 1 && <div className="ticket-label">Ticket {i + 1} von {tickets.length}</div>}
-              {ticket.qrDataUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- data: URL generated server-side
-                <img src={ticket.qrDataUrl} alt="QR-Code für den Einlass" className="qr" />
-              ) : (
-                <div className="claimed-box">
-                  Dieses Ticket liegt jetzt in deinem Konto.{' '}
-                  <Link href={`/tickets/${ticket.assetId}`}>Zum Ticket →</Link>
-                </div>
-              )}
-            </div>
-          ))}
-
-          {!allClaimed && tickets.length > 0 && (
+          {claimed ? (
             <>
-              <div className="hint">
-                Zeig diesen Code am Einlass. Behandle den Link wie eine Eintrittskarte: Wer ihn
-                hat, kommt rein.
+              <div className="done-box">
+                <div className="done-icon"><Icon name="check" size={16} strokeWidth={2.4} /></div>
+                <div>
+                  {valid.length > 1 ? 'Deine Tickets liegen' : 'Dein Ticket liegt'} in deinem Konto.
+                  {redeemedCount > 0 && ` ${redeemedCount} davon wurde${redeemedCount === 1 ? '' : 'n'} bereits eingelöst.`}
+                </div>
               </div>
-              <ClaimTickets token={token} count={tickets.length} />
+              <Link href="/my-tickets" className="btn primary lg full">Zu meinen Tickets</Link>
             </>
-          )}
+          ) : valid.length > 0 ? (
+            <>
+              <div className="locked">
+                <div className="locked-badge"><Icon name="shield" size={22} strokeWidth={1.8} /></div>
+                <div className="locked-title">
+                  {valid.length > 1 ? 'Tickets anzeigen' : 'Ticket anzeigen'}
+                </div>
+                <div className="locked-text">
+                  Melde dich mit deiner E-Mail-Adresse an, dann {valid.length > 1 ? 'werden deine Tickets' : 'wird dein Ticket'} freigeschaltet.
+                  Das dauert einen Moment und schützt dich: Der Einlass-Code wechselt danach jede
+                  Minute und lässt sich nicht abfotografieren oder weitergeben.
+                </div>
+              </div>
+              <ClaimTickets token={token} count={valid.length} />
+            </>
+          ) : null}
 
           <LegalLinks />
         </div>
@@ -166,23 +144,33 @@ const PAGE_CSS = `
     text-transform: uppercase; letter-spacing: 0.08em;
   }
   .order-card h1 { font-size: 22px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; }
-  .meta { font-size: 13px; color: var(--ink-3); line-height: 1.5; margin-bottom: 18px; }
-  .ticket { margin-bottom: 18px; }
-  .ticket-label {
-    font-size: 11.5px; color: var(--ink-4); font-weight: 500;
-    text-align: center; margin-bottom: 8px;
+  .meta { font-size: 13px; color: var(--ink-3); line-height: 1.5; margin-bottom: 20px; }
+  .btn.full { width: 100%; justify-content: center; margin-top: 4px; }
+
+  .locked {
+    text-align: center; padding: 26px 16px 22px;
+    border: 1px dashed var(--surface-3); border-radius: 14px;
+    background: var(--surface-2); margin-bottom: 16px;
   }
-  .qr {
-    width: 100%; max-width: 280px; height: auto; display: block; margin: 0 auto;
-    border-radius: 10px; background: #fff; padding: 10px;
-    border: 1px solid var(--surface-3);
+  .locked-badge {
+    width: 48px; height: 48px; border-radius: 999px; margin: 0 auto 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent-wash); color: var(--accent-ink);
   }
-  .claimed-box {
-    padding: 14px; border-radius: 9px; background: var(--surface-2);
-    font-size: 13px; color: var(--ink-2); line-height: 1.5; text-align: center;
+  .locked-title { font-size: 15px; font-weight: 650; margin-bottom: 6px; }
+  .locked-text { font-size: 12.5px; color: var(--ink-3); line-height: 1.6; max-width: 300px; margin: 0 auto; }
+
+  .done-box {
+    display: flex; gap: 11px; align-items: flex-start;
+    padding: 13px 14px; border-radius: 10px; margin-bottom: 14px;
+    background: color-mix(in oklab, var(--ok, #157a4a) 9%, transparent);
+    font-size: 13px; color: var(--ink-2); line-height: 1.5;
   }
-  .claimed-box a { color: var(--accent-ink); font-weight: 600; text-decoration: none; }
-  .hint { font-size: 12px; color: var(--ink-4); line-height: 1.55; text-align: center; margin: 4px 0 16px; }
+  .done-icon {
+    flex: none; width: 22px; height: 22px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ok, #157a4a); color: #fff;
+  }
   .notice {
     padding: 11px 13px; border-radius: 9px; background: var(--surface-2);
     font-size: 12.5px; color: var(--ink-2); line-height: 1.5; margin-bottom: 16px;

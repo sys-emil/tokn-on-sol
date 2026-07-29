@@ -1,23 +1,20 @@
 import { randomBytes } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase";
-import { backupChallenge } from "@/lib/backupChallenge";
-import { signAsOperator } from "@/lib/operatorSign";
-import { getOperatorWalletAddress } from "@/lib/transfer";
 
 /**
- * Guest checkout: buying without an account.
+ * Guest checkout: paying without an account, creating one only afterwards.
  *
- * The buyer never gets a wallet, so the cNFT is minted to the operator wallet
- * and stays there until (and unless) the guest claims it into a real account.
- * What the guest receives is a `/order/<token>` link; the token is the whole
- * credential, exactly like the `claims` tokens used for ticket sharing.
+ * The buyer has no wallet at checkout time, so the cNFT is minted to the
+ * operator wallet and held there. What the guest receives is a `/order/<token>`
+ * link; signing in on that page moves the tickets into their own account, and
+ * only then does a scannable code exist.
  *
- * The QR on that page is the existing static backup-ticket format signed by the
- * operator (`src/lib/operatorSign.ts`), which the door already accepts — no
- * change to the verification path. The trade-off is the one backup tickets
- * always had: a static code is copyable, and once-only redemption is what
- * carries the security. Organizers can turn it off per event via
- * `events.guest_checkout_enabled`.
+ * That ordering is the whole design. An earlier version rendered a static,
+ * operator-signed QR straight onto the order page so no account was ever
+ * needed; it was dropped because such a code is copyable and the link carrying
+ * it travels by e-mail. Keeping every ticket on the rotating-QR model is worth
+ * the one login. `events.guest_checkout_enabled` still lets an organizer
+ * require the account up front instead.
  */
 
 export interface GuestOrder {
@@ -88,24 +85,4 @@ export async function loadGuestOrder(token: string): Promise<GuestOrder | null> 
     .eq("token", token)
     .maybeSingle();
   return (data as GuestOrder | null) ?? null;
-}
-
-/**
- * The QR payload for an escrowed guest ticket: the static backup format
- * `{a,w,s,b:1}` that /api/tickets/verify already understands, signed by the
- * operator because the operator is the on-chain owner.
- *
- * Returns null once the ticket has left escrow (the guest claimed it into an
- * account); the ownership check at the door would reject an operator-signed
- * code then, and the real rotating QR on /tickets/<assetId> takes over.
- */
-export function guestTicketQr(assetId: string, currentOwner: string | null): string | null {
-  const operator = getOperatorWalletAddress();
-  if (currentOwner !== operator) return null;
-  return JSON.stringify({
-    a: assetId,
-    w: operator,
-    s: signAsOperator(backupChallenge(assetId, null)),
-    b: 1,
-  });
 }

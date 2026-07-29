@@ -774,9 +774,10 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
 
       {!soldOut && !tierSoldOut && !authenticated && guestAllowed && (
         <div className="guest-note">
-          Kein Konto nötig; du bekommst dein Ticket per E-Mail.
+          Direkt bezahlen, ohne vorher ein Konto anzulegen. Dein Ticket schaltest du danach
+          mit deiner E-Mail-Adresse frei.
           <button type="button" className="linkish" onClick={handleBuyWithAccount} disabled={loading}>
-            Lieber mit Konto kaufen
+            Lieber gleich anmelden
           </button>
         </div>
       )}
