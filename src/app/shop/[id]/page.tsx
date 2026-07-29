@@ -253,7 +253,12 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
                 Tickets werden automatisch erstattet.
               </div>
             ) : (
-              <ShopClient eventId={event.id} tiers={tierViews} waitlistEnabled={waitlistEnabled} />
+              <ShopClient
+                eventId={event.id}
+                tiers={tierViews}
+                waitlistEnabled={waitlistEnabled}
+                guestAllowed={event.guest_checkout_enabled !== false}
+              />
             )}
           </div>
         </div>

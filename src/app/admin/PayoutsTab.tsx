@@ -16,9 +16,19 @@ interface PayoutRow {
   transfer_id: string | null;
   dispute_id: string | null;
   failure_reason: string | null;
+  payment_method: string | null;
   created_at: string;
   events: { name: string; date: string } | null;
 }
+
+/** Stripe's payment_method_details.type, in words. */
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  card: 'Karte',
+  paypal: 'PayPal',
+  klarna: 'Klarna',
+  sepa_debit: 'SEPA-Lastschrift',
+  link: 'Link',
+};
 
 const STATUS_ORDER: Record<PayoutRow['status'], number> = {
   disputed: 0, held: 1, failed: 2, pending: 3, refunded: 4, paid: 5,
@@ -168,7 +178,10 @@ function PayoutTable({
                   <div className="cell-sub" style={{ marginTop: 0 }}>{p.organizer_wallet}</div>
                   <div className="cell-sub">{p.stripe_account_id ?? 'kein Connect-Konto'}</div>
                 </td>
-                <td style={{ fontVariantNumeric: 'tabular-nums' }}>{eur(p.gross_cents)}</td>
+                <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {eur(p.gross_cents)}
+                  {p.payment_method && <div className="cell-sub">{PAYMENT_METHOD_LABEL[p.payment_method] ?? p.payment_method}</div>}
+                </td>
                 <td style={{ fontVariantNumeric: 'tabular-nums' }}>{eur(p.fee_cents)}</td>
                 <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{eur(p.net_cents)}</td>
                 <td className="mono" style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{new Date(p.available_at).toLocaleString('de-DE')}</td>

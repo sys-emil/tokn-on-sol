@@ -10,6 +10,7 @@ import { sendAdminAlert } from "@/lib/email";
 import { notifyWaitlistIfSeats } from "@/lib/waitlist";
 import { transferCnft, getOperatorWalletAddress } from "@/lib/transfer";
 import { getAssetOwner } from "@/lib/resale";
+import { ensureGuestOrder } from "@/lib/guestOrders";
 
 function appBaseUrl(): string {
   return process.env.APP_URL
@@ -494,10 +495,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const notionalGross = cardGross + creditAppliedCents;
   if (notionalGross > 0) {
     try {
+      // Expanding latest_charge costs nothing extra and yields the payment
+      // method actually used. Settlement timing and dispute handling differ
+      // per method (PayPal, Klarna and SEPA are not cards), so a held payout
+      // has to be attributable to one.
       let chargeId: string | null = null;
+      let paymentMethod: string | null = null;
       if (typeof session.payment_intent === "string") {
-        const pi = await stripe.paymentIntents.retrieve(session.payment_intent);
-        chargeId = typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id ?? null;
+        const pi = await stripe.paymentIntents.retrieve(session.payment_intent, {
+          expand: ["latest_charge"],
+        });
+        const latest = pi.latest_charge;
+        if (typeof latest === "string") {
+          chargeId = latest;
+        } else if (latest) {
+          chargeId = latest.id;
+          paymentMethod = latest.payment_method_details?.type ?? null;
+        }
+        if (!paymentMethod) paymentMethod = pi.payment_method_types?.[0] ?? null;
       }
 
       const { data: organizer } = await supabaseAdmin
@@ -538,11 +553,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           currency: session.currency ?? "eur",
           available_at: computeAvailableAt(event.date, event.payout_hold_days ?? 0).toISOString(),
           skip_source_transaction: true,
+          payment_method: paymentMethod,
         };
       } else {
         payoutRow = buildPayoutRow({
           session,
           chargeId,
+          paymentMethod,
           eventId,
           eventDate: event.date,
           organizerWallet: event.organizer_wallet,
@@ -568,6 +585,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
       await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
       return NextResponse.json({ error: "Failed to record payout" }, { status: 500 });
+    }
+  }
+
+  // Guest checkout: record the order before the mint job, so the token exists
+  // by the time the confirmation mail goes out. Failing here would leave the
+  // buyer without any way to reach their ticket, so it aborts like the payout
+  // row does and lets Stripe redeliver.
+  if (session.metadata?.guest === "1") {
+    try {
+      await ensureGuestOrder({
+        stripeSessionId: session.id,
+        eventId,
+        email: session.customer_details?.email ?? null,
+      });
+    } catch (err) {
+      console.error(`Failed to record guest order for session ${session.id}:`, err);
+      alertAdmin(
+        `Gast-Bestellung konnte nicht angelegt werden; Session ${session.id}`,
+        `Ohne diese Zeile erreicht der Gast sein Ticket nicht; Stripe stellt erneut zu.\n`
+          + `Fehler: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      await supabaseAdmin.from("stripe_webhook_events").delete().eq("id", stripeEvent.id);
+      return NextResponse.json({ error: "Failed to record guest order" }, { status: 500 });
     }
   }
 

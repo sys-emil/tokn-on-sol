@@ -30,6 +30,23 @@ function ticketRow(assetId: string, baseUrl: string, index: number, total: numbe
     </tr>`;
 }
 
+/**
+ * Guest orders have no account to log into, so the mail carries a single link
+ * to all tickets of the order. This link IS the ticket; that is said plainly.
+ */
+function orderRow(token: string, baseUrl: string, total: number): string {
+  const url = `${baseUrl}/order/${token}`;
+  const label = total > 1 ? `Deine ${total} Tickets` : "Dein Ticket";
+  return `
+    <tr>
+      <td style="padding:12px 0;border-bottom:1px solid #ececf2;">
+        <span style="font-family:'SF Mono',Menlo,monospace;font-size:12px;color:#8a8a99;">${label}</span><br/>
+        <a href="${url}" style="font-size:14px;color:#7c3aed;text-decoration:none;word-break:break-all;">${url}</a><br/>
+        <span style="font-size:12px;color:#8a8a99;line-height:1.5;">Bewahre diesen Link wie eine Eintrittskarte auf; wer ihn hat, kommt rein. Du kannst die Tickets dort jederzeit in ein Konto übernehmen.</span>
+      </td>
+    </tr>`;
+}
+
 // Plain-text operational alert to the platform admin (mint failures etc.).
 // Requires ADMIN_ALERT_EMAIL; silently skipped when unset so non-critical
 // environments don't need it.
@@ -307,18 +324,23 @@ export async function sendTicketConfirmation({
   eventDate,
   assetIds,
   baseUrl,
+  orderToken,
 }: {
   to: string;
   eventName: string;
   eventDate: string;
   assetIds: string[];
   baseUrl: string;
+  /** Guest orders: one link to all tickets, since the buyer has no account. */
+  orderToken?: string | null;
 }): Promise<void> {
   if (!process.env.RESEND_API_KEY) return;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const plural = assetIds.length > 1;
-  const ticketRows = assetIds.map((id, i) => ticketRow(id, baseUrl, i, assetIds.length)).join("");
+  const ticketRows = orderToken
+    ? orderRow(orderToken, baseUrl, assetIds.length)
+    : assetIds.map((id, i) => ticketRow(id, baseUrl, i, assetIds.length)).join("");
 
   const html = `<!DOCTYPE html>
 <html lang="de">

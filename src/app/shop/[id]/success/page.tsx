@@ -94,9 +94,11 @@ interface ConfirmData {
   found: boolean;
   assetIds?: string[];
   quantity?: number;
+  /** Set when the buyer checked out as a guest; their tickets live on /order/<token>. */
+  orderToken?: string | null;
 }
 
-function TicketRow({ index, assetId }: { index: number; assetId: string | null }) {
+function TicketRow({ index, assetId, orderToken }: { index: number; assetId: string | null; orderToken: string | null }) {
   const minted = assetId !== null;
   return (
     <div className={`ticket-row${minted ? ' is-minted' : ''}`}>
@@ -112,7 +114,7 @@ function TicketRow({ index, assetId }: { index: number; assetId: string | null }
           <div className="asset">{assetId.slice(0, 8)}…{assetId.slice(-6)}</div>
         )}
       </div>
-      {minted && assetId && (
+      {minted && assetId && !orderToken && (
         <Link href={`/tickets/${assetId}`} className="btn ghost sm">Ansehen</Link>
       )}
     </div>
@@ -134,6 +136,7 @@ function SuccessInner() {
   const [failed, setFailed] = useState(!sessionId);
   const [quantity, setQuantity] = useState<number>(1);
   const [assetIds, setAssetIds] = useState<string[]>([]);
+  const [orderToken, setOrderToken] = useState<string | null>(null);
   const [allDone, setAllDone] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
 
@@ -161,6 +164,7 @@ function SuccessInner() {
 
           setQuantity(qty);
           setAssetIds(ids);
+          setOrderToken(data.orderToken ?? null);
 
           if (ids.length >= qty) {
             track('purchase_completed', { quantity: qty, ...(params?.id ? { eventId: params.id } : {}) });
@@ -228,11 +232,13 @@ function SuccessInner() {
       <div className="success-body">
         <div className="ticket-list">
           {slots.map((id, i) => (
-            <TicketRow key={i} index={i} assetId={id} />
+            <TicketRow key={i} index={i} assetId={id} orderToken={orderToken} />
           ))}
         </div>
 
-        {allDone && quantity > 1 && (
+        {/* The per-ticket share flow needs accounts on both ends; guests hand
+            over the order link instead. */}
+        {allDone && quantity > 1 && !orderToken && (
           <div className="share-promo">
             <div className="icon-wrap"><Icon name="share" size={14} strokeWidth={2.2} /></div>
             <div>
@@ -245,16 +251,32 @@ function SuccessInner() {
 
         {allDone && (
           <>
-            <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}>
-              {quantity > 1 ? 'Zu meinen Tickets & weitergeben' : 'Zu meinen Tickets'}
-            </Link>
-            <button
-              className="btn ghost"
-              style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
-              onClick={() => setBackupOpen(true)}
-            >
-              Backup-Ticket erstellen
-            </button>
+            {orderToken ? (
+              <>
+                <Link href={`/order/${orderToken}`} className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}>
+                  {quantity > 1 ? 'Zu meinen Tickets' : 'Zu meinem Ticket'}
+                </Link>
+                <div style={{ fontSize: 11.5, color: 'var(--ink-4)', lineHeight: 1.55, marginTop: 8, textAlign: 'center' }}>
+                  Wir haben dir den Link auch per E-Mail geschickt. Bewahre ihn wie eine
+                  Eintrittskarte auf.
+                </div>
+              </>
+            ) : (
+              <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}>
+                {quantity > 1 ? 'Zu meinen Tickets & weitergeben' : 'Zu meinen Tickets'}
+              </Link>
+            )}
+            {/* Backup tickets are signed by the buyer's own wallet, which a guest
+                doesn't have; their QR is already a static offline-capable code. */}
+            {!orderToken && (
+              <button
+                className="btn ghost"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+                onClick={() => setBackupOpen(true)}
+              >
+                Backup-Ticket erstellen
+              </button>
+            )}
             {params?.id && (
               <a
                 href={`/api/events/${params.id}/ics`}

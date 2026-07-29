@@ -46,7 +46,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: due, error } = await supabaseAdmin
     .from("payouts")
-    .select("id, stripe_session_id, charge_id, organizer_wallet, stripe_account_id, net_cents, currency, skip_source_transaction")
+    .select("id, stripe_session_id, charge_id, organizer_wallet, stripe_account_id, net_cents, currency, skip_source_transaction, payment_method")
     .eq("status", "pending")
     .lte("available_at", new Date().toISOString())
     .order("created_at", { ascending: true })
@@ -129,7 +129,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         })
         .eq("id", payout.id);
       held++;
-      heldDetails.push(`${payout.id} (${payout.net_cents} ${payout.currency ?? "eur"} → ${payout.organizer_wallet}): ${message}`);
+      // The payment method matters here: non-card methods (PayPal, Klarna,
+      // SEPA) settle on their own schedule, so a source_transaction transfer
+      // can fail simply because the funds are not available yet. Same-day
+      // retries from /admin/payouts then usually succeed.
+      heldDetails.push(
+        `${payout.id} (${payout.net_cents} ${payout.currency ?? "eur"} → ${payout.organizer_wallet}`
+          + `${payout.payment_method ? `, ${payout.payment_method}` : ""}): ${message}`,
+      );
     }
   }
 

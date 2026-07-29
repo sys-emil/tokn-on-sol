@@ -32,6 +32,7 @@ interface UpdateEventBody {
     accent_hue?: number | null;
     border_style?: string | null;
     resale_max_markup_pct?: number | null;
+    guest_checkout_enabled?: boolean;
   };
   tiers?: TierEdit[];
 }
@@ -141,6 +142,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "resale_max_markup_pct must be 0–200" }, { status: 400 });
     }
     update.resale_max_markup_pct = fields.resale_max_markup_pct;
+  }
+  if (fields.guest_checkout_enabled !== undefined) {
+    update.guest_checkout_enabled = fields.guest_checkout_enabled === true;
   }
   if (fields.accent_hue !== undefined) {
     if (fields.accent_hue !== null && (!Number.isInteger(fields.accent_hue) || fields.accent_hue < 0 || fields.accent_hue > 360)) {

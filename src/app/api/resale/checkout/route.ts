@@ -82,6 +82,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const buyerTotalCents = (listing.net_cents as number) + (listing.fee_cents as number);
 
   try {
+    // Like the primary checkout: no `payment_method_types`, so the Dashboard
+    // decides which methods (card, PayPal, …) are offered. See the note in
+    // /api/checkout/create.
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       expires_at: expiresAt,

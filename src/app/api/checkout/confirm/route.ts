@@ -45,8 +45,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
   }
 
-  if (!data || data.length === 0) return NextResponse.json({ found: false, quantity });
+  // Guest orders have no account to open ticket pages with; the success page
+  // needs the order link instead. Safe to expose here: reaching this route
+  // already requires the Stripe session id, which only the buyer has.
+  const { data: guestOrder } = await supabaseAdmin
+    .from("guest_orders")
+    .select("token")
+    .eq("stripe_session_id", sessionId)
+    .maybeSingle();
+  const orderToken = (guestOrder?.token as string | undefined) ?? null;
+
+  if (!data || data.length === 0) return NextResponse.json({ found: false, quantity, orderToken });
 
   const assetIds = data.map((row) => row.asset_id as string);
-  return NextResponse.json({ found: true, assetIds, quantity });
+  return NextResponse.json({ found: true, assetIds, quantity, orderToken });
 }

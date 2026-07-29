@@ -29,6 +29,7 @@ interface EventData {
   is_private: boolean;
   payout_hold_days: number;
   resale_max_markup_pct: number | null;
+  guest_checkout_enabled: boolean;
   image_url: string | null;
   accent_hue: number | null;
   border_style: string | null;
@@ -119,6 +120,7 @@ export default function EventDetailPage() {
   const [fVenue, setFVenue] = useState('');
   const [fDescription, setFDescription] = useState('');
   const [fIsPrivate, setFIsPrivate] = useState(false);
+  const [fGuestCheckout, setFGuestCheckout] = useState(true);
   const [fHoldDays, setFHoldDays] = useState('0');
   const [fResaleEnabled, setFResaleEnabled] = useState(false);
   const [fResaleMaxMarkup, setFResaleMaxMarkup] = useState('20');
@@ -474,6 +476,7 @@ export default function EventDetailPage() {
     setFDescription(event.description ?? '');
     setFIsPrivate(event.is_private);
     setFHoldDays(String(event.payout_hold_days ?? 0));
+    setFGuestCheckout(event.guest_checkout_enabled !== false);
     setFResaleEnabled(event.resale_max_markup_pct != null);
     setFResaleMaxMarkup(String(event.resale_max_markup_pct ?? 20));
     setFAccentHue(event.accent_hue ?? null);
@@ -533,6 +536,7 @@ export default function EventDetailPage() {
             venue: fVenue.trim() || null,
             description: fDescription.trim() || null,
             is_private: fIsPrivate,
+            guest_checkout_enabled: fGuestCheckout,
             payout_hold_days: Math.floor(Number(fHoldDays)) || 0,
             resale_max_markup_pct: fResaleEnabled ? parsedMarkup : null,
             accent_hue: fAccentHue,
@@ -1153,6 +1157,17 @@ export default function EventDetailPage() {
                     onChange={(e) => setFHoldDays(e.target.value)} disabled={editSaving} />
                 </div>
               )}
+              <div className="field">
+                <label>Kauf ohne Konto</label>
+                <div className="seg">
+                  <button type="button" className={fGuestCheckout ? 'active' : ''} onClick={() => setFGuestCheckout(true)} disabled={editSaving}>Erlauben</button>
+                  <button type="button" className={!fGuestCheckout ? 'active' : ''} onClick={() => setFGuestCheckout(false)} disabled={editSaving}>Konto nötig</button>
+                </div>
+                <span className="hint">
+                  Gäste ohne Konto bekommen einen festen QR-Code per E-Mail. Der lässt sich
+                  kopieren; geschützt bist du dadurch, dass er nur einmal eingelöst werden kann.
+                </span>
+              </div>
               <div className="field">
                 <label>Weiterverkauf (Fan-zu-Fan)</label>
                 <div className="seg">

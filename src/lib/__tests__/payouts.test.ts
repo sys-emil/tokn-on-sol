@@ -170,7 +170,23 @@ describe("buildPayoutRow (from Stripe test-mode checkout session)", () => {
       net_cents: 4_850,
       currency: "eur",
       available_at: "2026-08-29T00:00:00.000Z",
+      payment_method: null,
     });
+  });
+
+  it("records the funding payment method when the webhook resolved one", () => {
+    const row = buildPayoutRow({
+      session,
+      chargeId: "ch_3QTest123",
+      eventId: "evt-uuid",
+      eventDate: "2026-08-15",
+      organizerWallet: "So1anaWa11etXYZ",
+      stripeAccountId: "acct_1Test",
+      holdDays: 0,
+      paymentMethod: "paypal",
+      now,
+    });
+    expect(row).toMatchObject({ payment_method: "paypal" });
   });
 
   it("returns null for free sessions; nothing to pay out", () => {

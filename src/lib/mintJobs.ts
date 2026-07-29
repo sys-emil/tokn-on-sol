@@ -200,12 +200,20 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
         .eq("stripe_session_id", job.stripe_session_id);
       const assetIds = (all ?? []).map((r) => r.asset_id as string);
       if (assetIds.length > 0) {
+        // Guest orders link to /order/<token> instead of per-ticket pages;
+        // the buyer has no account to open them with.
+        const { data: guestOrder } = await supabaseAdmin
+          .from("guest_orders")
+          .select("token")
+          .eq("stripe_session_id", job.stripe_session_id)
+          .maybeSingle();
         void sendTicketConfirmation({
           to: job.buyer_email,
           eventName: event.name,
           eventDate: event.date,
           assetIds,
           baseUrl,
+          orderToken: (guestOrder?.token as string | undefined) ?? null,
         }).catch((err) => console.error("Confirmation email failed:", err));
       }
     }

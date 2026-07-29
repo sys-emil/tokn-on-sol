@@ -61,6 +61,8 @@ export type Event = {
   description: string | null;
   /** Max resale markup over face value in percent. NULL = resale disabled for this event. */
   resale_max_markup_pct: number | null;
+  /** Allow buying without an account. Off means the static guest QR is unacceptable here. */
+  guest_checkout_enabled: boolean;
   created_at: string;
 };
 

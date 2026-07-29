@@ -18,6 +18,8 @@ interface Props {
   eventId: string;
   tiers: TierView[];
   waitlistEnabled?: boolean;
+  /** events.guest_checkout_enabled; false forces buyers through a login. */
+  guestAllowed?: boolean;
 }
 
 function formatPrice(cents: number): string {
@@ -40,7 +42,7 @@ function formatCountdown(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: Props) {
+export default function ShopClient({ eventId, tiers, waitlistEnabled = false, guestAllowed = true }: Props) {
   const { ready, authenticated, login } = usePrivy();
   const { wallets: solanaWallets } = useWallets();
   const [loading, setLoading] = useState(false);
@@ -270,12 +272,13 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
     }
   }
 
-  async function startCheckout(wallet: string) {
+  /** `wallet === null` buys as a guest: no account, ticket lands on /order/<token>. */
+  async function startCheckout(wallet: string | null) {
     setLoading(true);
     setError(null);
     track('checkout_started', { eventId, quantity });
     try {
-      const wantCredit = useCredit && creditCents > 0;
+      const wantCredit = wallet !== null && useCredit && creditCents > 0;
       const token = wantCredit ? await getAccessToken() : null;
       const res = await fetch('/api/checkout/create', {
         method: 'POST',
@@ -285,7 +288,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
         },
         body: JSON.stringify({
           eventId,
-          buyerWallet: wallet,
+          ...(wallet === null ? { guest: true } : { buyerWallet: wallet }),
           quantity,
           tierId: tier?.id,
           ...(applied ? { discountCode: applied.code } : {}),
@@ -310,22 +313,36 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
     }
   }
 
+  /**
+   * The default path deliberately does NOT require a login. Signed-in buyers
+   * keep buying into their account (they get the rotating QR and their credit
+   * balance); everyone else buys as a guest and receives an order link.
+   */
   async function handleBuy() {
     if (soldOut || tierSoldOut || loading) return;
     if (!ready) return;
 
-    if (!authenticated) {
+    if (authenticated && walletAddress) {
+      await startCheckout(walletAddress);
+      return;
+    }
+    if (authenticated && !walletAddress) {
+      setError('Dein Konto wird noch eingerichtet. Warte einen Moment und versuch es dann erneut.');
+      return;
+    }
+    if (!guestAllowed) {
       pendingCheckout.current = true;
       login();
       return;
     }
+    await startCheckout(null);
+  }
 
-    if (!walletAddress) {
-      setError('Dein Konto wird noch eingerichtet. Warte einen Moment und versuch es dann erneut.');
-      return;
-    }
-
-    await startCheckout(walletAddress);
+  /** Explicit "buy with an account" for guests who want one up front. */
+  function handleBuyWithAccount() {
+    if (soldOut || tierSoldOut || loading || !ready) return;
+    pendingCheckout.current = true;
+    login();
   }
 
   async function startResaleCheckout(listingId: string, wallet: string) {
@@ -517,6 +534,22 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
           border: 1px solid oklch(0.86 0.10 25);
           font-size: 12.5px; color: var(--bad); line-height: 1.5;
         }
+        .pay-methods {
+          margin-top: 10px;
+          text-align: center;
+          font-size: 11.5px;
+          color: var(--ink-4);
+        }
+        .guest-note {
+          margin-top: 8px; text-align: center;
+          font-size: 11.5px; color: var(--ink-4); line-height: 1.6;
+        }
+        .guest-note .linkish {
+          display: block; margin: 2px auto 0;
+          appearance: none; background: none; border: none; padding: 0;
+          font: inherit; color: var(--ink-3); text-decoration: underline; cursor: pointer;
+        }
+        .guest-note .linkish:hover { color: var(--ink-1); }
         .code-row { display: flex; gap: 8px; margin-bottom: 14px; }
         .code-row .input { flex: 1; min-width: 0; text-transform: uppercase; }
         .code-toggle {
@@ -734,6 +767,19 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false }: 
       </button>
 
       {error && <div className="buy-error">{error}</div>}
+
+      {!soldOut && !tierSoldOut && dueAfterCredit > 0 && (
+        <div className="pay-methods">Karte, PayPal, Apple&nbsp;Pay und Google&nbsp;Pay</div>
+      )}
+
+      {!soldOut && !tierSoldOut && !authenticated && guestAllowed && (
+        <div className="guest-note">
+          Kein Konto nötig; du bekommst dein Ticket per E-Mail.
+          <button type="button" className="linkish" onClick={handleBuyWithAccount} disabled={loading}>
+            Lieber mit Konto kaufen
+          </button>
+        </div>
+      )}
 
       {soldOut && waitlistEnabled && (
         <div className="waitlist-box">

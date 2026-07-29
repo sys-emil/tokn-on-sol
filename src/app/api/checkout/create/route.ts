@@ -7,15 +7,19 @@ import { serviceFeePerTicketCents } from "@/lib/fees";
 import { findValidDiscount, discountedUnitPrice, type ValidDiscount } from "@/lib/discounts";
 import { requestOwnsWallet } from "@/lib/privyServer";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { getOperatorWalletAddress } from "@/lib/transfer";
 
 interface CheckoutBody {
   eventId: string;
-  buyerWallet: string;
+  /** Omitted for guest checkout; the operator wallet holds the ticket instead. */
+  buyerWallet?: string;
   quantity?: number;
   tierId?: string;
   discountCode?: string;
   /** Apply the buyer's Passly credit balance to this purchase (requires auth). */
   useCredit?: boolean;
+  /** Buy without an account. The ticket is escrowed and reachable via /order/<token>. */
+  guest?: boolean;
 }
 
 /** Stripe's minimum card charge (€0.50). Never leave a smaller non-zero total. */
@@ -81,15 +85,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { eventId, buyerWallet, quantity: rawQty, tierId, discountCode } = body;
+  const { eventId, quantity: rawQty, tierId, discountCode } = body;
   const quantity = Math.max(1, Math.min(4, Math.floor(rawQty ?? 1)));
+  const isGuest = body.guest === true;
 
-  if (!eventId || !buyerWallet) {
+  if (!eventId || (!isGuest && !body.buyerWallet)) {
     return NextResponse.json(
       { success: false, error: "eventId and buyerWallet are required" },
       { status: 400 }
     );
   }
+
+  // Guest tickets are minted into operator escrow; the buyer reaches them via
+  // the order token that the confirmation mail carries.
+  const buyerWallet = isGuest ? getOperatorWalletAddress() : (body.buyerWallet as string);
 
   const { data: event, error } = await supabaseAdmin
     .from("events")
@@ -105,6 +114,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { success: false, error: "Das Event wurde abgesagt." },
       { status: 410 }
+    );
+  }
+
+  // Guest tickets are static QR codes; an organizer can require accounts for
+  // events where that trade-off is unacceptable.
+  if (isGuest && event.guest_checkout_enabled === false) {
+    return NextResponse.json(
+      { success: false, error: "Für dieses Event ist ein Konto nötig." },
+      { status: 403 }
     );
   }
 
@@ -245,6 +263,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let creditHoldId: string | null = null;
   let creditAppliedCents = 0;
   if (body.useCredit && totalDueCents > 0) {
+    // Credit belongs to a wallet, so it needs an account by definition.
+    if (isGuest) {
+      await releaseClaim();
+      return NextResponse.json(
+        { success: false, error: "Guthaben kann nur mit Konto eingelöst werden." },
+        { status: 400 },
+      );
+    }
     if (!(await requestOwnsWallet(req, buyerWallet))) {
       await releaseClaim();
       return NextResponse.json(
@@ -312,6 +338,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
+    // NOTE: `payment_method_types` is deliberately NOT set. Omitting it is what
+    // enables Stripe's dynamic payment methods, i.e. whatever is switched on in
+    // the Stripe Dashboard (card, PayPal, Apple/Google Pay, Klarna) shows up in
+    // checkout without a code change. Setting it here would silently pin the
+    // checkout back to cards only; don't.
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       expires_at: expiresAt,
@@ -346,6 +377,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         quantity: String(quantity),
         tierId: tier.id,
         serviceFeeCents: String(feePerTicket * quantity),
+        ...(isGuest ? { guest: "1" } : {}),
         ...(discount ? { discountCodeId: discount.id, discountPercent: String(discount.percentOff) } : {}),
         ...(creditHoldId ? { creditHoldId, creditAppliedCents: String(creditAppliedCents) } : {}),
       },

@@ -50,6 +50,8 @@ export type PayoutRow = {
   transfer_id: string | null;
   dispute_id: string | null;
   failure_reason: string | null;
+  /** Stripe payment_method_details.type of the funding charge; NULL on legacy rows. */
+  payment_method: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -110,9 +112,10 @@ export function buildPayoutRow(params: {
   stripeAccountId: string | null;
   holdDays: number;
   serviceFeeCents?: number | null;
+  paymentMethod?: string | null;
   now?: Date;
 }): Omit<PayoutRow, "id" | "created_at" | "updated_at" | "transfer_id" | "dispute_id" | "failure_reason" | "status"> | null {
-  const { session, chargeId, eventId, eventDate, organizerWallet, stripeAccountId, holdDays, serviceFeeCents, now } = params;
+  const { session, chargeId, eventId, eventDate, organizerWallet, stripeAccountId, holdDays, serviceFeeCents, paymentMethod, now } = params;
   const grossCents = session.amount_total ?? 0;
   if (grossCents <= 0) return null;
 
@@ -137,6 +140,7 @@ export function buildPayoutRow(params: {
     net_cents: netCents,
     currency: session.currency ?? "eur",
     available_at: computeAvailableAt(eventDate, holdDays, now).toISOString(),
+    payment_method: paymentMethod ?? null,
   };
 }
 
