@@ -61,8 +61,12 @@ export type Event = {
   description: string | null;
   /** Max resale markup over face value in percent. NULL = resale disabled for this event. */
   resale_max_markup_pct: number | null;
-  /** Allow buying without an account. Off means the static guest QR is unacceptable here. */
+  /** Allow buying without an account (the ticket is unlocked by signing in afterwards). */
   guest_checkout_enabled: boolean;
+  /** Virtual waiting room: buyers need an admitted queue slot to check out. */
+  queue_enabled: boolean;
+  /** How many buyers may hold a checkout slot at once while the queue is on. */
+  queue_slots: number;
   created_at: string;
 };
 

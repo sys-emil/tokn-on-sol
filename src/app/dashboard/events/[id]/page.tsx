@@ -30,6 +30,8 @@ interface EventData {
   payout_hold_days: number;
   resale_max_markup_pct: number | null;
   guest_checkout_enabled: boolean;
+  queue_enabled: boolean;
+  queue_slots: number;
   image_url: string | null;
   accent_hue: number | null;
   border_style: string | null;
@@ -121,6 +123,8 @@ export default function EventDetailPage() {
   const [fDescription, setFDescription] = useState('');
   const [fIsPrivate, setFIsPrivate] = useState(false);
   const [fGuestCheckout, setFGuestCheckout] = useState(true);
+  const [fQueueEnabled, setFQueueEnabled] = useState(false);
+  const [fQueueSlots, setFQueueSlots] = useState('50');
   const [fHoldDays, setFHoldDays] = useState('0');
   const [fResaleEnabled, setFResaleEnabled] = useState(false);
   const [fResaleMaxMarkup, setFResaleMaxMarkup] = useState('20');
@@ -477,6 +481,8 @@ export default function EventDetailPage() {
     setFIsPrivate(event.is_private);
     setFHoldDays(String(event.payout_hold_days ?? 0));
     setFGuestCheckout(event.guest_checkout_enabled !== false);
+    setFQueueEnabled(event.queue_enabled === true);
+    setFQueueSlots(String(event.queue_slots ?? 50));
     setFResaleEnabled(event.resale_max_markup_pct != null);
     setFResaleMaxMarkup(String(event.resale_max_markup_pct ?? 20));
     setFAccentHue(event.accent_hue ?? null);
@@ -537,6 +543,8 @@ export default function EventDetailPage() {
             description: fDescription.trim() || null,
             is_private: fIsPrivate,
             guest_checkout_enabled: fGuestCheckout,
+            queue_enabled: fQueueEnabled,
+            queue_slots: Math.min(1000, Math.max(1, Math.floor(Number(fQueueSlots)) || 50)),
             payout_hold_days: Math.floor(Number(fHoldDays)) || 0,
             resale_max_markup_pct: fResaleEnabled ? parsedMarkup : null,
             accent_hue: fAccentHue,
@@ -1167,6 +1175,25 @@ export default function EventDetailPage() {
                   Gäste ohne Konto bekommen einen festen QR-Code per E-Mail. Der lässt sich
                   kopieren; geschützt bist du dadurch, dass er nur einmal eingelöst werden kann.
                 </span>
+              </div>
+              <div className="field">
+                <label>Warteschlange bei Andrang</label>
+                <div className="seg">
+                  <button type="button" className={!fQueueEnabled ? 'active' : ''} onClick={() => setFQueueEnabled(false)} disabled={editSaving}>Aus</button>
+                  <button type="button" className={fQueueEnabled ? 'active' : ''} onClick={() => setFQueueEnabled(true)} disabled={editSaving}>An</button>
+                </div>
+                {fQueueEnabled && (
+                  <>
+                    <input type="number" className="input" value={fQueueSlots} min={1} max={1000} step={1}
+                      style={{ marginTop: 8 }}
+                      onChange={(e) => setFQueueSlots(e.target.value)} disabled={editSaving} />
+                    <span className="hint">
+                      So viele Leute dürfen gleichzeitig im Kauf sein; alle anderen sehen ihre
+                      Position und rücken automatisch nach. Sinnvoll nur bei Events, die in
+                      Minuten ausverkauft sind.
+                    </span>
+                  </>
+                )}
               </div>
               <div className="field">
                 <label>Weiterverkauf (Fan-zu-Fan)</label>

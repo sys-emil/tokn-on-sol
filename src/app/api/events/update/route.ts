@@ -33,6 +33,8 @@ interface UpdateEventBody {
     border_style?: string | null;
     resale_max_markup_pct?: number | null;
     guest_checkout_enabled?: boolean;
+    queue_enabled?: boolean;
+    queue_slots?: number;
   };
   tiers?: TierEdit[];
 }
@@ -145,6 +147,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   if (fields.guest_checkout_enabled !== undefined) {
     update.guest_checkout_enabled = fields.guest_checkout_enabled === true;
+  }
+  if (fields.queue_enabled !== undefined) {
+    update.queue_enabled = fields.queue_enabled === true;
+  }
+  if (fields.queue_slots !== undefined) {
+    if (!Number.isInteger(fields.queue_slots) || fields.queue_slots < 1 || fields.queue_slots > 1000) {
+      return NextResponse.json({ success: false, error: "queue_slots must be 1–1000" }, { status: 400 });
+    }
+    update.queue_slots = fields.queue_slots;
   }
   if (fields.accent_hue !== undefined) {
     if (fields.accent_hue !== null && (!Number.isInteger(fields.accent_hue) || fields.accent_hue < 0 || fields.accent_hue > 360)) {

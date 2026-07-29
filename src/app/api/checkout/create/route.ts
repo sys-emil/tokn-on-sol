@@ -9,6 +9,7 @@ import { requestOwnsWallet } from "@/lib/privyServer";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { getOperatorWalletAddress } from "@/lib/transfer";
 import { isBot, botDenied } from "@/lib/botCheck";
+import { holdsQueueSlot } from "@/lib/queue";
 
 interface CheckoutBody {
   eventId: string;
@@ -21,6 +22,8 @@ interface CheckoutBody {
   useCredit?: boolean;
   /** Buy without an account. The ticket is escrowed and reachable via /order/<token>. */
   guest?: boolean;
+  /** Waiting-room slot; required when the event has the queue switched on. */
+  queueToken?: string;
 }
 
 /** Stripe's minimum card charge (€0.50). Never leave a smaller non-zero total. */
@@ -126,6 +129,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { success: false, error: "Für dieses Event ist ein Konto nötig." },
       { status: 403 }
+    );
+  }
+
+  // Waiting room: seats may only be reserved by someone currently holding a
+  // slot. Checked before the reservation so a queue-jumper never takes
+  // capacity away from the people actually in line.
+  if (event.queue_enabled === true && !(await holdsQueueSlot(eventId, body.queueToken))) {
+    return NextResponse.json(
+      { success: false, error: "queue_required" },
+      { status: 409 }
     );
   }
 

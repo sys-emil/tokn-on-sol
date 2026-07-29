@@ -20,6 +20,8 @@ interface Props {
   waitlistEnabled?: boolean;
   /** events.guest_checkout_enabled; false forces buyers through a login. */
   guestAllowed?: boolean;
+  /** events.queue_enabled; buyers must hold a waiting-room slot to check out. */
+  queueEnabled?: boolean;
 }
 
 function formatPrice(cents: number): string {
@@ -42,7 +44,7 @@ function formatCountdown(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export default function ShopClient({ eventId, tiers, waitlistEnabled = false, guestAllowed = true }: Props) {
+export default function ShopClient({ eventId, tiers, waitlistEnabled = false, guestAllowed = true, queueEnabled = false }: Props) {
   const { ready, authenticated, login } = usePrivy();
   const { wallets: solanaWallets } = useWallets();
   const [loading, setLoading] = useState(false);
@@ -53,6 +55,11 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
     () => (tiers.find((t) => t.available > 0) ?? tiers[0])?.id ?? '',
   );
   const pendingCheckout = useRef(false);
+  // Waiting room. `queuePos` is 1-based; 0 means admitted.
+  const [queueToken, setQueueToken] = useState<string | null>(null);
+  const [queuePos, setQueuePos] = useState<number | null>(null);
+  // True once the buyer pressed the button: admission then continues on its own.
+  const queueResume = useRef(false);
   const [pending, setPending] = useState<PendingCheckout | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -98,6 +105,8 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
   // Credit the buyer can apply to this purchase (capped at the total due).
   const creditApplicable = useCredit ? Math.min(creditCents, grandTotal) : 0;
   const dueAfterCredit = Math.max(0, grandTotal - creditApplicable);
+  // In line and not yet admitted: the buy button is replaced by the position.
+  const waiting = queuePos !== null && queuePos > 0;
 
   // Funnel stage between "Shop besucht" and "Checkout gestartet": the visitor
   // actively configured a ticket. Once per visit, so the funnel counts people.
@@ -172,6 +181,43 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
     pendingResaleId.current = null;
     void startResaleCheckout(id, walletAddress);
   }, [authenticated, walletAddress]);
+
+  // Waiting room: poll for our position. Each poll also drives the promotion
+  // server-side, so the line moves whenever anyone is watching it.
+  useEffect(() => {
+    if (!queueToken || queuePos === 0) return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/queue?eventId=${encodeURIComponent(eventId)}&token=${encodeURIComponent(queueToken)}`);
+        if (stopped) return;
+        if (res.status === 404) {
+          // Token purged; send the buyer back to the start rather than let
+          // them wait on something that no longer exists.
+          setQueueToken(null);
+          setQueuePos(null);
+          setError('Deine Warteschlangen-Position ist abgelaufen. Bitte versuch es erneut.');
+          return;
+        }
+        const data = (await res.json()) as { success: boolean; admitted?: boolean; position?: number };
+        if (!data.success || stopped) return;
+        if (data.admitted) {
+          setQueuePos(0);
+          if (queueResume.current) {
+            queueResume.current = false;
+            void proceedBuy();
+          }
+        } else {
+          setQueuePos(data.position ?? 1);
+        }
+      } catch {
+        // transient; the next tick retries
+      }
+    };
+    const timer = setInterval(() => void tick(), 4000);
+    return () => { stopped = true; clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- proceedBuy closes over current form state on purpose
+  }, [queueToken, queuePos, eventId]);
 
   // Load resale offers for this event (public) once on mount.
   useEffect(() => {
@@ -293,6 +339,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
           tierId: tier?.id,
           ...(applied ? { discountCode: applied.code } : {}),
           ...(wantCredit ? { useCredit: true } : {}),
+          ...(queueToken ? { queueToken } : {}),
         }),
       });
       const data = (await res.json()) as { success: boolean; url?: string; expiresAt?: number; error?: string };
@@ -313,15 +360,44 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
     }
   }
 
+  /** Joins the waiting room; admission resumes the purchase automatically. */
+  async function enterQueue() {
+    setError(null);
+    try {
+      const res = await fetch('/api/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId }),
+      });
+      const data = (await res.json()) as {
+        success: boolean; queueEnabled?: boolean; token?: string; admitted?: boolean; position?: number; error?: string;
+      };
+      if (!res.ok || !data.success) {
+        setError(data.error ?? 'Die Warteschlange ist gerade nicht erreichbar.');
+        queueResume.current = false;
+        return;
+      }
+      // The organizer switched the queue off between page load and click.
+      if (data.queueEnabled === false) {
+        setQueuePos(0);
+        await proceedBuy();
+        return;
+      }
+      setQueueToken(data.token ?? null);
+      setQueuePos(data.admitted ? 0 : data.position ?? 1);
+      if (data.admitted) await proceedBuy();
+    } catch {
+      setError('Netzwerkfehler. Bitte versuch es erneut.');
+      queueResume.current = false;
+    }
+  }
+
   /**
    * The default path deliberately does NOT require a login. Signed-in buyers
    * keep buying into their account (they get the rotating QR and their credit
    * balance); everyone else buys as a guest and receives an order link.
    */
-  async function handleBuy() {
-    if (soldOut || tierSoldOut || loading) return;
-    if (!ready) return;
-
+  async function proceedBuy() {
     if (authenticated && walletAddress) {
       await startCheckout(walletAddress);
       return;
@@ -336,6 +412,20 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
       return;
     }
     await startCheckout(null);
+  }
+
+  async function handleBuy() {
+    if (soldOut || tierSoldOut || loading) return;
+    if (!ready) return;
+
+    // Events with a waiting room admit in order; the click puts the buyer in
+    // line and the polling effect below picks the purchase back up.
+    if (queueEnabled && queuePos !== 0) {
+      queueResume.current = true;
+      await enterQueue();
+      return;
+    }
+    await proceedBuy();
   }
 
   /** Explicit "buy with an account" for guests who want one up front. */
@@ -534,6 +624,23 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
           border: 1px solid oklch(0.86 0.10 25);
           font-size: 12.5px; color: var(--bad); line-height: 1.5;
         }
+        .queue-box {
+          text-align: center; padding: 22px 16px;
+          border: 1px dashed var(--surface-3); border-radius: 12px;
+          background: var(--surface-2);
+        }
+        .queue-spinner {
+          width: 22px; height: 22px; margin: 0 auto 12px;
+          border: 2px solid var(--surface-3); border-top-color: var(--accent);
+          border-radius: 999px; animation: queue-spin 0.9s linear infinite;
+        }
+        @keyframes queue-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .queue-spinner { animation-duration: 2.4s; } }
+        .queue-pos {
+          font-size: 20px; font-weight: 650; letter-spacing: -0.01em;
+          font-variant-numeric: tabular-nums; margin-bottom: 6px;
+        }
+        .queue-text { font-size: 12px; color: var(--ink-3); line-height: 1.6; max-width: 280px; margin: 0 auto; }
         .pay-methods {
           margin-top: 10px;
           text-align: center;
@@ -749,22 +856,33 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
         </>
       )}
 
-      <button
-        className="btn primary lg"
-        style={{ width: '100%', justifyContent: 'center' }}
-        disabled={soldOut || tierSoldOut || loading || !ready}
-        onClick={() => void handleBuy()}
-      >
-        {soldOut
-          ? 'Ausverkauft'
-          : tierSoldOut
-          ? 'Kategorie ausverkauft'
-          : loading
-          ? 'Weiterleitung …'
-          : quantity > 1
-          ? `${quantity} Tickets kaufen`
-          : 'Ticket kaufen'}
-      </button>
+      {waiting ? (
+        <div className="queue-box">
+          <div className="queue-spinner" />
+          <div className="queue-pos">Platz {queuePos}</div>
+          <div className="queue-text">
+            Gerade sind viele gleichzeitig hier. Lass diese Seite offen, du rückst automatisch
+            nach und der Kauf geht dann von allein weiter.
+          </div>
+        </div>
+      ) : (
+        <button
+          className="btn primary lg"
+          style={{ width: '100%', justifyContent: 'center' }}
+          disabled={soldOut || tierSoldOut || loading || !ready}
+          onClick={() => void handleBuy()}
+        >
+          {soldOut
+            ? 'Ausverkauft'
+            : tierSoldOut
+            ? 'Kategorie ausverkauft'
+            : loading
+            ? 'Weiterleitung …'
+            : quantity > 1
+            ? `${quantity} Tickets kaufen`
+            : 'Ticket kaufen'}
+        </button>
+      )}
 
       {error && <div className="buy-error">{error}</div>}
 

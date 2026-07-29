@@ -44,6 +44,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     console.error("Failed to release expired resale listings:", resaleSweepError.message);
   }
 
+  // Waiting-room leftovers: promotion happens on every status poll, so this is
+  // pure housekeeping for tokens nobody came back for.
+  const { error: queuePurgeError } = await supabaseAdmin.rpc("purge_stale_queue_tokens");
+  if (queuePurgeError) {
+    console.error("Failed to purge stale queue tokens:", queuePurgeError.message);
+  }
+
   const { data: due, error } = await supabaseAdmin
     .from("payouts")
     .select("id, stripe_session_id, charge_id, organizer_wallet, stripe_account_id, net_cents, currency, skip_source_transaction, payment_method")

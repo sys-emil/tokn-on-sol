@@ -258,6 +258,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
                 tiers={tierViews}
                 waitlistEnabled={waitlistEnabled}
                 guestAllowed={event.guest_checkout_enabled !== false}
+                queueEnabled={event.queue_enabled === true}
               />
             )}
           </div>
