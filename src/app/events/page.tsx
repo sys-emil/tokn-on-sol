@@ -53,6 +53,39 @@ function daysUntil(iso: string): number {
 
 const PAGE_CSS = `
   .event-card.listing { padding: 0; }
+  /* Saisonpass-Karten: bewusst ohne Bildflaeche, damit sie sich von den
+     Terminkarten unterscheiden statt mit ihnen zu konkurrieren. */
+  .pass-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .pass-card {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 18px 20px 16px;
+    background: var(--surface);
+    border: 1px solid var(--accent-line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  .pass-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-1px); }
+  .pass-eyebrow {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent-ink);
+  }
+  .pass-name { font-size: 16px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.25; }
+  .pass-meta { font-size: 12.5px; color: var(--ink-3); }
+  .pass-card .price-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: auto; padding-top: 12px;
+  }
+  .pass-card .price {
+    font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  .pass-card .go {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; font-weight: 500; color: var(--accent);
+  }
+
   .event-card .art {
     aspect-ratio: 5 / 3;
     position: relative;
@@ -154,6 +187,11 @@ export default async function EventsPage({ searchParams }: {
       .eq('plan', 'pro');
     for (const r of (proRows ?? []) as { wallet_address: string }[]) waitlistWallets.add(r.wallet_address);
   }
+
+  // Season passes covering at least one of the listed dates. A pass is bought
+  // on its own page, so without this section the listing would show the dates
+  // and hide the only place the series can be bought as a whole.
+  const passes = await loadPasses(all.map((e) => e.id), needle, veranstalter);
 
   // "Events von X" heading when the listing is filtered by organizer.
   let organizerLabel: string | null = null;
@@ -292,8 +330,42 @@ export default async function EventsPage({ searchParams }: {
               </div>
             ) : (
               <>
+                {passes.length > 0 && (
+                  <section>
+                    <div className="section-head">
+                      <div>
+                        <h2>Saisonpässe</h2>
+                        <div className="sub">Ein Ticket für die ganze Reihe</div>
+                      </div>
+                    </div>
+                    <div className="pass-grid">
+                      {passes.map((p) => (
+                        <Link key={p.id} href={`/pass/${p.id}`} className="pass-card">
+                          <div className="pass-eyebrow">Saisonpass</div>
+                          <div className="pass-name">{p.name}</div>
+                          <div className="pass-meta">
+                            Gilt für {p.dates} {p.dates === 1 ? 'Termin' : 'Termine'}
+                          </div>
+                          <div className="price-row">
+                            <div className="price">{formatPrice(p.priceCents)}</div>
+                            <span className="go">Pass sichern <Icon name="arrow" size={13} /></span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {available.length > 0 && (
                   <section>
+                    {passes.length > 0 && (
+                      <div className="section-head">
+                        <div>
+                          <h2>Einzelne Termine</h2>
+                          <div className="sub">Auch einzeln buchbar</div>
+                        </div>
+                      </div>
+                    )}
                     <div className="events-grid">
                       {available.map((e) => card(e, false))}
                     </div>
@@ -331,4 +403,66 @@ export default async function EventsPage({ searchParams }: {
       </div>
     </>
   );
+}
+
+interface PassCard {
+  id: string;
+  name: string;
+  priceCents: number;
+  dates: number;
+  organizerWallet: string;
+}
+
+/**
+ * Active passes with capacity left that include at least one of the upcoming
+ * public dates on this page. Filtered by the same search term and organizer
+ * filter as the events, so the section never contradicts the listing.
+ */
+async function loadPasses(
+  upcomingEventIds: string[],
+  needle: string,
+  veranstalter?: string,
+): Promise<PassCard[]> {
+  if (upcomingEventIds.length === 0) return [];
+
+  const { data: links } = await supabaseAdmin
+    .from('season_pass_events')
+    .select('pass_id')
+    .in('event_id', upcomingEventIds);
+  const passIds = [...new Set(((links ?? []) as { pass_id: string }[]).map((l) => l.pass_id))];
+  if (passIds.length === 0) return [];
+
+  let query = supabaseAdmin
+    .from('season_passes')
+    .select('id, name, price_eur, capacity, tickets_sold, tickets_reserved, organizer_wallet')
+    .in('id', passIds)
+    .eq('active', true);
+  if (veranstalter) query = query.eq('organizer_wallet', veranstalter);
+  const { data: rows } = await query;
+
+  // Total date count per pass, including dates outside this page's window;
+  // "gilt für 8 Termine" is what the buyer is actually getting.
+  const { data: allLinks } = await supabaseAdmin
+    .from('season_pass_events')
+    .select('pass_id')
+    .in('pass_id', passIds);
+  const dateCount = new Map<string, number>();
+  for (const l of (allLinks ?? []) as { pass_id: string }[]) {
+    dateCount.set(l.pass_id, (dateCount.get(l.pass_id) ?? 0) + 1);
+  }
+
+  type PassRow = {
+    id: string; name: string; price_eur: number; capacity: number;
+    tickets_sold: number; tickets_reserved: number; organizer_wallet: string;
+  };
+  return ((rows ?? []) as PassRow[])
+    .filter((p) => p.capacity - p.tickets_sold - p.tickets_reserved > 0)
+    .filter((p) => !needle || p.name.toLowerCase().includes(needle))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      priceCents: p.price_eur,
+      dates: dateCount.get(p.id) ?? 0,
+      organizerWallet: p.organizer_wallet,
+    }));
 }

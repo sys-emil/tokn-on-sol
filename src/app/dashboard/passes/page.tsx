@@ -224,7 +224,7 @@ export default function PassesPage() {
                 <h2>Deine Pässe</h2>
                 <div className="sub">Eigene Stückzahl, unabhängig von den Kontingenten der einzelnen Termine</div>
               </div>
-              <button className="btn" onClick={() => { setError(null); setDraft({ ...emptyDraft }); }}>
+              <button className="btn primary" onClick={() => { setError(null); setDraft({ ...emptyDraft }); }}>
                 <Icon name="plus" size={15} strokeWidth={2.2} /> Pass anlegen
               </button>
             </div>
@@ -433,7 +433,7 @@ export default function PassesPage() {
 
             <div className="drawer-foot">
               <button className="btn ghost" onClick={() => setDraft(null)} disabled={busy}>Abbrechen</button>
-              <button className="btn" onClick={() => void save()} disabled={busy}>
+              <button className="btn primary" onClick={() => void save()} disabled={busy}>
                 {busy ? 'Speichert …' : draft.passId ? 'Änderungen speichern' : 'Pass anlegen'}
               </button>
             </div>

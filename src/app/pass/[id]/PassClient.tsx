@@ -114,19 +114,19 @@ export default function PassClient({ passId, priceCents, available }: Props) {
       )}
 
       {!ready ? (
-        <button className="btn" disabled>Lädt …</button>
+        <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} disabled>Lädt …</button>
       ) : !authenticated ? (
         <>
-          <button className="btn" onClick={() => login()}>Anmelden und Pass kaufen</button>
+          <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} onClick={() => login()}>Anmelden und Pass kaufen</button>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', lineHeight: 1.55 }}>
             Ein Saisonpass gehört zu deinem Konto, damit er über die ganze Reihe
             gültig bleibt.
           </div>
         </>
       ) : !walletAddress ? (
-        <button className="btn" disabled>Konto wird vorbereitet …</button>
+        <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} disabled>Konto wird vorbereitet …</button>
       ) : (
-        <button className="btn" onClick={() => void buy()} disabled={loading}>
+        <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} onClick={() => void buy()} disabled={loading}>
           {loading ? 'Weiterleitung …' : priceCents > 0 ? `Pass kaufen · ${eur(total)}` : 'Pass sichern'}
         </button>
       )}

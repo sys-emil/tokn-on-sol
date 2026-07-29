@@ -138,17 +138,35 @@ const PAGE_CSS = `
   .shop-row .value { font-weight: 600; font-variant-numeric: tabular-nums; }
   .shop-row .value.big { font-size: 19px; letter-spacing: -0.01em; }
   .shop-foot { border-top: 1px solid var(--line); padding: 20px 24px 24px; background: var(--surface-2); }
+  .shop-passes { border-top: 1px solid var(--line); padding: 18px 24px; display: grid; gap: 10px; }
+  .shop-passes-head {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
   .shop-pass {
     display: flex; align-items: center; gap: 12px;
-    margin-top: 14px; padding: 13px 15px;
+    padding: 13px 15px;
     border: 1px solid var(--accent-line);
     background: var(--accent-wash);
     border-radius: var(--radius);
-    font-size: 13px; line-height: 1.5; color: var(--ink-2);
+    font-size: 13px; line-height: 1.45; color: var(--ink-2);
     text-decoration: none;
+    transition: border-color 0.15s, background 0.15s;
   }
+  .shop-pass:hover { border-color: var(--accent); }
+  .shop-pass .ic {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    background: var(--accent); color: white;
+    display: grid; place-items: center;
+  }
+  .shop-pass .txt { min-width: 0; }
   .shop-pass .n { font-weight: 600; color: var(--ink); display: block; }
-  .shop-pass .go { margin-left: auto; flex-shrink: 0; color: var(--accent-ink); font-weight: 600; }
+  .shop-pass .s { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .shop-pass .go {
+    margin-left: auto; flex-shrink: 0; color: var(--accent-ink);
+    font-weight: 600; font-size: 12.5px;
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
   .shop-trust {
     margin-top: 22px;
     display: flex; align-items: center; gap: 8px;
@@ -301,6 +319,25 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
             </div>
           </div>
 
+          {passes.length > 0 && (
+            <div className="shop-passes">
+              <div className="shop-passes-head">Gibt es auch als Saisonpass</div>
+              {passes.map((p) => (
+                <Link key={p.id} href={`/pass/${p.id}`} className="shop-pass">
+                  <span className="ic"><Icon name="ticket" size={15} /></span>
+                  <span className="txt">
+                    <span className="n">{p.name}</span>
+                    <span className="s">
+                      Gilt für {p.dates} {p.dates === 1 ? 'Termin' : 'Termine'}
+                      {p.priceCents > 0 && ` · ${(p.priceCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}`}
+                    </span>
+                  </span>
+                  <span className="go">Ansehen <Icon name="arrow" size={13} /></span>
+                </Link>
+              ))}
+            </div>
+          )}
+
           <div className="shop-foot">
             {cancelled ? (
               <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--bad-wash)', border: '1px solid oklch(0.86 0.10 25)', fontSize: 13, color: 'var(--bad)', lineHeight: 1.55 }}>
@@ -316,18 +353,6 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
                 queueEnabled={event.queue_enabled === true}
               />
             )}
-
-            {passes.map((p) => (
-              <Link key={p.id} href={`/pass/${p.id}`} className="shop-pass">
-                <Icon name="ticket" size={16} />
-                <span>
-                  <span className="n">{p.name}</span>
-                  Ein Pass für {p.dates} {p.dates === 1 ? 'Termin' : 'Termine'}
-                  {p.priceCents > 0 && ` · ${(p.priceCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}`}
-                </span>
-                <span className="go">→</span>
-              </Link>
-            ))}
           </div>
         </div>
 

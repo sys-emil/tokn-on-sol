@@ -130,6 +130,7 @@ export default function Dashboard() {
   const [soldPrev7, setSoldPrev7] = useState(0);
   const [ticketsIssued, setTicketsIssued] = useState(0);
   const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [passCount, setPassCount] = useState<number | null>(null);
   const [orgStatus, setOrgStatus] = useState<'loading' | 'none' | 'approved'>('loading');
   const [stripeStatus, setStripeStatus] = useState<'loading' | 'disconnected' | 'pending' | 'connected'>('disconnected');
   const [connectingStripe, setConnectingStripe] = useState(false);
@@ -242,9 +243,18 @@ export default function Dashboard() {
     async function loadEvents(): Promise<void> {
       try {
         const token = await getAccessToken();
-        const res = await fetch(`/api/events/list?organizerWallet=${solanaWalletAddress}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const [res, passRes] = await Promise.all([
+          fetch(`/api/events/list?organizerWallet=${solanaWalletAddress}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`/api/organizer/passes?walletAddress=${solanaWalletAddress}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+        if (passRes.ok) {
+          const passData = (await passRes.json()) as { passes: { active: boolean }[] };
+          setPassCount(passData.passes.filter((p) => p.active).length);
+        }
         if (res.ok) {
           const data = (await res.json()) as {
             events: EventRow[];
@@ -689,6 +699,27 @@ export default function Dashboard() {
                         {billingBusy ? 'Weiterleitung …' : 'Pro werden'}
                       </button>
                     )}
+                  </div>
+                </section>
+
+                {/* Eigener Einstieg im Seiteninhalt: der Topbar-Link allein
+                    verschwindet auf schmalen Bildschirmen im Scroll. */}
+                <section>
+                  <div className="card" style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--accent-wash)', display: 'grid', placeItems: 'center', color: 'var(--accent)', flexShrink: 0 }}>
+                      <Icon name="ticket" size={16} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 240 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>Saisonpässe</div>
+                      <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
+                        {passCount && passCount > 0
+                          ? `${passCount} ${passCount === 1 ? 'Pass ist' : 'Pässe sind'} im Verkauf. Ein Pass gilt für alle Termine, die du ihm zuordnest.`
+                          : 'Ein Ticket für mehrere Termine. Fans kaufen die Reihe mit einem Kauf, am Einlass gilt der Pass pro Termin einmal.'}
+                      </div>
+                    </div>
+                    <Link href="/dashboard/passes" className="btn primary">
+                      {passCount && passCount > 0 ? 'Pässe verwalten' : 'Saisonpass anlegen'}
+                    </Link>
                   </div>
                 </section>
 

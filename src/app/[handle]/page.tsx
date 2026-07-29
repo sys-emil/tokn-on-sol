@@ -202,6 +202,7 @@ export async function generateMetadata({
   const organizer = await getOrganizer(handle);
   if (!organizer) return {};
 
+
   const name = organizerDisplayName(organizer);
   const description =
     organizer.bio?.trim() ||
@@ -244,6 +245,14 @@ export default async function OrganizerPublicPage({
   const upcomingOrdered = featured
     ? [featured, ...upcoming.filter((e) => e.id !== featured.id)]
     : upcoming;
+
+  // Season passes still on sale. The profile is where a fan lands from a link
+  // in a bio, so the series has to be buyable from here, not only from a
+  // single date's shop page.
+  const passes = await loadProfilePasses(
+    organizer.wallet_address,
+    upcoming.map((e) => e.id),
+  );
 
   const name = organizerDisplayName(organizer);
   const initials = name.slice(0, 2).toUpperCase();
@@ -300,6 +309,43 @@ export default async function OrganizerPublicPage({
         </div>
       )}
 
+      {passes.length > 0 && (
+        <section style={{ marginTop: 36 }}>
+          <div className="section-head">
+            <div>
+              <h2>Saisonpässe</h2>
+              <div className="sub">Ein Ticket für die ganze Reihe</div>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+            {passes.map((p) => (
+              <Link
+                key={p.id}
+                href={`/pass/${p.id}`}
+                className="card"
+                style={{ padding: '18px 20px', display: 'grid', gap: 6, color: 'inherit' }}
+              >
+                <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-ink)' }}>
+                  Saisonpass
+                </span>
+                <span style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', lineHeight: 1.25 }}>{p.name}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
+                  Gilt für {p.dates} {p.dates === 1 ? 'Termin' : 'Termine'}
+                </span>
+                <span style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                    {p.priceCents === 0
+                      ? 'Kostenlos'
+                      : (p.priceCents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                  </span>
+                  <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--accent)' }}>Pass sichern →</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section style={{ marginTop: 36 }}>
         <div className="section-head">
           <div>
@@ -335,4 +381,47 @@ export default async function OrganizerPublicPage({
       )}
     </Shell>
   );
+}
+
+/**
+ * Active passes of this organizer that still have capacity and cover at least
+ * one upcoming date. A pass whose whole series has passed is not on sale.
+ */
+async function loadProfilePasses(
+  organizerWallet: string,
+  upcomingEventIds: string[],
+): Promise<{ id: string; name: string; priceCents: number; dates: number }[]> {
+  if (upcomingEventIds.length === 0) return [];
+
+  const { data: rows } = await supabaseAdmin
+    .from('season_passes')
+    .select('id, name, price_eur, capacity, tickets_sold, tickets_reserved')
+    .eq('organizer_wallet', organizerWallet)
+    .eq('active', true);
+
+  type Row = {
+    id: string; name: string; price_eur: number;
+    capacity: number; tickets_sold: number; tickets_reserved: number;
+  };
+  const live = ((rows ?? []) as Row[]).filter(
+    (p) => p.capacity - p.tickets_sold - p.tickets_reserved > 0,
+  );
+  if (live.length === 0) return [];
+
+  const { data: links } = await supabaseAdmin
+    .from('season_pass_events')
+    .select('pass_id, event_id')
+    .in('pass_id', live.map((p) => p.id));
+
+  const upcomingSet = new Set(upcomingEventIds);
+  const total = new Map<string, number>();
+  const hasUpcoming = new Set<string>();
+  for (const l of (links ?? []) as { pass_id: string; event_id: string }[]) {
+    total.set(l.pass_id, (total.get(l.pass_id) ?? 0) + 1);
+    if (upcomingSet.has(l.event_id)) hasUpcoming.add(l.pass_id);
+  }
+
+  return live
+    .filter((p) => hasUpcoming.has(p.id))
+    .map((p) => ({ id: p.id, name: p.name, priceCents: p.price_eur, dates: total.get(p.id) ?? 0 }));
 }

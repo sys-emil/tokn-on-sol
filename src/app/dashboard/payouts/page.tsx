@@ -181,7 +181,7 @@ export default function PayoutsPage() {
                   <label htmlFor="exportTo">Bis</label>
                   <input id="exportTo" className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
                 </div>
-                <button className="btn" disabled={exporting} onClick={() => void downloadExport()}>
+                <button className="btn primary" disabled={exporting} onClick={() => void downloadExport()}>
                   {exporting ? 'Wird erstellt …' : 'CSV herunterladen'}
                 </button>
               </div>
