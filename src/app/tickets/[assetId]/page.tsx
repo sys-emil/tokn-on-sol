@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import TicketClient from './TicketClient';
 import { BackupTicketButton } from './BackupTicketButton';
+import { ReceiptButton } from '@/app/components/ReceiptButton';
 import { heliusRpcUrl } from '@/lib/solana';
 import { supabaseAdmin } from '@/lib/supabase';
 import { LegalLinks } from '@/app/components/LegalLinks';
@@ -365,6 +366,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
               </a>
             )}
             {status === 'valid' && <BackupTicketButton assetId={assetId} />}
+            <ReceiptButton assetId={assetId} />
           </div>
 
         </div>

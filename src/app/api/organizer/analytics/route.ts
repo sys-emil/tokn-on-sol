@@ -36,6 +36,8 @@ interface PurchaseRow {
   redeemed_at: string | null;
   revoked_at: string | null;
   stripe_session_id: string | null;
+  source: string | null;
+  tier_id: string | null;
 }
 
 function appHost(): string | undefined {
@@ -89,7 +91,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const [{ data: purchaseRows }, { data: payoutRows }, { data: trackRows }, benchmark] = await Promise.all([
     supabaseAdmin
       .from("purchases")
-      .select("buyer_wallet, event_id, created_at, redeemed_at, revoked_at, stripe_session_id")
+      .select("buyer_wallet, event_id, created_at, redeemed_at, revoked_at, stripe_session_id, source, tier_id")
       .in("event_id", eventIds),
     supabaseAdmin
       .from("payouts")
@@ -323,6 +325,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const bestIdx = cur.revenue.reduce((best, v, i) => (v > cur.revenue[best] ? i : best), 0);
 
+  /* ── Umsatz, der oben absichtlich fehlt ────────────────────────────────
+     Zwei Quellen, zwei verschiedene Gründe — und beide sehen ohne diese
+     Zeilen wie ein Zählfehler aus:
+     - Abendkasse: die Tickets zählen oben mit, das Bargeld nicht, denn es
+       lief nie über Passly (es gibt keine payouts-Zeile).
+     - Saisonpass: gehört zu keinem einzelnen Termin, taucht deshalb weder
+       in den Stückzahlen noch im Umsatz auf.                              */
+  const offBook = await loadOffBookRevenue(walletAddress, purchases, periodStart);
+
   return NextResponse.json({
     range,
     kpis: {
@@ -360,7 +371,69 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     forecasts,
     benchmark,
     events: perEvent,
+    offBook,
   });
+}
+
+interface OffBookRevenue {
+  boxOffice: { tickets: number; revenueCents: number };
+  seasonPass: { tickets: number; revenueCents: number };
+}
+
+/**
+ * Money the organizer earned in this period that the headline figures above do
+ * not (and should not) contain. Surfacing it is the whole point: the numbers
+ * are right, they just aren't complete on their own.
+ */
+async function loadOffBookRevenue(
+  walletAddress: string,
+  purchases: PurchaseRow[],
+  periodStart: Date,
+): Promise<OffBookRevenue> {
+  const startMs = periodStart.getTime();
+  const inPeriod = (iso: string): boolean => Date.parse(iso) >= startMs;
+
+  // Box office: priced from the tier, since no payouts row exists.
+  const cashRows = purchases.filter((p) => p.source === "box_office" && inPeriod(p.created_at));
+  let cashCents = 0;
+  if (cashRows.length > 0) {
+    const tierIds = [...new Set(cashRows.map((p) => p.tier_id).filter((id): id is string => Boolean(id)))];
+    const { data: tiers } = tierIds.length > 0
+      ? await supabaseAdmin.from("ticket_tiers").select("id, price_eur").in("id", tierIds)
+      : { data: [] };
+    const priceById = new Map(((tiers ?? []) as { id: string; price_eur: number }[]).map((t) => [t.id, t.price_eur]));
+    for (const p of cashRows) cashCents += p.tier_id ? priceById.get(p.tier_id) ?? 0 : 0;
+  }
+
+  // Season passes: their payouts rows carry season_pass_id instead of event_id,
+  // so the event-scoped queries above never see them.
+  const { data: passPayouts } = await supabaseAdmin
+    .from("payouts")
+    .select("stripe_session_id, net_cents, status")
+    .eq("organizer_wallet", walletAddress)
+    .not("season_pass_id", "is", null)
+    .gte("created_at", periodStart.toISOString());
+
+  const passRows = ((passPayouts ?? []) as {
+    stripe_session_id: string | null; net_cents: number; status: string;
+  }[]).filter((p) => p.status !== "refunded");
+
+  const passSessions = passRows.map((p) => p.stripe_session_id).filter((id): id is string => Boolean(id));
+  const { count: passTickets } = passSessions.length > 0
+    ? await supabaseAdmin
+        .from("purchases")
+        .select("id", { count: "exact", head: true })
+        .in("stripe_session_id", passSessions)
+        .is("revoked_at", null)
+    : { count: 0 };
+
+  return {
+    boxOffice: { tickets: cashRows.length, revenueCents: cashCents },
+    seasonPass: {
+      tickets: passTickets ?? 0,
+      revenueCents: passRows.reduce((sum, p) => sum + (p.net_cents ?? 0), 0),
+    },
+  };
 }
 
 async function loadBenchmark(walletAddress: string): Promise<unknown> {
@@ -413,5 +486,9 @@ function emptyPayload(range: number) {
     forecasts: [],
     benchmark: null,
     events: [],
+    offBook: {
+      boxOffice: { tickets: 0, revenueCents: 0 },
+      seasonPass: { tickets: 0, revenueCents: 0 },
+    },
   };
 }

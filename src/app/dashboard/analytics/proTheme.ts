@@ -141,6 +141,16 @@ export const PRO_CSS = `
   .kpi-cell .value { margin-top: 12px; font-size: 29px; font-weight: 620; letter-spacing: -0.035em; font-variant-numeric: tabular-nums; line-height: 1; }
   .kpi-cell .foot { margin-top: 9px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
   .kpi-cell .sub { font-size: 11.5px; color: var(--ink-4); }
+  /* "davon"-Zeilen unter der KPI-Leiste: Abendkasse und Saisonpaesse. */
+  .offbook { padding: 14px 22px 16px; display: grid; gap: 8px; }
+  .offbook-row {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    font-size: 12.5px;
+  }
+  .offbook-row .k { font-weight: 600; color: var(--ink-2); }
+  .offbook-row .v { font-variant-numeric: tabular-nums; color: var(--ink); }
+  .offbook-row .h { font-size: 11.5px; color: var(--ink-4); }
+
   .delta {
     display: inline-flex; align-items: center; gap: 4px;
     font-size: 11.5px; font-weight: 600; padding: 2px 7px; border-radius: 6px;

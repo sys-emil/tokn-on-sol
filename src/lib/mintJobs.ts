@@ -4,6 +4,7 @@ import { mintTicket } from "@/lib/mint";
 import { sendTicketConfirmation, sendAdminAlert } from "@/lib/email";
 import { checkPurchaseBadges } from "@/lib/badges";
 import { passEventDates } from "@/lib/seasonPass";
+import { buildReceiptPdf, loadReceiptInput } from "@/lib/receipt";
 
 /**
  * Async mint queue (decouples slow Bubblegum mints from the Stripe webhook).
@@ -260,6 +261,18 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           .select("token")
           .eq("stripe_session_id", job.stripe_session_id)
           .maybeSingle();
+
+        // Receipt rides along with the confirmation. Best-effort: a PDF that
+        // won't build must never cost the buyer their ticket links, and the
+        // buyer can always fetch it later from the ticket page.
+        let receiptPdf: Uint8Array | null = null;
+        try {
+          const receiptInput = await loadReceiptInput(job.stripe_session_id);
+          if (receiptInput) receiptPdf = await buildReceiptPdf(receiptInput);
+        } catch (err) {
+          console.error(`Receipt build failed for session ${job.stripe_session_id}:`, err);
+        }
+
         void sendTicketConfirmation({
           to: job.buyer_email,
           eventName: event.name,
@@ -267,6 +280,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           assetIds,
           baseUrl,
           orderToken: (guestOrder?.token as string | undefined) ?? null,
+          receiptPdf,
         }).catch((err) => console.error("Confirmation email failed:", err));
       }
     }

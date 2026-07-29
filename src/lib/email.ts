@@ -327,6 +327,7 @@ export async function sendTicketConfirmation({
   assetIds,
   baseUrl,
   orderToken,
+  receiptPdf,
 }: {
   to: string;
   eventName: string;
@@ -335,6 +336,8 @@ export async function sendTicketConfirmation({
   baseUrl: string;
   /** Guest orders: one link to all tickets, since the buyer has no account. */
   orderToken?: string | null;
+  /** Purchase receipt, attached when the order actually cost money. */
+  receiptPdf?: Uint8Array | null;
 }): Promise<void> {
   if (!process.env.RESEND_API_KEY) return;
 
@@ -385,6 +388,9 @@ export async function sendTicketConfirmation({
               einfach deinen QR-Code. Keine App nötig. Du findest ${plural ? "die Tickets" : "das Ticket"}
               jederzeit auch unter <a href="${baseUrl}/my-tickets" style="color:#7c3aed;text-decoration:none;">Meine Tickets</a>.
             </p>
+            ${receiptPdf ? `<p style="margin:10px 0 0;font-size:12px;color:#6d6d7f;line-height:1.6;">
+              Der Zahlungsbeleg liegt dieser E-Mail als PDF bei.
+            </p>` : ""}
           </td>
         </tr>
 
@@ -417,5 +423,8 @@ export async function sendTicketConfirmation({
       ? `Deine ${assetIds.length} Tickets für ${eventName}`
       : `Dein Ticket für ${eventName}`,
     html,
+    // The receipt rides along with the confirmation so the buyer never has to
+    // come back for it; absent for free tickets, which have nothing to receipt.
+    ...(receiptPdf ? { attachments: [{ filename: "passly-beleg.pdf", content: Buffer.from(receiptPdf) }] } : {}),
   });
 }

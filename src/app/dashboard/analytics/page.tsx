@@ -468,6 +468,28 @@ function OverviewTab({
     },
   ];
 
+  // "davon"-Zeilen unter der KPI-Leiste: Geld, das es gibt, das oben aber
+  // bewusst fehlt. Ohne sie liest sich die Lücke wie ein Zählfehler.
+  const offBook = data.offBook;
+  const offBookNotes = [
+    offBook && offBook.boxOffice.tickets > 0
+      ? {
+          key: 'box',
+          label: 'davon Abendkasse',
+          value: `${nf.format(offBook.boxOffice.tickets)} Tickets · ${eur(offBook.boxOffice.revenueCents)}`,
+          hint: 'in der Stückzahl enthalten, im Umsatz nicht — das Bargeld ist direkt bei dir geblieben',
+        }
+      : null,
+    offBook && offBook.seasonPass.tickets > 0
+      ? {
+          key: 'pass',
+          label: 'davon Saisonpässe',
+          value: `${nf.format(offBook.seasonPass.tickets)} Pässe · ${eur(offBook.seasonPass.revenueCents)}`,
+          hint: 'oben gar nicht enthalten — ein Pass gehört zu keinem einzelnen Termin',
+        }
+      : null,
+  ].filter((n): n is { key: string; label: string; value: string; hint: string } => n !== null);
+
   const funnelBase = data.funnel[0]?.count ?? 0;
   const biggestDrop = data.funnel.reduce<{ index: number; loss: number }>((worst, stage, i) => {
     if (i === 0) return worst;
@@ -502,6 +524,17 @@ function OverviewTab({
             </div>
           ))}
         </div>
+        {offBookNotes.length > 0 && (
+          <div className="offbook">
+            {offBookNotes.map((n) => (
+              <div className="offbook-row" key={n.key}>
+                <span className="k">{n.label}</span>
+                <span className="v">{n.value}</span>
+                <span className="h">{n.hint}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card panel">

@@ -49,6 +49,16 @@ export interface AnalyticsData {
     rows: { label: string; you: number; market: number; unit: 'eur' | 'pct' }[];
   } | null;
   events: AnalyticsEventRow[];
+  /**
+   * Revenue that exists but is deliberately outside the KPIs: box-office cash
+   * (tickets counted, money never touched Passly) and season passes (belong to
+   * no single date). Shown as "davon"-lines so the gap reads as a decision,
+   * not a bug.
+   */
+  offBook?: {
+    boxOffice: { tickets: number; revenueCents: number };
+    seasonPass: { tickets: number; revenueCents: number };
+  };
 }
 
 export type SegmentId = 'stamm' | 'risk' | 'neu' | 'vip';

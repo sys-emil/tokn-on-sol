@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
 import { loadGuestOrder } from '@/lib/guestOrders';
 import { LegalLinks } from '@/app/components/LegalLinks';
+import { ReceiptButton } from '@/app/components/ReceiptButton';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ClaimTickets } from './ClaimTickets';
@@ -118,6 +119,12 @@ export default async function GuestOrderPage({ params }: { params: Promise<{ tok
               <ClaimTickets token={token} count={valid.length} />
             </>
           ) : null}
+
+          {/* The receipt needs no account; the order token is the credential
+              here, exactly as it is for the rest of this page. */}
+          <div style={{ marginTop: 14 }}>
+            <ReceiptButton orderToken={token} />
+          </div>
 
           <LegalLinks />
         </div>

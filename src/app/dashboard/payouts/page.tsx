@@ -54,6 +54,35 @@ export default function PayoutsPage() {
   const [data, setData] = useState<PayoutData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  // Bookkeeping export. Defaults to the current calendar year, the unit an
+  // organizer files in; the route accepts any range.
+  const thisYear = new Date().getFullYear();
+  const [from, setFrom] = useState(`${thisYear}-01-01`);
+  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [exporting, setExporting] = useState(false);
+
+  async function downloadExport(): Promise<void> {
+    if (!wallet) return;
+    setExporting(true);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(
+        `/api/organizer/export?walletAddress=${wallet}&from=${from}&to=${to}`,
+        { headers: { Authorization: `Bearer ${token ?? ''}` } },
+      );
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `passly-export-${from}-bis-${to}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   useEffect(() => {
     if (ready && !authenticated) router.push('/');
   }, [ready, authenticated, router]);
@@ -131,6 +160,36 @@ export default function PayoutsPage() {
                 <div className="delta" style={{ color: 'var(--ink-3)' }}>
                   {summary && summary.heldCount > 0 ? 'wir kümmern uns, kein Handeln nötig' : 'alles sauber'}
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div className="section-head">
+              <div>
+                <h2>Für die Buchhaltung</h2>
+                <div className="sub">CSV mit allen Verkäufen eines Zeitraums · inklusive Abendkasse und Saisonpässen</div>
+              </div>
+            </div>
+            <div className="card" style={{ display: 'grid', gap: 14 }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="exportFrom">Von</label>
+                  <input id="exportFrom" className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label htmlFor="exportTo">Bis</label>
+                  <input id="exportTo" className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                </div>
+                <button className="btn" disabled={exporting} onClick={() => void downloadExport()}>
+                  {exporting ? 'Wird erstellt …' : 'CSV herunterladen'}
+                </button>
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.6 }}>
+                Eine Zeile pro Bestellung, mit Bruttobetrag, Servicegebühr und dem Betrag,
+                der bei dir ankommt. Deine Steuerberatung kann die Spalten direkt zuordnen.
+                Wir weisen bewusst keine Umsatzsteuer aus — welcher Satz für dich gilt,
+                weißt nur du.
               </div>
             </div>
           </section>
