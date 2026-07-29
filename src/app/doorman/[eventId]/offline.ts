@@ -30,10 +30,19 @@ export interface SnapshotTicket {
   x: 0 | 1; // revoked
 }
 
+/** Price categories, so the door can sell without a second request. */
+export interface SnapshotTier {
+  id: string;
+  name: string;
+  priceCents: number;
+}
+
 export interface Snapshot {
   generatedAt: string;
   cancelled: boolean;
   tickets: SnapshotTicket[];
+  /** Absent in snapshots cached before the box office existed. */
+  tiers?: SnapshotTier[];
 }
 
 export interface PendingRedemption {

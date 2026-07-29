@@ -35,15 +35,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: purchases } = await supabaseAdmin
-    .from("purchases")
-    .select("asset_id, buyer_wallet, redeemed_at, revoked_at")
-    .eq("event_id", id)
-    .limit(10000);
+  const [{ data: purchases }, { data: tiers }] = await Promise.all([
+    supabaseAdmin
+      .from("purchases")
+      .select("asset_id, buyer_wallet, redeemed_at, revoked_at")
+      .eq("event_id", id)
+      .limit(10000),
+    // Price categories for the box office panel; cached with the snapshot so
+    // selling still works in a dead spot right after the page loaded.
+    supabaseAdmin
+      .from("ticket_tiers")
+      .select("id, name, price_eur")
+      .eq("event_id", id)
+      .order("sort")
+      .order("created_at"),
+  ]);
 
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     cancelled: Boolean(event.cancelled_at),
+    tiers: (tiers ?? []).map((t) => ({
+      id: t.id as string,
+      name: t.name as string,
+      priceCents: t.price_eur as number,
+    })),
     tickets: (purchases ?? []).map((p) => ({
       a: p.asset_id as string,
       w: p.buyer_wallet as string,

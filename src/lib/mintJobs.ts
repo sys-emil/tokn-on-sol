@@ -29,6 +29,8 @@ export interface MintJob {
   buyer_email: string | null;
   quantity: number;
   status: "queued" | "processing" | "done" | "failed";
+  source?: string | null;
+  admit_immediately?: boolean | null;
   attempts: number;
   last_error: string | null;
   refund_id: string | null;
@@ -162,6 +164,11 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           asset_id: assetId,
           signature,
           stripe_session_id: job.stripe_session_id,
+          source: job.source ?? "online",
+          // Box-office walk-ups are admitted as they are sold; the guest is
+          // standing at the door and nobody wants to scan a code they just
+          // handed over.
+          ...(job.admit_immediately ? { redeemed_at: new Date().toISOString() } : {}),
         });
 
         console.info(`Ticket ${ticketNum}/${job.quantity} minted → assetId=${assetId} sig=${signature}`);

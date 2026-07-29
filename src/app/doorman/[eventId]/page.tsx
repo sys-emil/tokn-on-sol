@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@/app/components/passlyUi';
 import { LegalLinks } from '@/app/components/LegalLinks';
+import { BoxOffice } from './BoxOffice';
 import {
   loadPending,
   loadSnapshot,
@@ -16,6 +17,7 @@ import {
   type BackupPersonView,
   type PendingRedemption,
   type Snapshot,
+  type SnapshotTier,
 } from './offline';
 
 interface EventData {
@@ -255,6 +257,9 @@ export default function DoormanPage() {
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   const [pendingCount, setPendingCount] = useState(0);
   const [snapshotReady, setSnapshotReady] = useState(false);
+  // Kept in state, not read off the ref: the box office has to re-render when
+  // the snapshot brings new price categories.
+  const [tiers, setTiers] = useState<SnapshotTier[]>([]);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [conflictCount, setConflictCount] = useState(0);
   const [nowTs, setNowTs] = useState(() => Date.now());
@@ -285,7 +290,12 @@ export default function DoormanPage() {
   useEffect(() => {
     if (!eventId) return;
     snapshotRef.current = loadSnapshot(eventId);
-    if (snapshotRef.current) setSnapshotReady(true);
+    if (snapshotRef.current) {
+      setSnapshotReady(true);
+      // Snapshots cached before the box office existed carry no tiers; the
+      // next online refresh fills them in.
+      setTiers(snapshotRef.current.tiers ?? []);
+    }
     pendingRef.current = loadPending(eventId);
     locallyRedeemedRef.current = new Set(pendingRef.current.map((p) => p.assetId));
     setPendingCount(pendingRef.current.length);
@@ -342,31 +352,32 @@ export default function DoormanPage() {
 
   // Refresh the snapshot every 60 s while online; the cache the doorman
   // falls back to is at most a minute old when the connection drops.
+  const refreshSnapshot = useCallback(async (): Promise<void> => {
+    if (!eventId) return;
+    try {
+      const res = await fetch(`/api/organizer/event/snapshot?id=${eventId}`, {
+        headers: await doorAuthHeaders(),
+      });
+      if (!res.ok) return;
+      const snap = (await res.json()) as Snapshot;
+      snapshotRef.current = snap;
+      saveSnapshot(eventId, snap);
+      setTiers(snap.tiers ?? []);
+      setSnapshotReady(true);
+      setLastSyncAt(new Date().toISOString());
+    } catch {
+      // offline or flaky; the cached snapshot keeps working
+    }
+  }, [eventId, doorAuthHeaders]);
+
   useEffect(() => {
     if (!hasDoorAccess || !online || !eventId) return;
-    let cancelled = false;
-    async function refresh(): Promise<void> {
-      try {
-        const res = await fetch(`/api/organizer/event/snapshot?id=${eventId}`, {
-          headers: await doorAuthHeaders(),
-        });
-        if (!res.ok || cancelled) return;
-        const snap = (await res.json()) as Snapshot;
-        snapshotRef.current = snap;
-        saveSnapshot(eventId, snap);
-        setSnapshotReady(true);
-        setLastSyncAt(new Date().toISOString());
-      } catch {
-        // offline or flaky; the cached snapshot keeps working
-      }
-    }
-    void refresh();
-    const timer = setInterval(() => void refresh(), 60_000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [hasDoorAccess, online, eventId, doorAuthHeaders]);
+    // Deferred past the effect body so the first state update inside doesn't
+    // trip react-hooks/set-state-in-effect.
+    queueMicrotask(() => void refreshSnapshot());
+    const timer = setInterval(() => void refreshSnapshot(), 60_000);
+    return () => clearInterval(timer);
+  }, [hasDoorAccess, online, eventId, refreshSnapshot]);
 
   // Push queued offline redemptions once the connection is back.
   useEffect(() => {
@@ -672,6 +683,15 @@ export default function DoormanPage() {
               <div className="v">{lastScan ? formatTime(lastScan) : 'noch keiner'}</div>
             </div>
           </div>
+
+          {hasDoorAccess && online && snapshotReady && (
+            <BoxOffice
+              eventId={eventId}
+              tiers={tiers}
+              authHeaders={doorAuthHeaders}
+              onSold={() => { void refreshSnapshot(); }}
+            />
+          )}
 
           <div className="scanner-wrap" role="status" aria-live="assertive">
             <video ref={videoRef} className="scanner-video" muted playsInline />
