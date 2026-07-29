@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Providers } from '@/app/components/Providers';
+import { getLang } from '@/lib/i18nServer';
 import './globals.css';
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist', display: 'swap' });
@@ -28,13 +29,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Buyer-facing copy is translatable (see src/lib/i18n.ts); reading the
+  // cookie here is what keeps <html lang> and the client components honest.
+  const lang = await getLang();
+
   return (
-    <html lang="de" className={`${geist.variable} ${geistMono.variable}`}>
+    <html lang={lang} className={`${geist.variable} ${geistMono.variable}`}>
       <head>
         <link rel="icon" href="/favicon-16.png" type="image/png" sizes="16x16" />
         <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
@@ -42,7 +47,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon-180.png" sizes="180x180" />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers lang={lang}>{children}</Providers>
       </body>
     </html>
   );

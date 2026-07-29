@@ -6,6 +6,8 @@ import type { SeasonPass } from '@/lib/supabase';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, VerifiedCheck } from '@/app/components/passlyUi';
 import PassClient from './PassClient';
+import { getT } from '@/lib/i18nServer';
+import { LangSwitch } from '@/app/components/LangSwitch';
 
 interface PassDate {
   id: string;
@@ -63,10 +65,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-const formatDate = (iso: string) =>
-  new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
-const monthShort = (iso: string) =>
-  new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
+const formatDate = (iso: string, lang: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'en' ? 'en-GB' : 'de-DE', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+const monthShort = (iso: string, lang: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'en' ? 'en-GB' : 'de-DE', { month: 'short' }).replace('.', '');
 const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
 
 const PAGE_CSS = `
@@ -118,6 +120,7 @@ const PAGE_CSS = `
 
 export default async function PassPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const { lang, t } = await getT();
   const pass = await getPass(id);
   if (!pass) notFound();
 
@@ -139,7 +142,7 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
 
   const available = Math.max(0, pass.capacity - pass.tickets_sold - pass.tickets_reserved);
   const priceFormatted = pass.price_eur === 0
-    ? 'Kostenlos'
+    ? t('common.free')
     : (pass.price_eur / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 
   return (
@@ -150,7 +153,7 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
 
         <div className="pass-sheet">
           <div className="pass-title">
-            <div className="eyebrow-plain">Saisonpass</div>
+            <div className="eyebrow-plain">{t('pass.eyebrow')}</div>
             <h1>{pass.name}</h1>
           </div>
 
@@ -159,20 +162,22 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
           <div className="pass-rows">
             <div className="pass-row">
               <span className="label">
-                Preis
+                {t('pass.price')}
                 {pass.price_eur > 0 && (
-                  <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>zzgl. Servicegebühr</span>
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{t('shop.plusFee')}</span>
                 )}
               </span>
               <span className="value big">{priceFormatted}</span>
             </div>
             <div className="pass-row">
-              <span className="label">Gilt für</span>
-              <span className="value">{liveDates.length} {liveDates.length === 1 ? 'Termin' : 'Termine'}</span>
+              <span className="label">{t('pass.validFor')}</span>
+              <span className="value">
+                {liveDates.length === 1 ? t('pass.dateCount') : t('pass.datesCount', { count: liveDates.length })}
+              </span>
             </div>
             {organizerName && (
               <div className="pass-row">
-                <span className="label">Veranstalter</span>
+                <span className="label">{t('shop.organizer')}</span>
                 <span className="value" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 500, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   {organizerHandle ? (
                     <Link href={`/@${organizerHandle}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'inherit' }}>
@@ -185,31 +190,31 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
                       {organizerVerified && <VerifiedCheck size={15} title={organizerVerifiedLabel ?? 'Verifiziert'} />}
                     </span>
                   )}
-                  <span className="chip ok" title="Dieser Veranstalter wurde von Passly geprüft."><Icon name="shield" size={11} /> Geprüft</span>
+                  <span className="chip ok" title={t('shop.verifiedTitle')}><Icon name="shield" size={11} /> {t('shop.verified')}</span>
                 </span>
               </div>
             )}
             <div className="pass-row">
-              <span className="label">Verfügbarkeit</span>
+              <span className="label">{t('shop.availability')}</span>
               {!pass.active ? (
-                <span className="chip"><span className="d" />Nicht im Verkauf</span>
+                <span className="chip"><span className="d" />{t('pass.notOnSale')}</span>
               ) : available <= 0 ? (
-                <span className="chip bad"><span className="d" />Ausverkauft</span>
+                <span className="chip bad"><span className="d" />{t('events.soldOut')}</span>
               ) : available <= Math.max(5, Math.floor(pass.capacity * 0.1)) ? (
-                <span className="chip warn"><span className="d" />Nur noch {available}</span>
+                <span className="chip warn"><span className="d" />{t('events.onlyLeft', { count: available })}</span>
               ) : (
-                <span className="chip ok"><span className="d" />Verfügbar</span>
+                <span className="chip ok"><span className="d" />{t('shop.available')}</span>
               )}
             </div>
           </div>
 
           {dates.length > 0 && (
             <div className="pass-dates">
-              <div className="head">Diese Termine sind drin</div>
+              <div className="head">{t('pass.datesHead')}</div>
               {dates.map((d) => (
                 <div key={d.id} className={`pass-date${d.cancelled ? ' off' : ''}`}>
                   <div className="cal">
-                    <div className="m">{monthShort(d.date)}</div>
+                    <div className="m">{monthShort(d.date, lang)}</div>
                     <div className="d">{dayNum(d.date)}</div>
                   </div>
                   <div className="txt">
@@ -218,8 +223,8 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
                     </div>
                     <div className="w">
                       {d.cancelled
-                        ? 'Abgesagt'
-                        : `${formatDate(d.date)}${d.startTime ? ` · ${d.startTime} Uhr` : ''}${d.venue ? ` · ${d.venue}` : ''}`}
+                        ? t('shop.cancelled')
+                        : `${formatDate(d.date, lang)}${d.startTime ? ` · ${d.startTime}` : ''}${d.venue ? ` · ${d.venue}` : ''}`}
                     </div>
                   </div>
                 </div>
@@ -230,12 +235,11 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
           <div className="pass-foot">
             {!pass.active ? (
               <div style={{ fontSize: 13, color: 'var(--ink-3)', textAlign: 'center', lineHeight: 1.6 }}>
-                Dieser Saisonpass wird nicht mehr verkauft. Einzeltickets gibt es
-                weiterhin auf den Eventseiten.
+                {t('pass.notOnSaleText')}
               </div>
             ) : liveDates.length === 0 ? (
               <div style={{ fontSize: 13, color: 'var(--ink-3)', textAlign: 'center', lineHeight: 1.6 }}>
-                Für diesen Pass sind gerade keine Termine hinterlegt.
+                {t('pass.noDates')}
               </div>
             ) : (
               <PassClient passId={pass.id} priceCents={pass.price_eur} available={available} />
@@ -245,14 +249,15 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
 
         <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-3)' }}>
           <Icon name="shield" size={14} />
-          Ein Pass, alle Termine. Am Einlass gilt er pro Termin genau einmal.
+          {t('pass.trust')}
         </div>
 
         <div style={{ marginTop: 20, display: 'flex', gap: 14, fontSize: 11.5, color: 'var(--ink-4)' }}>
-          <Link href="/hilfe">Hilfe</Link>
-          <Link href="/impressum">Impressum</Link>
-          <Link href="/datenschutz">Datenschutz</Link>
-          <Link href="/agb">AGB</Link>
+          <Link href="/hilfe">{t('common.help')}</Link>
+          <Link href="/impressum">{t('common.imprint')}</Link>
+          <Link href="/datenschutz">{t('common.privacy')}</Link>
+          <Link href="/agb">{t('common.terms')}</Link>
+          <LangSwitch />
         </div>
       </div>
     </>

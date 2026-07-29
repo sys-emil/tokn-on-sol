@@ -43,16 +43,28 @@ export async function notifyWaitlistIfSeats(eventId: string, baseUrl: string): P
     .update({ notified_at: new Date().toISOString() })
     .in("id", ids)
     .is("notified_at", null)
-    .select("email");
-  const recipients = (claimed ?? []).map((c) => c.email as string);
-  if (recipients.length === 0) return 0;
+    .select("email, lang");
+  const rows = (claimed ?? []) as { email: string; lang: string | null }[];
+  if (rows.length === 0) return 0;
 
-  return sendWaitlistEmail({
-    recipients,
-    eventName: event.name as string,
-    eventId,
-    baseUrl,
-  });
+  // One batch per language, same reason as the reminder mails.
+  const byLang = new Map<string, string[]>();
+  for (const r of rows) {
+    const key = r.lang === "en" ? "en" : "de";
+    byLang.set(key, [...(byLang.get(key) ?? []), r.email]);
+  }
+
+  let sent = 0;
+  for (const [lang, recipients] of byLang) {
+    sent += await sendWaitlistEmail({
+      recipients,
+      eventName: event.name as string,
+      eventId,
+      baseUrl,
+      lang,
+    });
+  }
+  return sent;
 }
 
 /**

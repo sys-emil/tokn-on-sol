@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
+import { getLang } from "@/lib/i18nServer";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { error } = await supabaseAdmin
     .from("waitlist_entries")
-    .insert({ event_id: eventId, email });
+    .insert({ event_id: eventId, email, lang: await getLang() });
   // 23505 = already on the list; same answer, signing up twice is fine.
   if (error && error.code !== "23505") {
     return NextResponse.json({ success: false, error: "Eintrag fehlgeschlagen. Bitte versuch es erneut." }, { status: 500 });

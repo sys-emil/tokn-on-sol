@@ -6,6 +6,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
+import { useT } from '@/app/components/LangProvider';
 
 /**
  * Confirmation page for a season-pass checkout. Same polling contract as the
@@ -87,6 +88,7 @@ interface ConfirmData {
 }
 
 function PassRow({ index, assetId }: { index: number; assetId: string | null }) {
+  const t = useT();
   const minted = assetId !== null;
   return (
     <div className={`ticket-row${minted ? ' is-minted' : ''}`}>
@@ -97,19 +99,20 @@ function PassRow({ index, assetId }: { index: number; assetId: string | null }) 
         <div className="spinner" />
       )}
       <div className="ticket-status">
-        <div className="label">{minted ? 'Bestätigt' : 'Wird vorbereitet …'}</div>
+        <div className="label">{minted ? t('success.confirmed') : t('success.preparing')}</div>
         {minted && assetId && (
           <div className="asset">{assetId.slice(0, 8)}…{assetId.slice(-6)}</div>
         )}
       </div>
       {minted && assetId && (
-        <Link href={`/tickets/${assetId}`} className="btn ghost sm">Ansehen</Link>
+        <Link href={`/tickets/${assetId}`} className="btn ghost sm">{t('success.view')}</Link>
       )}
     </div>
   );
 }
 
 function SuccessInner() {
+  const t = useT();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id') ?? '';
 
@@ -164,18 +167,16 @@ function SuccessInner() {
     return (
       <div className="success-card">
         <div className="success-head">
-          <span className="chip warn"><span className="d" />Dauert länger als gedacht</span>
-          <h1>Bestätigung steht noch aus</h1>
+          <span className="chip warn"><span className="d" />{t('success.delayChip')}</span>
+          <h1>{t('success.delayTitle')}</h1>
         </div>
         <div className="success-body">
           <div className="error-box">
-            Alles gut, deine Zahlung ist eingegangen. Der Pass wird gerade im
-            Hintergrund fertiggestellt und erscheint automatisch in deiner
-            Ticketübersicht.
+            {t('pass.delayText')}
             <code>{sessionId}</code>
           </div>
           <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}>
-            Zu meinen Tickets
+            {t('success.toMyTickets')}
           </Link>
         </div>
       </div>
@@ -183,18 +184,18 @@ function SuccessInner() {
   }
 
   const title = allDone
-    ? quantity === 1 ? 'Dein Saisonpass ist da' : `Alle ${quantity} Pässe sind da`
+    ? quantity === 1 ? t('pass.successOne') : t('pass.successMany', { count: quantity })
     : quantity === 1
-    ? 'Dein Saisonpass wird vorbereitet …'
-    : 'Deine Saisonpässe werden vorbereitet …';
+      ? t('pass.successOnePreparing')
+      : t('pass.successManyPreparing');
 
   return (
     <div className="success-card">
       <div className="success-head">
-        <span className={`chip ${allDone ? 'ok' : 'accent'}`}><span className="d" />Zahlung bestätigt</span>
+        <span className={`chip ${allDone ? 'ok' : 'accent'}`}><span className="d" />{t('success.paid')}</span>
         <h1>{title}</h1>
         {quantity > 1 && (
-          <div className="progress-label"><b>{mintedCount} von {quantity}</b> Pässen bestätigt</div>
+          <div className="progress-label">{t('pass.successProgress', { minted: mintedCount, total: quantity })}</div>
         )}
       </div>
 
@@ -208,15 +209,12 @@ function SuccessInner() {
         {allDone ? (
           <>
             <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}>
-              Zu meinen Tickets
+              {t('success.toMyTickets')}
             </Link>
-            <div className="notice">
-              🎉 Der Pass gilt für alle Termine der Reihe. Am Einlass zeigst du
-              jedes Mal denselben Code, er wird pro Termin einmal eingelöst.
-            </div>
+            <div className="notice">{t('pass.successTip')}</div>
           </>
         ) : (
-          <div className="notice">Das kann bis zu einer Minute dauern. Lass den Tab am besten offen.</div>
+          <div className="notice">{t('success.wait')}</div>
         )}
       </div>
     </div>
@@ -232,8 +230,8 @@ export default function PassSuccessPage() {
         <Suspense fallback={
           <div className="success-card">
             <div className="success-head">
-              <span className="chip accent"><span className="d" />Zahlung bestätigt</span>
-              <h1>Lädt …</h1>
+              <span className="chip accent"><span className="d" />Passly</span>
+              <h1>…</h1>
             </div>
           </div>
         }>

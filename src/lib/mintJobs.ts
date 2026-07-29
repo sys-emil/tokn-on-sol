@@ -34,6 +34,8 @@ export interface MintJob {
   buyer_email: string | null;
   quantity: number;
   status: "queued" | "processing" | "done" | "failed";
+  /** Buyer's language at checkout; the confirmation mail is sent from here. */
+  lang?: string | null;
   source?: string | null;
   admit_immediately?: boolean | null;
   attempts: number;
@@ -281,6 +283,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           baseUrl,
           orderToken: (guestOrder?.token as string | undefined) ?? null,
           receiptPdf,
+          lang: job.lang,
         }).catch((err) => console.error("Confirmation email failed:", err));
       }
     }

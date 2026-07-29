@@ -2,6 +2,7 @@
 
 import { getAccessToken } from '@privy-io/react-auth';
 import { useState } from 'react';
+import { useT } from '@/app/components/LangProvider';
 
 /**
  * "Beleg herunterladen" action. Fetches the receipt PDF for the order this
@@ -16,12 +17,13 @@ import { useState } from 'react';
 export function ReceiptButton({
   assetId,
   orderToken,
-  label = 'Beleg herunterladen',
+  label,
 }: {
   assetId?: string;
   orderToken?: string;
   label?: string;
 }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,7 +73,7 @@ export function ReceiptButton({
         disabled={busy}
         onClick={() => void download()}
       >
-        {busy ? 'Wird erstellt …' : label}
+        {busy ? t('ticket.receiptBusy') : label ?? t('ticket.receipt')}
       </button>
       {error && (
         <div style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5, marginTop: 6, textAlign: 'center' }}>

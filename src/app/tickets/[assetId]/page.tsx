@@ -6,6 +6,7 @@ import { heliusRpcUrl } from '@/lib/solana';
 import { supabaseAdmin } from '@/lib/supabase';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
+import { getT } from '@/lib/i18nServer';
 
 interface DasAsset {
   content?: { metadata?: { name?: string; attributes?: { trait_type: string; value: string }[] } };
@@ -118,7 +119,8 @@ async function getPassDates(passId: string, purchaseId: string): Promise<PassDat
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+const formatDate = (iso: string, lang: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'en' ? 'en-GB' : 'de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
 
 const PAGE_CSS = `
   .ticket-canvas {
@@ -211,7 +213,9 @@ const PAGE_CSS = `
 
 export default async function TicketPage({ params }: { params: Promise<{ assetId: string }> }) {
   const { assetId } = await params;
-  const [asset, purchase] = await Promise.all([getAsset(assetId), getPurchase(assetId)]);
+  const [{ lang, t }, asset, purchase] = await Promise.all([
+    getT(), getAsset(assetId), getPurchase(assetId),
+  ]);
 
   if (!asset && !purchase) notFound();
 
@@ -220,7 +224,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
   const name = pass?.name
     ?? purchase?.eventName
     ?? asset?.content?.metadata?.name
-    ?? 'Unbekanntes Event';
+    ?? t('ticket.unknownEvent');
   const dateAttr = asset?.content?.metadata?.attributes?.find((a) => a.trait_type === 'Event Date');
   const date = pass ? '' : purchase?.eventDate ?? dateAttr?.value ?? '';
   const venueAttr = asset?.content?.metadata?.attributes?.find((a) => a.trait_type === 'Venue');
@@ -259,26 +263,26 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
 
           <div style={{ padding: '16px 22px 14px' }}>
             <div style={{ fontSize: 11.5, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {pass ? 'Dein Saisonpass' : isVip ? 'Dein VIP-Ticket' : 'Dein Ticket'}
+              {pass ? t('ticket.yoursPass') : isVip ? t('ticket.yoursVip') : t('ticket.yours')}
             </div>
             <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.015em', lineHeight: 1.25, marginTop: 4 }}>{name}</div>
             {date && (
-              <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>{formatDate(date)}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>{formatDate(date, lang)}</div>
             )}
             {pass && (
               <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>
                 {openDates > 0
-                  ? `Noch ${openDates} von ${pass.dates.length} ${pass.dates.length === 1 ? 'Termin' : 'Terminen'} offen`
-                  : `Alle ${pass.dates.length} Termine eingelöst`}
+                  ? t('ticket.datesOpen', { open: openDates, total: pass.dates.length })
+                  : t('ticket.datesAllUsed', { total: pass.dates.length })}
               </div>
             )}
           </div>
 
           <div className={`ticket-body${isVip ? ' vip' : ''}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              {status === 'valid' && <span className="chip ok" style={{ background: 'white' }}><span className="d" />Gültig</span>}
-              {status === 'checked' && <span className="chip" style={{ background: 'white' }}><span className="d" />Eingelöst</span>}
-              {status === 'revoked' && <span className="chip bad" style={{ background: 'white' }}><span className="d" />Storniert</span>}
+              {status === 'valid' && <span className="chip ok" style={{ background: 'white' }}><span className="d" />{t('ticket.valid')}</span>}
+              {status === 'checked' && <span className="chip" style={{ background: 'white' }}><span className="d" />{t('ticket.redeemed')}</span>}
+              {status === 'revoked' && <span className="chip bad" style={{ background: 'white' }}><span className="d" />{t('ticket.revoked')}</span>}
               <span className={isVip ? 'vip-ink' : undefined} style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent-ink)' }}>#{serial}</span>
             </div>
             <div style={{ background: 'white', padding: 12, borderRadius: 12, boxShadow: '0 1px 2px rgba(17,20,45,0.06)', display: 'grid', placeItems: 'center' }}>
@@ -286,10 +290,10 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
             </div>
             <div className={isVip ? 'vip-ink' : undefined} style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: 'var(--accent-ink)', fontWeight: 500 }}>
               {status === 'revoked'
-                ? 'Dieses Ticket wurde storniert.'
+                ? t('ticket.revokedText')
                 : pass
-                  ? 'Bei jedem Termin einscannen lassen'
-                  : 'Beim Einlass einscannen lassen'}
+                  ? t('ticket.scanEachDate')
+                  : t('ticket.scanAtDoor')}
             </div>
             <div className="perf" style={{ left: -9 }} />
             <div className="perf" style={{ right: -9 }} />
@@ -298,7 +302,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
           <div style={{ padding: '16px 22px 20px', display: 'grid', gap: 8, fontSize: 12.5 }}>
             {tierName && (
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Kategorie</span>
+                <span className="muted">{t('ticket.category')}</span>
                 {isVip
                   ? <span className="vip-chip">{tierName}</span>
                   : <span style={{ fontWeight: 500 }}>{tierName}</span>}
@@ -306,7 +310,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
             )}
             {venue && (
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Ort</span>
+                <span className="muted">{t('ticket.place')}</span>
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(venue)}`}
                   target="_blank"
@@ -319,37 +323,37 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
             )}
             {date && (
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Datum</span><span style={{ fontWeight: 500 }}>{formatDate(date)}</span>
+                <span className="muted">{t('ticket.date')}</span><span style={{ fontWeight: 500 }}>{formatDate(date, lang)}</span>
               </div>
             )}
             {purchase?.startTime && (
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">Beginn</span><span style={{ fontWeight: 500 }}>{purchase.startTime} Uhr</span>
+                <span className="muted">{t('ticket.start')}</span><span style={{ fontWeight: 500 }}>{purchase.startTime}{t('ticket.startSuffix') && ` ${t('ticket.startSuffix')}`}</span>
               </div>
             )}
             <div className="row" style={{ justifyContent: 'space-between' }}>
-              <span className="muted">{pass ? 'Pass-Nr.' : 'Ticket-Nr.'}</span><span style={{ fontWeight: 500, fontFamily: 'var(--mono)', fontSize: 11.5 }}>#{serial}</span>
+              <span className="muted">{pass ? t('ticket.passNumber') : t('ticket.number')}</span><span style={{ fontWeight: 500, fontFamily: 'var(--mono)', fontSize: 11.5 }}>#{serial}</span>
             </div>
 
             {pass && pass.dates.length > 0 && (
               <div style={{ marginTop: 6, borderTop: '1px solid var(--line)', paddingTop: 12, display: 'grid', gap: 9 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
-                  Termine
+                  {t('ticket.dates')}
                 </div>
                 {pass.dates.map((d) => (
                   <div key={d.id} className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                     <span style={{ minWidth: 0 }}>
                       <span style={{ fontWeight: 500 }}>{d.name}</span>
                       <span style={{ display: 'block', color: 'var(--ink-3)', fontSize: 11.5, marginTop: 2 }}>
-                        {formatDate(d.date)}{d.startTime ? ` · ${d.startTime} Uhr` : ''}
+                        {formatDate(d.date, lang)}{d.startTime ? ` · ${d.startTime}` : ''}
                       </span>
                     </span>
                     {d.cancelled ? (
-                      <span className="chip bad" style={{ flexShrink: 0 }}><span className="d" />Abgesagt</span>
+                      <span className="chip bad" style={{ flexShrink: 0 }}><span className="d" />{t('shop.cancelled')}</span>
                     ) : d.redeemedAt ? (
-                      <span className="chip" style={{ flexShrink: 0 }}><span className="d" />Eingelöst</span>
+                      <span className="chip" style={{ flexShrink: 0 }}><span className="d" />{t('ticket.redeemed')}</span>
                     ) : (
-                      <span className="chip ok" style={{ flexShrink: 0 }}><span className="d" />Offen</span>
+                      <span className="chip ok" style={{ flexShrink: 0 }}><span className="d" />{t('ticket.open')}</span>
                     )}
                   </div>
                 ))}
@@ -362,7 +366,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
                 className="btn ghost sm"
                 style={{ justifyContent: 'center', marginTop: 6 }}
               >
-                Zum Kalender hinzufügen
+                {t('ticket.calendar')}
               </a>
             )}
             {status === 'valid' && <BackupTicketButton assetId={assetId} />}

@@ -55,23 +55,33 @@ export async function sendDueEventReminders(baseUrl: string): Promise<{ events: 
     )];
     if (sessionIds.length === 0) continue;
 
-    const recipients = new Set<string>();
+    // One batch per language: a reminder is a single body sent to many
+    // addresses, so mixed-language recipients need separate sends.
+    const byLang = new Map<string, Set<string>>();
     const { data: jobs } = await supabaseAdmin
       .from("mint_jobs")
-      .select("buyer_email")
+      .select("buyer_email, lang")
       .in("stripe_session_id", sessionIds)
       .not("buyer_email", "is", null);
-    for (const j of (jobs ?? []) as { buyer_email: string }[]) recipients.add(j.buyer_email);
-    if (recipients.size === 0) continue;
+    for (const j of (jobs ?? []) as { buyer_email: string; lang: string | null }[]) {
+      const key = j.lang === "en" ? "en" : "de";
+      const set = byLang.get(key) ?? new Set<string>();
+      set.add(j.buyer_email);
+      byLang.set(key, set);
+    }
+    if (byLang.size === 0) continue;
 
-    sentMails += await sendEventReminder({
-      recipients: [...recipients],
-      eventName: event.name as string,
-      eventDate: event.date as string,
-      startTime: (event.start_time ?? null) as string | null,
-      venue: (event.venue ?? null) as string | null,
-      baseUrl,
-    });
+    for (const [lang, recipients] of byLang) {
+      sentMails += await sendEventReminder({
+        recipients: [...recipients],
+        eventName: event.name as string,
+        eventDate: event.date as string,
+        startTime: (event.start_time ?? null) as string | null,
+        venue: (event.venue ?? null) as string | null,
+        baseUrl,
+        lang,
+      });
+    }
     sentEvents++;
   }
 

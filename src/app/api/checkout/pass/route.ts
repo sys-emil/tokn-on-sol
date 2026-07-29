@@ -5,6 +5,7 @@ import type { SeasonPass } from "@/lib/supabase";
 import { serviceFeePerTicketCents } from "@/lib/fees";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
+import { getLang } from "@/lib/i18nServer";
 
 /**
  * Checkout for a season pass (one ticket, many dates).
@@ -177,6 +178,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         passId,
         buyerWallet,
         quantity: String(quantity),
+        lang: await getLang(),
         serviceFeeCents: String(feePerPass * quantity),
       },
     });

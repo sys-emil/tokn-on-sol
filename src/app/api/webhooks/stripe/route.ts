@@ -629,6 +629,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         stripeSessionId: session.id,
         eventId,
         email: session.customer_details?.email ?? null,
+        lang: session.metadata?.lang === "en" ? "en" : "de",
       });
     } catch (err) {
       console.error(`Failed to record guest order for session ${session.id}:`, err);
@@ -654,6 +655,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       buyer_wallet: buyerWallet,
       buyer_email: session.customer_details?.email ?? null,
       quantity,
+      lang: session.metadata?.lang === "en" ? "en" : "de",
     },
     { onConflict: "stripe_session_id", ignoreDuplicates: true },
   );
@@ -771,6 +773,7 @@ async function handlePassCompleted(session: Stripe.Checkout.Session): Promise<vo
       buyer_wallet: buyerWallet,
       buyer_email: session.customer_details?.email ?? null,
       quantity,
+      lang: session.metadata?.lang === "en" ? "en" : "de",
     },
     { onConflict: "stripe_session_id", ignoreDuplicates: true },
   );

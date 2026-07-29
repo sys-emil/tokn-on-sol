@@ -10,6 +10,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { getOperatorWalletAddress } from "@/lib/transfer";
 import { isBot, botDenied } from "@/lib/botCheck";
 import { holdsQueueSlot } from "@/lib/queue";
+import { getLang } from "@/lib/i18nServer";
 
 interface CheckoutBody {
   eventId: string;
@@ -392,6 +393,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         buyerWallet,
         quantity: String(quantity),
         tierId: tier.id,
+        // The confirmation mail is sent minutes later by the mint worker, long
+        // after this request's cookies are gone; the language has to travel.
+        lang: await getLang(),
         serviceFeeCents: String(feePerTicket * quantity),
         ...(isGuest ? { guest: "1" } : {}),
         ...(discount ? { discountCodeId: discount.id, discountPercent: String(discount.percentOff) } : {}),

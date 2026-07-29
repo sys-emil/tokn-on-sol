@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BackupTicketModal } from '@/app/components/BackupTicketModal';
+import { useT } from '@/app/components/LangProvider';
 
 /**
  * "Offline-Ticket erstellen" action on the ticket page: opens the backup-ticket
@@ -11,6 +12,7 @@ import { BackupTicketModal } from '@/app/components/BackupTicketModal';
  */
 export function BackupTicketButton({ assetId }: { assetId: string }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   return (
     <>
       <button
@@ -19,7 +21,7 @@ export function BackupTicketButton({ assetId }: { assetId: string }) {
         style={{ justifyContent: 'center', width: '100%' }}
         onClick={() => setOpen(true)}
       >
-        Offline-Ticket erstellen
+        {t('ticket.backup')}
       </button>
       <BackupTicketModal assetIds={[assetId]} open={open} onClose={() => setOpen(false)} />
     </>

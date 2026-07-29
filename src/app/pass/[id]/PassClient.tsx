@@ -4,6 +4,7 @@ import { usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import { useState } from 'react';
 import { serviceFeePerTicketCents } from '@/lib/fees';
+import { useT } from '@/app/components/LangProvider';
 
 interface Props {
   passId: string;
@@ -24,6 +25,7 @@ const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'c
  * afterthought.
  */
 export default function PassClient({ passId, priceCents, available }: Props) {
+  const t = useT();
   const { ready, authenticated, login } = usePrivy();
   const { wallets: solanaWallets } = useWallets();
   const walletAddress = solanaWallets[0]?.address;
@@ -54,7 +56,7 @@ export default function PassClient({ passId, priceCents, available }: Props) {
       }
       window.location.href = json.url;
     } catch {
-      setError('Netzwerkfehler. Bitte erneut versuchen.');
+      setError(t('common.retry'));
     } finally {
       setLoading(false);
     }
@@ -63,8 +65,7 @@ export default function PassClient({ passId, priceCents, available }: Props) {
   if (soldOut) {
     return (
       <div style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--ink-3)', lineHeight: 1.6 }}>
-        Der Saisonpass ist ausverkauft. Einzeltickets für die Termine gibt es
-        weiterhin auf den jeweiligen Eventseiten.
+        {t('pass.soldOutText')}
       </div>
     );
   }
@@ -72,11 +73,11 @@ export default function PassClient({ passId, priceCents, available }: Props) {
   return (
     <div style={{ display: 'grid', gap: 14 }}>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 13.5, color: 'var(--ink-3)' }}>Anzahl</span>
+        <span style={{ fontSize: 13.5, color: 'var(--ink-3)' }}>{t('buy.quantity')}</span>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
           <button
             className="btn ghost sm"
-            aria-label="Weniger"
+            aria-label="-"
             disabled={quantity <= 1 || loading}
             onClick={() => setQuantity((q) => Math.max(1, q - 1))}
           >
@@ -87,7 +88,7 @@ export default function PassClient({ passId, priceCents, available }: Props) {
           </span>
           <button
             className="btn ghost sm"
-            aria-label="Mehr"
+            aria-label="+"
             disabled={quantity >= maxQty || loading}
             onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
           >
@@ -99,35 +100,34 @@ export default function PassClient({ passId, priceCents, available }: Props) {
       {priceCents > 0 && (
         <div style={{ display: 'grid', gap: 6, fontSize: 13 }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--ink-3)' }}>{quantity} × Pass</span>
+            <span style={{ color: 'var(--ink-3)' }}>{quantity} × {t('pass.eyebrow')}</span>
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{eur(priceCents * quantity)}</span>
           </div>
           <div className="row" style={{ justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--ink-3)' }}>Servicegebühr</span>
+            <span style={{ color: 'var(--ink-3)' }}>{t('buy.serviceFee')}</span>
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{eur(feePerPass * quantity)}</span>
           </div>
           <div className="row" style={{ justifyContent: 'space-between', fontWeight: 600, fontSize: 15, marginTop: 2 }}>
-            <span>Gesamt</span>
+            <span>{t('buy.total')}</span>
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>{eur(total)}</span>
           </div>
         </div>
       )}
 
       {!ready ? (
-        <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} disabled>Lädt …</button>
+        <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} disabled>{t('common.loading')}</button>
       ) : !authenticated ? (
         <>
-          <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} onClick={() => login()}>Anmelden und Pass kaufen</button>
+          <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} onClick={() => login()}>{t('pass.signInAndBuy')}</button>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', lineHeight: 1.55 }}>
-            Ein Saisonpass gehört zu deinem Konto, damit er über die ganze Reihe
-            gültig bleibt.
+            {t('pass.accountNote')}
           </div>
         </>
       ) : !walletAddress ? (
-        <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} disabled>Konto wird vorbereitet …</button>
+        <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} disabled>{t('buy.preparingAccount')}</button>
       ) : (
         <button className="btn primary lg" style={{ width: '100%', justifyContent: 'center' }} onClick={() => void buy()} disabled={loading}>
-          {loading ? 'Weiterleitung …' : priceCents > 0 ? `Pass kaufen · ${eur(total)}` : 'Pass sichern'}
+          {loading ? t('buy.redirecting') : priceCents > 0 ? t('pass.buy', { total: eur(total) }) : t('pass.secure')}
         </button>
       )}
 

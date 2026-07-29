@@ -3,8 +3,10 @@
 import { PrivyProvider } from '@privy-io/react-auth';
 import { Suspense } from 'react';
 import { ConsentBanner, PageViewTracker } from '@/app/components/ConsentBanner';
+import { LangProvider } from '@/app/components/LangProvider';
+import type { Lang } from '@/lib/i18n';
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ lang, children }: { lang: Lang; children: React.ReactNode }) {
   return (
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
@@ -17,7 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }}
     >
-      {children}
+      <LangProvider lang={lang}>{children}</LangProvider>
       <ConsentBanner />
       <Suspense fallback={null}>
         <PageViewTracker />

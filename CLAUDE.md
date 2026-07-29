@@ -206,6 +206,20 @@ without deciding that question first.
 - **Bot protection (Vercel BotID)** on the abuse-prone entry points, since 2026-07-29. Three parts that must stay in sync: `withBotId()` in `next.config.ts` (proxy rewrites), the path list in `src/instrumentation-client.ts` (client challenge), and `isBot()` from `src/lib/botCheck.ts` called at the top of each listed route (`/api/checkout/pass` included since the season pass shipped). A path declared in one place but not the others is decorative. **Both halves fail open on purpose** — these sit on the checkout and mint paths, so an outage, a misconfiguration or a plan without BotID must never stop ticket sales; the rate limiter below keeps working regardless. Only `checkLevel: 'basic'` is used (Deep Analysis is a Pro-plan feature). Door routes are excluded (a scanner isn't a browser session we control) and so is `/api/track`.
 - **Best-effort rate limiting** via `src/lib/rateLimit.ts` (in-memory, per warm instance) guards the abuse-prone unauthenticated/entry routes: `/api/checkout/create` and `/api/checkout/pass` (reservation exhaustion), `/api/claims/create`, `/api/organizers/apply`, `/api/track`, `/api/waitlist/join`, `/api/tickets/backup`, `/api/resale/*`. Not a hard global quota; back with Redis if a stricter limit is ever needed.
 
+### Buyer-facing languages (German + English, since 2026-07-29)
+
+**No locale prefix in the URL.** An `app/[locale]/` restructure would collide
+with the root dynamic segment `src/app/[handle]/page.tsx` — `/en` and `/@name`
+are the same shape and routing cannot tell them apart. The language lives in
+the `passly_lang` cookie instead. Price of that: English pages are not
+separately indexable; retrofit with a middleware rewrite if EN SEO ever matters.
+
+- `src/lib/i18n.ts` — dictionary + `t(lang, key, vars)`. Client-safe (no `next/headers`). German is the source of truth: `en` is typed as `Record<keyof typeof de, string>`, so a missing English string is a **compile error**, and `t()` falls back to German rather than printing the raw key at a buyer.
+- `src/lib/i18nServer.ts` — `getLang()` / `getT()` for server components. Reading the cookie opts a route out of static rendering; fine for buyer pages (they all hit the DB per request), not for anything that must stay static.
+- `LangProvider` (fed by the root layout, so no wrong-language flash) + `useT()` for client components; `LangSwitch` is the DE/EN toggle and sits in `LegalLinks`, which every buyer card page already renders.
+- **Scope is the buyer surfaces only.** Dashboard, doorman, admin and the legal texts stay German by decision: they are read by German organizers, and a half-translated legal page is worse than a German one.
+- **E-mails carry the language on the order**, not on the request: the confirmation goes out minutes later from the mint worker. `mint_jobs.lang` / `guest_orders.lang` / `waitlist_entries.lang` are written at checkout (session metadata `lang`) and at waitlist signup. Reminder and waitlist mails are one body to many addresses, so their senders **group recipients by language** and send one batch per group.
+
 ### Conventions
 
 - **Design system ("Tokn Based" light template, fully migrated 2026-07-06)**: light theme, violet accent via `--hue: 285`, Geist fonts. Design tokens (`--ink*/--surface*/--accent*`, radii, shadows) **and** the shared component CSS (`.topbar`, `.card`, `.btn`, `.chip`, `.event-card`, `.modal`, `.drawer`, `.field/.input`, `.aurora`, utilities …) live in `src/app/globals.css`. `Icon` (stroke icon set) and `Spark` (sparkline) live in `src/app/components/passlyUi.tsx`. Page archetypes: app pages = `.app > .topbar > .main > .aurora + .container` with `.hero`; mobile pages (ticket, doorman, shop, claim, success) = centered card on `radial-gradient(1000px 500px at 50% -10%, var(--accent-wash), transparent 60%), var(--surface-2)`.
