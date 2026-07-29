@@ -131,56 +131,71 @@ export function BoxOffice({ eventId, tiers, authHeaders, onSold }: Props) {
       )}
 
       <style>{`
-        .bo { margin-top: 14px; }
+        /* The doorman page runs on the light surface (--surface-2), like the
+           rest of the app. Everything here uses the shared tokens; an earlier
+           version was styled for a dark background and rendered white on
+           white: clickable but invisible. */
+        .bo { padding: 12px 20px 0; }
         .bo-toggle {
           width: 100%; appearance: none; cursor: pointer;
-          background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.82);
-          border: 1px solid rgba(255,255,255,0.14); border-radius: 10px;
-          padding: 11px 14px; font: inherit; font-size: 14px; font-weight: 500;
+          background: var(--surface); color: var(--ink);
+          border: 1px solid var(--line); border-radius: 10px;
+          padding: 12px 14px; font: inherit; font-size: 14px; font-weight: 550;
         }
-        .bo-toggle:hover { background: rgba(255,255,255,0.1); }
+        .bo-toggle:hover { border-color: var(--accent); color: var(--accent-ink); }
         .bo-panel {
-          border: 1px solid rgba(255,255,255,0.14); border-radius: 12px;
-          padding: 14px; background: rgba(255,255,255,0.05);
+          border: 1px solid var(--line); border-radius: 12px;
+          padding: 14px; background: var(--surface);
           display: flex; flex-direction: column; gap: 10px;
         }
         .bo-head {
           display: flex; align-items: center; justify-content: space-between;
-          font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.85);
+          font-size: 12.5px; font-weight: 600; color: var(--ink);
         }
         .bo-x {
           appearance: none; background: none; border: none; cursor: pointer;
-          font: inherit; font-size: 12px; color: rgba(255,255,255,0.5); text-decoration: underline;
+          font: inherit; font-size: 12px; color: var(--ink-3); text-decoration: underline;
         }
+        .bo-x:hover { color: var(--ink); }
         .bo-select, .bo-input {
           width: 100%; box-sizing: border-box;
-          background: rgba(0,0,0,0.25); color: #fff;
-          border: 1px solid rgba(255,255,255,0.16); border-radius: 9px;
+          background: var(--surface-2); color: var(--ink);
+          border: 1px solid var(--line); border-radius: 9px;
           padding: 11px 12px; font: inherit; font-size: 15px;
         }
+        .bo-select:focus, .bo-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
         .bo-qty { display: flex; align-items: center; justify-content: center; gap: 18px; }
         .bo-qty button {
           width: 44px; height: 44px; border-radius: 10px; cursor: pointer;
-          background: rgba(255,255,255,0.08); color: #fff;
-          border: 1px solid rgba(255,255,255,0.16);
+          background: var(--surface-2); color: var(--ink);
+          border: 1px solid var(--line);
           font-size: 22px; line-height: 1;
         }
-        .bo-qty button:disabled { opacity: 0.35; cursor: not-allowed; }
-        .bo-qty span { font-size: 20px; font-weight: 650; min-width: 32px; text-align: center; font-variant-numeric: tabular-nums; }
+        .bo-qty button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .bo-qty span {
+          font-size: 20px; font-weight: 650; min-width: 32px; text-align: center;
+          font-variant-numeric: tabular-nums; color: var(--ink);
+        }
         .bo-check {
           display: flex; align-items: center; gap: 9px;
-          font-size: 13.5px; color: rgba(255,255,255,0.8); cursor: pointer;
+          font-size: 13.5px; color: var(--ink-2); cursor: pointer;
         }
-        .bo-check input { width: 20px; height: 20px; accent-color: #7c5cff; }
+        .bo-check input { width: 20px; height: 20px; accent-color: var(--accent); }
         .bo-sell {
           width: 100%; appearance: none; cursor: pointer;
-          background: #7c5cff; color: #fff; border: none; border-radius: 10px;
+          background: var(--accent); color: #fff; border: none; border-radius: 10px;
           padding: 15px; font: inherit; font-size: 16px; font-weight: 650;
           font-variant-numeric: tabular-nums;
         }
         .bo-sell:disabled { opacity: 0.5; cursor: not-allowed; }
-        .bo-done { font-size: 13px; color: #8ce8b0; line-height: 1.5; }
-        .bo-error { font-size: 13px; color: #ff9a9a; line-height: 1.5; }
+        .bo-done {
+          font-size: 13px; line-height: 1.5; padding: 10px 12px; border-radius: 9px;
+          background: var(--ok-wash); color: oklch(0.38 0.12 150);
+        }
+        .bo-error {
+          font-size: 13px; line-height: 1.5; padding: 10px 12px; border-radius: 9px;
+          background: var(--bad-wash); color: var(--bad);
+        }
       `}</style>
     </div>
   );
