@@ -56,7 +56,8 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 
 | Path | Who |
 |------|-----|
-| `/` | Public landing page |
+| `/` | Public landing page (**organizer-first**, see Positioning below) |
+| `/preise` | Public pricing page (canonical; `/fuer-veranstalter` links here) |
 | `/shop/[id]` | Public event listing & purchase |
 | `/@[handle]` | Public organizer profile (YouTube-style; `src/app/[handle]/page.tsx`) |
 | `/become-organizer` | Organizer application (Privy auth required) |
@@ -219,6 +220,14 @@ separately indexable; retrofit with a middleware rewrite if EN SEO ever matters.
 - `LangProvider` (fed by the root layout, so no wrong-language flash) + `useT()` for client components; `LangSwitch` is the DE/EN toggle and sits in `LegalLinks`, which every buyer card page already renders.
 - **Scope is the buyer surfaces only.** Dashboard, doorman, admin and the legal texts stay German by decision: they are read by German organizers, and a half-translated legal page is worse than a German one.
 - **E-mails carry the language on the order**, not on the request: the confirmation goes out minutes later from the mint worker. `mint_jobs.lang` / `guest_orders.lang` / `waitlist_entries.lang` are written at checkout (session metadata `lang`) and at waitlist signup. Reminder and waitlist mails are one body to many addresses, so their senders **group recipients by language** and send one batch per group.
+
+### Positioning & marketing pages (since 2026-07-30)
+
+- **The landing page `/` sells to organizers, not guests.** Guests never choose a ticketing provider; they arrive on `/shop/[id]` from the organizer's own link and never see `/`. Guest discovery lives on `/events`, the public `@handle` profiles and `/so-funktionierts`, reachable from the nav, the guest strip and the footer. Don't turn the hero back into "Events entdecken".
+- **The positioning is ownership, not anti-counterfeiting**: the organizer keeps their brand (`@handle` page, accent colour), their money (100 % of face value, buyer-side fee) and their rules (resale markup cap, payout hold, door). Three pillars on the page, in that order. The rotating QR is a proof point under pillar 3 — a feature every competitor claims and not what makes anyone switch.
+- **Pro features are marked as Pro** in a separate block, never mixed into the free pillars. `ProPrice` (`src/app/components/ProPrice.tsx`) reads the price from `/api/organizer/billing/price`, i.e. from Stripe, so marketing can't quote a price Checkout doesn't charge. Stripe always wins; the hardcoded **29 €/month** in that file is only the fallback for the window before `STRIPE_PRO_PRICE_ID` exists. **Create the Stripe Price at 29 €** — if the two ever disagree, the page silently shows Stripe's number and the fallback is stale.
+- **`/preise` is the canonical pricing page.** `FeeCalculator` (`src/app/components/FeeCalculator.tsx`) computes with the real `serviceFeePerTicketCents`, so the advertised fee can't drift from the charged one. **No competitor fee comparisons** anywhere: their schedules change, and a wrong comparative claim is a UWG risk in Germany, not just sloppy.
+- **No fabricated social proof** while there are no real customers: no logo walls, no testimonials, no "X Veranstalter vertrauen uns". The trust bar states only verifiable facts.
 
 ### Conventions
 

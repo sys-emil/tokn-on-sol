@@ -10,7 +10,7 @@ const siteUrl = process.env.APP_URL
 
 // /become-organizer is deliberately absent: it's auth-gated (robots.ts
 // disallows it); listing it in the sitemap would contradict robots.txt.
-const STATIC_ROUTES = ['/', '/events', '/fuer-veranstalter', '/so-funktionierts', '/hilfe'];
+const STATIC_ROUTES = ['/', '/events', '/fuer-veranstalter', '/preise', '/so-funktionierts', '/hilfe'];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const today = new Date().toISOString().slice(0, 10);

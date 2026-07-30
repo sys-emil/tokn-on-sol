@@ -1,9 +1,25 @@
 import Link from 'next/link';
-import CtaButton from '@/app/components/CtaButton';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { TodayStamp } from '@/app/components/TodayStamp';
+import { FeeCalculator } from '@/app/components/FeeCalculator';
+import { ProPrice } from '@/app/components/ProPrice';
+
+/*
+ * Landing page — addressed at ORGANIZERS, deliberately (since 2026-07-30).
+ *
+ * Guests never pick a ticketing provider; they arrive on /shop/[id] from the
+ * organizer's own link and never see this page. The people who make a decision
+ * here are organizers, so the hero sells to them. Guest discovery lives on
+ * /events and the public @handle profiles, reachable from the nav, the guest
+ * strip below and the footer. Don't turn the hero back into "Events entdecken".
+ *
+ * "Fälschungssicher" is a proof point under pillar 3, not the headline: it is
+ * a feature every competitor claims, and it is not what makes an organizer
+ * switch. The positioning is that the organizer keeps their brand, their money
+ * and their rules.
+ */
 
 const PAGE_CSS = `
   /* ── Stronger aurora on the landing page ─────────────────── */
@@ -75,15 +91,13 @@ const PAGE_CSS = `
     to   { transform: translate3d(-40px, 28px, 0) scale(1.05); }
   }
   @media (max-width: 640px) {
-    /* "Für Veranstalter" bleibt über Hero, Karte und Footer erreichbar */
     .topbar .btn.subtle { display: none; }
     .glow { filter: blur(64px); }
     .glow-violet { width: 340px; height: 340px; left: -120px; }
-    .glow-blue { width: 360px; height: 360px; right: -140px; }
     .glow-violet-2 { width: 300px; height: 300px; }
     .landing-hero { padding: 32px 0 40px; }
     .cta-banner { padding: 40px 22px; }
-    .audience-card { padding: 22px 18px; }
+    .pillar-card { padding: 22px 18px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .aurora::before, .aurora::after, .glow { animation: none; }
@@ -112,16 +126,16 @@ const PAGE_CSS = `
     margin-top: 18px;
     font-size: 16.5px; line-height: 1.6;
     color: var(--ink-3);
-    max-width: 46ch;
+    max-width: 48ch;
   }
   .hero-ctas { margin-top: 28px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .hero-organizer {
+  .hero-guest {
     margin-top: 18px;
     font-size: 13px; color: var(--ink-3);
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
-  .hero-organizer a { color: var(--accent); font-weight: 500; }
-  .hero-organizer a:hover { color: var(--accent-2); }
+  .hero-guest a { color: var(--accent); font-weight: 500; }
+  .hero-guest a:hover { color: var(--accent-2); }
 
   /* ── Ticket mockup ───────────────────────────────────────── */
   .mock-wrap { display: flex; justify-content: center; position: relative; }
@@ -190,39 +204,6 @@ const PAGE_CSS = `
   .mock-foot { padding: 14px 20px 18px; display: flex; align-items: center; justify-content: space-between; }
   .mock-foot .id { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
 
-  /* ── Audience sections ───────────────────────────────────── */
-  .audience-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 860px) { .audience-grid { grid-template-columns: 1fr; } }
-  .audience-card { padding: 26px; display: flex; flex-direction: column; gap: 16px; }
-  .aud-tag {
-    align-self: flex-start;
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 11px; font-weight: 600;
-    color: var(--accent-ink);
-    text-transform: uppercase; letter-spacing: 0.08em;
-  }
-  .audience-card h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.025em; }
-  .audience-card > p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: -8px; }
-  .aud-points { list-style: none; display: flex; flex-direction: column; gap: 9px; }
-  .aud-points li {
-    display: flex; gap: 10px; align-items: flex-start;
-    font-size: 13.5px; color: var(--ink-2); line-height: 1.55;
-  }
-  .aud-points svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
-  .aud-cta { margin-top: auto; padding-top: 6px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .aud-more { font-size: 13px; font-weight: 500; color: var(--accent); }
-  .aud-more:hover { color: var(--accent-2); }
-
-  .why-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 860px) { .why-grid { grid-template-columns: 1fr; } }
-  .why-card { padding: 22px; display: flex; gap: 16px; align-items: flex-start; }
-  .why-icon {
-    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
-    display: grid; place-items: center;
-  }
-  .why-card h3 { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
-  .why-card p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: 4px; }
-
   /* ── Trust bar ────────────────────────────────────────────── */
   .trust-bar {
     display: grid;
@@ -244,14 +225,78 @@ const PAGE_CSS = `
   }
   .trust-item .label { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
 
-  /* ── Stats strip ─────────────────────────────────────────── */
-  .stats-strip {
-    display: flex; align-items: center; justify-content: center; gap: 12px;
-    flex-wrap: wrap;
-    font-size: 13px; color: var(--ink-3);
-    padding: 8px 0;
+  /* ── Die drei Säulen ─────────────────────────────────────── */
+  .pillar-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 940px) { .pillar-grid { grid-template-columns: 1fr; } }
+  .pillar-card { padding: 26px; display: flex; flex-direction: column; gap: 14px; }
+  .pillar-icon {
+    width: 40px; height: 40px; border-radius: 11px;
+    display: grid; place-items: center;
+    background: var(--accent-wash);
+    border: 1px solid var(--accent-line);
+    color: var(--accent);
   }
-  .stats-strip .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
+  .pillar-card h3 { font-size: 18px; font-weight: 600; letter-spacing: -0.025em; }
+  .pillar-card > p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: -6px; }
+  .pillar-points { list-style: none; display: flex; flex-direction: column; gap: 9px; margin-top: 2px; }
+  .pillar-points li {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13.5px; color: var(--ink-2); line-height: 1.55;
+  }
+  .pillar-points svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
+
+  /* ── Gebühren-Abschnitt ──────────────────────────────────── */
+  .fee-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: center; }
+  @media (max-width: 900px) { .fee-section { grid-template-columns: 1fr; gap: 24px; } }
+  .fee-copy h2 { font-size: clamp(24px, 3.2vw, 32px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
+  .fee-copy p { font-size: 14.5px; color: var(--ink-3); line-height: 1.65; margin-top: 12px; max-width: 44ch; }
+  .fee-copy .more { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; font-size: 13.5px; font-weight: 500; color: var(--accent); }
+  .fee-copy .more:hover { color: var(--accent-2); }
+
+  /* ── Pro-Block ───────────────────────────────────────────── */
+  .pro-block {
+    border: 1px solid var(--accent-line);
+    background:
+      radial-gradient(700px 260px at 12% -30%, var(--accent-wash), transparent 70%),
+      var(--surface);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 36px;
+    align-items: center;
+    box-shadow: var(--shadow);
+  }
+  @media (max-width: 900px) { .pro-block { grid-template-columns: 1fr; gap: 24px; padding: 26px 22px; } }
+  .pro-block .tag {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11px; font-weight: 600; color: var(--accent-ink);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .pro-block h2 { font-size: clamp(22px, 3vw, 28px); font-weight: 600; letter-spacing: -0.03em; margin-top: 12px; line-height: 1.2; }
+  .pro-block .sub { font-size: 14px; color: var(--ink-3); line-height: 1.6; margin-top: 10px; }
+  .pro-price { margin-top: 20px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .pro-feats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  @media (max-width: 560px) { .pro-feats { grid-template-columns: 1fr; } }
+  .pro-feats li {
+    list-style: none;
+    display: flex; gap: 9px; align-items: flex-start;
+    font-size: 13.5px; color: var(--ink-2); line-height: 1.5;
+  }
+  .pro-feats svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
+
+  /* ── Gäste-Streifen ──────────────────────────────────────── */
+  .guest-strip {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .guest-strip .t { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+  .guest-strip .s { font-size: 13px; color: var(--ink-3); margin-top: 3px; }
+  .guest-strip .acts { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 
   /* ── CTA banner ──────────────────────────────────────────── */
   .cta-banner {
@@ -319,12 +364,13 @@ export default function Home() {
           <div className="topbar-inner">
             <PasslyLogo height={24} />
             <div className="nav">
+              <Link href="/fuer-veranstalter">Für Veranstalter</Link>
+              <Link href="/preise">Preise</Link>
               <Link href="/events">Events</Link>
-              <Link href="/my-tickets">Meine Tickets</Link>
             </div>
             <div className="topbar-right">
-              <Link href="/fuer-veranstalter" className="btn subtle sm">Für Veranstalter</Link>
-              <CtaButton className="btn primary sm" />
+              <Link href="/my-tickets" className="btn subtle sm">Meine Tickets</Link>
+              <Link href="/become-organizer" className="btn primary sm">Event anlegen</Link>
             </div>
           </div>
         </div>
@@ -341,26 +387,26 @@ export default function Home() {
             <section className="landing-hero">
               <div data-reveal>
                 <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--accent-ink)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 18 }}>
-                  <Icon name="shield" size={13} /> Fälschungssichere Tickets
+                  <Icon name="calendar" size={13} /> Ticketing für Veranstalter
                 </div>
                 <h1>
-                  Tickets, die man<br />
-                  <span className="accent">nicht fälschen</span> kann.
+                  Deine Gäste kaufen bei dir.<br />
+                  <span className="accent">Nicht bei uns.</span>
                 </h1>
                 <p className="lead">
-                  Jedes Ticket ist einzigartig und lässt sich weder kopieren noch abfotografieren.
-                  Keine Fälschungen am Einlass, kein Weiterverkaufs-Chaos, nur ein Code, der
-                  eindeutig dir gehört.
+                  Passly ist Ticketing, das deinen Namen trägt: eigene Verkaufsseite,
+                  100&nbsp;% des Ticketpreises und deine Regeln beim Einlass und beim
+                  Weiterverkauf.
                 </p>
                 <div className="hero-ctas">
-                  <Link href="/events" className="btn primary lg btn-shine">
-                    Events entdecken <Icon name="arrow" size={14} />
+                  <Link href="/become-organizer" className="btn primary lg btn-shine">
+                    Event anlegen <Icon name="arrow" size={14} />
                   </Link>
-                  <Link href="/so-funktionierts" className="btn ghost lg">So funktioniert&rsquo;s</Link>
+                  <Link href="/preise" className="btn ghost lg">Was es kostet</Link>
                 </div>
-                <div className="hero-organizer">
-                  Du veranstaltest selbst?
-                  <Link href="/fuer-veranstalter">So funktioniert Passly für Veranstalter →</Link>
+                <div className="hero-guest">
+                  Du willst nur ein Ticket kaufen?
+                  <Link href="/events">Events entdecken →</Link>
                 </div>
               </div>
 
@@ -389,6 +435,10 @@ export default function Home() {
             <section>
               <div className="trust-bar" data-reveal>
                 <div className="trust-item">
+                  <div className="ic"><Icon name="euro" size={15} /></div>
+                  <div className="label">100&nbsp;% des Ticketpreises an dich</div>
+                </div>
+                <div className="trust-item">
                   <div className="ic"><Icon name="lock" size={15} /></div>
                   <div className="label">Zahlungen verschlüsselt über Stripe</div>
                 </div>
@@ -397,146 +447,137 @@ export default function Home() {
                   <div className="label">Daten gehostet in der EU</div>
                 </div>
                 <div className="trust-item">
-                  <div className="ic"><Icon name="euro" size={15} /></div>
-                  <div className="label">100&nbsp;% des Ticketpreises an den Veranstalter</div>
-                </div>
-                <div className="trust-item">
                   <div className="ic"><Icon name="refresh" size={15} /></div>
-                  <div className="label">Automatische Rückerstattung bei Event-Absage</div>
+                  <div className="label">Automatische Rückerstattung bei Absage</div>
                 </div>
               </div>
             </section>
 
-            {/* Für Gäste & Veranstalter */}
+            {/* Die drei Säulen */}
             <section>
               <div className="section-head" data-reveal>
                 <div>
-                  <h2>Für Gäste &amp; Veranstalter</h2>
-                  <div className="sub">Was Passly für beide Seiten macht, kurz erklärt</div>
+                  <h2>Warum Veranstalter zu Passly wechseln</h2>
+                  <div className="sub">Drei Dinge, die anderswo dem Marktplatz gehören</div>
                 </div>
               </div>
-              <div className="audience-grid">
-                <div className="card audience-card" data-reveal>
-                  <span className="aud-tag"><Icon name="ticket" size={12} /> Für Gäste</span>
-                  <h3>Kaufen, anmelden, reingehen.</h3>
+              <div className="pillar-grid">
+                <div className="card pillar-card" data-reveal>
+                  <div className="pillar-icon"><Icon name="sparkle" size={18} /></div>
+                  <h3>Dein Name steht drauf</h3>
                   <p>
-                    Dein Ticket lebt in deinem Konto, nicht auf einem Zettel, und ist
-                    auf jedem Gerät sofort wieder da.
+                    Deine Gäste landen auf deiner Seite, nicht in einem fremden Regal
+                    zwischen vierhundert anderen Veranstaltungen.
                   </p>
-                  <ul className="aud-points">
-                    <li><Icon name="check" size={14} /> Mit Karte zahlen, ohne App, ohne Passwort</li>
-                    <li><Icon name="check" size={14} /> Ticket auf jedem Gerät, Anmeldung per E-Mail-Code</li>
-                    <li><Icon name="check" size={14} /> QR-Code erneuert sich jede Minute, nicht kopierbar</li>
-                    <li><Icon name="check" size={14} /> Verhindert? Ticket sicher per Link weitergeben</li>
+                  <ul className="pillar-points">
+                    <li><Icon name="check" size={14} /> Öffentliche Markenseite unter getpassly.de/@deinname</li>
+                    <li><Icon name="check" size={14} /> Banner, Logo, Text und Links, die du selbst pflegst</li>
+                    <li><Icon name="check" size={14} /> Eigene Akzentfarbe auf jeder Eventkarte</li>
+                    <li><Icon name="check" size={14} /> Geprüft-Kennzeichnung, damit Gäste dich erkennen</li>
                   </ul>
-                  <div className="aud-cta">
-                    <Link href="/so-funktionierts" className="btn ghost">
-                      So funktioniert&rsquo;s <Icon name="arrow" size={13} />
-                    </Link>
-                    <Link href="/events" className="aud-more">Events entdecken →</Link>
-                  </div>
                 </div>
-                <div className="card audience-card" data-reveal style={{ '--reveal-delay': '120ms' } as React.CSSProperties}>
-                  <span className="aud-tag"><Icon name="calendar" size={12} /> Für Veranstalter</span>
-                  <h3>Dein komplettes Ticketsystem.</h3>
+
+                <div className="card pillar-card" data-reveal style={{ '--reveal-delay': '90ms' } as React.CSSProperties}>
+                  <div className="pillar-icon"><Icon name="euro" size={18} /></div>
+                  <h3>Der Ticketpreis gehört dir</h3>
                   <p>
-                    Event anlegen, Tickets verkaufen, mit dem Handy einlassen, ohne
-                    Fixkosten und ohne Technik-Aufwand.
+                    Kein Abzug vom Nennwert. Die Servicegebühr zahlt der Gast sichtbar
+                    obendrauf, statt sie dir vom Umsatz zu nehmen.
                   </p>
-                  <ul className="aud-points">
-                    <li><Icon name="check" size={14} /> Event in Minuten live, öffentlich oder privat per Link</li>
-                    <li><Icon name="check" size={14} /> 100&nbsp;% des Ticketpreises gehören dir</li>
-                    <li><Icon name="check" size={14} /> Einlass-Scanner im Browser, für dein ganzes Team</li>
-                    <li><Icon name="check" size={14} /> Automatische Auszahlung aufs Bankkonto</li>
+                  <ul className="pillar-points">
+                    <li><Icon name="check" size={14} /> 100&nbsp;% des Ticketpreises, ohne Grundgebühr</li>
+                    <li><Icon name="check" size={14} /> Auszahlung aufs Bankkonto, Puffer selbst gewählt</li>
+                    <li><Icon name="check" size={14} /> Jede Auszahlung einzeln nachvollziehbar</li>
+                    <li><Icon name="check" size={14} /> Kostenlose Events kosten auch dich nichts</li>
                   </ul>
-                  <div className="aud-cta">
-                    <Link href="/fuer-veranstalter" className="btn ghost">
-                      Für Veranstalter erklärt <Icon name="arrow" size={13} />
-                    </Link>
-                    <Link href="/become-organizer" className="aud-more">Direkt Event anlegen →</Link>
-                  </div>
+                </div>
+
+                <div className="card pillar-card" data-reveal style={{ '--reveal-delay': '180ms' } as React.CSSProperties}>
+                  <div className="pillar-icon"><Icon name="scan" size={18} /></div>
+                  <h3>Der Abend läuft</h3>
+                  <p>
+                    Einlass, Abendkasse und Weiterverkauf laufen nach deinen Regeln,
+                    auch wenn im Keller das Netz wegbricht.
+                  </p>
+                  <ul className="pillar-points">
+                    <li><Icon name="check" size={14} /> QR-Code erneuert sich jede Minute, Screenshots sind wertlos</li>
+                    <li><Icon name="check" size={14} /> Scanner läuft im Browser und weiter ohne Empfang</li>
+                    <li><Icon name="check" size={14} /> Türlinks fürs Personal, Abendkasse für Laufkundschaft</li>
+                    <li><Icon name="check" size={14} /> Weiterverkauf nur bis zu deiner Preisobergrenze</li>
+                  </ul>
                 </div>
               </div>
             </section>
 
-            {/* Warum Passly */}
+            {/* Gebühren, transparent gerechnet */}
             <section>
-              <div className="section-head" data-reveal>
+              <div className="fee-section" data-reveal>
+                <div className="fee-copy">
+                  <h2>Rechne selbst nach.</h2>
+                  <p>
+                    Du bekommst den Ticketpreis, den du festlegst; auf den Cent. Deine
+                    Gäste zahlen 1&nbsp;€ plus 4&nbsp;% pro Ticket obendrauf, offen im
+                    Warenkorb ausgewiesen. Keine Einrichtungskosten, keine monatliche
+                    Gebühr, keine Mindestlaufzeit.
+                  </p>
+                  <Link href="/preise" className="more">
+                    Alle Preise im Detail <Icon name="arrow" size={13} />
+                  </Link>
+                </div>
+                <FeeCalculator />
+              </div>
+            </section>
+
+            {/* Pro */}
+            <section>
+              <div className="pro-block" data-reveal>
                 <div>
-                  <h2>Warum Passly</h2>
-                  <div className="sub">Gebaut gegen Fälschungen und für entspannte Abende</div>
-                </div>
-              </div>
-              <div className="why-grid">
-                <div className="card why-card" data-reveal>
-                  <div className="why-icon" style={{ background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', color: 'var(--accent)' }}>
-                    <Icon name="shield" size={17} />
+                  <span className="tag"><Icon name="sparkle" size={12} /> Passly Pro</span>
+                  <h2>Wenn du deine Gäste wiedersehen willst</h2>
+                  <div className="sub">
+                    Alles oben ist kostenlos und bleibt es. Pro kommt dazu, wenn aus
+                    einzelnen Abenden ein Publikum wird.
                   </div>
-                  <div>
-                    <h3>Nicht kopierbar</h3>
-                    <p>
-                      Der QR-Code erneuert sich jede Minute. Ein Screenshot ist am Einlass
-                      wertlos, nur das echte Ticket kommt durch.
-                    </p>
+                  <div className="pro-price">
+                    <ProPrice />
+                    <Link href="/preise" style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--accent)' }}>
+                      Was drin ist →
+                    </Link>
                   </div>
                 </div>
-                <div className="card why-card" data-reveal style={{ '--reveal-delay': '90ms' } as React.CSSProperties}>
-                  <div className="why-icon" style={{ background: 'var(--ok-wash)', border: '1px solid oklch(0.86 0.08 150)', color: 'var(--ok)' }}>
-                    <Icon name="doublecheck" size={17} />
-                  </div>
-                  <div>
-                    <h3>Blitzschnell geprüft</h3>
-                    <p>
-                      Jeder Scan prüft Echtheit und Besitz in Echtzeit und löst das Ticket
-                      genau einmal ein. Doppelter Einlass? Ausgeschlossen.
-                    </p>
-                  </div>
-                </div>
-                <div className="card why-card" data-reveal style={{ '--reveal-delay': '180ms' } as React.CSSProperties}>
-                  <div className="why-icon" style={{ background: 'var(--warn-wash)', border: '1px solid oklch(0.86 0.09 70)', color: 'var(--warn)' }}>
-                    <Icon name="euro" size={17} />
-                  </div>
-                  <div>
-                    <h3>Faire Auszahlung</h3>
-                    <p>
-                      Der Ticketpreis geht zu 100&nbsp;% an dich als Veranstalter, die
-                      Servicegebühr zahlen die Käufer transparent obendrauf.
-                    </p>
-                  </div>
-                </div>
-                <div className="card why-card" data-reveal style={{ '--reveal-delay': '270ms' } as React.CSSProperties}>
-                  <div className="why-icon" style={{ background: 'var(--surface-2)', border: '1px solid var(--line)', color: 'var(--ink-2)' }}>
-                    <Icon name="share" size={17} />
-                  </div>
-                  <div>
-                    <h3>Weitergeben per Link</h3>
-                    <p>
-                      Verhindert? Ticket per Link an Freunde weitergeben, sicher und
-                      nachvollziehbar, ohne Zettelwirtschaft.
-                    </p>
-                  </div>
-                </div>
+                <ul className="pro-feats">
+                  <li><Icon name="check" size={14} /> Stammgäste, Neukunden und gefährdete Gäste als Segmente</li>
+                  <li><Icon name="check" size={14} /> E-Mail-Kampagnen an eine Gästegruppe</li>
+                  <li><Icon name="check" size={14} /> Mehrstufiges Treueprogramm mit eigenen Vorteilen</li>
+                  <li><Icon name="check" size={14} /> Rabattcodes und Gästeliste</li>
+                  <li><Icon name="check" size={14} /> Warteliste, sobald ein Event ausverkauft ist</li>
+                  <li><Icon name="check" size={14} /> Umsatzprognose und Vergleich mit der Plattform</li>
+                </ul>
               </div>
             </section>
 
-            {/* Stats strip */}
+            {/* Gäste sollen sich nicht verlaufen */}
             <section>
-              <div className="stats-strip" data-reveal>
-                <span>Keine App nötig</span>
-                <span className="dot" />
-                <span>Prüfung in unter einer Sekunde</span>
-                <span className="dot" />
-                <span>Bezahlen einfach mit Karte</span>
+              <div className="guest-strip" data-reveal>
+                <div>
+                  <div className="t">Du bist als Gast hier?</div>
+                  <div className="s">Dein Ticket liegt in deinem Konto, auf jedem Gerät abrufbar.</div>
+                </div>
+                <div className="acts">
+                  <Link href="/so-funktionierts" className="btn ghost sm">So funktioniert&rsquo;s</Link>
+                  <Link href="/events" className="btn subtle sm">Events entdecken</Link>
+                  <Link href="/my-tickets" className="btn subtle sm">Meine Tickets</Link>
+                </div>
               </div>
             </section>
 
             {/* CTA banner */}
             <section>
               <div className="cta-banner" data-reveal>
-                <h2>Bereit für Tickets, die man nicht fälschen kann?</h2>
-                <p>Leg dein erstes Event an, kostenlos und in wenigen Minuten.</p>
+                <h2>Leg dein erstes Event an.</h2>
+                <p>Kostenlos, in wenigen Minuten, ohne Vertrag und ohne Grundgebühr.</p>
                 <Link href="/become-organizer" className="btn lg btn-shine">
-                  Jetzt Event anlegen <Icon name="arrow" size={14} />
+                  Jetzt starten <Icon name="arrow" size={14} />
                 </Link>
               </div>
             </section>
@@ -544,9 +585,10 @@ export default function Home() {
             <footer className="footer">
               <div>© 2026 Passly · Digitale Tickets</div>
               <div className="links">
+                <Link href="/fuer-veranstalter">Für Veranstalter</Link>
+                <Link href="/preise">Preise</Link>
                 <Link href="/events">Events</Link>
                 <Link href="/so-funktionierts">So funktioniert&rsquo;s</Link>
-                <Link href="/fuer-veranstalter">Für Veranstalter</Link>
                 <Link href="/hilfe">Hilfe</Link>
                 <Link href="/impressum">Impressum</Link>
                 <Link href="/datenschutz">Datenschutz</Link>

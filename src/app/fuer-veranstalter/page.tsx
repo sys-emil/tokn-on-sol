@@ -270,6 +270,7 @@ export default function FuerVeranstalterPage() {
           <div className="topbar-inner">
             <PasslyLogo height={24} />
             <div className="nav">
+              <Link href="/preise">Preise</Link>
               <Link href="/events">Events</Link>
               <Link href="/so-funktionierts">Für Gäste</Link>
             </div>
@@ -438,6 +439,12 @@ export default function FuerVeranstalterPage() {
                     <span className="val">20,00&nbsp;€</span>
                   </div>
                 </div>
+              </div>
+              {/* /preise ist die maßgebliche Preisseite; hier steht nur der Auszug. */}
+              <div style={{ marginTop: 16 }} data-reveal>
+                <Link href="/preise" className="btn ghost">
+                  Alle Preise, Pro-Funktionen und Rechner <Icon name="arrow" size={13} />
+                </Link>
               </div>
             </section>
 
