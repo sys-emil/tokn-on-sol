@@ -183,8 +183,9 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
   const alreadyMinted = existing?.length ?? 0;
   const toMint = job.quantity - alreadyMinted;
 
-  // Mint sequentially; Bubblegum appends one leaf at a time; parallel
-  // transactions to the same tree conflict. Retry each mint up to 3 times.
+  // Mint sequentially: Solana write-locks the tree account, so transactions
+  // against the same tree serialise per slot anyway and firing them in
+  // parallel only buys timeouts. Retry each mint up to 3 times.
   let minted = 0;
   let lastError: string | null = null;
   for (let i = 0; i < toMint; i++) {
@@ -192,7 +193,11 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
 
     let success = false;
     for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise((r) => setTimeout(r, 3000));
+      // Backoff with jitter: on a rush, concurrent workers fail at the same
+      // moment, and a fixed delay would send every retry back in lockstep.
+      if (attempt > 0) {
+        await new Promise((r) => setTimeout(r, 3000 * attempt + Math.random() * 1000));
+      }
       try {
         const { assetId, signature } = await mintTicket({
           eventName: event.name,

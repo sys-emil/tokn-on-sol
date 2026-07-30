@@ -70,15 +70,21 @@ async function expireStaleReservations(eventId: string): Promise<number> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // Each checkout claims capacity for 30 minutes and creates a Stripe session.
-  // Without a limit a loop could reserve an event's whole capacity and lock out
-  // real buyers (denial-of-sale). 10 attempts/minute/IP is far above any
-  // legitimate purchase cadence.
-  const rl = rateLimit(`checkout:${clientIp(req)}`, 10, 60_000);
-  if (!rl.ok) {
+  // Each checkout claims capacity for 30 minutes and creates a Stripe session,
+  // so an unthrottled loop could reserve an event's whole capacity and lock out
+  // real buyers (denial-of-sale).
+  //
+  // The IP bucket is deliberately coarse: a club, a class or a team buying from
+  // one venue WLAN shares a single NAT address, and 30 real people must not
+  // throttle each other out of a sale. The tight limit lives on the buyer
+  // identity below; IP only catches floods from an address with no identity at
+  // all. Neither is the primary denial-of-sale defence — that is BotID, the
+  // 5-minute hold with `expireStaleReservations`, and the waiting room.
+  const ipRl = rateLimit(`checkout:ip:${clientIp(req)}`, 60, 60_000);
+  if (!ipRl.ok) {
     return NextResponse.json(
       { success: false, error: "Zu viele Anfragen. Bitte kurz warten." },
-      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+      { status: 429, headers: { "Retry-After": String(ipRl.retryAfter) } },
     );
   }
 
@@ -101,6 +107,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { success: false, error: "eventId and buyerWallet are required" },
       { status: 400 }
     );
+  }
+
+  // Per-buyer limit: a queue slot (we issued it) beats a wallet address (the
+  // client claims it, and an attacker can invent new ones — which is why the
+  // IP cap above still applies to everyone). Guests have neither identifier and
+  // are covered by the IP bucket alone.
+  const identity = body.queueToken
+    ? `q:${body.queueToken}`
+    : !isGuest && body.buyerWallet
+      ? `w:${body.buyerWallet}`
+      : null;
+  if (identity) {
+    const idRl = rateLimit(`checkout:${identity}`, 8, 60_000);
+    if (!idRl.ok) {
+      return NextResponse.json(
+        { success: false, error: "Zu viele Anfragen. Bitte kurz warten." },
+        { status: 429, headers: { "Retry-After": String(idRl.retryAfter) } },
+      );
+    }
   }
 
   // Guest tickets are minted into operator escrow; the buyer reaches them via
