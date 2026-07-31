@@ -3,14 +3,20 @@ import type { Metadata } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
+import { LegalLinks } from '@/app/components/LegalLinks';
+import { getT } from '@/lib/i18nServer';
+import type { Lang } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Events entdecken · Passly',
-  description: 'Finde Events in deiner Nähe und sichere dir fälschungssichere Tickets, Einlass per Handy, kein Ausdrucken nötig.',
-  openGraph: { title: 'Events entdecken · Passly', description: 'Finde Events in deiner Nähe und sichere dir fälschungssichere Tickets.' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return {
+    title: t('events.metaTitle'),
+    description: t('events.metaDescription'),
+    openGraph: { title: t('events.metaTitle'), description: t('events.metaDescription') },
+  };
+}
 
 interface EventRow {
   id: string;
@@ -34,15 +40,17 @@ function eventHue(name: string): number {
   return h;
 }
 
-const monthShort = (iso: string) =>
-  new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
-const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
-const formatDate = (iso: string) =>
-  new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
+const locale = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'de-DE');
 
-function formatPrice(cents: number): string {
-  if (cents === 0) return 'Kostenlos';
-  return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+const monthShort = (iso: string, lang: Lang) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(locale(lang), { month: 'short' }).replace('.', '');
+const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
+const formatDate = (iso: string, lang: Lang) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(locale(lang), { weekday: 'short', day: 'numeric', month: 'long' });
+
+function formatPrice(cents: number, lang: Lang, free: string): string {
+  if (cents === 0) return free;
+  return (cents / 100).toLocaleString(locale(lang), { style: 'currency', currency: 'EUR' });
 }
 
 function daysUntil(iso: string): number {
@@ -151,6 +159,7 @@ function EventArt({ name, imageUrl }: { name: string; imageUrl: string | null })
 export default async function EventsPage({ searchParams }: {
   searchParams: Promise<{ q?: string; veranstalter?: string }>;
 }) {
+  const { lang, t } = await getT();
   const today = new Date().toISOString().slice(0, 10);
   const { q, veranstalter } = await searchParams;
   const query = (q ?? '').trim();
@@ -208,44 +217,46 @@ export default async function EventsPage({ searchParams }: {
     const remaining = e.capacity - taken(e);
     const isLow = !isSoldOut && remaining / e.capacity <= 0.15;
     const days = daysUntil(e.date);
-    const soonLabel = days === 0 ? 'Heute' : days === 1 ? 'Morgen' : null;
+    const soonLabel = days === 0 ? t('events.today') : days === 1 ? t('events.tomorrow') : null;
+    const startSuffix = t('ticket.startSuffix');
 
     const inner = (
       <>
         <div className="art">
           <EventArt name={e.name} imageUrl={e.image_url} />
           {isSoldOut ? (
-            <span className="chip bad art-chip"><span className="d" />Ausverkauft</span>
+            <span className="chip bad art-chip"><span className="d" />{t('events.soldOut')}</span>
           ) : soonLabel ? (
             <span className="chip accent art-chip"><span className="d" />{soonLabel}</span>
           ) : isLow ? (
-            <span className="chip warn art-chip"><span className="d" />Nur noch {remaining}</span>
+            <span className="chip warn art-chip"><span className="d" />{t('events.onlyLeft', { count: remaining })}</span>
           ) : null}
         </div>
         <div className="body">
           <div className="row gap-3">
             <div className="date-chip">
-              <div className="m">{monthShort(e.date)}</div>
+              <div className="m">{monthShort(e.date, lang)}</div>
               <div className="d">{dayNum(e.date)}</div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="title">{e.name}</div>
               <div className="meta">
-                {formatDate(e.date)}{e.start_time ? ` · ${e.start_time} Uhr` : ''}
+                {formatDate(e.date, lang)}
+                {e.start_time ? ` · ${e.start_time}${startSuffix ? ` ${startSuffix}` : ''}` : ''}
                 {e.venue && (<><span className="dot" />{e.venue}</>)}
               </div>
             </div>
           </div>
           <div className="price-row">
-            <div className="price">{formatPrice(e.price_eur)}</div>
+            <div className="price">{formatPrice(e.price_eur, lang, t('common.free'))}</div>
             {isSoldOut ? (
               waitlistWallets.has(e.organizer_wallet) ? (
-                <span className="go">Zur Warteliste <Icon name="arrow" size={13} /></span>
+                <span className="go">{t('events.toWaitlist')} <Icon name="arrow" size={13} /></span>
               ) : (
-                <span className="muted" style={{ fontSize: 12.5 }}>Ausverkauft</span>
+                <span className="muted" style={{ fontSize: 12.5 }}>{t('events.soldOut')}</span>
               )
             ) : (
-              <span className="go">Tickets sichern <Icon name="arrow" size={13} /></span>
+              <span className="go">{t('events.getTickets')} <Icon name="arrow" size={13} /></span>
             )}
           </div>
         </div>
@@ -270,11 +281,11 @@ export default async function EventsPage({ searchParams }: {
           <div className="topbar-inner">
             <PasslyLogo height={24} />
             <div className="nav">
-              <Link href="/events" className="active">Events</Link>
-              <Link href="/my-tickets">Meine Tickets</Link>
+              <Link href="/events" className="active">{t('common.events')}</Link>
+              <Link href="/my-tickets">{t('common.myTickets')}</Link>
             </div>
             <div className="topbar-right">
-              <Link href="/become-organizer" className="btn subtle sm">Event veranstalten</Link>
+              <Link href="/become-organizer" className="btn subtle sm">{t('events.hostEvent')}</Link>
             </div>
           </div>
         </div>
@@ -284,25 +295,31 @@ export default async function EventsPage({ searchParams }: {
           <div className="container">
 
             <div className="hero">
-              <div className="eyebrow"><span className="pulse" />Entdecken</div>
-              <h1>{organizerLabel ? `Events von ${organizerLabel}` : 'Bevorstehende Events'}</h1>
+              <div className="eyebrow"><span className="pulse" />{t('events.eyebrow')}</div>
+              <h1>{organizerLabel ? t('events.titleOrganizer', { name: organizerLabel }) : t('events.title')}</h1>
               <p className="lead">
-                {totalCount > 0
-                  ? `${totalCount} Event${totalCount !== 1 ? 's' : ''} mit fälschungssicheren Tickets: kaufen, teilen, am Einlass vorzeigen.`
-                  : 'Fälschungssichere Tickets: kaufen, teilen, am Einlass vorzeigen.'}
+                {totalCount === 0
+                  ? t('events.leadEmpty')
+                  : totalCount === 1
+                    ? t('events.leadOne')
+                    : t('events.lead', { count: totalCount })}
               </p>
               <form className="search-row" action="/events" method="get">
                 {veranstalter && <input type="hidden" name="veranstalter" value={veranstalter} />}
                 <div className="search-wrap">
                   <span className="search-icon"><Icon name="search" size={14} /></span>
-                  <input className="input" type="search" name="q" defaultValue={query} placeholder="Event oder Ort suchen …" maxLength={80} aria-label="Events durchsuchen" />
+                  <input className="input" type="search" name="q" defaultValue={query} placeholder={`${t('events.searchPlaceholder')} …`} maxLength={80} aria-label={t('events.searchAria')} />
                 </div>
-                <button type="submit" className="btn subtle">Suchen</button>
+                <button type="submit" className="btn subtle">{t('events.search')}</button>
               </form>
               {(organizerLabel || query) && (
                 <div className="filter-note">
-                  {organizerLabel && query ? `Suche „${query}" bei ${organizerLabel}` : organizerLabel ? `Nur Events dieses Veranstalters` : `Suche „${query}"`}
-                  <Link href="/events">Zurücksetzen</Link>
+                  {organizerLabel && query
+                    ? t('events.filterSearchAt', { query, name: organizerLabel })
+                    : organizerLabel
+                      ? t('events.filterOrganizer')
+                      : t('events.filterSearch', { query })}
+                  <Link href="/events">{t('events.reset')}</Link>
                 </div>
               )}
             </div>
@@ -315,15 +332,15 @@ export default async function EventsPage({ searchParams }: {
                   </div>
                   {query || organizerLabel ? (
                     <>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Nichts gefunden.</div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{t('events.emptyFoundTitle')}</div>
                       <div style={{ fontSize: 13, marginTop: 4 }}>
-                        Versuch einen anderen Suchbegriff oder <Link href="/events" style={{ color: 'var(--accent)', fontWeight: 500 }}>zeig alle Events</Link>.
+                        {t('events.emptyFoundText')} <Link href="/events" style={{ color: 'var(--accent)', fontWeight: 500 }}>{t('events.emptyFoundLink')}</Link>.
                       </div>
                     </>
                   ) : (
                     <>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Gerade ist nichts angekündigt.</div>
-                      <div style={{ fontSize: 13, marginTop: 4 }}>Schau bald wieder vorbei, neue Events erscheinen hier zuerst.</div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{t('events.emptyTitle')}</div>
+                      <div style={{ fontSize: 13, marginTop: 4 }}>{t('events.emptyText')}</div>
                     </>
                   )}
                 </div>
@@ -334,21 +351,21 @@ export default async function EventsPage({ searchParams }: {
                   <section>
                     <div className="section-head">
                       <div>
-                        <h2>Saisonpässe</h2>
-                        <div className="sub">Ein Ticket für die ganze Reihe</div>
+                        <h2>{t('events.passesTitle')}</h2>
+                        <div className="sub">{t('events.passesSub')}</div>
                       </div>
                     </div>
                     <div className="pass-grid">
                       {passes.map((p) => (
                         <Link key={p.id} href={`/pass/${p.id}`} className="pass-card">
-                          <div className="pass-eyebrow">Saisonpass</div>
+                          <div className="pass-eyebrow">{t('events.seasonPass')}</div>
                           <div className="pass-name">{p.name}</div>
                           <div className="pass-meta">
-                            Gilt für {p.dates} {p.dates === 1 ? 'Termin' : 'Termine'}
+                            {p.dates === 1 ? t('events.validForDate') : t('events.validForDates', { count: p.dates })}
                           </div>
                           <div className="price-row">
-                            <div className="price">{formatPrice(p.priceCents)}</div>
-                            <span className="go">Pass sichern <Icon name="arrow" size={13} /></span>
+                            <div className="price">{formatPrice(p.priceCents, lang, t('common.free'))}</div>
+                            <span className="go">{t('events.securePass')} <Icon name="arrow" size={13} /></span>
                           </div>
                         </Link>
                       ))}
@@ -361,8 +378,8 @@ export default async function EventsPage({ searchParams }: {
                     {passes.length > 0 && (
                       <div className="section-head">
                         <div>
-                          <h2>Einzelne Termine</h2>
-                          <div className="sub">Auch einzeln buchbar</div>
+                          <h2>{t('events.singleDatesTitle')}</h2>
+                          <div className="sub">{t('events.singleDatesSub')}</div>
                         </div>
                       </div>
                     )}
@@ -376,8 +393,8 @@ export default async function EventsPage({ searchParams }: {
                   <section>
                     <div className="section-head">
                       <div>
-                        <h2>Ausverkauft</h2>
-                        <div className="sub">Vielleicht klappt&rsquo;s beim nächsten Mal</div>
+                        <h2>{t('events.soldOutTitle')}</h2>
+                        <div className="sub">{t('events.soldOutSub')}</div>
                       </div>
                     </div>
                     <div className="events-grid">
@@ -389,12 +406,10 @@ export default async function EventsPage({ searchParams }: {
             )}
 
             <footer style={{ borderTop: '1px solid var(--line)', marginTop: 64, padding: '28px 0 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--ink-3)' }}>
-              <div>© 2026 Passly · Digitale Tickets</div>
-              <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-                <Link href="/so-funktionierts">So funktioniert&rsquo;s</Link>
-                <Link href="/impressum">Impressum</Link>
-                <Link href="/datenschutz">Datenschutz</Link>
-                <Link href="/agb">AGB</Link>
+              <div>© 2026 Passly · {t('common.tagline')}</div>
+              <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Link href="/so-funktionierts">{t('common.howItWorks')}</Link>
+                <LegalLinks style={{ fontSize: 12.5, color: 'inherit', gap: 18 }} />
               </div>
             </footer>
 

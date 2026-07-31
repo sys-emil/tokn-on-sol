@@ -49,6 +49,8 @@ const de = {
   "common.retry": "Netzwerkfehler. Bitte erneut versuchen.",
   "common.free": "Kostenlos",
   "common.language": "Sprache",
+  "common.howItWorks": "So funktioniert’s",
+  "common.tagline": "Digitale Tickets",
 
   // ── /events ──────────────────────────────────────────────────────────
   "events.eyebrow": "Entdecken",
@@ -77,6 +79,17 @@ const de = {
   "events.securePass": "Pass sichern",
   "events.validForDates": "Gilt für {count} Termine",
   "events.validForDate": "Gilt für einen Termin",
+  "events.metaTitle": "Events entdecken · Passly",
+  "events.metaDescription": "Finde Events in deiner Nähe und sichere dir fälschungssichere Tickets, Einlass per Handy, kein Ausdrucken nötig.",
+  "events.lead": "{count} Events mit fälschungssicheren Tickets: kaufen, teilen, am Einlass vorzeigen.",
+  "events.leadOne": "Ein Event mit fälschungssicheren Tickets: kaufen, teilen, am Einlass vorzeigen.",
+  "events.leadEmpty": "Fälschungssichere Tickets: kaufen, teilen, am Einlass vorzeigen.",
+  "events.searchAria": "Events durchsuchen",
+  "events.filterSearchAt": "Suche „{query}“ bei {name}",
+  "events.filterOrganizer": "Nur Events dieses Veranstalters",
+  "events.filterSearch": "Suche „{query}“",
+  "events.reset": "Zurücksetzen",
+  "events.seasonPass": "Saisonpass",
 
   // ── /shop/[id] ───────────────────────────────────────────────────────
   "shop.ticketPrice": "Ticketpreis",
@@ -270,6 +283,8 @@ const en: Record<TranslationKey, string> = {
   "common.retry": "Network error. Please try again.",
   "common.free": "Free",
   "common.language": "Language",
+  "common.howItWorks": "How it works",
+  "common.tagline": "Digital tickets",
 
   "events.eyebrow": "Discover",
   "events.title": "Upcoming events",
@@ -297,6 +312,17 @@ const en: Record<TranslationKey, string> = {
   "events.securePass": "Get the pass",
   "events.validForDates": "Valid for {count} dates",
   "events.validForDate": "Valid for one date",
+  "events.metaTitle": "Discover events · Passly",
+  "events.metaDescription": "Find events near you and get tickets that can’t be forged. Entry from your phone, nothing to print.",
+  "events.lead": "{count} events with tickets that can’t be forged: buy, share, show at the door.",
+  "events.leadOne": "One event with tickets that can’t be forged: buy, share, show at the door.",
+  "events.leadEmpty": "Tickets that can’t be forged: buy, share, show at the door.",
+  "events.searchAria": "Search events",
+  "events.filterSearchAt": "Search “{query}” at {name}",
+  "events.filterOrganizer": "Only events by this organizer",
+  "events.filterSearch": "Search “{query}”",
+  "events.reset": "Reset",
+  "events.seasonPass": "Season pass",
 
   "shop.ticketPrice": "Ticket price",
   "shop.plusFee": "plus service fee",
