@@ -159,13 +159,16 @@ const PAGE_CSS = `
   .sc-hero h1 {
     margin: 0; font-size: 52px; line-height: 1.04; font-weight: 640;
     letter-spacing: -0.04em; color: #fff; text-wrap: balance; max-width: 17ch;
+    overflow-wrap: break-word;
   }
   .sc-hero-meta {
     display: flex; flex-wrap: wrap; align-items: center; gap: 20px;
     color: rgba(255, 255, 255, 0.82); font-size: 14.5px;
   }
   .sc-hero-meta span, .sc-hero-meta a { display: inline-flex; align-items: center; gap: 8px; color: inherit; }
-  .sc-hero-meta a { text-decoration: underline; text-underline-offset: 3px; }
+  /* Nur der Ortslink wird unterstrichen. Ein pauschaler a-Selektor haette auch
+     den Veranstalternamen samt Geprueft-Chip mit einer Linie durchzogen. */
+  .sc-venue { text-decoration: underline; text-underline-offset: 3px; }
   .sc-hero-meta a:hover { color: #fff; }
   .sc-hero-org { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; color: inherit; }
   .sc-hero-chip {
@@ -213,10 +216,12 @@ const PAGE_CSS = `
   .sc-tablist::-webkit-scrollbar { display: none; }
   .sc-tab {
     padding: 8px 4px; font-size: 26px; font-weight: 620; letter-spacing: -0.03em;
-    color: var(--ink-4); background: none; border: none; cursor: pointer;
+    /* ink-3, nicht ink-4: die Tableiste ist die Hauptnavigation dieser Seite,
+       und ink-4 auf surface-2 liegt unter dem 3:1-Kontrast fuer grosse Schrift. */
+    color: var(--ink-3); background: none; border: none; cursor: pointer;
     white-space: nowrap; transition: color 0.25s;
   }
-  .sc-tab:hover { color: var(--ink-3); }
+  .sc-tab:hover { color: var(--ink-2); }
   .sc-tab.active { color: var(--ink); }
   .sc-tab + .sc-tab { margin-left: 20px; }
   .sc-arrow {
@@ -230,6 +235,21 @@ const PAGE_CSS = `
   .sc-viewport { position: relative; overflow: hidden; transition: height 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); }
   .sc-track { display: flex; transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); }
   .sc-panel { flex: 0 0 100%; min-width: 0; padding: 28px 2px 8px; align-self: flex-start; }
+
+  /* Sichtbarer Tastaturfokus. globals.css definiert nur einen Ring fuer
+     .input, alle Knoepfe hier haetten sonst nur den Browser-Default — auf dem
+     dunklen Hero praktisch unsichtbar. */
+  .sc-tab:focus-visible, .sc-arrow:focus-visible, .sc-gallery-nav:focus-visible,
+  .sc-tickets-cta:focus-visible, .sc-pass:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 3px;
+  }
+  /* Auf dem Hero und in den scrollenden Leisten liegt der Ring innen, sonst
+     schneidet ihn der Container ab. */
+  .sc-back:focus-visible, .sc-cta:focus-visible,
+  .sc-hero-org:focus-visible, .sc-venue:focus-visible {
+    outline: 2px solid #fff; outline-offset: 3px;
+  }
+  .sc-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
 
   /* ── Panel: Uebersicht ────────────────────────────────────────── */
   .sc-overview { display: grid; grid-template-columns: 1.6fr 1fr; gap: 32px; align-items: start; }
@@ -346,7 +366,11 @@ const PAGE_CSS = `
     .sc-hero { border-radius: 20px; }
     .sc-hero-inner {
       grid-template-columns: 1fr; gap: 18px; padding: 0;
-      align-items: end; align-content: end; min-height: 0; aspect-ratio: 4 / 5;
+      align-items: end; align-content: end;
+      /* Bewusst min-height statt aspect-ratio: die 4:5-Anmutung bleibt, aber
+         ein langer Eventname schiebt die Karte auf, statt oben abgeschnitten
+         zu werden. */
+      min-height: calc((100vw - 32px) * 1.25);
     }
     .sc-hero-scrim {
       background: linear-gradient(0deg, rgba(11, 8, 26, 0.94) 10%, rgba(11, 8, 26, 0.3) 58%, rgba(11, 8, 26, 0.08));
@@ -365,9 +389,10 @@ const PAGE_CSS = `
 
     .sc-tabs { padding: 0 16px; margin-top: 24px; }
     .sc-tabbar { gap: 8px; }
-    .sc-tab { font-size: 19px; }
+    .sc-tab { font-size: 19px; padding: 10px 4px; }
     .sc-tab + .sc-tab { margin-left: 14px; }
-    .sc-arrow { width: 38px; height: 38px; }
+    /* 44px bleibt auch mobil die Untergrenze fuer ein Tippziel. */
+    .sc-arrow { width: 44px; height: 44px; }
     .sc-panel { padding: 20px 2px 8px; }
     .sc-text { font-size: 15px; }
     .sc-gallery-stage { aspect-ratio: 4 / 3; border-radius: 14px; }
@@ -590,7 +615,7 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
                     )
                   )}
                   {event.venue && (
-                    <a href={`https://maps.google.com/?q=${encodeURIComponent(event.venue)}`} target="_blank" rel="noopener noreferrer">
+                    <a className="sc-venue" href={`https://maps.google.com/?q=${encodeURIComponent(event.venue)}`} target="_blank" rel="noopener noreferrer">
                       <Icon name="location" size={15} />{event.venue}
                     </a>
                   )}
@@ -621,7 +646,12 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
           </div>
         </div>
 
-        <EventTabs panels={panels} prevLabel={t('showcase.prevTab')} nextLabel={t('showcase.nextTab')} />
+        <EventTabs
+          panels={panels}
+          prevLabel={t('showcase.prevTab')}
+          nextLabel={t('showcase.nextTab')}
+          tablistLabel={t('showcase.tablistLabel')}
+        />
 
         <div className="sc-after">
           {passes.length > 0 && (

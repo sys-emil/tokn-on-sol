@@ -22,18 +22,31 @@ export default function EventTabs({
   panels,
   prevLabel,
   nextLabel,
+  tablistLabel,
 }: {
   panels: TabPanel[];
   prevLabel: string;
   nextLabel: string;
+  tablistLabel: string;
 }) {
   const [index, setIndex] = useState(0);
   const [height, setHeight] = useState<number | undefined>(undefined);
   const panelRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
+  const clamp = (next: number) => Math.max(0, Math.min(panels.length - 1, next));
+
   const go = useCallback(
-    (next: number) => setIndex(Math.max(0, Math.min(panels.length - 1, next))),
+    (next: number) => {
+      const target = clamp(next);
+      setIndex(target);
+      // Die Tableiste scrollt auf schmalen Schirmen; ohne das kann der gerade
+      // aktivierte Tab ausserhalb des Sichtfelds landen. `block: nearest`
+      // haelt die Seite selbst ruhig.
+      tabRefs.current[target]?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clamp haengt nur an panels.length
     [panels.length],
   );
 
@@ -48,9 +61,15 @@ export default function EventTabs({
     return () => observer.disconnect();
   }, [index]);
 
+  // Roving tabindex: nur der aktive Tab ist per Tab erreichbar, also muss der
+  // Fokus den Pfeiltasten folgen — sonst sitzt er auf einem Knopf mit
+  // tabIndex -1 fest und die naechste Pfeiltaste kommt nie an.
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowRight') { e.preventDefault(); go(index + 1); }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); go(index - 1); }
+    const next = e.key === 'ArrowRight' ? index + 1 : e.key === 'ArrowLeft' ? index - 1 : null;
+    if (next === null) return;
+    e.preventDefault();
+    go(next);
+    tabRefs.current[clamp(next)]?.focus();
   };
 
   return (
@@ -66,12 +85,13 @@ export default function EventTabs({
           <Icon name="chevronLeft" size={20} />
         </button>
 
-        <div className="sc-tablist" role="tablist" onKeyDown={onKeyDown}>
+        <div className="sc-tablist" role="tablist" aria-label={tablistLabel} onKeyDown={onKeyDown}>
           {panels.map((p, i) => (
             <button
               key={p.key}
               type="button"
               role="tab"
+              ref={(el) => { tabRefs.current[i] = el; }}
               id={`sc-tab-${p.key}`}
               aria-selected={i === index}
               aria-controls={`sc-panel-${p.key}`}
