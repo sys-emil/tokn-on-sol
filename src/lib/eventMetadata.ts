@@ -133,6 +133,31 @@ export async function uploadPassMetadata(params: {
   return writeMetadata(`metadata/pass-${passId}.json`, metadata);
 }
 
+/**
+ * Every `metadata/*.json` in the bucket, as plain object paths.
+ *
+ * Storage keeps no reference back to the row that created a file, so a deleted
+ * event leaves its JSON behind — still publicly readable. Listing is the only
+ * way to find those; see `pruneOrphanMetadata` in the admin refresh route.
+ */
+export async function listMetadataObjects(): Promise<string[]> {
+  const { data, error } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .list("metadata", { limit: 1000 });
+  if (error) throw new Error(`Metadata list failed: ${error.message}`);
+  return (data ?? [])
+    .filter((o) => o.name.endsWith(".json"))
+    .map((o) => `metadata/${o.name}`);
+}
+
+/** Deletes metadata objects by path. Returns the paths Storage confirmed. */
+export async function deleteMetadataObjects(paths: string[]): Promise<string[]> {
+  if (paths.length === 0) return [];
+  const { data, error } = await supabaseAdmin.storage.from(BUCKET).remove(paths);
+  if (error) throw new Error(`Metadata delete failed: ${error.message}`);
+  return (data ?? []).map((o) => o.name);
+}
+
 async function writeMetadata(path: string, metadata: unknown): Promise<string> {
   const { error } = await supabaseAdmin.storage
     .from(BUCKET)

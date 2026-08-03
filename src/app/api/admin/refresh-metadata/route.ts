@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/adminAuth";
-import { uploadEventMetadata, uploadPassMetadata } from "@/lib/eventMetadata";
+import {
+  uploadEventMetadata,
+  uploadPassMetadata,
+  listMetadataObjects,
+  deleteMetadataObjects,
+} from "@/lib/eventMetadata";
 import { passEventDates } from "@/lib/seasonPass";
 
 export const maxDuration = 60;
@@ -26,13 +31,20 @@ export const maxDuration = 60;
  * on-chain name.
  *
  * POST /api/admin/refresh-metadata   (x-admin-secret)
- *   body: {} | { "eventId": "…" } | { "passId": "…" } | { "dryRun": true }
+ *   body: {} | { "eventId": "…" } | { "passId": "…" }
+ *         + { "dryRun": true }        report only, write nothing
+ *         + { "pruneOrphans": true }  additionally delete JSONs whose event
+ *                                     or pass no longer exists
+ *
+ * `pruneOrphans` exists because deleting a row leaves its JSON behind: Storage
+ * has no reference back to the database, so the file stays publicly readable
+ * forever. Deleting an event is exactly when that matters.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const denied = requireAdmin(req);
   if (denied) return denied;
 
-  let body: { eventId?: string; passId?: string; dryRun?: boolean } = {};
+  let body: { eventId?: string; passId?: string; dryRun?: boolean; pruneOrphans?: boolean } = {};
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -119,6 +131,44 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Orphans: a JSON whose event or pass no longer exists. Only meaningful for
+  // a full run — a single-id call has no view of what else is in the bucket.
+  let orphans: string[] = [];
+  if (body.pruneOrphans === true && !body.eventId && !body.passId) {
+    const [paths, { data: eventRows }, { data: passRows }] = await Promise.all([
+      listMetadataObjects(),
+      supabaseAdmin.from("events").select("id"),
+      supabaseAdmin.from("season_passes").select("id"),
+    ]);
+    const live = new Set<string>();
+    for (const e of eventRows ?? []) live.add(`metadata/${e.id as string}.json`);
+    for (const p of passRows ?? []) live.add(`metadata/pass-${p.id as string}.json`);
+
+    orphans = paths.filter((path) => !live.has(path));
+    if (!dryRun && orphans.length > 0) {
+      const removed = await deleteMetadataObjects(orphans);
+      for (const path of orphans) {
+        results.push({
+          kind: "orphan",
+          id: path,
+          name: path,
+          status: removed.includes(path) ? "deleted" : "FAILED: not confirmed by storage",
+        });
+      }
+    } else {
+      for (const path of orphans) {
+        results.push({ kind: "orphan", id: path, name: path, status: "would delete" });
+      }
+    }
+  }
+
   const failed = results.filter((r) => r.status.startsWith("FAILED")).length;
-  return NextResponse.json({ success: failed === 0, dryRun, count: results.length, failed, results });
+  return NextResponse.json({
+    success: failed === 0,
+    dryRun,
+    count: results.length,
+    orphans: orphans.length,
+    failed,
+    results,
+  });
 }
