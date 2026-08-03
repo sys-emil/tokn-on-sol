@@ -16,6 +16,44 @@ import { ProPrice } from '@/app/components/ProPrice';
  * German comparative advertising is an actual legal risk, not just sloppy.
  */
 
+/*
+ * Feature lists as data, not markup: the two columns must stay comparable,
+ * and every line has to correspond to something that actually ships. Pro is
+ * deliberately the longer list — but only with real features (see the Pro
+ * gates in CLAUDE.md); padding it with restated free features would be the
+ * easy way to make the column look fuller and a lie to the reader.
+ */
+const FREE_FEATURES = [
+  'Unbegrenzt Events, öffentlich oder privat per Link',
+  'Bis zu fünf Preiskategorien je Event',
+  'Öffentliche Markenseite unter getpassly.de/@deinname',
+  'Einlass-Scanner im Browser, auch ohne Empfang',
+  'Türlinks fürs Personal, ohne eigenen Zugang',
+  'Abendkasse für Barverkauf an der Tür',
+  'Weiterverkauf mit eigener Preisobergrenze',
+  'Saisonpässe für ganze Reihen',
+  'Auszahlungen einzeln nachvollziehbar',
+];
+
+const PRO_FEATURES = [
+  'Kundenübersicht mit allen Gästen deiner Events',
+  'Segmente: Stammgäste, Neue, Gefährdete, VIP',
+  'Kohorten-Analyse: wer kommt wieder?',
+  'E-Mail-Kampagnen an ein ganzes Segment',
+  'Nachricht an alle Käufer eines Events',
+  'Treueprogramm mit bis zu fünf Stufen',
+  'Rabattcodes für Aktionen und Partner',
+  'Gästeliste über 100-%-Codes',
+  'Warteliste, sobald ein Event ausverkauft ist',
+  'Umsatzprognose für die nächsten Wochen',
+  'Kanal-Auswertung: woher deine Käufer kommen',
+  'Vergleich mit ähnlichen Veranstaltern',
+  'CSV-Export von Events und Kundenliste',
+  'Akzentfarbe deiner Profilseite frei wählbar',
+  'Hervorgehobenes Event ganz oben auf dem Profil',
+  'Eigener Kartenstil für deine Events',
+];
+
 export const metadata: Metadata = {
   title: 'Preise · Passly',
   description:
@@ -36,37 +74,108 @@ const PAGE_CSS = `
     max-width: 56ch;
   }
 
-  .plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
-  @media (max-width: 860px) { .plan-grid { grid-template-columns: 1fr; } }
+  /* ── Plan-Vergleich ──────────────────────────────────────────
+     Bewusst asymmetrisch: Pro bekommt mehr Breite, mehr Tiefe und die
+     einzige Bewegung auf der Seite. Der kostenlose Plan bleibt vollwertig
+     lesbar — er soll nicht schlecht aussehen, nur ruhiger. */
+  .plan-wrap { position: relative; }
+  /* Weicher Akzent-Schein hinter der Pro-Spalte */
+  .plan-wrap::before {
+    content: "";
+    position: absolute;
+    right: -6%; top: -12%;
+    width: 62%; height: 124%;
+    background: radial-gradient(circle at 60% 40%, oklch(0.76 0.20 var(--hue) / 0.16) 0%, transparent 68%);
+    filter: blur(60px);
+    pointer-events: none;
+    z-index: 0;
+    animation: planGlow 16s ease-in-out infinite alternate;
+  }
+  @keyframes planGlow {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(-24px, 18px, 0) scale(1.07); }
+  }
+  .plan-grid {
+    position: relative; z-index: 1;
+    display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 16px; align-items: stretch;
+  }
+  @media (max-width: 940px) { .plan-grid { grid-template-columns: 1fr; } }
   .plan {
     padding: 30px;
     display: flex; flex-direction: column; gap: 18px;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s, border-color 0.25s;
   }
   @media (max-width: 640px) { .plan { padding: 24px 20px; } }
+  .plan.free .amount .big { color: var(--ink-2); }
   .plan.pro {
+    position: relative;
+    overflow: hidden;
     border-color: var(--accent-line);
+    box-shadow: var(--shadow);
     background:
-      radial-gradient(600px 220px at 15% -25%, var(--accent-wash), transparent 70%),
+      radial-gradient(620px 240px at 12% -25%, var(--accent-wash), transparent 70%),
       var(--surface);
   }
+  .plan.pro:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--accent); }
+  /* Langsamer Lichtstreifen, gleiche Idee wie .btn-shine, nur ruhiger */
+  .plan.pro::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(105deg, transparent 42%, oklch(0.72 0.18 var(--hue) / 0.10) 50%, transparent 58%);
+    transform: translateX(-130%);
+    animation: planShine 7s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes planShine {
+    0%, 62%   { transform: translateX(-130%); }
+    92%, 100% { transform: translateX(130%); }
+  }
+  .plan-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .plan .tag {
-    align-self: flex-start;
     display: inline-flex; align-items: center; gap: 7px;
     font-size: 11px; font-weight: 600; color: var(--accent-ink);
     text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .plan.free .tag { color: var(--ink-3); }
+  /* Eckig, kein Pill: 6px wie .chip */
+  .plan .recommend {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 9px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+    background: var(--accent); color: white;
+    box-shadow: 0 2px 8px oklch(0.56 0.22 var(--hue) / 0.35);
   }
   .plan h2 { font-size: 21px; font-weight: 600; letter-spacing: -0.025em; }
   .plan .amount { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .plan .amount .big { font-size: 38px; font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
   .plan .amount .unit { font-size: 14px; color: var(--ink-3); }
   .plan .what { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; }
+  .plan .listhead {
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-4);
+    padding-bottom: 2px;
+  }
+  .plan.pro .listhead { color: var(--accent-ink); }
   .plan ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
   .plan li {
     display: flex; gap: 10px; align-items: flex-start;
     font-size: 13.5px; color: var(--ink-2); line-height: 1.55;
   }
-  .plan li svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
-  .plan .foot { margin-top: auto; padding-top: 8px; }
+  .plan li svg { flex-shrink: 0; margin-top: 3px; }
+  .plan.free li svg { color: var(--ink-4); }
+  .plan.pro li svg { color: var(--accent); }
+  /* Pro-Liste zweispaltig, sobald Platz da ist: die Länge ist das Argument,
+     eine endlose Kolonne wäre nur anstrengend. */
+  .plan.pro ul { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px; }
+  @media (max-width: 1080px) { .plan.pro ul { grid-template-columns: 1fr; } }
+  .plan .foot { margin-top: auto; padding-top: 8px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .plan .foot .fine { font-size: 12px; color: var(--ink-4); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .plan-wrap::before, .plan.pro::after { animation: none; }
+    .plan.pro:hover { transform: none; }
+  }
 
   .price-note {
     display: flex; gap: 12px; align-items: flex-start;
@@ -156,61 +265,65 @@ export default function PreisePage() {
 
             {/* Die zwei Pläne */}
             <section>
-              <div className="plan-grid">
-                <div className="card plan" data-reveal>
-                  <span className="tag"><Icon name="ticket" size={12} /> Kostenlos</span>
-                  <h2>Alles, was ein Event braucht</h2>
-                  <div className="amount">
-                    <span className="big">0 €</span>
-                    <span className="unit">für dich, dauerhaft</span>
+              <div className="plan-wrap">
+                <div className="plan-grid">
+                  <div className="card plan free" data-reveal>
+                    <div className="plan-head">
+                      <span className="tag"><Icon name="ticket" size={12} /> Kostenlos</span>
+                    </div>
+                    <h2>Alles, was ein Event braucht</h2>
+                    <div className="amount">
+                      <span className="big">0 €</span>
+                      <span className="unit">für dich, dauerhaft</span>
+                    </div>
+                    <p className="what">
+                      Deine Gäste zahlen pro Ticket 1&nbsp;€ + 4&nbsp;% Servicegebühr.
+                      Kostenlose Tickets sind komplett gebührenfrei.
+                    </p>
+                    <div className="listhead">Enthalten</div>
+                    <ul>
+                      {FREE_FEATURES.map((feature, i) => (
+                        <li key={feature} data-reveal style={{ '--reveal-delay': `${120 + i * 40}ms` } as React.CSSProperties}>
+                          <Icon name="check" size={14} /> {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="foot">
+                      <Link href="/become-organizer" className="btn subtle">
+                        Event anlegen <Icon name="arrow" size={13} />
+                      </Link>
+                    </div>
                   </div>
-                  <p className="what">
-                    Deine Gäste zahlen pro Ticket 1&nbsp;€ + 4&nbsp;% Servicegebühr.
-                    Kostenlose Tickets sind komplett gebührenfrei.
-                  </p>
-                  <ul>
-                    <li><Icon name="check" size={14} /> Unbegrenzt Events, öffentlich oder privat per Link</li>
-                    <li><Icon name="check" size={14} /> Bis zu fünf Preiskategorien je Event</li>
-                    <li><Icon name="check" size={14} /> Öffentliche Markenseite unter getpassly.de/@deinname</li>
-                    <li><Icon name="check" size={14} /> Einlass-Scanner im Browser, auch offline</li>
-                    <li><Icon name="check" size={14} /> Türlinks fürs Personal, ohne eigenen Zugang</li>
-                    <li><Icon name="check" size={14} /> Abendkasse für Barverkauf an der Tür</li>
-                    <li><Icon name="check" size={14} /> Weiterverkauf mit eigener Preisobergrenze</li>
-                    <li><Icon name="check" size={14} /> Saisonpässe für ganze Reihen</li>
-                    <li><Icon name="check" size={14} /> Auszahlungen einzeln nachvollziehbar</li>
-                  </ul>
-                  <div className="foot">
-                    <Link href="/become-organizer" className="btn primary">
-                      Event anlegen <Icon name="arrow" size={13} />
-                    </Link>
-                  </div>
-                </div>
 
-                <div className="card plan pro" data-reveal style={{ '--reveal-delay': '110ms' } as React.CSSProperties}>
-                  <span className="tag"><Icon name="sparkle" size={12} /> Passly Pro</span>
-                  <h2>Wenn aus Abenden ein Publikum wird</h2>
-                  <div className="amount">
-                    <ProPrice />
-                    <span className="unit">monatlich kündbar</span>
-                  </div>
-                  <p className="what">
-                    Alles aus dem kostenlosen Plan, plus die Werkzeuge für die Beziehung
-                    zu deinen Gästen. Die Servicegebühr ändert sich dadurch nicht.
-                  </p>
-                  <ul>
-                    <li><Icon name="check" size={14} /> Kundenübersicht mit Segmenten: Stammgäste, Neue, Gefährdete, VIP</li>
-                    <li><Icon name="check" size={14} /> E-Mail-Kampagnen an eine Gästegruppe</li>
-                    <li><Icon name="check" size={14} /> Nachricht an alle Ticketkäufer eines Events</li>
-                    <li><Icon name="check" size={14} /> Mehrstufiges Treueprogramm mit eigenen Vorteilen</li>
-                    <li><Icon name="check" size={14} /> Rabattcodes und Gästeliste</li>
-                    <li><Icon name="check" size={14} /> Warteliste, sobald ein Event ausverkauft ist</li>
-                    <li><Icon name="check" size={14} /> Umsatzprognose, Kanäle und Plattform-Vergleich</li>
-                    <li><Icon name="check" size={14} /> Akzentfarbe und Kartenstil für deine Marke</li>
-                  </ul>
-                  <div className="foot">
-                    <Link href="/dashboard/analytics" className="btn ghost">
-                      Pro ansehen <Icon name="arrow" size={13} />
-                    </Link>
+                  <div className="card plan pro" data-reveal style={{ '--reveal-delay': '110ms' } as React.CSSProperties}>
+                    <div className="plan-head">
+                      <span className="tag"><Icon name="sparkle" size={12} /> Passly Pro</span>
+                      <span className="recommend"><Icon name="sparkle" size={11} /> Empfohlen</span>
+                    </div>
+                    <h2>Wenn aus Abenden ein Publikum wird</h2>
+                    <div className="amount">
+                      <ProPrice />
+                      <span className="unit">monatlich kündbar</span>
+                    </div>
+                    <p className="what">
+                      Ein volles Haus ist schön. Gäste, die beim nächsten Mal wiederkommen,
+                      sind das Geschäft. Pro gibt dir die Werkzeuge dafür — die
+                      Servicegebühr für deine Gäste bleibt unverändert.
+                    </p>
+                    <div className="listhead">Alles aus Kostenlos, plus</div>
+                    <ul>
+                      {PRO_FEATURES.map((feature, i) => (
+                        <li key={feature} data-reveal style={{ '--reveal-delay': `${200 + i * 35}ms` } as React.CSSProperties}>
+                          <Icon name="check" size={14} /> {feature}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="foot">
+                      <Link href="/become-organizer" className="btn primary btn-shine">
+                        Mit Pro starten <Icon name="arrow" size={13} />
+                      </Link>
+                      <span className="fine">Keine Mindestlaufzeit</span>
+                    </div>
                   </div>
                 </div>
               </div>
