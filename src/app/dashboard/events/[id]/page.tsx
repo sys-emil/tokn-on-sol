@@ -1001,13 +1001,13 @@ export default function EventDetailPage() {
                           </button>
                         )}
                         <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={copyShopLink}>
-                          <Icon name="share" size={14} /> {copiedShop ? 'Kopiert!' : 'Ticket-Link kopieren'}
+                          <Icon name="share" size={14} /> {copiedShop ? 'Kopiert!' : 'Event-Link kopieren'}
                         </button>
                         <Link href={`/doorman/${event.id}`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
                           <Icon name="scan" size={14} /> Einlass-Modus öffnen
                         </Link>
                         <Link href={`/event/${event.id}`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
-                          <Icon name="ticket" size={14} /> Shop-Seite ansehen
+                          <Icon name="ticket" size={14} /> Event-Seite ansehen
                         </Link>
                         <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={duplicateEvent}>
                           <Icon name="plus" size={14} /> Event duplizieren

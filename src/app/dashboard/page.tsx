@@ -876,7 +876,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="field">
-                      <label>Ticket-Link</label>
+                      <label>Event-Link</label>
                       <input className="input mono" readOnly value={shopLink} onFocus={(e) => e.target.select()} style={{ fontSize: 12 }} />
                     </div>
                     <button
