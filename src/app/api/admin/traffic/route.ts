@@ -34,13 +34,26 @@ const SESSION_GAP_MS = 30 * 60 * 1000;
 
 const RECENT_LIMIT = 25;
 
-/** Funnel stages, in order; page_view is scoped to /shop/ paths. */
+/**
+ * Funnel stages, in order. Der Besuch ist zweistufig (Showcase /event/<id> →
+ * Kaufseite /shop/<id>); beide senden `page_view` und werden am Pfad getrennt.
+ * Muss mit FUNNEL_STAGES in /api/organizer/analytics deckungsgleich bleiben.
+ */
 const FUNNEL_STAGES = [
-  { key: "page_view", label: "Shop besucht" },
+  { key: "event_view", label: "Event-Seite besucht" },
+  { key: "shop_view", label: "Kaufseite besucht" },
   { key: "ticket_selected", label: "Ticket ausgewählt" },
   { key: "checkout_started", label: "Checkout gestartet" },
   { key: "purchase_completed", label: "Kauf abgeschlossen" },
 ] as const;
+
+/** Stufe eines Ereignisses; NULL, wenn der Pfad zu keiner Stufe gehört. */
+function stageKeyOf(name: string, path: string | null): string | null {
+  if (name !== "page_view") return name;
+  if (path?.startsWith("/event/")) return "event_view";
+  if (path?.startsWith("/shop/")) return "shop_view";
+  return null;
+}
 
 export type TrafficMetric = {
   current: number;
@@ -269,16 +282,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         bump(referrerAgg, rHost, row.cid);
       }
 
-      // Shop landing pages, keyed by event id (ignores /shop/<id>/success).
+      // Event landing pages, keyed by event id. Showcase und Kaufseite zaehlen
+      // auf dieselbe ID ein (ignoriert /shop/<id>/success).
       const segments = (row.path ?? "").split("/");
-      if (segments.length === 3 && segments[1] === "shop" && UUID_RE.test(segments[2])) {
+      if (segments.length === 3 && (segments[1] === "shop" || segments[1] === "event") && UUID_RE.test(segments[2])) {
         bump(eventAgg, segments[2], row.cid);
       }
     }
 
-    // Funnel: shop pages only, so it mirrors the Pro dashboard's definition.
-    if (row.path?.startsWith("/shop/") && stageCids[row.name]) {
-      stageCids[row.name].add(row.cid);
+    // Funnel: nur Event- und Kaufseiten, damit er die Definition des
+    // Pro-Dashboards spiegelt.
+    const stage = stageKeyOf(row.name, row.path);
+    if (stage && stageCids[stage]
+        && (row.path?.startsWith("/shop/") || row.path?.startsWith("/event/"))) {
+      stageCids[stage].add(row.cid);
     }
   }
 

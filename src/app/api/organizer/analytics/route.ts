@@ -16,13 +16,38 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/** Consent-gated funnel stages, in order. */
+/**
+ * Consent-gated funnel stages, in order.
+ *
+ * Der Besuch ist seit der Showcase-Seite **zweistufig**: Gäste landen auf
+ * /event/<id> und gehen von dort auf die Kaufseite /shop/<id>. Beide senden
+ * dasselbe `page_view`-Ereignis, unterschieden werden sie am Pfad
+ * (`stageKeyOf`) — die Stufenschlüssel sind deshalb nicht mehr identisch mit
+ * den Ereignisnamen.
+ */
 const FUNNEL_STAGES = [
-  { key: "page_view", label: "Shop besucht" },
+  { key: "event_view", label: "Event-Seite besucht" },
+  { key: "shop_view", label: "Kaufseite besucht" },
   { key: "ticket_selected", label: "Ticket ausgewählt" },
   { key: "checkout_started", label: "Checkout gestartet" },
   { key: "purchase_completed", label: "Kauf abgeschlossen" },
 ] as const;
+
+/** Die Ereignisnamen hinter den Stufen (page_view trägt zwei davon). */
+const FUNNEL_EVENT_NAMES = [
+  "page_view",
+  "ticket_selected",
+  "checkout_started",
+  "purchase_completed",
+] as const;
+
+/** Stufe eines Ereignisses; NULL, wenn der Pfad zu keiner Stufe gehört. */
+function stageKeyOf(name: string, path: string | null): string | null {
+  if (name !== "page_view") return name;
+  if (path?.startsWith("/event/")) return "event_view";
+  if (path?.startsWith("/shop/")) return "shop_view";
+  return null;
+}
 
 const MAX_ANALYTICS_ROWS = 100_000;
 
@@ -100,8 +125,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     supabaseAdmin
       .from("analytics_events")
       .select("name, path, cid, referrer, created_at")
-      .in("name", FUNNEL_STAGES.map((s) => s.key))
-      .like("path", "/shop/%")
+      .in("name", FUNNEL_EVENT_NAMES)
+      // Showcase- und Kaufseite; feste Muster, kein Nutzereingabe-String.
+      .or("path.like./event/%,path.like./shop/%")
       .gte("created_at", prevStart.toISOString())
       .limit(MAX_ANALYTICS_ROWS),
     loadBenchmark(walletAddress),
@@ -201,8 +227,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   /* ── Funnel + Attribution ──────────────────────────────────────────────── */
 
   const eventIdSet = new Set(eventIds);
-  const isOwnShopPath = (path: string | null): boolean => {
-    if (!path?.startsWith("/shop/")) return false;
+  // /event/<id> (Showcase) und /shop/<id> (Kauf) tragen die Event-ID an
+  // derselben Stelle; beide zählen nur für die eigenen Events.
+  const isOwnEventPath = (path: string | null): boolean => {
+    if (!path?.startsWith("/event/") && !path?.startsWith("/shop/")) return false;
     return eventIdSet.has(path.split("/")[2] ?? "");
   };
 
@@ -220,16 +248,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   for (const row of (trackRows ?? []) as {
     name: string; path: string | null; cid: string; referrer: string | null; created_at: string;
   }[]) {
-    if (!isOwnShopPath(row.path)) continue;
+    if (!isOwnEventPath(row.path)) continue;
+    const stage = stageKeyOf(row.name, row.path);
+    if (!stage) continue;
     const at = new Date(row.created_at);
     const bucket = at >= periodStart ? stageCids : at >= prevStart ? stageCidsPrev : null;
-    bucket?.[row.name]?.add(row.cid);
+    bucket?.[stage]?.add(row.cid);
     if (at >= periodStart && !channelByCid.has(row.cid)) {
       channelByCid.set(row.cid, channelFromReferrer(row.referrer, host));
     }
   }
 
-  const views = stageCids.page_view.size;
+  // Besucher = jeder, der eine der beiden Seiten gesehen hat. Nicht jeder
+  // kommt über die Showcase herein (Direktlinks, Wiederverkauf, Warteliste),
+  // deshalb die Vereinigung statt der ersten Stufe.
+  const views = new Set([...stageCids.event_view, ...stageCids.shop_view]).size;
   const buyerCids = stageCids.purchase_completed;
   const funnel = FUNNEL_STAGES.map((s) => ({
     key: s.key,

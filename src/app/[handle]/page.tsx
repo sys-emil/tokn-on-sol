@@ -178,7 +178,7 @@ function EventCard({ e, featured }: { e: EventRow; featured?: boolean }) {
   return (
     <Link
       key={e.id}
-      href={`/shop/${e.id}`}
+      href={`/event/${e.id}`}
       className="event-card memory-card"
       style={e.accent_hue != null ? ({ '--hue': e.accent_hue } as React.CSSProperties) : undefined}
     >

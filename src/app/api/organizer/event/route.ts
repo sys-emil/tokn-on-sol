@@ -19,7 +19,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: event, error } = await supabaseAdmin
     .from("events")
-    .select("id, organizer_wallet, name, date, start_time, venue, description, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, resale_max_markup_pct, guest_checkout_enabled, queue_enabled, queue_slots, image_url, accent_hue, border_style, cancelled_at")
+    .select("id, organizer_wallet, name, date, start_time, venue, description, long_description, gallery_urls, price_eur, capacity, tickets_sold, tickets_reserved, is_private, payout_hold_days, resale_max_markup_pct, guest_checkout_enabled, queue_enabled, queue_slots, image_url, accent_hue, border_style, cancelled_at")
     .eq("id", id)
     .single();
 

@@ -23,7 +23,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .is('cancelled_at', null);
 
   const eventEntries: MetadataRoute.Sitemap = (data ?? []).map((e) => ({
-    url: `${siteUrl}/shop/${e.id as string}`,
+    url: `${siteUrl}/event/${e.id as string}`,
     lastModified: e.date as string,
     changeFrequency: 'daily',
     priority: 0.8,

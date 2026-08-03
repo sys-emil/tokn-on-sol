@@ -3,7 +3,12 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { TicketTier } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
-import { uploadEventMetadata } from "@/lib/eventMetadata";
+import {
+  uploadEventMetadata,
+  isOwnStorageUrl,
+  validateGalleryUrls,
+  MAX_LONG_DESCRIPTION,
+} from "@/lib/eventMetadata";
 import { sendAdminAlert } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +32,12 @@ interface UpdateEventBody {
     start_time?: string | null;
     venue?: string | null;
     description?: string | null;
+    /** Showcase-Langtext; `description` bleibt der kurze Teaser. */
+    long_description?: string | null;
+    /** Titelbild. Bis zur Showcase-Seite gab es dafuer keinen Bearbeitungsweg. */
+    image_url?: string | null;
+    /** Bildergalerie der Showcase-Seite; ersetzt die Liste vollstaendig. */
+    gallery_urls?: string[];
     is_private?: boolean;
     payout_hold_days?: number;
     accent_hue?: number | null;
@@ -128,6 +139,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "description must be at most 2000 characters" }, { status: 400 });
     }
     update.description = typeof fields.description === "string" ? fields.description.trim() || null : null;
+  }
+  if (fields.long_description !== undefined) {
+    if (fields.long_description !== null
+        && (typeof fields.long_description !== "string" || fields.long_description.length > MAX_LONG_DESCRIPTION)) {
+      return NextResponse.json({ success: false, error: `long_description must be at most ${MAX_LONG_DESCRIPTION} characters` }, { status: 400 });
+    }
+    update.long_description = typeof fields.long_description === "string" ? fields.long_description.trim() || null : null;
+  }
+  // Only URLs from our own upload endpoint end up on a Passly page or in
+  // on-chain metadata — same gate as at creation.
+  if (fields.image_url !== undefined) {
+    if (fields.image_url !== null && (typeof fields.image_url !== "string" || !isOwnStorageUrl(fields.image_url))) {
+      return NextResponse.json({ success: false, error: "image_url must come from /api/events/upload-image" }, { status: 400 });
+    }
+    update.image_url = fields.image_url;
+  }
+  if (fields.gallery_urls !== undefined) {
+    const checked = validateGalleryUrls(fields.gallery_urls);
+    if ("error" in checked) {
+      return NextResponse.json({ success: false, error: checked.error }, { status: 400 });
+    }
+    update.gallery_urls = checked;
   }
   if (fields.is_private !== undefined) {
     update.is_private = fields.is_private === true;
@@ -291,13 +324,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Regenerate the static cNFT metadata when displayed fields changed;
   // upsert: true overwrites metadata/<eventId>.json in place, so already
   // minted tickets pick the change up too. Best effort, like at creation.
-  if (update.name !== undefined || update.date !== undefined || update.venue !== undefined || update.description !== undefined) {
+  if (update.name !== undefined || update.date !== undefined || update.venue !== undefined
+      || update.description !== undefined || update.image_url !== undefined) {
     try {
       await uploadEventMetadata({
         eventId,
         name: (update.name as string | undefined) ?? (event.name as string),
         date: (update.date as string | undefined) ?? (event.date as string),
-        imageUrl: (event.image_url as string | null) ?? null,
+        imageUrl: (update.image_url as string | null | undefined) ?? ((event.image_url as string | null) ?? null),
         venue: (update.venue as string | null | undefined) ?? ((event.venue as string | null) ?? null),
         description: (update.description as string | null | undefined) ?? ((event.description as string | null) ?? null),
       });

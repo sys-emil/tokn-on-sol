@@ -10,6 +10,7 @@ import { ProfileNudge } from '@/app/components/ProfileNudge';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, Spark, EventStyleFields, VerifiedCheck } from '@/app/components/passlyUi';
+import { EventImagePicker } from '@/app/components/EventImagePicker';
 import { useEffect, useState } from 'react';
 
 interface EventRow {
@@ -116,6 +117,8 @@ export default function Dashboard() {
   const [resaleEnabled, setResaleEnabled] = useState(false);
   const [resaleMaxMarkup, setResaleMaxMarkup] = useState('20');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [longDescription, setLongDescription] = useState('');
+  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
   const [accentHue, setAccentHue] = useState<number | null>(null);
   const [borderStyle, setBorderStyle] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -326,6 +329,8 @@ export default function Dashboard() {
     setIsPrivate(false);
     setPayoutHoldDays('0');
     setImageFile(null);
+    setLongDescription('');
+    setGalleryUrls([]);
     setAccentHue(null);
     setBorderStyle(null);
     setFormError(null);
@@ -513,7 +518,9 @@ export default function Dashboard() {
           border_style: borderStyle,
           ...(venue.trim() ? { venue: venue.trim() } : {}),
           ...(description.trim() ? { description: description.trim() } : {}),
+          ...(longDescription.trim() ? { long_description: longDescription.trim() } : {}),
           ...(imageUrl ? { image_url: imageUrl } : {}),
+          ...(galleryUrls.length > 0 ? { gallery_urls: galleryUrls } : {}),
         }),
       });
       const createData = (await createRes.json()) as
@@ -525,7 +532,7 @@ export default function Dashboard() {
         return;
       }
       const eventId = createData.id;
-      const link = `${window.location.origin}/shop/${eventId}`;
+      const link = `${window.location.origin}/event/${eventId}`;
       setShopLink(link);
       setEvents((prev) => [
         {
@@ -972,6 +979,24 @@ export default function Dashboard() {
                       <input type="file" className="input" accept="image/jpeg,image/png,image/webp"
                         onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} disabled={creating} />
                       <span className="hint">JPEG, PNG oder WebP, max. 4 MB. Erscheint auf der Ticketseite.</span>
+                    </div>
+                    <div className="field">
+                      <label>Ausführliche Beschreibung (optional)</label>
+                      <textarea className="textarea" rows={6} placeholder="Line-up, Ablauf, Hausordnung, Anfahrt …" value={longDescription}
+                        onChange={(e) => setLongDescription(e.target.value)} maxLength={6000} disabled={creating} />
+                      <span className="hint">Steht auf der Event-Seite unter „Übersicht“. Die kurze Beschreibung bleibt der Teaser.</span>
+                    </div>
+                    <div className="field">
+                      <label>Galerie (optional)</label>
+                      <EventImagePicker
+                        urls={galleryUrls}
+                        onChange={setGalleryUrls}
+                        ownerWallet={ownerWallet}
+                        max={8}
+                        disabled={creating}
+                        onError={setFormError}
+                      />
+                      <span className="hint">Bis zu 8 weitere Bilder für den Galerie-Bereich der Event-Seite.</span>
                     </div>
                     <EventStyleFields
                       accentHue={accentHue}

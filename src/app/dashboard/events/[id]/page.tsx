@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, EventStyleFields } from '@/app/components/passlyUi';
+import { EventImagePicker } from '@/app/components/EventImagePicker';
 import { useEffect, useMemo, useState } from 'react';
 
 interface TicketRow {
@@ -33,6 +34,8 @@ interface EventData {
   queue_enabled: boolean;
   queue_slots: number;
   image_url: string | null;
+  long_description: string | null;
+  gallery_urls: string[] | null;
   accent_hue: number | null;
   border_style: string | null;
   cancelled_at: string | null;
@@ -124,6 +127,9 @@ export default function EventDetailPage() {
   const [fStartTime, setFStartTime] = useState('');
   const [fVenue, setFVenue] = useState('');
   const [fDescription, setFDescription] = useState('');
+  const [fLongDescription, setFLongDescription] = useState('');
+  const [fImageUrls, setFImageUrls] = useState<string[]>([]);
+  const [fGalleryUrls, setFGalleryUrls] = useState<string[]>([]);
   const [fIsPrivate, setFIsPrivate] = useState(false);
   const [fGuestCheckout, setFGuestCheckout] = useState(true);
   const [fQueueEnabled, setFQueueEnabled] = useState(false);
@@ -447,7 +453,7 @@ export default function EventDetailPage() {
 
   const copyShopLink = () => {
     if (!event) return;
-    void navigator.clipboard.writeText(`${window.location.origin}/shop/${event.id}`).then(() => {
+    void navigator.clipboard.writeText(`${window.location.origin}/event/${event.id}`).then(() => {
       setCopiedShop(true);
       setTimeout(() => setCopiedShop(false), 2000);
     });
@@ -483,6 +489,10 @@ export default function EventDetailPage() {
     setFStartTime(event.start_time ?? '');
     setFVenue(event.venue ?? '');
     setFDescription(event.description ?? '');
+    setFLongDescription(event.long_description ?? '');
+    // Das Titelbild laeuft durch denselben Picker wie die Galerie, nur mit max 1.
+    setFImageUrls(event.image_url ? [event.image_url] : []);
+    setFGalleryUrls(event.gallery_urls ?? []);
     setFIsPrivate(event.is_private);
     setFHoldDays(String(event.payout_hold_days ?? 0));
     setFGuestCheckout(event.guest_checkout_enabled !== false);
@@ -546,6 +556,9 @@ export default function EventDetailPage() {
             start_time: fStartTime || null,
             venue: fVenue.trim() || null,
             description: fDescription.trim() || null,
+            long_description: fLongDescription.trim() || null,
+            image_url: fImageUrls[0] ?? null,
+            gallery_urls: fGalleryUrls,
             is_private: fIsPrivate,
             guest_checkout_enabled: fGuestCheckout,
             queue_enabled: fQueueEnabled,
@@ -993,7 +1006,7 @@ export default function EventDetailPage() {
                         <Link href={`/doorman/${event.id}`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
                           <Icon name="scan" size={14} /> Einlass-Modus öffnen
                         </Link>
-                        <Link href={`/shop/${event.id}`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
+                        <Link href={`/event/${event.id}`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
                           <Icon name="ticket" size={14} /> Shop-Seite ansehen
                         </Link>
                         <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={duplicateEvent}>
@@ -1113,6 +1126,41 @@ export default function EventDetailPage() {
                 <label>Beschreibung</label>
                 <textarea className="textarea" rows={3} value={fDescription} maxLength={2000} onChange={(e) => setFDescription(e.target.value)} disabled={editSaving} />
               </div>
+              <div className="field">
+                <label>Ausführliche Beschreibung</label>
+                <textarea className="textarea" rows={6} value={fLongDescription} maxLength={6000}
+                  placeholder="Line-up, Ablauf, Hausordnung, Anfahrt …"
+                  onChange={(e) => setFLongDescription(e.target.value)} disabled={editSaving} />
+                <span className="hint">Steht auf der Event-Seite unter „Übersicht“.</span>
+              </div>
+              {walletAddress && (
+                <>
+                  <div className="field">
+                    <label>Titelbild</label>
+                    <EventImagePicker
+                      urls={fImageUrls}
+                      onChange={setFImageUrls}
+                      ownerWallet={walletAddress}
+                      max={1}
+                      disabled={editSaving}
+                      onError={setEditError}
+                    />
+                    <span className="hint">JPEG, PNG oder WebP, max. 4 MB. Erscheint auf Event-, Kauf- und Ticketseite.</span>
+                  </div>
+                  <div className="field">
+                    <label>Galerie</label>
+                    <EventImagePicker
+                      urls={fGalleryUrls}
+                      onChange={setFGalleryUrls}
+                      ownerWallet={walletAddress}
+                      max={8}
+                      disabled={editSaving}
+                      onError={setEditError}
+                    />
+                    <span className="hint">Bis zu 8 weitere Bilder für den Galerie-Bereich der Event-Seite.</span>
+                  </div>
+                </>
+              )}
               <div className="field">
                 <label>Ticketkategorien</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

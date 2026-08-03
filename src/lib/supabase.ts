@@ -59,6 +59,10 @@ export type Event = {
   metadata_uri: string | null;
   venue: string | null;
   description: string | null;
+  /** Extra images for the showcase page /event/[id]; ordered as stored. Empty array when unused. */
+  gallery_urls: string[];
+  /** Long-form event text on the showcase page; falls back to `description` when NULL. */
+  long_description: string | null;
   /** Max resale markup over face value in percent. NULL = resale disabled for this event. */
   resale_max_markup_pct: number | null;
   /** Allow buying without an account (the ticket is unlocked by signing in afterwards). */

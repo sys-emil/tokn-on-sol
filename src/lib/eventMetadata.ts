@@ -28,6 +28,31 @@ export function isOwnStorageUrl(url: string): boolean {
   return url.startsWith(publicUrl(""));
 }
 
+/** Bilder in `events.gallery_urls` (Showcase-Seite /event/[id]). */
+export const MAX_GALLERY_IMAGES = 8;
+/** Langtext `events.long_description` auf der Showcase-Seite. */
+export const MAX_LONG_DESCRIPTION = 6000;
+
+/**
+ * Prueft eine Galerie so streng wie `image_url`: nur Objekte aus dem eigenen
+ * Bucket, damit nichts Fremdes auf einer Passly-Seite eingebettet wird.
+ * Gibt die bereinigte Liste zurueck oder eine Fehlermeldung.
+ */
+export function validateGalleryUrls(value: unknown): string[] | { error: string } {
+  if (!Array.isArray(value)) return { error: "gallery_urls must be an array of URLs" };
+  if (value.length > MAX_GALLERY_IMAGES) {
+    return { error: `at most ${MAX_GALLERY_IMAGES} gallery images are allowed` };
+  }
+  const urls: string[] = [];
+  for (const raw of value) {
+    if (typeof raw !== "string" || !isOwnStorageUrl(raw)) {
+      return { error: "each gallery image must come from /api/events/upload-image" };
+    }
+    if (!urls.includes(raw)) urls.push(raw);
+  }
+  return urls;
+}
+
 export async function uploadEventImage(
   bytes: ArrayBuffer,
   contentType: string,

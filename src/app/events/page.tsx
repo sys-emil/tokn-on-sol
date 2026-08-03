@@ -610,7 +610,7 @@ export default async function EventsPage({ searchParams }: {
     return (
       <Link
         key={e.id}
-        href={`/shop/${e.id}`}
+        href={`/event/${e.id}`}
         className={`ev-card${isSoldOut ? ' is-soldout' : ''}`}
         style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
       >
@@ -686,7 +686,7 @@ export default async function EventsPage({ searchParams }: {
 
             <section className="ev-shell ev-featured-wrap">
               {featured ? (
-                <Link href={`/shop/${featured.id}`} className="ev-featured">
+                <Link href={`/event/${featured.id}`} className="ev-featured">
                   <div className="ev-featured-art">
                     <EventArt name={featured.name} imageUrl={featured.image_url} />
                   </div>

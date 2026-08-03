@@ -77,7 +77,7 @@ export function buildVevent(event: IcsEvent, baseUrl: string, stamp: string): st
     `SUMMARY:${icsEscape(event.name)}`,
     ...(event.venue ? [`LOCATION:${icsEscape(event.venue)}`] : []),
     ...(description ? [`DESCRIPTION:${icsEscape(description)}`] : []),
-    `URL:${baseUrl}/shop/${event.id}`,
+    `URL:${baseUrl}/event/${event.id}`,
     "END:VEVENT",
   ];
 }

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
-import { uploadEventMetadata, isOwnStorageUrl } from "@/lib/eventMetadata";
+import {
+  uploadEventMetadata,
+  isOwnStorageUrl,
+  validateGalleryUrls,
+  MAX_LONG_DESCRIPTION,
+} from "@/lib/eventMetadata";
 
 interface TierInput {
   name: string;
@@ -23,8 +28,12 @@ interface CreateEventBody {
   is_private?: boolean;
   payout_hold_days?: number;
   image_url?: string;
+  /** Extra images for the showcase page /event/[id]; max 8, same storage gate as image_url. */
+  gallery_urls?: string[];
   venue?: string;
   description?: string;
+  /** Long-form text on the showcase page; `description` stays the short teaser. */
+  long_description?: string;
   /** Organizer-chosen accent hue (0–360) for buyer-facing ticket cards. Free for all organizers. */
   accent_hue?: number | null;
   /** Pro-only card border preset. */
@@ -83,7 +92,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, start_time, is_private, payout_hold_days, image_url, venue, description, accent_hue, border_style, resale_max_markup_pct } = body;
+  const { organizer_wallet, name, date, start_time, is_private, payout_hold_days, image_url, gallery_urls, venue, description, long_description, accent_hue, border_style, resale_max_markup_pct } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -119,6 +128,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { success: false, error: "description must be a string of at most 2000 characters" },
       { status: 400 }
     );
+  }
+
+  if (long_description !== undefined
+      && (typeof long_description !== "string" || long_description.length > MAX_LONG_DESCRIPTION)) {
+    return NextResponse.json(
+      { success: false, error: `long_description must be a string of at most ${MAX_LONG_DESCRIPTION} characters` },
+      { status: 400 }
+    );
+  }
+
+  let gallery: string[] = [];
+  if (gallery_urls !== undefined) {
+    const checked = validateGalleryUrls(gallery_urls);
+    if ("error" in checked) {
+      return NextResponse.json({ success: false, error: checked.error }, { status: 400 });
+    }
+    gallery = checked;
   }
 
   const holdDays = payout_hold_days ?? 0;
@@ -200,8 +226,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         is_private: is_private === true,
         payout_hold_days: holdDays,
         image_url: image_url ?? null,
+        gallery_urls: gallery,
         venue: venue?.trim() || null,
         description: description?.trim() || null,
+        long_description: long_description?.trim() || null,
         accent_hue: accent_hue ?? null,
         border_style: border_style ?? null,
         resale_max_markup_pct: resale_max_markup_pct ?? null,

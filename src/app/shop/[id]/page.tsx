@@ -22,6 +22,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title,
     description,
+    // Die Showcase-Seite ist die kanonische Adresse des Events; /shop/[id] ist
+    // die Kaufstrecke dahinter und soll nicht als Dublette dagegen ranken.
+    alternates: { canonical: `/event/${event.id}` },
     openGraph: {
       title: event.name,
       description,

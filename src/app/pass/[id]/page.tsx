@@ -219,7 +219,7 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
                   </div>
                   <div className="txt">
                     <div className="n">
-                      <Link href={`/shop/${d.id}`} style={{ color: 'inherit' }}>{d.name}</Link>
+                      <Link href={`/event/${d.id}`} style={{ color: 'inherit' }}>{d.name}</Link>
                     </div>
                     <div className="w">
                       {d.cancelled

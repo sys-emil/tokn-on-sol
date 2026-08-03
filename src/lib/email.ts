@@ -285,7 +285,7 @@ export async function sendWaitlistEmail({
   const lang: Lang = normalizeLang(rawLang);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const subject = t(lang, "mail.waitlistSubject", { event: eventName });
-  const body = `${t(lang, "mail.waitlistHeading")}\n\n${t(lang, "mail.waitlistText", { event: eventName })}\n${baseUrl}/shop/${eventId}\n\n--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\n${baseUrl}/impressum · ${baseUrl}/datenschutz`;
+  const body = `${t(lang, "mail.waitlistHeading")}\n\n${t(lang, "mail.waitlistText", { event: eventName })}\n${baseUrl}/event/${eventId}\n\n--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\n${baseUrl}/impressum · ${baseUrl}/datenschutz`;
 
   let sent = 0;
   const CHUNK = 50;
