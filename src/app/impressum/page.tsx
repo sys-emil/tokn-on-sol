@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { LegalPageShell } from '@/app/components/LegalPageShell';
 
 export const metadata: Metadata = {
@@ -67,7 +68,7 @@ export default function ImpressumPage() {
         über den Besuch einer Veranstaltung kommt zwischen dem jeweiligen
         Veranstalter und dem Ticketkäufer zustande. Verantwortlich für die
         Durchführung der Veranstaltung ist der jeweilige Veranstalter. Näheres
-        regeln unsere <a href="/agb">AGB</a>.
+        regeln unsere <Link href="/agb">AGB</Link>.
       </p>
 
       <h2>Haftung für Inhalte und Links</h2>

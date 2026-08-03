@@ -69,6 +69,8 @@ export function OrganizersTab({ secret }: { secret: string }) {
     }
   }, [secret]);
 
+  // load() setzt synchron den Ladezustand — beim ersten Lauf ist das der Zweck.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Daten holen beim Mounten, ohne Data-Library gibt es dafuer keinen anderen Ort
   useEffect(() => { void load(); }, [load]);
 
   async function act(walletAddress: string, action: Action): Promise<void> {

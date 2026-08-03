@@ -13,6 +13,7 @@ export function ConsentBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Cookie ist erst im Browser lesbar; auf dem Server gaebe es kein Ergebnis, das man als Startwert nehmen koennte
     setVisible(getConsent() === null);
     const reopen = () => setVisible(true);
     window.addEventListener(OPEN_CONSENT_EVENT, reopen);
