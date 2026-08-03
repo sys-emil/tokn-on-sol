@@ -9,8 +9,7 @@ import { Celebration } from '@/app/components/Celebration';
 import { ProfileNudge } from '@/app/components/ProfileNudge';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-import { Icon, Spark, EventStyleFields, VerifiedCheck } from '@/app/components/passlyUi';
-import { EventImagePicker } from '@/app/components/EventImagePicker';
+import { Icon, Spark, VerifiedCheck } from '@/app/components/passlyUi';
 import { useEffect, useState } from 'react';
 
 interface EventRow {
@@ -38,7 +37,6 @@ const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'c
 const monthShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
 const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
 const shortDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
-const formatDateLong = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -52,11 +50,6 @@ function relativeTime(iso: string): string {
   return `vor ${days} Tagen`;
 }
 
-// priceEur/capacity are kept as raw text while editing (not number) so the
-// user can clear a leading "0" and type a new value without it snapping back.
-type TierDraft = { name: string; priceEur: string; capacity: string };
-
-const MAX_TIERS = 5;
 
 const PAGE_CSS = `
   /* ── Stronger aurora behind the dashboard hero ───────────── */
@@ -105,27 +98,6 @@ export default function Dashboard() {
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [eventName, setEventName] = useState('');
-  const [eventDate, setEventDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [venue, setVenue] = useState('');
-  const [description, setDescription] = useState('');
-  const [tiers, setTiers] = useState<TierDraft[]>([{ name: 'Standard', priceEur: '0', capacity: '100' }]);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [payoutHoldDays, setPayoutHoldDays] = useState('0');
-  const [resaleEnabled, setResaleEnabled] = useState(false);
-  const [resaleMaxMarkup, setResaleMaxMarkup] = useState('20');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [longDescription, setLongDescription] = useState('');
-  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
-  const [accentHue, setAccentHue] = useState<number | null>(null);
-  const [borderStyle, setBorderStyle] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [shopLink, setShopLink] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-
   const [events, setEvents] = useState<EventRow[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [sparkline, setSparkline] = useState<number[]>([]);
@@ -154,36 +126,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (ready && !authenticated) router.push('/');
   }, [ready, authenticated, router]);
-
-  // "Event duplizieren" on the event detail page drops a prefill payload into
-  // sessionStorage and navigates here, opening the drawer with everything except
-  // the date (a copy is almost always a new date).
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('passly_duplicate_event');
-      if (!raw) return;
-      sessionStorage.removeItem('passly_duplicate_event');
-      const d = JSON.parse(raw) as {
-        name?: string; startTime?: string | null; venue?: string | null; description?: string | null;
-        isPrivate?: boolean; payoutHoldDays?: number; accentHue?: number | null; borderStyle?: string | null;
-        resaleMaxMarkupPct?: number | null;
-        tiers?: { name: string; priceEur: string; capacity: string }[];
-      };
-      /* eslint-disable react-hooks/set-state-in-effect -- one-shot sessionStorage handoff, runs once on mount */
-      setEventName(d.name ?? '');
-      setStartTime(d.startTime ?? '');
-      setVenue(d.venue ?? '');
-      setDescription(d.description ?? '');
-      setIsPrivate(d.isPrivate === true);
-      setPayoutHoldDays(String(d.payoutHoldDays ?? 0));
-      if (d.resaleMaxMarkupPct != null) { setResaleEnabled(true); setResaleMaxMarkup(String(d.resaleMaxMarkupPct)); }
-      setAccentHue(d.accentHue ?? null);
-      setBorderStyle(d.borderStyle ?? null);
-      if (d.tiers && d.tiers.length > 0) setTiers(d.tiers);
-      setDrawerOpen(true);
-      /* eslint-enable react-hooks/set-state-in-effect */
-    } catch { /* corrupt entry, ignore */ }
-  }, []);
 
   // Stripe redirects here with ?billing=success after the Pro checkout.
   // Celebrate, clean the URL, and re-check the plan once the webhook had a
@@ -315,35 +257,6 @@ export default function Dashboard() {
   const nextEvent = [...events]
     .filter((e) => isUpcoming(e.date))
     .sort((a, b) => a.date.localeCompare(b.date))[0];
-  const deltaPct = soldPrev7 > 0
-    ? Math.round(((soldLast7 - soldPrev7) / soldPrev7) * 1000) / 10
-    : null;
-
-  function resetForm(): void {
-    setEventName('');
-    setEventDate('');
-    setStartTime('');
-    setVenue('');
-    setDescription('');
-    setTiers([{ name: 'Standard', priceEur: '0', capacity: '100' }]);
-    setIsPrivate(false);
-    setPayoutHoldDays('0');
-    setImageFile(null);
-    setLongDescription('');
-    setGalleryUrls([]);
-    setAccentHue(null);
-    setBorderStyle(null);
-    setFormError(null);
-    setShopLink(null);
-    setCopied(false);
-  }
-
-  function closeDrawer(): void {
-    if (creating) return;
-    setDrawerOpen(false);
-    resetForm();
-  }
-
   async function handleBilling(endpoint: 'checkout' | 'portal'): Promise<void> {
     if (!ownerWallet || billingBusy) return;
     setBillingError(null);
@@ -407,159 +320,9 @@ export default function Dashboard() {
     }
   }
 
-  async function handleCreateEvent(): Promise<void> {
-    if (!ownerWallet) {
-      setFormError('Dein Konto ist noch nicht bereit. Bitte versuche es gleich noch einmal.');
-      return;
-    }
-    const trimmedName = eventName.trim();
-    if (!trimmedName || !eventDate) {
-      setFormError('Name und Datum sind Pflichtfelder.');
-      return;
-    }
-    const parsedTiers = tiers.map((t) => ({
-      name: t.name,
-      priceEur: Number(t.priceEur) || 0,
-      capacity: Math.floor(Number(t.capacity)) || 0,
-    }));
-    for (const t of parsedTiers) {
-      if (!t.name.trim()) {
-        setFormError('Jede Ticketkategorie braucht einen Namen.');
-        return;
-      }
-      if (t.priceEur < 0) {
-        setFormError(`Der Preis für „${t.name.trim()}" muss 0 oder größer sein.`);
-        return;
-      }
-      if (!Number.isInteger(t.capacity) || t.capacity < 1) {
-        setFormError(`Die Ticketanzahl für „${t.name.trim()}" muss mindestens 1 sein.`);
-        return;
-      }
-    }
-    const tierNames = new Set(parsedTiers.map((t) => t.name.trim().toLowerCase()));
-    if (tierNames.size !== parsedTiers.length) {
-      setFormError('Die Namen der Ticketkategorien müssen eindeutig sein.');
-      return;
-    }
-    const totalCapacity = parsedTiers.reduce((sum, t) => sum + t.capacity, 0);
-    if (totalCapacity > 10000) {
-      setFormError('Insgesamt sind höchstens 10.000 Tickets möglich.');
-      return;
-    }
-    const parsedHoldDays = Math.floor(Number(payoutHoldDays)) || 0;
-    if (!Number.isInteger(parsedHoldDays) || parsedHoldDays < 0 || parsedHoldDays > 90) {
-      setFormError('Der Auszahlungs-Puffer muss zwischen 0 und 90 Tagen liegen.');
-      return;
-    }
-    const parsedMaxMarkup = Math.floor(Number(resaleMaxMarkup));
-    if (resaleEnabled && (!Number.isInteger(parsedMaxMarkup) || parsedMaxMarkup < 0 || parsedMaxMarkup > 200)) {
-      setFormError('Der maximale Aufpreis muss zwischen 0 und 200 % liegen.');
-      return;
-    }
-    if (imageFile && !['image/jpeg', 'image/png', 'image/webp'].includes(imageFile.type)) {
-      setFormError('Das Event-Bild muss ein JPEG, PNG oder WebP sein.');
-      return;
-    }
-    if (imageFile && imageFile.size > 4 * 1024 * 1024) {
-      setFormError('Das Event-Bild darf höchstens 4 MB groß sein.');
-      return;
-    }
-
-    setFormError(null);
-    setShopLink(null);
-    setCopied(false);
-    setCreating(true);
-
-    try {
-      const token = await getAccessToken();
-      if (!token) {
-        setFormError('Nicht angemeldet. Bitte melde dich ab und wieder an.');
-        return;
-      }
-
-      let imageUrl: string | undefined;
-      if (imageFile) {
-        const form = new FormData();
-        form.append('organizer_wallet', ownerWallet);
-        form.append('file', imageFile);
-        const uploadRes = await fetch('/api/events/upload-image', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: form,
-        });
-        const uploadData = (await uploadRes.json()) as
-          | { success: true; url: string }
-          | { success: false; error: string };
-        if (!uploadRes.ok || !uploadData.success) {
-          const message = !uploadData.success ? uploadData.error : `HTTP ${uploadRes.status}`;
-          setFormError(`Bild-Upload fehlgeschlagen: ${message}`);
-          return;
-        }
-        imageUrl = uploadData.url;
-      }
-
-      const createRes = await fetch('/api/events/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          organizer_wallet: ownerWallet,
-          name: trimmedName,
-          date: eventDate,
-          ...(startTime ? { start_time: startTime } : {}),
-          tiers: parsedTiers.map((t) => ({
-            name: t.name.trim(),
-            price_eur: Math.round(t.priceEur * 100),
-            capacity: t.capacity,
-          })),
-          is_private: isPrivate,
-          payout_hold_days: parsedHoldDays,
-          resale_max_markup_pct: resaleEnabled ? parsedMaxMarkup : null,
-          accent_hue: accentHue,
-          border_style: borderStyle,
-          ...(venue.trim() ? { venue: venue.trim() } : {}),
-          ...(description.trim() ? { description: description.trim() } : {}),
-          ...(longDescription.trim() ? { long_description: longDescription.trim() } : {}),
-          ...(imageUrl ? { image_url: imageUrl } : {}),
-          ...(galleryUrls.length > 0 ? { gallery_urls: galleryUrls } : {}),
-        }),
-      });
-      const createData = (await createRes.json()) as
-        | { success: true; id: string }
-        | { success: false; error: string };
-      if (!createRes.ok || !createData.success) {
-        const message = !createData.success ? createData.error : `HTTP ${createRes.status}`;
-        setFormError(`Speichern fehlgeschlagen: ${message}`);
-        return;
-      }
-      const eventId = createData.id;
-      const link = `${window.location.origin}/event/${eventId}`;
-      setShopLink(link);
-      setEvents((prev) => [
-        {
-          id: eventId,
-          name: trimmedName,
-          date: eventDate,
-          venue: venue.trim() || null,
-          price_eur: Math.round(Math.min(...parsedTiers.map((t) => t.priceEur)) * 100),
-          capacity: parsedTiers.reduce((sum, t) => sum + t.capacity, 0),
-          tickets_sold: 0,
-          is_private: isPrivate,
-          image_url: imageUrl ?? null,
-          accent_hue: accentHue,
-          border_style: borderStyle,
-        },
-        ...prev,
-      ]);
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  const canSave = !!eventName.trim() && !!eventDate
-    && tiers.length > 0 && tiers.every((t) => t.name.trim() && (Number(t.capacity) || 0) > 0)
-    && !creating && !shopLink;
+  const deltaPct = soldPrev7 > 0
+    ? Math.round(((soldLast7 - soldPrev7) / soldPrev7) * 1000) / 10
+    : null;
 
   return (
     <>
@@ -602,9 +365,9 @@ export default function Dashboard() {
                     Erstelle Tickets, teile sie per Link und prüfe den Einlass, alles fälschungssicher, ohne Papierchaos.
                   </p>
                   <div className="row gap-2" style={{ marginTop: 22 }}>
-                    <button className="btn primary lg" onClick={() => setDrawerOpen(true)}>
+                    <Link href="/dashboard/events/neu" className="btn primary lg">
                       <Icon name="plus" size={15} /> Veranstaltung erstellen
-                    </button>
+                    </Link>
                   </div>
                 </div>
 
@@ -788,9 +551,9 @@ export default function Dashboard() {
                           </Link>
                         );
                       })}
-                      <button
+                      <Link
+                        href="/dashboard/events/neu"
                         className="event-card"
-                        onClick={() => setDrawerOpen(true)}
                         style={{
                           border: '1.5px dashed var(--line-2)', boxShadow: 'none', background: 'transparent',
                           display: 'grid', placeItems: 'center', minHeight: 200, color: 'var(--ink-3)',
@@ -806,7 +569,7 @@ export default function Dashboard() {
                           <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--ink)' }}>Neue Veranstaltung</div>
                           <div style={{ fontSize: 12, marginTop: 2 }}>Name, Datum, Ticketanzahl</div>
                         </div>
-                      </button>
+                      </Link>
                     </div>
                   )}
                 </section>
@@ -854,231 +617,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {drawerOpen && (
-          <>
-            <div className="drawer-backdrop" onClick={closeDrawer} />
-            <div className="drawer" role="dialog" aria-labelledby="drawerTitle">
-              <div className="drawer-head">
-                <h3 id="drawerTitle">Neue Veranstaltung</h3>
-                <p>Wir erstellen automatisch fälschungssichere Tickets mit QR-Code.</p>
-              </div>
-              <div className="drawer-body">
-                {shopLink ? (
-                  <div>
-                    <div style={{
-                      padding: 14, borderRadius: 10,
-                      background: 'var(--ok-wash)', border: '1px solid oklch(0.86 0.08 150)',
-                      display: 'flex', gap: 10, marginBottom: 16,
-                    }}>
-                      <div style={{ color: 'var(--ok)', flexShrink: 0, marginTop: 1 }}><Icon name="check" size={16} /></div>
-                      <div style={{ fontSize: 13, lineHeight: 1.5 }}>
-                        <b>Veranstaltung erstellt.</b> Teile diesen Link, damit Gäste Tickets bekommen:
-                      </div>
-                    </div>
-                    <div className="field">
-                      <label>Event-Link</label>
-                      <input className="input mono" readOnly value={shopLink} onFocus={(e) => e.target.select()} style={{ fontSize: 12 }} />
-                    </div>
-                    <button
-                      className="btn ghost"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(shopLink).then(() => {
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        });
-                      }}
-                    >
-                      <Icon name="share" size={13} /> {copied ? 'Kopiert!' : 'Link kopieren'}
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="field">
-                      <label>Name der Veranstaltung</label>
-                      <input className="input" placeholder="z. B. Sommerkonzert 2026" value={eventName}
-                        onChange={(e) => setEventName(e.target.value)} maxLength={120} disabled={creating} />
-                    </div>
-                    <div className="field">
-                      <label>Datum</label>
-                      <div className="date-field">
-                        <span className="date-field-icon"><Icon name="calendar" size={15} /></span>
-                        <input type="date" className="input" value={eventDate} onChange={(e) => setEventDate(e.target.value)} disabled={creating} />
-                      </div>
-                      {eventDate && (
-                        <span className="date-preview">
-                          <Icon name="calendar" size={12} /> {formatDateLong(eventDate)}{startTime ? ` · ${startTime} Uhr` : ''}
-                        </span>
-                      )}
-                    </div>
-                    <div className="field">
-                      <label>Beginn (optional)</label>
-                      <div className="date-field">
-                        <span className="date-field-icon"><Icon name="clock" size={15} /></span>
-                        <input type="time" className="input" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={creating} />
-                      </div>
-                      <span className="hint">Erscheint auf Ticket, Shop-Seite und im Kalender-Eintrag deiner Gäste.</span>
-                    </div>
-                    <div className="field">
-                      <label>Veranstaltungsort</label>
-                      <input className="input" placeholder="z. B. Aula der Schule, Augsburg" value={venue}
-                        onChange={(e) => setVenue(e.target.value)} maxLength={200} disabled={creating} />
-                    </div>
-                    <div className="field">
-                      <label>Ticketkategorien</label>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {tiers.map((t, i) => (
-                          <div key={i} style={{
-                            padding: 12, borderRadius: 10,
-                            border: '1px solid var(--line-2)', background: 'var(--surface)',
-                            display: 'flex', flexDirection: 'column', gap: 8,
-                          }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                              <input className="input" placeholder="z. B. Early Bird, VIP" value={t.name} maxLength={80}
-                                onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                                disabled={creating} />
-                              {tiers.length > 1 && (
-                                <button type="button" className="close-btn" aria-label="Kategorie entfernen"
-                                  onClick={() => setTiers((prev) => prev.filter((_, j) => j !== i))} disabled={creating}>
-                                  <Icon name="x" size={14} />
-                                </button>
-                              )}
-                            </div>
-                            <div className="field-row" style={{ marginBottom: 0 }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <span className="hint">Preis pro Ticket (€)</span>
-                                <input type="number" className="input" value={t.priceEur} min={0} step={0.5}
-                                  onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, priceEur: e.target.value } : x))}
-                                  disabled={creating} />
-                              </div>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <span className="hint">Anzahl Tickets</span>
-                                <input type="number" className="input" value={t.capacity} min={1} max={10000}
-                                  onChange={(e) => setTiers((prev) => prev.map((x, j) => j === i ? { ...x, capacity: e.target.value } : x))}
-                                  disabled={creating} />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {tiers.length < MAX_TIERS && (
-                          <button type="button" className="btn ghost sm" style={{ alignSelf: 'flex-start' }}
-                            onClick={() => setTiers((prev) => [...prev, { name: '', priceEur: '0', capacity: '50' }])}
-                            disabled={creating}>
-                            + Kategorie hinzufügen
-                          </button>
-                        )}
-                      </div>
-                      <span className="hint">Preis 0 = kostenlos. Mit mehreren Kategorien (z. B. Early Bird, VIP) wählen Gäste beim Kauf.</span>
-                    </div>
-                    <div className="field">
-                      <label>Beschreibung (optional)</label>
-                      <textarea className="textarea" rows={3} placeholder="Kurzer Hinweis für Gäste …" value={description}
-                        onChange={(e) => setDescription(e.target.value)} maxLength={2000} disabled={creating} />
-                    </div>
-                    <div className="field">
-                      <label>Event-Bild (optional)</label>
-                      <input type="file" className="input" accept="image/jpeg,image/png,image/webp"
-                        onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} disabled={creating} />
-                      <span className="hint">JPEG, PNG oder WebP, max. 4 MB. Erscheint auf der Ticketseite.</span>
-                    </div>
-                    <div className="field">
-                      <label>Ausführliche Beschreibung (optional)</label>
-                      <textarea className="textarea" rows={6} placeholder="Line-up, Ablauf, Hausordnung, Anfahrt …" value={longDescription}
-                        onChange={(e) => setLongDescription(e.target.value)} maxLength={6000} disabled={creating} />
-                      <span className="hint">Steht auf der Event-Seite unter „Übersicht“. Die kurze Beschreibung bleibt der Teaser.</span>
-                    </div>
-                    <div className="field">
-                      <label>Galerie (optional)</label>
-                      <EventImagePicker
-                        urls={galleryUrls}
-                        onChange={setGalleryUrls}
-                        ownerWallet={ownerWallet}
-                        max={8}
-                        disabled={creating}
-                        onError={setFormError}
-                      />
-                      <span className="hint">Bis zu 8 weitere Bilder für den Galerie-Bereich der Event-Seite.</span>
-                    </div>
-                    <EventStyleFields
-                      accentHue={accentHue}
-                      onAccentHueChange={setAccentHue}
-                      borderStyle={borderStyle}
-                      onBorderStyleChange={setBorderStyle}
-                      isPro={plan === 'pro'}
-                      disabled={creating}
-                    />
-                    <div className="field">
-                      <label>Sichtbarkeit</label>
-                      <div className="seg">
-                        <button type="button" className={!isPrivate ? 'active' : ''} onClick={() => setIsPrivate(false)} disabled={creating}>Öffentlich</button>
-                        <button type="button" className={isPrivate ? 'active' : ''} onClick={() => setIsPrivate(true)} disabled={creating}>Privat</button>
-                      </div>
-                      <span className="hint">
-                        {isPrivate ? 'Nur über den direkten Link erreichbar.' : 'Erscheint in der öffentlichen Event-Liste.'}
-                      </span>
-                    </div>
-                    {tiers.some((t) => (Number(t.priceEur) || 0) > 0) && (
-                      <div className="field">
-                        <label>Auszahlungs-Puffer (Tage nach dem Event)</label>
-                        <input type="number" className="input" value={payoutHoldDays} min={0} max={90} step={1}
-                          onChange={(e) => setPayoutHoldDays(e.target.value)} disabled={creating} />
-                        <span className="hint">
-                          0 = tägliche automatische Auszahlung. Ein Puffer hält Einnahmen als Rückbuchungsschutz, bis N Tage nach dem Event vergangen sind.
-                        </span>
-                      </div>
-                    )}
-                    <div className="field">
-                      <label>Weiterverkauf (Fan-zu-Fan)</label>
-                      <div className="seg">
-                        <button type="button" className={!resaleEnabled ? 'active' : ''} onClick={() => setResaleEnabled(false)} disabled={creating}>Aus</button>
-                        <button type="button" className={resaleEnabled ? 'active' : ''} onClick={() => setResaleEnabled(true)} disabled={creating}>Erlauben</button>
-                      </div>
-                      {resaleEnabled ? (
-                        <>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-                            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Max. Aufpreis</span>
-                            <input type="number" className="input" style={{ width: 90 }} value={resaleMaxMarkup} min={0} max={200} step={1}
-                              onChange={(e) => setResaleMaxMarkup(e.target.value)} disabled={creating} />
-                            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>% über Nennwert</span>
-                          </div>
-                          <span className="hint">
-                            Gäste können ihr Ticket über Passly weiterverkaufen, höchstens {Math.floor(Number(resaleMaxMarkup)) || 0} % über dem Originalpreis. Höhere Aufpreise verursachen höhere Verkaufsgebühren.
-                          </span>
-                        </>
-                      ) : (
-                        <span className="hint">Gäste können ihre Tickets nicht offiziell weiterverkaufen (nur kostenlos per Link weitergeben).</span>
-                      )}
-                    </div>
-
-                    <div style={{
-                      marginTop: 18, padding: 14, borderRadius: 10,
-                      background: 'var(--accent-wash)', border: '1px solid var(--accent-line)',
-                      display: 'flex', gap: 10,
-                    }}>
-                      <div style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 1 }}><Icon name="shield" size={16} /></div>
-                      <div style={{ fontSize: 12.5, color: 'var(--accent-ink)', lineHeight: 1.5 }}>
-                        <b style={{ color: 'var(--accent-ink)' }}>Fälschungsschutz ist aktiv.</b> Jedes Ticket erhält einen einzigartigen QR-Code. Kopien werden beim Einlass automatisch erkannt.
-                      </div>
-                    </div>
-
-                    {formError && (
-                      <div style={{ marginTop: 14, fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{formError}</div>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="drawer-foot">
-                <button className="btn ghost" onClick={closeDrawer} disabled={creating}>
-                  {shopLink ? 'Schließen' : 'Abbrechen'}
-                </button>
-                {!shopLink && (
-                  <button className="btn primary" disabled={!canSave} onClick={() => void handleCreateEvent()}>
-                    {creating ? 'Wird erstellt …' : (<>Veranstaltung erstellen <Icon name="arrow" size={13} /></>)}
-                  </button>
-                )}
-              </div>
-            </div>
-          </>
-        )}
       </div>
 
       {!showProCelebration && <ProfileNudge walletAddress={ownerWallet} />}

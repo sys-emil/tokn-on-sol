@@ -5,8 +5,7 @@ import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-import { Icon, EventStyleFields } from '@/app/components/passlyUi';
-import { EventImagePicker } from '@/app/components/EventImagePicker';
+import { Icon } from '@/app/components/passlyUi';
 import { useEffect, useMemo, useState } from 'react';
 
 interface TicketRow {
@@ -50,22 +49,11 @@ interface TierRow {
   tickets_reserved: number;
 }
 
-interface TierDraft {
-  id?: string;
-  name: string;
-  // Raw text while editing (not number) so the user can clear a leading "0"
-  // and type a new value without it snapping back; parsed at submit time.
-  priceEur: string; // euros in the form, cents on the wire
-  capacity: string;
-  committed: number; // sold + reserved, the capacity floor
-}
 
 const PAGE_SIZE = 12;
-const MAX_TIERS = 5;
 
 const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
-const formatDateLong = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 const shortStamp = (iso: string) => new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
 
 function isUpcoming(iso: string): boolean {
@@ -118,28 +106,6 @@ export default function EventDetailPage() {
   const [passStats, setPassStats] = useState<{ total: number; checkedIn: number } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-
-  const [editOpen, setEditOpen] = useState(false);
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [fName, setFName] = useState('');
-  const [fDate, setFDate] = useState('');
-  const [fStartTime, setFStartTime] = useState('');
-  const [fVenue, setFVenue] = useState('');
-  const [fDescription, setFDescription] = useState('');
-  const [fLongDescription, setFLongDescription] = useState('');
-  const [fImageUrls, setFImageUrls] = useState<string[]>([]);
-  const [fGalleryUrls, setFGalleryUrls] = useState<string[]>([]);
-  const [fIsPrivate, setFIsPrivate] = useState(false);
-  const [fGuestCheckout, setFGuestCheckout] = useState(true);
-  const [fQueueEnabled, setFQueueEnabled] = useState(false);
-  const [fQueueSlots, setFQueueSlots] = useState('50');
-  const [fHoldDays, setFHoldDays] = useState('0');
-  const [fResaleEnabled, setFResaleEnabled] = useState(false);
-  const [fResaleMaxMarkup, setFResaleMaxMarkup] = useState('20');
-  const [fAccentHue, setFAccentHue] = useState<number | null>(null);
-  const [fBorderStyle, setFBorderStyle] = useState<string | null>(null);
-  const [fTiers, setFTiers] = useState<TierDraft[]>([]);
 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelConfirmText, setCancelConfirmText] = useState('');
@@ -462,7 +428,7 @@ export default function EventDetailPage() {
   const cancelled = Boolean(event?.cancelled_at);
 
   // "Event duplizieren": hand the form values (everything except the date)
-  // to the dashboard create drawer via sessionStorage.
+  // to the create editor via sessionStorage.
   function duplicateEvent(): void {
     if (!event) return;
     try {
@@ -478,116 +444,8 @@ export default function EventDetailPage() {
         borderStyle: event.border_style,
         tiers: tiers.map((t) => ({ name: t.name, priceEur: String(t.price_eur / 100), capacity: String(t.capacity) })),
       }));
-    } catch { /* private mode, the drawer just opens empty */ }
-    router.push('/dashboard');
-  }
-
-  function openEdit(): void {
-    if (!event) return;
-    setFName(event.name);
-    setFDate(event.date);
-    setFStartTime(event.start_time ?? '');
-    setFVenue(event.venue ?? '');
-    setFDescription(event.description ?? '');
-    setFLongDescription(event.long_description ?? '');
-    // Das Titelbild laeuft durch denselben Picker wie die Galerie, nur mit max 1.
-    setFImageUrls(event.image_url ? [event.image_url] : []);
-    setFGalleryUrls(event.gallery_urls ?? []);
-    setFIsPrivate(event.is_private);
-    setFHoldDays(String(event.payout_hold_days ?? 0));
-    setFGuestCheckout(event.guest_checkout_enabled !== false);
-    setFQueueEnabled(event.queue_enabled === true);
-    setFQueueSlots(String(event.queue_slots ?? 50));
-    setFResaleEnabled(event.resale_max_markup_pct != null);
-    setFResaleMaxMarkup(String(event.resale_max_markup_pct ?? 20));
-    setFAccentHue(event.accent_hue ?? null);
-    setFBorderStyle(event.border_style ?? null);
-    setFTiers(tiers.map((t) => ({
-      id: t.id,
-      name: t.name,
-      priceEur: String(t.price_eur / 100),
-      capacity: String(t.capacity),
-      committed: t.tickets_sold + t.tickets_reserved,
-    })));
-    setEditError(null);
-    setEditOpen(true);
-  }
-
-  async function saveEdit(): Promise<void> {
-    if (!event || editSaving) return;
-    if (!fName.trim() || !fDate) {
-      setEditError('Name und Datum sind Pflichtfelder.');
-      return;
-    }
-    const parsedTiers = fTiers.map((t) => ({
-      ...t,
-      priceEur: Number(t.priceEur) || 0,
-      capacity: Math.floor(Number(t.capacity)) || 0,
-    }));
-    for (const t of parsedTiers) {
-      if (!t.name.trim()) { setEditError('Jede Ticketkategorie braucht einen Namen.'); return; }
-      if (t.priceEur < 0) { setEditError(`Der Preis für „${t.name.trim()}" muss 0 oder größer sein.`); return; }
-      if (!Number.isInteger(t.capacity) || t.capacity < 1) { setEditError(`Die Ticketanzahl für „${t.name.trim()}" muss mindestens 1 sein.`); return; }
-      if (t.capacity < t.committed) { setEditError(`Kapazität von „${t.name.trim()}" kann nicht unter ${t.committed} (verkauft + reserviert) sinken.`); return; }
-    }
-    if (!walletAddress) {
-      setEditError('Dein Konto ist noch nicht bereit. Bitte versuche es gleich noch einmal.');
-      return;
-    }
-    const parsedMarkup = Math.floor(Number(fResaleMaxMarkup));
-    if (fResaleEnabled && (!Number.isInteger(parsedMarkup) || parsedMarkup < 0 || parsedMarkup > 200)) {
-      setEditError('Der maximale Aufpreis muss zwischen 0 und 200 % liegen.');
-      return;
-    }
-    setEditSaving(true);
-    setEditError(null);
-    try {
-      const token = await getAccessToken();
-      const res = await fetch('/api/events/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
-        body: JSON.stringify({
-          eventId: event.id,
-          organizer_wallet: walletAddress,
-          action: 'update',
-          fields: {
-            name: fName.trim(),
-            date: fDate,
-            start_time: fStartTime || null,
-            venue: fVenue.trim() || null,
-            description: fDescription.trim() || null,
-            long_description: fLongDescription.trim() || null,
-            image_url: fImageUrls[0] ?? null,
-            gallery_urls: fGalleryUrls,
-            is_private: fIsPrivate,
-            guest_checkout_enabled: fGuestCheckout,
-            queue_enabled: fQueueEnabled,
-            queue_slots: Math.min(1000, Math.max(1, Math.floor(Number(fQueueSlots)) || 50)),
-            payout_hold_days: Math.floor(Number(fHoldDays)) || 0,
-            resale_max_markup_pct: fResaleEnabled ? parsedMarkup : null,
-            accent_hue: fAccentHue,
-            border_style: fBorderStyle,
-          },
-          tiers: parsedTiers.map((t) => ({
-            ...(t.id ? { id: t.id } : {}),
-            name: t.name.trim(),
-            price_eur: Math.round(t.priceEur * 100),
-            capacity: t.capacity,
-          })),
-        }),
-      });
-      const data = (await res.json()) as { success: boolean; error?: string };
-      if (!res.ok || !data.success) {
-        setEditError(data.error ?? `Speichern fehlgeschlagen (HTTP ${res.status}).`);
-        return;
-      }
-      setEditOpen(false);
-      setLoaded(false); // reload event + tiers from the server
-    } catch (err) {
-      setEditError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
-    } finally {
-      setEditSaving(false);
-    }
+    } catch { /* private mode, the editor just opens empty */ }
+    router.push('/dashboard/events/neu');
   }
 
   async function confirmCancel(): Promise<void> {
@@ -679,9 +537,9 @@ export default function EventDetailPage() {
                   </div>
                   <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
                     {!cancelled && (
-                      <button className="btn ghost" onClick={openEdit}>
+                      <Link href={`/dashboard/events/${event.id}/bearbeiten`} className="btn ghost">
                         <Icon name="edit" size={14} /> Bearbeiten
-                      </button>
+                      </Link>
                     )}
                     <button className="btn ghost" onClick={copyShopLink}>
                       <Icon name="share" size={14} /> {copiedShop ? 'Kopiert!' : 'Link teilen'}
@@ -996,9 +854,9 @@ export default function EventDetailPage() {
                       <h3 style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 10 }}>Schnellaktionen</h3>
                       <div className="stack" style={{ gap: 6 }}>
                         {!cancelled && (
-                          <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={openEdit}>
+                          <Link href={`/dashboard/events/${event.id}/bearbeiten`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
                             <Icon name="edit" size={14} /> Event bearbeiten
-                          </button>
+                          </Link>
                         )}
                         <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={copyShopLink}>
                           <Icon name="share" size={14} /> {copiedShop ? 'Kopiert!' : 'Event-Link kopieren'}
@@ -1084,213 +942,6 @@ export default function EventDetailPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {editOpen && event && (
-        <>
-          <div className="drawer-backdrop" onClick={() => !editSaving && setEditOpen(false)} />
-          <div className="drawer" role="dialog" aria-label="Event bearbeiten">
-            <div className="drawer-head">
-              <h3>Event bearbeiten</h3>
-              <p>Änderungen gelten sofort, auch auf der Shop-Seite.</p>
-            </div>
-            <div className="drawer-body">
-              <div className="field">
-                <label>Name der Veranstaltung</label>
-                <input className="input" value={fName} maxLength={120} onChange={(e) => setFName(e.target.value)} disabled={editSaving} />
-              </div>
-              <div className="field">
-                <label>Datum</label>
-                <div className="date-field">
-                  <span className="date-field-icon"><Icon name="calendar" size={15} /></span>
-                  <input type="date" className="input" value={fDate} onChange={(e) => setFDate(e.target.value)} disabled={editSaving} />
-                </div>
-                {fDate && (
-                  <span className="date-preview">
-                    <Icon name="calendar" size={12} /> {formatDateLong(fDate)}{fStartTime ? ` · ${fStartTime} Uhr` : ''}
-                  </span>
-                )}
-              </div>
-              <div className="field">
-                <label>Beginn (optional)</label>
-                <div className="date-field">
-                  <span className="date-field-icon"><Icon name="clock" size={15} /></span>
-                  <input type="time" className="input" value={fStartTime} onChange={(e) => setFStartTime(e.target.value)} disabled={editSaving} />
-                </div>
-              </div>
-              <div className="field">
-                <label>Veranstaltungsort</label>
-                <input className="input" value={fVenue} maxLength={200} onChange={(e) => setFVenue(e.target.value)} disabled={editSaving} />
-              </div>
-              <div className="field">
-                <label>Beschreibung</label>
-                <textarea className="textarea" rows={3} value={fDescription} maxLength={2000} onChange={(e) => setFDescription(e.target.value)} disabled={editSaving} />
-              </div>
-              <div className="field">
-                <label>Ausführliche Beschreibung</label>
-                <textarea className="textarea" rows={6} value={fLongDescription} maxLength={6000}
-                  placeholder="Line-up, Ablauf, Hausordnung, Anfahrt …"
-                  onChange={(e) => setFLongDescription(e.target.value)} disabled={editSaving} />
-                <span className="hint">Steht auf der Event-Seite unter „Übersicht“.</span>
-              </div>
-              {walletAddress && (
-                <>
-                  <div className="field">
-                    <label>Titelbild</label>
-                    <EventImagePicker
-                      urls={fImageUrls}
-                      onChange={setFImageUrls}
-                      ownerWallet={walletAddress}
-                      max={1}
-                      disabled={editSaving}
-                      onError={setEditError}
-                    />
-                    <span className="hint">JPEG, PNG oder WebP, max. 4 MB. Erscheint auf Event-, Kauf- und Ticketseite.</span>
-                  </div>
-                  <div className="field">
-                    <label>Galerie</label>
-                    <EventImagePicker
-                      urls={fGalleryUrls}
-                      onChange={setFGalleryUrls}
-                      ownerWallet={walletAddress}
-                      max={8}
-                      disabled={editSaving}
-                      onError={setEditError}
-                    />
-                    <span className="hint">Bis zu 8 weitere Bilder für den Galerie-Bereich der Event-Seite.</span>
-                  </div>
-                </>
-              )}
-              <div className="field">
-                <label>Ticketkategorien</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {fTiers.map((t, i) => (
-                    <div key={t.id ?? `new-${i}`} style={{
-                      padding: 12, borderRadius: 10,
-                      border: '1px solid var(--line-2)', background: 'var(--surface)',
-                      display: 'flex', flexDirection: 'column', gap: 8,
-                    }}>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <input className="input" placeholder="z. B. Early Bird, VIP" value={t.name} maxLength={80}
-                          onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                          disabled={editSaving} />
-                        {fTiers.length > 1 && t.committed === 0 && (
-                          <button type="button" className="close-btn" aria-label="Kategorie entfernen"
-                            onClick={() => setFTiers((prev) => prev.filter((_, j) => j !== i))} disabled={editSaving}>
-                            <Icon name="x" size={14} />
-                          </button>
-                        )}
-                      </div>
-                      <div className="field-row" style={{ marginBottom: 0 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <span className="hint">Preis pro Ticket (€)</span>
-                          <input type="number" className="input" value={t.priceEur} min={0} step={0.5}
-                            onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, priceEur: e.target.value } : x))}
-                            disabled={editSaving} />
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          <span className="hint">Anzahl Tickets{t.committed > 0 ? ` (min. ${t.committed})` : ''}</span>
-                          <input type="number" className="input" value={t.capacity} min={Math.max(1, t.committed)}
-                            onChange={(e) => setFTiers((prev) => prev.map((x, j) => j === i ? { ...x, capacity: e.target.value } : x))}
-                            disabled={editSaving} />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {fTiers.length < MAX_TIERS && (
-                    <button type="button" className="btn ghost sm" style={{ alignSelf: 'flex-start' }}
-                      onClick={() => setFTiers((prev) => [...prev, { name: '', priceEur: '0', capacity: '50', committed: 0 }])}
-                      disabled={editSaving}>
-                      + Kategorie hinzufügen
-                    </button>
-                  )}
-                </div>
-                <span className="hint">Kapazität kann nicht unter die bereits verkauften/reservierten Tickets sinken. Preisänderungen gelten nur für künftige Käufe.</span>
-              </div>
-              <EventStyleFields
-                accentHue={fAccentHue}
-                onAccentHueChange={setFAccentHue}
-                borderStyle={fBorderStyle}
-                onBorderStyleChange={setFBorderStyle}
-                isPro={plan === 'pro'}
-                disabled={editSaving}
-              />
-              <div className="field">
-                <label>Sichtbarkeit</label>
-                <div className="seg">
-                  <button type="button" className={!fIsPrivate ? 'active' : ''} onClick={() => setFIsPrivate(false)} disabled={editSaving}>Öffentlich</button>
-                  <button type="button" className={fIsPrivate ? 'active' : ''} onClick={() => setFIsPrivate(true)} disabled={editSaving}>Privat</button>
-                </div>
-              </div>
-              {fTiers.some((t) => (Number(t.priceEur) || 0) > 0) && (
-                <div className="field">
-                  <label>Auszahlungs-Puffer (Tage nach dem Event)</label>
-                  <input type="number" className="input" value={fHoldDays} min={0} max={90} step={1}
-                    onChange={(e) => setFHoldDays(e.target.value)} disabled={editSaving} />
-                </div>
-              )}
-              <div className="field">
-                <label>Kauf ohne Konto</label>
-                <div className="seg">
-                  <button type="button" className={fGuestCheckout ? 'active' : ''} onClick={() => setFGuestCheckout(true)} disabled={editSaving}>Erlauben</button>
-                  <button type="button" className={!fGuestCheckout ? 'active' : ''} onClick={() => setFGuestCheckout(false)} disabled={editSaving}>Konto nötig</button>
-                </div>
-                <span className="hint">
-                  Gäste ohne Konto bekommen einen festen QR-Code per E-Mail. Der lässt sich
-                  kopieren; geschützt bist du dadurch, dass er nur einmal eingelöst werden kann.
-                </span>
-              </div>
-              <div className="field">
-                <label>Warteschlange bei Andrang</label>
-                <div className="seg">
-                  <button type="button" className={!fQueueEnabled ? 'active' : ''} onClick={() => setFQueueEnabled(false)} disabled={editSaving}>Aus</button>
-                  <button type="button" className={fQueueEnabled ? 'active' : ''} onClick={() => setFQueueEnabled(true)} disabled={editSaving}>An</button>
-                </div>
-                {fQueueEnabled && (
-                  <>
-                    <input type="number" className="input" value={fQueueSlots} min={1} max={1000} step={1}
-                      style={{ marginTop: 8 }}
-                      onChange={(e) => setFQueueSlots(e.target.value)} disabled={editSaving} />
-                    <span className="hint">
-                      So viele Leute dürfen gleichzeitig im Kauf sein; alle anderen sehen ihre
-                      Position und rücken automatisch nach. Sinnvoll nur bei Events, die in
-                      Minuten ausverkauft sind.
-                    </span>
-                  </>
-                )}
-              </div>
-              <div className="field">
-                <label>Weiterverkauf (Fan-zu-Fan)</label>
-                <div className="seg">
-                  <button type="button" className={!fResaleEnabled ? 'active' : ''} onClick={() => setFResaleEnabled(false)} disabled={editSaving}>Aus</button>
-                  <button type="button" className={fResaleEnabled ? 'active' : ''} onClick={() => setFResaleEnabled(true)} disabled={editSaving}>Erlauben</button>
-                </div>
-                {fResaleEnabled ? (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-                      <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Max. Aufpreis</span>
-                      <input type="number" className="input" style={{ width: 90 }} value={fResaleMaxMarkup} min={0} max={200} step={1}
-                        onChange={(e) => setFResaleMaxMarkup(e.target.value)} disabled={editSaving} />
-                      <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>% über Nennwert</span>
-                    </div>
-                    <span className="hint">Gäste dürfen ihr Ticket über Passly weiterverkaufen, höchstens {Math.floor(Number(fResaleMaxMarkup)) || 0} % über dem Originalpreis. Höhere Aufpreise verursachen höhere Verkaufsgebühren.</span>
-                  </>
-                ) : (
-                  <span className="hint">Gäste können ihre Tickets nicht offiziell weiterverkaufen.</span>
-                )}
-              </div>
-              {editError && (
-                <div style={{ marginTop: 8, fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{editError}</div>
-              )}
-            </div>
-            <div className="drawer-foot">
-              <button className="btn ghost" onClick={() => setEditOpen(false)} disabled={editSaving}>Abbrechen</button>
-              <button className="btn primary" onClick={() => void saveEdit()} disabled={editSaving}>
-                {editSaving ? 'Speichern …' : 'Änderungen speichern'}
-              </button>
-            </div>
-          </div>
-        </>
       )}
 
       {cancelOpen && event && (
