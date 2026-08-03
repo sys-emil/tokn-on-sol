@@ -4,7 +4,9 @@ import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
 import type { Event, TicketTier } from '@/lib/supabase';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-import { Icon, VerifiedCheck } from '@/app/components/passlyUi';
+import { Icon } from '@/app/components/passlyUi';
+import { ShowcaseHero, ShowcaseArt, SHOWCASE_HERO_CSS } from '@/app/components/eventSurfaces/ShowcaseHero';
+import { eventHue } from '@/app/components/eventSurfaces/EventCard';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { getT } from '@/lib/i18nServer';
 import { serviceFeePerTicketCents } from '@/lib/fees';
@@ -77,13 +79,6 @@ const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
 const money = (cents: number, lang: Lang) =>
   (cents / 100).toLocaleString(locale(lang), { style: 'currency', currency: 'EUR' });
 
-/** Gleiche generative Optik wie die Karten auf /events, wenn kein Bild da ist. */
-function eventHue(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-  return h;
-}
-
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const [event, { lang, t }] = await Promise.all([getEvent(id), getT()]);
@@ -123,88 +118,7 @@ const PAGE_CSS = `
   /* ── Hero ─────────────────────────────────────────────────────── */
   .sc-hero-wrap { padding: 28px 32px 0; max-width: 1100px; margin: 0 auto; width: 100%;
     animation: sc-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
-  .sc-hero {
-    position: relative; border-radius: 24px; overflow: hidden;
-    background: var(--ink); color: #fff;
-    box-shadow: 0 30px 70px -30px rgba(17, 20, 45, 0.45), 0 2px 8px rgba(17, 20, 45, 0.08);
-  }
-  .sc-hero-art { position: absolute; inset: 0; }
-  .sc-hero-art img, .sc-hero-art .sc-art-bg {
-    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  }
-  .sc-hero-scrim {
-    position: absolute; inset: 0; pointer-events: none;
-    background:
-      linear-gradient(100deg, rgba(11, 8, 26, 0.93) 0%, rgba(11, 8, 26, 0.72) 45%, rgba(11, 8, 26, 0.2) 80%),
-      linear-gradient(0deg, rgba(11, 8, 26, 0.6), transparent 55%);
-  }
-  .sc-hero-inner {
-    position: relative; display: grid; grid-template-columns: 1.4fr 0.6fr;
-    gap: 40px; align-items: end; padding: 44px 40px 40px; min-height: 440px;
-  }
-  .sc-back {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 13px; font-weight: 500; color: rgba(255, 255, 255, 0.72); margin-bottom: 18px;
-  }
-  .sc-back:hover { color: #fff; }
-  .sc-hero-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
-  .sc-when {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 12px; border-radius: 8px;
-    background: rgba(255, 255, 255, 0.13); border: 1px solid rgba(255, 255, 255, 0.22);
-    backdrop-filter: blur(10px);
-    font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
-    text-transform: uppercase; color: rgba(255, 255, 255, 0.92);
-  }
-  .sc-hero h1 {
-    margin: 0; font-size: 52px; line-height: 1.04; font-weight: 640;
-    letter-spacing: -0.04em; color: #fff; text-wrap: balance; max-width: 17ch;
-    overflow-wrap: break-word;
-  }
-  .sc-hero-meta {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 20px;
-    color: rgba(255, 255, 255, 0.82); font-size: 14.5px;
-  }
-  .sc-hero-meta span, .sc-hero-meta a { display: inline-flex; align-items: center; gap: 8px; color: inherit; }
-  /* Nur der Ortslink wird unterstrichen. Ein pauschaler a-Selektor haette auch
-     den Veranstalternamen samt Geprueft-Chip mit einer Linie durchzogen. */
-  .sc-venue { text-decoration: underline; text-underline-offset: 3px; }
-  .sc-hero-meta a:hover { color: #fff; }
-  .sc-hero-org { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; color: inherit; }
-  .sc-hero-chip {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 8px; border-radius: 6px;
-    background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.24);
-    font-size: 11.5px; font-weight: 500; color: rgba(255, 255, 255, 0.9);
-  }
-
-  .sc-buybox {
-    padding: 24px; border-radius: 18px;
-    background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(22px) saturate(1.3);
-    box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.5);
-  }
-  .sc-buybox .amount {
-    display: block; font-size: 32px; font-weight: 640; letter-spacing: -0.035em;
-    color: #fff; font-variant-numeric: tabular-nums;
-  }
-  .sc-buybox .fee { display: block; font-size: 12.5px; color: rgba(255, 255, 255, 0.6); margin-top: 4px; }
-  .sc-cta {
-    margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 8px;
-    height: 48px; border-radius: 12px; background: #fff; color: var(--ink);
-    font-size: 15px; font-weight: 640; transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .sc-cta:hover { color: var(--ink); transform: translateY(-1px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28); }
-  .sc-cta.disabled { background: rgba(255, 255, 255, 0.18); color: rgba(255, 255, 255, 0.72); pointer-events: none; }
-  .sc-buybox .trust {
-    margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 7px;
-    font-size: 12.5px; color: rgba(255, 255, 255, 0.66); text-align: center;
-  }
-  .sc-cancelled {
-    margin-top: 4px; padding: 12px 14px; border-radius: 10px;
-    background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.28);
-    font-size: 13px; line-height: 1.55; color: rgba(255, 255, 255, 0.92);
-  }
+  ${SHOWCASE_HERO_CSS}
 
   /* ── Tabs ─────────────────────────────────────────────────────── */
   .sc-tabs { margin: 36px auto 0; max-width: 1100px; padding: 0 32px; width: 100%; }
@@ -363,30 +277,6 @@ const PAGE_CSS = `
   @media (max-width: 780px) {
     .sc-page .topbar-inner { padding: 0 16px; gap: 10px; height: 60px; }
     .sc-hero-wrap { padding: 14px 16px 0; }
-    .sc-hero { border-radius: 20px; }
-    .sc-hero-inner {
-      grid-template-columns: 1fr; gap: 18px; padding: 0;
-      align-items: end; align-content: end;
-      /* Bewusst min-height statt aspect-ratio: die 4:5-Anmutung bleibt, aber
-         ein langer Eventname schiebt die Karte auf, statt oben abgeschnitten
-         zu werden. */
-      min-height: calc((100vw - 32px) * 1.25);
-    }
-    .sc-hero-scrim {
-      background: linear-gradient(0deg, rgba(11, 8, 26, 0.94) 10%, rgba(11, 8, 26, 0.3) 58%, rgba(11, 8, 26, 0.08));
-    }
-    .sc-hero-copy { gap: 12px; padding: 18px 18px 0; }
-    .sc-hero h1 { font-size: 27px; line-height: 1.12; max-width: none; }
-    .sc-hero-meta { gap: 12px; font-size: 13px; }
-    .sc-back { margin-bottom: 12px; }
-    .sc-buybox {
-      padding: 0 18px 18px; border: none; background: none;
-      box-shadow: none; backdrop-filter: none; border-radius: 0;
-    }
-    .sc-buybox .amount { font-size: 24px; }
-    .sc-buybox .trust { display: none; }
-    .sc-cta { margin-top: 12px; height: 46px; }
-
     .sc-tabs { padding: 0 16px; margin-top: 24px; }
     .sc-tabbar { gap: 8px; }
     .sc-tab { font-size: 19px; padding: 10px 4px; }
@@ -419,8 +309,8 @@ const PAGE_CSS = `
 
   @media (prefers-reduced-motion: reduce) {
     .sc-hero-wrap { animation: none; }
-    .sc-viewport, .sc-track, .sc-arrow, .sc-cta, .sc-tickets-cta, .sc-pass, .sc-gallery-nav { transition: none; }
-    .sc-arrow:hover:not(:disabled), .sc-cta:hover, .sc-tickets-cta:hover, .sc-pass:hover { transform: none; }
+    .sc-viewport, .sc-track, .sc-arrow, .sc-tickets-cta, .sc-pass, .sc-gallery-nav { transition: none; }
+    .sc-arrow:hover:not(:disabled), .sc-tickets-cta:hover, .sc-pass:hover { transform: none; }
   }
 `;
 
@@ -479,18 +369,6 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
   const hue = eventHue(event.name);
   // accent_hue steht in der DB, aber nicht auf dem Event-Typ (wie auf /@handle).
   const accentHue = (event as Event & { accent_hue?: number | null }).accent_hue ?? null;
-
-  const heroArt = event.image_url ? (
-    // eslint-disable-next-line @next/next/no-img-element -- storage host is env-dependent, skip next/image remotePatterns
-    <img src={event.image_url} alt="" />
-  ) : (
-    <div
-      className="sc-art-bg"
-      style={{
-        background: `radial-gradient(ellipse at 30% 40%, oklch(0.72 0.15 ${hue}), transparent 60%), radial-gradient(ellipse at 70% 65%, oklch(0.66 0.13 ${(hue + 50) % 360}), transparent 55%), oklch(0.45 0.09 ${hue})`,
-      }}
-    />
-  );
 
   const panels: TabPanel[] = [
     {
@@ -586,66 +464,27 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
         </div>
 
         <div className="sc-hero-wrap">
-          <div className="sc-hero">
-            <div className="sc-hero-art">{heroArt}</div>
-            <div className="sc-hero-scrim" aria-hidden="true" />
-            <div className="sc-hero-inner">
-              <div className="sc-hero-copy">
-                <Link href="/events" className="sc-back"><Icon name="chevronLeft" size={14} />{t('showcase.backToEvents')}</Link>
-                <span className="sc-when">
-                  <Icon name="calendar" size={13} />
-                  {monthShort(event.date, lang)} {dayNum(event.date)}
-                  {event.start_time ? ` · ${event.start_time}${startSuffix ? ` ${startSuffix}` : ''}` : ''}
-                </span>
-                <h1>{event.name}</h1>
-                <div className="sc-hero-meta">
-                  {organizerName && (
-                    organizerHandle ? (
-                      <Link href={`/@${organizerHandle}`} className="sc-hero-org">
-                        {organizerName}
-                        {organizerVerified && <VerifiedCheck size={15} title={organizerVerifiedLabel ?? t('shop.verified')} />}
-                        <span className="sc-hero-chip"><Icon name="shield" size={11} />{t('shop.verified')}</span>
-                      </Link>
-                    ) : (
-                      <span className="sc-hero-org">
-                        {organizerName}
-                        {organizerVerified && <VerifiedCheck size={15} title={organizerVerifiedLabel ?? t('shop.verified')} />}
-                        <span className="sc-hero-chip"><Icon name="shield" size={11} />{t('shop.verified')}</span>
-                      </span>
-                    )
-                  )}
-                  {event.venue && (
-                    <a className="sc-venue" href={`https://maps.google.com/?q=${encodeURIComponent(event.venue)}`} target="_blank" rel="noopener noreferrer">
-                      <Icon name="location" size={15} />{event.venue}
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              <div className="sc-buybox">
-                {cancelled ? (
-                  <div className="sc-cancelled">{t('shop.cancelledText')}</div>
-                ) : (
-                  <>
-                    <span className="amount">{priceLabel}</span>
-                    {minPrice > 0 && (
-                      <span className="fee">{t('showcase.feeNote', { fee: money(serviceFeePerTicketCents(minPrice), lang) })}</span>
-                    )}
-                    {buyable ? (
-                      <Link href={`/shop/${event.id}`} className="sc-cta">
-                        {t('showcase.getTickets')} <Icon name="arrow" size={17} />
-                      </Link>
-                    ) : (
-                      <span className="sc-cta disabled">{t('showcase.soldOut')}</span>
-                    )}
-                    <div className="trust"><Icon name="shield" size={14} />{t('shop.trust')}</div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
+          <ShowcaseHero
+            name={event.name}
+            art={<ShowcaseArt name={event.name} imageUrl={event.image_url} hue={hue} />}
+            whenLabel={`${monthShort(event.date, lang)} ${dayNum(event.date)}${event.start_time ? ` · ${event.start_time}${startSuffix ? ` ${startSuffix}` : ''}` : ''}`}
+            venue={event.venue}
+            venueLink
+            organizerName={organizerName}
+            organizerHandle={organizerHandle}
+            organizerVerified={organizerVerified}
+            organizerVerifiedLabel={organizerVerifiedLabel}
+            verifiedLabel={t('shop.verified')}
+            priceLabel={priceLabel}
+            feeLabel={minPrice > 0 ? t('showcase.feeNote', { fee: money(serviceFeePerTicketCents(minPrice), lang) }) : null}
+            trustLabel={t('shop.trust')}
+            backLabel={t('showcase.backToEvents')}
+            ctaLabel={buyable ? t('showcase.getTickets') : t('showcase.soldOut')}
+            ctaHref={`/shop/${event.id}`}
+            ctaDisabled={!buyable}
+            cancelledText={cancelled ? t('shop.cancelledText') : null}
+          />
         </div>
-
         <EventTabs
           panels={panels}
           prevLabel={t('showcase.prevTab')}

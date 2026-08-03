@@ -6,6 +6,9 @@ import { Icon } from '@/app/components/passlyUi';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { getT } from '@/lib/i18nServer';
 import { cityFromVenue, cityMatches } from '@/lib/eventCity';
+import { EventCard, EventArt, EVENT_CARD_CSS } from '@/app/components/eventSurfaces/EventCard';
+import { eventCardView } from '@/lib/eventCardView';
+import type { CardLabel } from '@/lib/eventCardView';
 import type { Lang } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
@@ -35,14 +38,6 @@ interface EventRow {
   organizer_wallet: string;
 }
 
-// Same generative recipe as before, one visual language for events
-// without an uploaded image.
-function eventHue(name: string): number {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
-  return h;
-}
-
 const locale = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'de-DE');
 
 const monthShort = (iso: string, lang: Lang) =>
@@ -54,18 +49,6 @@ const formatDate = (iso: string, lang: Lang) =>
 function formatPrice(cents: number, lang: Lang, free: string): string {
   if (cents === 0) return free;
   return (cents / 100).toLocaleString(locale(lang), { style: 'currency', currency: 'EUR' });
-}
-
-function daysUntil(iso: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.ceil((new Date(iso + 'T00:00:00').getTime() - today.getTime()) / 86400000);
-}
-
-/** Vor weniger als 7 Tagen angelegt — treibt das „Neu"-Badge auf der Karte. */
-function isRecent(createdAt: string | null): boolean {
-  if (!createdAt) return false;
-  return Date.now() - new Date(createdAt).getTime() < 7 * 86400000;
 }
 
 function truncate(text: string, max: number): string {
@@ -271,67 +254,7 @@ const PAGE_CSS = `
   .ev-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
   @media (max-width: 980px) { .ev-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-  .ev-card {
-    display: flex; flex-direction: column;
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: 18px; overflow: hidden; box-shadow: var(--shadow);
-    color: inherit;
-    transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.35s, border-color 0.35s;
-    animation: ev-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  }
-  .ev-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); border-color: var(--accent-line); }
-  .ev-card-art { position: relative; aspect-ratio: 4 / 3; background: var(--surface-3); overflow: hidden; }
-  .ev-card-art img, .ev-card-art .art-bg {
-    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  .ev-card:hover .ev-card-art img, .ev-card:hover .ev-card-art .art-bg { transform: scale(1.04); }
-  .ev-datebadge {
-    position: absolute; top: 12px; left: 12px;
-    display: flex; flex-direction: column; align-items: center;
-    width: 44px; padding: 6px 0 7px; border-radius: 11px;
-    background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(8px);
-    box-shadow: 0 4px 14px rgba(17, 20, 45, 0.16); pointer-events: none;
-  }
-  .ev-datebadge .m {
-    font-size: 9.5px; font-weight: 700; letter-spacing: 0.09em;
-    color: var(--accent); text-transform: uppercase;
-  }
-  .ev-datebadge .d { font-size: 18px; font-weight: 640; letter-spacing: -0.03em; line-height: 1.1; color: var(--ink); }
-  .ev-badge {
-    position: absolute; top: 14px; right: 12px;
-    padding: 5px 10px; border-radius: 8px;
-    font-size: 11.5px; font-weight: 600;
-    background: rgba(11, 8, 26, 0.62); color: #fff;
-    backdrop-filter: blur(8px); pointer-events: none;
-  }
-  .ev-card-body { display: flex; flex-direction: column; gap: 14px; padding: 18px 18px 20px; flex: 1; }
-  .ev-card-eyebrow { display: none; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
-  .ev-card h3 { margin: 0; font-size: 17px; font-weight: 620; letter-spacing: -0.025em; line-height: 1.3; }
-  .ev-card-sub { margin: 7px 0 0; font-size: 13.5px; color: var(--ink-3); }
-  .ev-progress { display: flex; flex-direction: column; gap: 7px; margin-top: auto; }
-  .ev-track { height: 4px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
-  .ev-fill { height: 100%; border-radius: 999px; transition: width 0.3s; }
-  .ev-progress-label { font-size: 12px; color: var(--ink-3); }
-  .ev-card-foot {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding-top: 14px; border-top: 1px solid var(--line);
-  }
-  .ev-price { font-size: 19px; font-weight: 640; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-  .ev-cta {
-    display: flex; align-items: center; gap: 7px;
-    padding: 10px 15px; border-radius: 10px;
-    font-size: 13.5px; font-weight: 600;
-    background: var(--accent); color: #fff; transition: background 0.2s;
-  }
-  .ev-card:hover .ev-cta { background: var(--accent-2); }
-  .ev-cta.waitlist {
-    background: var(--surface-3); border: 1px solid var(--line-2); color: var(--ink);
-  }
-  .ev-card:hover .ev-cta.waitlist { background: var(--surface); border-color: var(--ink-4); }
-  .ev-foot-note { display: none; font-size: 12px; color: var(--ink-3); }
-  .ev-card.is-soldout .ev-card-art img, .ev-card.is-soldout .ev-card-art .art-bg { filter: grayscale(0.7); opacity: 0.75; }
-  .ev-card.is-soldout .ev-price { color: var(--ink-3); }
+  ${EVENT_CARD_CSS}
 
   /* ── Saisonpaesse ─────────────────────────────────────────────── */
   .ev-pass-grid { display: grid; gap: 22px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
@@ -433,20 +356,6 @@ const PAGE_CSS = `
     .ev-head h2 { font-size: 21px; }
     .ev-grid, .ev-pass-grid { grid-template-columns: 1fr; gap: 12px; }
 
-    .ev-card { flex-direction: row; gap: 13px; padding: 12px; border-radius: 16px; }
-    .ev-card:hover { transform: none; }
-    .ev-card-art {
-      width: 92px; height: 92px; flex: none;
-      aspect-ratio: auto; border-radius: 12px;
-    }
-    .ev-datebadge, .ev-badge, .ev-progress, .ev-cta { display: none; }
-    .ev-card-body { padding: 0; gap: 6px; min-width: 0; }
-    .ev-card-eyebrow { display: block; }
-    .ev-card h3 { font-size: 15px; font-weight: 620; letter-spacing: -0.02em; }
-    .ev-card-sub { margin: 0; font-size: 12.5px; }
-    .ev-card-foot { border-top: none; padding-top: 0; margin-top: auto; }
-    .ev-price { font-size: 15px; }
-    .ev-foot-note { display: block; }
 
     .ev-pass-card { padding: 14px; border-radius: 16px; }
     .ev-pass-card:hover { transform: none; }
@@ -454,31 +363,13 @@ const PAGE_CSS = `
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .ev-featured-wrap, .ev-texthero, .ev-card, .ev-pass-card { animation: none; }
+    .ev-featured-wrap, .ev-texthero, .ev-pass-card { animation: none; }
     .ev-featured-badge .dot, .ev-texthero .eyebrow .dot { animation: none; opacity: 1; }
-    .ev-card, .ev-pass-card, .ev-topbar-cta, .ev-buybox-cta,
-    .ev-card-art img, .ev-card-art .art-bg,
+    .ev-pass-card, .ev-topbar-cta, .ev-buybox-cta,
     .ev-featured-art img, .ev-featured-art .art-bg { transition: none; }
-    .ev-card:hover, .ev-pass-card:hover, .ev-topbar-cta:hover { transform: none; }
+    .ev-pass-card:hover, .ev-topbar-cta:hover { transform: none; }
   }
 `;
-
-function EventArt({ name, imageUrl }: { name: string; imageUrl: string | null }) {
-  if (imageUrl) {
-    // eslint-disable-next-line @next/next/no-img-element -- storage host is env-dependent, skip next/image remotePatterns
-    return <img src={imageUrl} alt="" loading="lazy" />;
-  }
-  const hue = eventHue(name);
-  const hue2 = (hue + 50) % 360;
-  return (
-    <div
-      className="art-bg"
-      style={{
-        background: `radial-gradient(ellipse at 30% 40%, oklch(0.88 0.09 ${hue}), transparent 60%), radial-gradient(ellipse at 70% 65%, oklch(0.90 0.07 ${hue2}), transparent 55%), oklch(0.95 0.02 ${hue})`,
-      }}
-    />
-  );
-}
 
 export default async function EventsPage({ searchParams }: {
   searchParams: Promise<{ q?: string; veranstalter?: string; stadt?: string }>;
@@ -586,78 +477,41 @@ export default async function EventsPage({ searchParams }: {
       .filter(Boolean).join(' · ');
 
   const card = (e: EventRow, index: number) => {
-    const isSoldOut = taken(e) >= e.capacity;
-    const pct = soldPct(e);
-    const pctLeft = Math.max(1, 100 - pct);
-    const hasWaitlist = waitlistWallets.has(e.organizer_wallet);
-    const days = daysUntil(e.date);
+    // Alle Anzeigewerte kommen aus eventCardView — dieselbe Funktion, die auch
+    // die Live-Vorschau im Event-Editor benutzt.
+    const v = eventCardView({
+      capacity: e.capacity,
+      ticketsSold: e.tickets_sold,
+      ticketsReserved: e.tickets_reserved,
+      date: e.date,
+      createdAt: e.created_at,
+      hasWaitlist: waitlistWallets.has(e.organizer_wallet),
+    });
+    const label = (l: CardLabel | null) => (l ? t(l.key, l.vars) : null);
 
-    // Badge-Reihenfolge: was den Kauf am staerksten treibt, gewinnt.
-    const badge = isSoldOut
-      ? (hasWaitlist ? t('events.waitlistBadge') : t('events.soldOut'))
-      : days === 0 ? t('events.today')
-        : days === 1 ? t('events.tomorrow')
-          : isRecent(e.created_at) ? t('events.isNew')
-            : e.capacity > 0 ? t('events.percentLeft', { percent: pctLeft }) : null;
-
-    const barColor = isSoldOut ? 'var(--ink-4)' : pct >= 95 ? 'var(--bad)' : 'var(--accent)';
-    const progressLabel = isSoldOut
-      ? t('events.soldOutZero')
-      : pct >= 95 ? t('events.almostSoldOut') : t('events.percentSold', { percent: pct });
-
-    // Sold-out events stay clickable; the shop page shows the waitlist
-    // signup (Pro organizers) and the full event details.
     return (
-      <Link
+      <EventCard
         key={e.id}
         href={`/event/${e.id}`}
-        className={`ev-card${isSoldOut ? ' is-soldout' : ''}`}
-        style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
-      >
-        <div className="ev-card-art">
-          <EventArt name={e.name} imageUrl={e.image_url} />
-          <div className="ev-datebadge">
-            <span className="m">{monthShort(e.date, lang)}</span>
-            <span className="d">{dayNum(e.date)}</span>
-          </div>
-          {badge && <span className="ev-badge">{badge}</span>}
-        </div>
-        <div className="ev-card-body">
-          <div>
-            <span className="ev-card-eyebrow">{monthShort(e.date, lang).toUpperCase()} {dayNum(e.date)}</span>
-            <h3>{e.name}</h3>
-            {subLine(e) && <p className="ev-card-sub">{subLine(e)}</p>}
-          </div>
-          {e.capacity > 0 && (
-            <div className="ev-progress">
-              <div className="ev-track">
-                <div className="ev-fill" style={{ width: `${isSoldOut ? 100 : pct}%`, background: barColor }} />
-              </div>
-              <span className="ev-progress-label" style={pct >= 95 && !isSoldOut ? { color: 'var(--bad)', fontWeight: 600 } : undefined}>
-                {progressLabel}
-              </span>
-            </div>
-          )}
-          <div className="ev-card-foot">
-            <span className="ev-price">{formatPrice(e.price_eur, lang, freeLabel)}</span>
-            {isSoldOut ? (
-              hasWaitlist ? (
-                <span className="ev-cta waitlist">{t('events.toWaitlist')}</span>
-              ) : (
-                <span className="ev-cta waitlist">{t('events.soldOut')}</span>
-              )
-            ) : (
-              <span className="ev-cta">{t('events.getTickets')} <Icon name="arrow" size={15} /></span>
-            )}
-            <span className="ev-foot-note" style={pct >= 95 && !isSoldOut ? { color: 'var(--bad)', fontWeight: 600 } : undefined}>
-              {isSoldOut
-                ? (hasWaitlist ? t('events.waitlistBadge') : t('events.soldOut'))
-                : pct >= 95 ? t('events.almostSoldOut')
-                  : e.capacity > 0 ? t('events.percentLeft', { percent: pctLeft }) : ''}
-            </span>
-          </div>
-        </div>
-      </Link>
+        name={e.name}
+        monthLabel={monthShort(e.date, lang)}
+        dayLabel={dayNum(e.date)}
+        subLine={subLine(e)}
+        priceLabel={formatPrice(e.price_eur, lang, freeLabel)}
+        art={<EventArt name={e.name} imageUrl={e.image_url} />}
+        badge={label(v.badge)}
+        progressLabel={label(v.progress)}
+        fillPct={v.fillPct}
+        barColor={v.barColor}
+        urgent={v.urgent}
+        soldOut={v.soldOut}
+        ctaLabel={v.soldOut
+          ? (waitlistWallets.has(e.organizer_wallet) ? t('events.toWaitlist') : t('events.soldOut'))
+          : t('events.getTickets')}
+        ctaMuted={v.soldOut}
+        footNote={label(v.footNote)}
+        animationDelayMs={Math.min(index, 8) * 60}
+      />
     );
   };
 
