@@ -47,6 +47,9 @@ export interface EventDraft {
   resaleEnabled: boolean;
   resaleMaxMarkup: string;
   guestCheckout: boolean;
+  reentryEnabled: boolean;
+  /** Minuten zwischen zwei Scans desselben Tickets; die API rechnet in Sekunden. */
+  reentryCooldownMinutes: string;
   queueEnabled: boolean;
   queueSlots: string;
   ticketsSold?: number;
@@ -58,7 +61,8 @@ export const INITIAL_DRAFT: EventDraft = {
   tiers: [{ name: 'Standard', priceEur: '0', capacity: '100' }],
   imageUrl: null, galleryUrls: [], accentHue: null, borderStyle: null,
   isPrivate: false, payoutHoldDays: '0', resaleEnabled: false, resaleMaxMarkup: '20',
-  guestCheckout: true, queueEnabled: false, queueSlots: '50',
+  guestCheckout: true, reentryEnabled: false, reentryCooldownMinutes: '2',
+  queueEnabled: false, queueSlots: '50',
 };
 
 const MAX_TIERS = 5;
@@ -100,7 +104,7 @@ export function EventEditor({
   const anyPaid = draft.tiers.some((t) => (Number(t.priceEur) || 0) > 0);
 
   /** Gemeinsame Pruefung beider Modi; gibt die geparsten Kategorien zurueck. */
-  function validate(): { tiers: { id?: string; name: string; price_eur: number; capacity: number }[]; holdDays: number; markup: number } | null {
+  function validate(): { tiers: { id?: string; name: string; price_eur: number; capacity: number }[]; holdDays: number; markup: number; reentryCooldownSeconds: number } | null {
     const parsed = draft.tiers.map((t) => ({
       id: t.id,
       name: t.name.trim(),
@@ -129,7 +133,12 @@ export function EventEditor({
     if (draft.resaleEnabled && (!Number.isInteger(markup) || markup < 0 || markup > 200)) {
       setError('Der maximale Aufpreis muss zwischen 0 und 200 % liegen.'); return null;
     }
+    const reentryCooldownSeconds = Math.round((Number(draft.reentryCooldownMinutes) || 0) * 60);
+    if (draft.reentryEnabled && (reentryCooldownSeconds < 0 || reentryCooldownSeconds > 3600)) {
+      setError('Die Pause zwischen zwei Scans muss zwischen 0 und 60 Minuten liegen.'); return null;
+    }
     return {
+      reentryCooldownSeconds,
       tiers: parsed.map((t) => ({ ...(t.id ? { id: t.id } : {}), name: t.name, price_eur: Math.round(t.priceEurNum * 100), capacity: t.capacity })),
       holdDays,
       markup,
@@ -161,6 +170,8 @@ export function EventEditor({
         resale_max_markup_pct: draft.resaleEnabled ? checked.markup : null,
         accent_hue: draft.accentHue,
         border_style: draft.borderStyle,
+        reentry_enabled: draft.reentryEnabled,
+        reentry_cooldown_seconds: checked.reentryCooldownSeconds,
       };
 
       const res = mode === 'create'
@@ -422,6 +433,31 @@ export function EventEditor({
                 </>
               ) : (
                 <span className="hint">Gäste können ihre Tickets nicht offiziell weiterverkaufen (nur kostenlos per Link weitergeben).</span>
+              )}
+            </div>
+
+            <div className="field">
+              <label>Wiedereinlass (Re-Entry)</label>
+              <div className="seg">
+                <button type="button" className={!draft.reentryEnabled ? 'active' : ''} onClick={() => set('reentryEnabled', false)} disabled={saving}>Aus</button>
+                <button type="button" className={draft.reentryEnabled ? 'active' : ''} onClick={() => set('reentryEnabled', true)} disabled={saving}>Erlauben</button>
+              </div>
+              {draft.reentryEnabled ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                    <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Pause zwischen zwei Scans</span>
+                    <input type="number" className="input" style={{ width: 90 }} value={draft.reentryCooldownMinutes} min={0} max={60} step={1}
+                      onChange={(e) => set('reentryCooldownMinutes', e.target.value)} disabled={saving} />
+                    <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Minuten</span>
+                  </div>
+                  <span className="hint">
+                    Gäste können rausgehen: Beim Verlassen wird derselbe QR-Code gescannt und der Gast ausgecheckt,
+                    beim Zurückkommen wieder eingecheckt. Die Pause verhindert, dass ein Code mehrere Personen
+                    hintereinander reinschleust.
+                  </span>
+                </>
+              ) : (
+                <span className="hint">Jedes Ticket lässt genau einmal ein. Ein zweiter Scan wird abgelehnt.</span>
               )}
             </div>
 

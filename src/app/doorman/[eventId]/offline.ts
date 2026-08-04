@@ -29,7 +29,20 @@ export interface SnapshotTicket {
   r: 0 | 1; // redeemed (for THIS event; a season pass may be used at others)
   x: 0 | 1; // revoked
   p?: 1; // season pass, admitted to this date among others
+  d?: 1; // re-entry: guest is currently inside
+  ls?: string; // re-entry: ISO timestamp of the last in/out scan
 }
+
+/** Per-event re-entry configuration, mirrored into the snapshot. */
+export interface SnapshotReentry {
+  enabled: boolean;
+  cooldownSeconds: number;
+}
+
+export type ScanDirection = 'in' | 'out';
+
+/** Offline in/out scans this device made, keyed by asset ID. */
+export type LocalScanState = ReadonlyMap<string, { direction: ScanDirection; at: string }>;
 
 /** Price categories, so the door can sell without a second request. */
 export interface SnapshotTier {
@@ -44,16 +57,26 @@ export interface Snapshot {
   tickets: SnapshotTicket[];
   /** Absent in snapshots cached before the box office existed. */
   tiers?: SnapshotTier[];
+  /** Absent in snapshots cached before re-entry existed; off is the default. */
+  reentry?: SnapshotReentry;
 }
 
 export interface PendingRedemption {
   assetId: string;
   at: string;
+  /**
+   * Per-entry key. A re-entry event queues several scans of the same ticket,
+   * so the asset ID stops identifying a queue entry. Absent on entries queued
+   * before re-entry existed.
+   */
+  id?: string;
+  /** Re-entry events only; absent entries are plain admissions. */
+  direction?: ScanDirection;
 }
 
 export type OfflineVerdict =
-  | { valid: true; assetId: string; backup?: boolean; person?: BackupPersonView; seasonPass?: boolean }
-  | { valid: false; reason: string; redeemedAt?: string };
+  | { valid: true; assetId: string; backup?: boolean; person?: BackupPersonView; seasonPass?: boolean; direction?: ScanDirection }
+  | { valid: false; reason: string; redeemedAt?: string; retryInSeconds?: number; direction?: ScanDirection };
 
 const snapshotKey = (eventId: string) => `passly-doorman-snapshot-${eventId}`;
 const pendingKey = (eventId: string) => `passly-doorman-pending-${eventId}`;
@@ -92,11 +115,39 @@ export function savePending(eventId: string, pending: PendingRedemption[]): void
   }
 }
 
+/**
+ * Which side of the door a ticket is on, from the snapshot and this device's
+ * own unsynced scans. Whichever of the two is more recent wins: the snapshot
+ * may already carry another device's newer scan, our local one may be newer
+ * than the last refresh.
+ */
+function effectiveState(
+  ticket: SnapshotTicket,
+  local: { direction: ScanDirection; at: string } | undefined,
+): { inside: boolean; at: string | undefined } {
+  const snapAt = ticket.ls;
+  const useLocal = local && (!snapAt || new Date(local.at).getTime() >= new Date(snapAt).getTime());
+  if (useLocal && local) return { inside: local.direction === 'in', at: local.at };
+  return { inside: ticket.d === 1, at: snapAt };
+}
+
+/** How many guests are currently inside, for the doorman's counter. */
+export function countInside(snapshot: Snapshot | null, localScans: LocalScanState): number {
+  if (!snapshot?.reentry?.enabled) return 0;
+  let n = 0;
+  for (const ticket of snapshot.tickets) {
+    if (ticket.x === 1) continue;
+    if (effectiveState(ticket, localScans.get(ticket.a)).inside) n += 1;
+  }
+  return n;
+}
+
 /** Verify a scanned QR token entirely locally against the cached snapshot. */
 export async function verifyOffline(
   rawToken: string,
   snapshot: Snapshot | null,
   locallyRedeemed: ReadonlySet<string>,
+  localScans: LocalScanState = new Map(),
 ): Promise<OfflineVerdict> {
   if (!snapshot) {
     return { valid: false, reason: 'Offline und keine Ticketliste geladen' };
@@ -163,6 +214,39 @@ export async function verifyOffline(
   if (ticket.w !== walletAddress) {
     return { valid: false, reason: 'Wallet does not own this ticket' };
   }
+
+  // Re-entry: the same scan toggles in/out instead of burning the ticket. The
+  // cooldown is enforced against this device's own scans plus the snapshot's
+  // last known one — the server can't help while we're offline, so a second
+  // device in a dead spot is the same known trade-off as everywhere here.
+  if (snapshot.reentry?.enabled) {
+    const state = effectiveState(ticket, localScans.get(assetId));
+    const lastAt = state.at;
+    const inside = state.inside;
+
+    if (lastAt) {
+      const elapsed = (Date.now() - new Date(lastAt).getTime()) / 1000;
+      if (elapsed < snapshot.reentry.cooldownSeconds) {
+        return {
+          valid: false,
+          reason: 'Cooldown',
+          redeemedAt: lastAt,
+          retryInSeconds: Math.max(1, Math.ceil(snapshot.reentry.cooldownSeconds - elapsed)),
+          direction: inside ? 'in' : 'out',
+        };
+      }
+    }
+
+    return {
+      valid: true,
+      assetId,
+      backup: isBackup,
+      person,
+      seasonPass: ticket.p === 1,
+      direction: inside ? 'out' : 'in',
+    };
+  }
+
   if (ticket.r === 1 || locallyRedeemed.has(assetId)) {
     return { valid: false, reason: 'Already redeemed' };
   }

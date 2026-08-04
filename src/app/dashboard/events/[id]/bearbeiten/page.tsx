@@ -50,6 +50,7 @@ export default function EditEventPage() {
           accent_hue: number | null; border_style: string | null;
           is_private: boolean; payout_hold_days: number; resale_max_markup_pct: number | null;
           guest_checkout_enabled: boolean; queue_enabled: boolean; queue_slots: number;
+          reentry_enabled: boolean; reentry_cooldown_seconds: number;
           tickets_sold: number; cancelled_at: string | null;
         };
         tiers: { id: string; name: string; price_eur: number; capacity: number; tickets_sold: number; tickets_reserved: number }[];
@@ -81,6 +82,8 @@ export default function EditEventPage() {
         guestCheckout: e.guest_checkout_enabled !== false,
         queueEnabled: e.queue_enabled === true,
         queueSlots: String(e.queue_slots ?? 50),
+        reentryEnabled: e.reentry_enabled === true,
+        reentryCooldownMinutes: String(Math.round((e.reentry_cooldown_seconds ?? 120) / 60)),
         ticketsSold: e.tickets_sold,
         tiers: data.tiers.map((t) => ({
           id: t.id,

@@ -15,6 +15,51 @@ import { supabaseAdmin } from "@/lib/supabase";
  * reservation per date; deliberately postponed.
  */
 
+/**
+ * What "Gilt für N Termine" means on every sale surface: dates that are still
+ * ahead and not cancelled — the dates a buyer paying today can actually still
+ * attend.
+ *
+ * The four sale surfaces (`/events`, `/shop/[id]`, `/@handle`, `/pass/[id]`)
+ * each used to count this themselves and disagreed: three counted every row
+ * in `season_pass_events` including cancelled and long-past dates, the pass
+ * page counted non-cancelled ones including past dates. So the same pass
+ * could advertise three different numbers, all of them larger than what was
+ * left to attend. This helper is the only place that decides it now.
+ *
+ * The pass detail page still LISTS the past dates (dimmed) — that is context,
+ * not a promise. Owner-facing views (`/my-tickets`, `/tickets/[assetId]`)
+ * deliberately keep counting the full series: there the question is "what did
+ * I buy and what have I used", not "what am I getting".
+ */
+export function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** True when this date can still be attended. `events.date` is a text column. */
+export function isSellableDate(date: string, cancelledAt: string | null): boolean {
+  return !cancelledAt && date >= todayIso();
+}
+
+/** Sellable date count per pass; passes with none are absent from the map. */
+export async function countSellablePassDates(passIds: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (passIds.length === 0) return counts;
+
+  const { data } = await supabaseAdmin
+    .from("season_pass_events")
+    .select("pass_id, events(date, cancelled_at)")
+    .in("pass_id", passIds);
+
+  type Row = { pass_id: string; events: { date: string; cancelled_at: string | null } | { date: string; cancelled_at: string | null }[] | null };
+  for (const row of (data ?? []) as Row[]) {
+    const ev = Array.isArray(row.events) ? row.events[0] : row.events;
+    if (!ev || !isSellableDate(ev.date, ev.cancelled_at)) continue;
+    counts.set(row.pass_id, (counts.get(row.pass_id) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /** A pass ticket that was scanned, resolved far enough to decide admission. */
 export interface PassTicket {
   purchaseId: string;
@@ -119,6 +164,7 @@ export async function passEventDates(passId: string): Promise<string[]> {
 
 /** Pass tickets valid for one event, with this event's admission state. */
 export interface EventPassTicket {
+  purchaseId: string;
   assetId: string;
   buyerWallet: string;
   redeemedHere: boolean;
@@ -159,6 +205,7 @@ export async function passTicketsForEvent(eventId: string): Promise<EventPassTic
   const used = new Set(((redemptions ?? []) as { purchase_id: string }[]).map((r) => r.purchase_id));
 
   return rows.map((r) => ({
+    purchaseId: r.id,
     assetId: r.asset_id,
     buyerWallet: r.buyer_wallet,
     redeemedHere: used.has(r.id),

@@ -47,12 +47,14 @@ interface PurchaseInfo {
   tierName: string | null;
   /** Set when this asset is a season pass rather than a single-event ticket. */
   pass: { name: string; dates: PassDateView[] } | null;
+  /** Event allows leaving and coming back; the guest has to scan on the way out. */
+  reentry: boolean;
 }
 
 async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
   const { data } = await supabaseAdmin
     .from('purchases')
-    .select('id, redeemed_at, revoked_at, event_id, season_pass_id, events(name, date, start_time, venue), ticket_tiers(name), season_passes(name)')
+    .select('id, redeemed_at, revoked_at, event_id, season_pass_id, events(name, date, start_time, venue, reentry_enabled), ticket_tiers(name), season_passes(name)')
     .eq('asset_id', assetId)
     .maybeSingle();
   if (!data) return null;
@@ -69,6 +71,7 @@ async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
     startTime: (ev?.start_time as string | undefined) ?? null,
     venue: (ev?.venue as string | undefined) ?? null,
     tierName: (tier?.name as string | undefined) ?? null,
+    reentry: ev?.reentry_enabled === true,
     pass: data.season_pass_id
       ? {
           name: (passRow?.name as string | undefined) ?? 'Saisonpass',
@@ -220,6 +223,10 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
   if (!asset && !purchase) notFound();
 
   const pass = purchase?.pass ?? null;
+  // Re-entry makes "eingelöst" a state the guest can leave again, so the
+  // ticket page has to say so — otherwise stepping outside looks like the
+  // ticket died.
+  const reentry = purchase?.reentry === true;
 
   const name = pass?.name
     ?? purchase?.eventName
@@ -281,7 +288,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
           <div className={`ticket-body${isVip ? ' vip' : ''}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               {status === 'valid' && <span className="chip ok" style={{ background: 'white' }}><span className="d" />{t('ticket.valid')}</span>}
-              {status === 'checked' && <span className="chip" style={{ background: 'white' }}><span className="d" />{t('ticket.redeemed')}</span>}
+              {status === 'checked' && <span className="chip" style={{ background: 'white' }}><span className="d" />{reentry ? t('ticket.reentryChip') : t('ticket.redeemed')}</span>}
               {status === 'revoked' && <span className="chip bad" style={{ background: 'white' }}><span className="d" />{t('ticket.revoked')}</span>}
               <span className={isVip ? 'vip-ink' : undefined} style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent-ink)' }}>#{serial}</span>
             </div>
@@ -295,6 +302,11 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
                   ? t('ticket.scanEachDate')
                   : t('ticket.scanAtDoor')}
             </div>
+            {reentry && status !== 'revoked' && (
+              <div className={isVip ? 'vip-ink' : undefined} style={{ textAlign: 'center', marginTop: 6, fontSize: 11.5, color: 'var(--accent-ink)', opacity: 0.85, lineHeight: 1.45 }}>
+                {t('ticket.reentryHint')}
+              </div>
+            )}
             <div className="perf" style={{ left: -9 }} />
             <div className="perf" style={{ right: -9 }} />
           </div>

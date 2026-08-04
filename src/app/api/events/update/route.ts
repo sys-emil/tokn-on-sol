@@ -10,6 +10,7 @@ import {
   MAX_LONG_DESCRIPTION,
 } from "@/lib/eventMetadata";
 import { sendAdminAlert } from "@/lib/email";
+import { MAX_REENTRY_COOLDOWN_SECONDS } from "@/lib/reentry";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // cancel refunds many charges sequentially
@@ -46,6 +47,8 @@ interface UpdateEventBody {
     guest_checkout_enabled?: boolean;
     queue_enabled?: boolean;
     queue_slots?: number;
+    reentry_enabled?: boolean;
+    reentry_cooldown_seconds?: number;
   };
   tiers?: TierEdit[];
 }
@@ -189,6 +192,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "queue_slots must be 1–1000" }, { status: 400 });
     }
     update.queue_slots = fields.queue_slots;
+  }
+  if (fields.reentry_enabled !== undefined) {
+    update.reentry_enabled = fields.reentry_enabled === true;
+  }
+  if (fields.reentry_cooldown_seconds !== undefined) {
+    if (!Number.isInteger(fields.reentry_cooldown_seconds)
+        || fields.reentry_cooldown_seconds < 0
+        || fields.reentry_cooldown_seconds > MAX_REENTRY_COOLDOWN_SECONDS) {
+      return NextResponse.json(
+        { success: false, error: `reentry_cooldown_seconds must be 0–${MAX_REENTRY_COOLDOWN_SECONDS}` },
+        { status: 400 },
+      );
+    }
+    update.reentry_cooldown_seconds = fields.reentry_cooldown_seconds;
   }
   if (fields.accent_hue !== undefined) {
     if (fields.accent_hue !== null && (!Number.isInteger(fields.accent_hue) || fields.accent_hue < 0 || fields.accent_hue > 360)) {

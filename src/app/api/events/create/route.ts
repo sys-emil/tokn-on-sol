@@ -7,6 +7,7 @@ import {
   validateGalleryUrls,
   MAX_LONG_DESCRIPTION,
 } from "@/lib/eventMetadata";
+import { DEFAULT_REENTRY_COOLDOWN_SECONDS, MAX_REENTRY_COOLDOWN_SECONDS } from "@/lib/reentry";
 
 interface TierInput {
   name: string;
@@ -40,6 +41,8 @@ interface CreateEventBody {
   border_style?: string | null;
   /** Max resale markup over face value in percent (0–200). NULL/absent = resale disabled. */
   resale_max_markup_pct?: number | null;
+  reentry_enabled?: boolean;
+  reentry_cooldown_seconds?: number;
 }
 
 const MAX_TIERS = 5;
@@ -92,7 +95,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, start_time, is_private, payout_hold_days, image_url, gallery_urls, venue, description, long_description, accent_hue, border_style, resale_max_markup_pct } = body;
+  const { organizer_wallet, name, date, start_time, is_private, payout_hold_days, image_url, gallery_urls, venue, description, long_description, accent_hue, border_style, resale_max_markup_pct, reentry_enabled, reentry_cooldown_seconds } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -151,6 +154,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!Number.isInteger(holdDays) || holdDays < 0 || holdDays > 90) {
     return NextResponse.json(
       { success: false, error: "payout_hold_days must be an integer between 0 and 90" },
+      { status: 400 }
+    );
+  }
+
+  // Re-entry lets guests leave and come back; the cooldown is what stops one
+  // QR from walking a whole queue past the scanner.
+  const reentryCooldown = reentry_cooldown_seconds ?? DEFAULT_REENTRY_COOLDOWN_SECONDS;
+  if (!Number.isInteger(reentryCooldown) || reentryCooldown < 0 || reentryCooldown > MAX_REENTRY_COOLDOWN_SECONDS) {
+    return NextResponse.json(
+      { success: false, error: `reentry_cooldown_seconds must be an integer between 0 and ${MAX_REENTRY_COOLDOWN_SECONDS}` },
       { status: 400 }
     );
   }
@@ -233,6 +246,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         accent_hue: accent_hue ?? null,
         border_style: border_style ?? null,
         resale_max_markup_pct: resale_max_markup_pct ?? null,
+        reentry_enabled: reentry_enabled === true,
+        reentry_cooldown_seconds: reentryCooldown,
       })
       .select("id")
       .single();

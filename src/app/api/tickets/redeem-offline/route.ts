@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 import { checkRedemptionBadges } from "@/lib/badges";
 import { loadPassTicket, passCoversEvent, redeemPassForEvent } from "@/lib/seasonPass";
+import { recordTicketScan, resolveScanTarget } from "@/lib/reentry";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,14 @@ interface OfflineRedemption {
   assetId: string;
   /** ISO timestamp of the offline scan. */
   at: string;
+  /**
+   * Per-scan key. Re-entry queues several scans of the same ticket, so the
+   * asset ID no longer identifies a queue entry. Absent on entries queued
+   * before re-entry existed; those fall back to the asset ID.
+   */
+  id?: string;
+  /** Re-entry only: the direction this device recorded. */
+  direction?: "in" | "out";
 }
 
 interface SyncBody {
@@ -22,6 +31,11 @@ interface SyncBody {
  * atomic once-only rule as the live verify route (redeemed_at only set while
  * NULL); a ticket that another device redeemed in the meantime comes back as
  * a conflict so the doorman UI can surface the double entry.
+ *
+ * On a re-entry event the entries are in/out scans instead. They are replayed
+ * in the order the device recorded them, with the direction the device
+ * decided — the cooldown was already enforced there and re-checking it here
+ * against a later `now` would silently drop legitimate scans.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: SyncBody;
@@ -41,7 +55,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { data: event, error } = await supabaseAdmin
     .from("events")
-    .select("id, organizer_wallet")
+    .select("id, organizer_wallet, reentry_enabled")
     .eq("id", eventId)
     .single();
   if (error || !event) {
@@ -53,16 +67,44 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const nowMs = Date.now();
   const synced: string[] = [];
-  const conflicts: { assetId: string; reason: string; redeemedAt?: string }[] = [];
+  const conflicts: { key: string; assetId: string; reason: string; redeemedAt?: string }[] = [];
   const redeemedWallets = new Set<string>();
+  const reentryEnabled = event.reentry_enabled === true;
 
   for (const r of redemptions) {
     if (!r.assetId || typeof r.assetId !== "string") continue;
+    // Re-entry queues several scans per ticket, so the entry key is what the
+    // device can strike off its queue, not the asset ID.
+    const key = typeof r.id === "string" && r.id ? r.id : r.assetId;
     const atMs = Date.parse(r.at ?? "");
     // Reject garbage timestamps; clamp slight clock skew into the past.
     const at = Number.isFinite(atMs) && atMs <= nowMs + 60_000
       ? new Date(Math.min(atMs, nowMs)).toISOString()
       : new Date(nowMs).toISOString();
+
+    if (reentryEnabled) {
+      const resolved = await resolveScanTarget(r.assetId, eventId);
+      if (!resolved.ok) {
+        conflicts.push({
+          key,
+          assetId: r.assetId,
+          reason: resolved.reason === "Ticket revoked (refunded)" ? "revoked" : "not_found",
+        });
+        continue;
+      }
+      const scan = await recordTicketScan(resolved.target.purchaseId, eventId, {
+        cooldownSeconds: 0,
+        at,
+        direction: r.direction === "out" ? "out" : "in",
+      });
+      if (scan.status === "ok") {
+        synced.push(key);
+        if (scan.direction === "in") redeemedWallets.add(resolved.target.buyerWallet);
+      } else {
+        conflicts.push({ key, assetId: r.assetId, reason: scan.status });
+      }
+      continue;
+    }
 
     const { data: updated } = await supabaseAdmin
       .from("purchases")
@@ -74,7 +116,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .select("id, buyer_wallet");
 
     if (updated && updated.length > 0) {
-      synced.push(r.assetId);
+      synced.push(key);
       redeemedWallets.add((updated[0] as { buyer_wallet: string }).buyer_wallet);
       continue;
     }
@@ -85,16 +127,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const passTicket = await loadPassTicket(r.assetId);
     if (passTicket) {
       if (passTicket.revokedAt) {
-        conflicts.push({ assetId: r.assetId, reason: "revoked" });
+        conflicts.push({ key, assetId: r.assetId, reason: "revoked" });
       } else if (!(await passCoversEvent(passTicket.passId, eventId))) {
-        conflicts.push({ assetId: r.assetId, reason: "not_found" });
+        conflicts.push({ key, assetId: r.assetId, reason: "not_found" });
       } else {
         const result = await redeemPassForEvent(passTicket.purchaseId, eventId, at);
         if (result.ok) {
-          synced.push(r.assetId);
+          synced.push(key);
           redeemedWallets.add(passTicket.buyerWallet);
         } else {
           conflicts.push({
+            key,
             assetId: r.assetId,
             reason: "already_redeemed",
             redeemedAt: result.redeemedAt ?? undefined,
@@ -111,11 +154,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq("event_id", eventId)
       .maybeSingle();
     if (!existing) {
-      conflicts.push({ assetId: r.assetId, reason: "not_found" });
+      conflicts.push({ key, assetId: r.assetId, reason: "not_found" });
     } else if (existing.revoked_at) {
-      conflicts.push({ assetId: r.assetId, reason: "revoked" });
+      conflicts.push({ key, assetId: r.assetId, reason: "revoked" });
     } else {
       conflicts.push({
+        key,
         assetId: r.assetId,
         reason: "already_redeemed",
         redeemedAt: existing.redeemed_at as string,

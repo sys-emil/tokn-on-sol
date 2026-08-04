@@ -7,6 +7,7 @@ import { checkRedemptionBadges } from "@/lib/badges";
 import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 import { backupChallenge } from "@/lib/backupChallenge";
 import { loadPassTicket, passCoversEvent, redeemPassForEvent } from "@/lib/seasonPass";
+import { recordTicketScan, resolveScanTarget } from "@/lib/reentry";
 import bs58 from "bs58";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // tickets.
   const { data: gateEvent, error: gateError } = await supabaseAdmin
     .from("events")
-    .select("organizer_wallet")
+    .select("organizer_wallet, name, reentry_enabled, reentry_cooldown_seconds")
     .eq("id", eventId)
     .single();
   if (gateError || !gateEvent) {
@@ -149,6 +150,60 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Step 5; Atomic redemption: update only if redeemed_at IS NULL (unchanged)
   const now = new Date().toISOString();
+
+  // Step 5a; Re-entry events instead toggle an in/out log: the second scan of
+  // the same ticket checks the guest out, the third checks them back in. The
+  // cooldown between two state changes stops one QR from walking a queue of
+  // people past the scanner. Everything above (signature, freshness, on-chain
+  // ownership) is unchanged; only the bookkeeping differs.
+  if (gateEvent.reentry_enabled === true) {
+    const resolved = await resolveScanTarget(assetId, eventId);
+    if (!resolved.ok) {
+      return NextResponse.json({ valid: false, reason: resolved.reason });
+    }
+
+    const scan = await recordTicketScan(resolved.target.purchaseId, eventId, {
+      cooldownSeconds: (gateEvent.reentry_cooldown_seconds as number) ?? 0,
+      at: now,
+    });
+
+    if (scan.status === "cooldown") {
+      return NextResponse.json({
+        valid: false,
+        reason: "Cooldown",
+        direction: scan.direction,
+        redeemedAt: scan.lastScanAt,
+        retryInSeconds: scan.retryInSeconds,
+      });
+    }
+    if (scan.status === "revoked") {
+      return NextResponse.json({ valid: false, reason: "Ticket revoked (refunded)" });
+    }
+    if (scan.status !== "ok") {
+      return NextResponse.json({ valid: false, reason: "Ticket not found" });
+    }
+
+    // Badges track attendance, so only an entry counts; the SQL function
+    // writes redeemed_at / pass_redemptions on the first 'in', which is the
+    // same signal the non-re-entry path produces.
+    if (scan.direction === "in") {
+      const baseUrl = process.env.APP_URL
+        ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+      void checkRedemptionBadges(walletAddress, eventId, baseUrl);
+    }
+
+    return NextResponse.json({
+      valid: true,
+      assetId,
+      eventName: (gateEvent.name as string) ?? "",
+      redeemedAt: now,
+      backup: isBackup,
+      person: person ?? undefined,
+      seasonPass: resolved.target.seasonPass || undefined,
+      passName: resolved.target.passName,
+      direction: scan.direction,
+    });
+  }
 
   const { data: updated } = await supabaseAdmin
     .from("purchases")
