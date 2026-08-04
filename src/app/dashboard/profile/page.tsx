@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AccountMenu } from '@/app/components/AccountMenu';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-import { Icon, VerifiedCheck } from '@/app/components/passlyUi';
+import { ACCENT_HUES, Icon, VerifiedCheck } from '@/app/components/passlyUi';
 import { validateHandle } from '@/lib/organizerHandle';
 
 interface OrganizerLink { label: string; url: string }
@@ -33,20 +33,10 @@ interface Profile {
 
 interface EventLite { id: string; name: string; date: string }
 
-const ACCENT_SWATCHES: { hue: number | null; name: string }[] = [
-  { hue: null, name: 'Violett (Standard)' },
-  { hue: 345, name: 'Rose' },
-  { hue: 45, name: 'Amber' },
-  { hue: 150, name: 'Smaragd' },
-  { hue: 195, name: 'Türkis' },
-  { hue: 230, name: 'Blau' },
-];
-
 const PAGE_CSS = `
   .pf-banner {
-    height: 150px; border-radius: 14px; overflow: hidden; position: relative;
+    height: 150px; overflow: hidden; position: relative;
     background: linear-gradient(120deg, oklch(0.72 0.13 var(--hue)), oklch(0.58 0.19 calc(var(--hue) + 35)));
-    border: 1px solid var(--line);
   }
   .pf-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .pf-avatar {
@@ -56,9 +46,79 @@ const PAGE_CSS = `
     border: 3px solid var(--surface); box-shadow: 0 6px 18px oklch(0.52 0.20 var(--hue) / 0.28);
   }
   .pf-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Avatar overlaps the banner, the two upload buttons sit next to it. The
+     row has to wrap: avatar + button + the file-type hint overflowed a
+     360px phone before. */
+  .pf-idrow {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 0 20px 16px;
+  }
+  .pf-avatar-slot { margin-top: -44px; z-index: 2; }
+  .pf-uploads { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pf-filehint { font-size: 11.5px; color: var(--ink-4); }
+  @media (max-width: 560px) {
+    .pf-idrow { gap: 10px; }
+    .pf-filehint { flex-basis: 100%; }
+  }
+
   .pf-linkrow { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
-  @media (max-width: 560px) { .pf-linkrow { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) { .pf-linkrow { grid-template-columns: 1fr auto; } }
+
+  /* Sticky action bar: the form is longer than a phone screen, so the save
+     button used to sit below the fold with no indication it was there. */
+  .pf-savebar {
+    position: sticky; bottom: 0; z-index: 5;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 14px 0 18px;
+    background: linear-gradient(to top, var(--surface-2) 62%, transparent);
+  }
+  .pf-msg { font-size: 13px; font-weight: 500; }
+
+  /* Pro-locked block: dimming alone read as broken rather than locked, so
+     the same lock affordance as the card-border presets is used. */
+  .pf-lockhead { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .pf-lock { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-3); font-size: 11.5px; }
+
+  .pf-skel { border-radius: 8px; background: var(--surface-2); position: relative; overflow: hidden; }
+  .pf-skel::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--surface) 70%, transparent), transparent);
+    animation: pf-shimmer 1.3s infinite;
+  }
+  @keyframes pf-shimmer { to { transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) { .pf-skel::after { animation: none; } }
 `;
+
+/**
+ * Shown until the profile request resolves. Without it the form rendered
+ * with empty inputs, a "PA" placeholder avatar and "getpassly.de/@handle",
+ * then snapped to the real values — which looked like the page had lost the
+ * data rather than not having fetched it yet.
+ */
+function ProfileSkeleton() {
+  return (
+    <div aria-hidden>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>
+        <div className="pf-skel" style={{ height: 150, borderRadius: 0 }} />
+        <div className="pf-idrow">
+          <div className="pf-skel pf-avatar-slot" style={{ width: 88, height: 88, borderRadius: '50%' }} />
+          <div className="pf-skel" style={{ width: 118, height: 32 }} />
+        </div>
+      </div>
+      {[3, 2].map((rows, i) => (
+        <div key={i} className="card" style={{ padding: 24, marginBottom: 16 }}>
+          {Array.from({ length: rows }, (_, j) => (
+            <div key={j} style={{ marginBottom: j === rows - 1 ? 0 : 18 }}>
+              <div className="pf-skel" style={{ width: 96, height: 11, marginBottom: 8 }} />
+              <div className="pf-skel" style={{ height: 38 }} />
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function OrganizerProfilePage() {
   const router = useRouter();
@@ -92,6 +152,14 @@ export default function OrganizerProfilePage() {
   useEffect(() => {
     if (ready && !authenticated) login();
   }, [ready, authenticated, login]);
+
+  // A success note that never goes away starts reading like a stuck UI;
+  // errors stay until the next save attempt.
+  useEffect(() => {
+    if (!message?.ok) return;
+    const timer = setTimeout(() => setMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [message]);
 
   useEffect(() => {
     if (!walletAddress || loaded) return;
@@ -221,6 +289,7 @@ export default function OrganizerProfilePage() {
             <Link href="/dashboard/passes">Saisonpässe</Link>
             <Link href="/dashboard/payouts">Auszahlungen</Link>
             <Link href="/dashboard/profile" className="active">Profil</Link>
+            <Link href="/dashboard/analytics">Pro</Link>
             <Link href="/events">Events</Link>
           </div>
           <div className="topbar-right">
@@ -257,6 +326,9 @@ export default function OrganizerProfilePage() {
             </div>
           )}
 
+          {!loaded && <ProfileSkeleton />}
+
+          <div style={loaded ? undefined : { display: 'none' }}>
           {/* Banner + avatar */}
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16 }}>
             <div className="pf-banner">
@@ -275,19 +347,21 @@ export default function OrganizerProfilePage() {
               <input ref={bannerInput} type="file" accept="image/jpeg,image/png,image/webp" hidden
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadImage('banner', f); e.target.value = ''; }} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 20px' }}>
-              <div className="pf-avatar" style={{ marginTop: -44, zIndex: 2 }}>
+            <div className="pf-idrow">
+              <div className="pf-avatar pf-avatar-slot">
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- Supabase Storage URL
                   <img src={avatarUrl} alt="" />
                 ) : avatarInitials}
               </div>
-              <button className="btn ghost sm" onClick={() => avatarInput.current?.click()} disabled={uploading !== null}>
-                <Icon name="camera" size={13} /> {uploading === 'avatar' ? 'Lädt …' : 'Profilbild'}
-              </button>
-              <input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" hidden
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadImage('avatar', f); e.target.value = ''; }} />
-              <span style={{ fontSize: 11.5, color: 'var(--ink-4)' }}>JPG, PNG oder WebP, max. 4 MB.</span>
+              <div className="pf-uploads">
+                <button className="btn ghost sm" onClick={() => avatarInput.current?.click()} disabled={uploading !== null}>
+                  <Icon name="camera" size={13} /> {uploading === 'avatar' ? 'Lädt …' : 'Profilbild'}
+                </button>
+                <input ref={avatarInput} type="file" accept="image/jpeg,image/png,image/webp" hidden
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadImage('avatar', f); e.target.value = ''; }} />
+              </div>
+              <span className="pf-filehint">JPG, PNG oder WebP, max. 4 MB.</span>
             </div>
           </div>
 
@@ -311,13 +385,22 @@ export default function OrganizerProfilePage() {
                   style={!handleValid ? { borderColor: 'var(--bad)' } : undefined}
                 />
               </div>
-              <div className="hint">
-                Deine öffentliche Adresse: getpassly.de/@{handleTrimmed || 'handle'} · Kleinbuchstaben, Zahlen, Unterstrich.
-              </div>
+              {handleValid ? (
+                <div className="hint">
+                  Deine öffentliche Adresse: getpassly.de/@{handleTrimmed || 'handle'} · Kleinbuchstaben, Zahlen, Unterstrich.
+                </div>
+              ) : (
+                // Used to surface only after a failed save; the red border
+                // alone never said what was wrong.
+                <div className="hint" style={{ color: 'var(--bad)' }}>
+                  3–30 Zeichen, beginnt mit einem Buchstaben, danach nur Kleinbuchstaben, Zahlen oder Unterstrich.
+                </div>
+              )}
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
               <label>Über euch (optional)</label>
               <textarea className="textarea" value={bio} maxLength={240} placeholder="Kurz, wofür ihr steht." onChange={(e) => setBio(e.target.value)} />
+              <div className="hint" style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{bio.length}/240</div>
             </div>
           </div>
 
@@ -345,18 +428,28 @@ export default function OrganizerProfilePage() {
 
           {/* Pro customizations */}
           <div className="card" style={{ padding: 24, marginBottom: 20 }}>
-            <div className="row gap-2" style={{ alignItems: 'center', marginBottom: 4 }}>
+            <div className="pf-lockhead">
               <div style={{ fontSize: 14, fontWeight: 600 }}>Design</div>
               {!isPro && <span className="chip pro" style={{ fontSize: 10, padding: '2px 7px' }}>Pro</span>}
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginBottom: 14 }}>
-              {isPro ? 'Gib deiner Seite deine Markenfarbe und hebe ein Event hervor.' : 'Mit Passly Pro: Markenfarbe und ein hervorgehobenes Event auf deiner Seite.'}
+              {isPro ? (
+                'Gib deiner Seite deine Markenfarbe und hebe ein Event hervor.'
+              ) : (
+                <>
+                  Mit Passly Pro: Markenfarbe und ein hervorgehobenes Event auf deiner Seite.{' '}
+                  <Link href="/preise" style={{ color: 'var(--accent)', fontWeight: 500 }}>Pro ansehen</Link>
+                </>
+              )}
             </div>
 
             <div className="field">
-              <label>Akzentfarbe</label>
+              <label>
+                Akzentfarbe
+                {!isPro && <span className="pf-lock" style={{ marginLeft: 8 }}><Icon name="lock" size={11} />Gesperrt</span>}
+              </label>
               <div className="swatch-row" role="radiogroup" aria-label="Akzentfarbe">
-                {ACCENT_SWATCHES.map((c) => (
+                {ACCENT_HUES.map((c) => (
                   <button
                     key={c.name}
                     type="button"
@@ -373,7 +466,10 @@ export default function OrganizerProfilePage() {
             </div>
 
             <div className="field" style={{ marginBottom: 0 }}>
-              <label>Hervorgehobenes Event</label>
+              <label>
+                Hervorgehobenes Event
+                {!isPro && <span className="pf-lock" style={{ marginLeft: 8 }}><Icon name="lock" size={11} />Gesperrt</span>}
+              </label>
               <select
                 className="input"
                 value={featuredEventId ?? ''}
@@ -388,13 +484,14 @@ export default function OrganizerProfilePage() {
             </div>
           </div>
 
-          <div className="row gap-3" style={{ alignItems: 'center' }}>
-            <button className="btn primary lg" onClick={() => void handleSave()} disabled={saving || !loaded || !walletAddress}>
+          <div className="pf-savebar">
+            <button className="btn primary lg" onClick={() => void handleSave()} disabled={saving || !loaded || !walletAddress || !handleValid}>
               {saving ? 'Speichern …' : 'Speichern'}
             </button>
             {message && (
-              <span style={{ fontSize: 13, color: message.ok ? 'var(--ok)' : 'var(--bad)', fontWeight: 500 }}>{message.text}</span>
+              <span className="pf-msg" style={{ color: message.ok ? 'var(--ok)' : 'var(--bad)' }} role="status">{message.text}</span>
             )}
+          </div>
           </div>
 
           <LegalLinks style={{ marginTop: 56, justifyContent: 'flex-start' }} />

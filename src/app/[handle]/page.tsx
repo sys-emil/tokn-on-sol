@@ -4,8 +4,10 @@ import { notFound } from 'next/navigation';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, VerifiedCheck } from '@/app/components/passlyUi';
+import { ShareButton } from '@/app/components/ShareButton';
 import { supabaseAdmin } from '@/lib/supabase';
 import { normalizeHandle } from '@/lib/organizerHandle';
+import { countSellablePassDates } from '@/lib/seasonPass';
 
 /**
  * Public organizer page at getpassly.de/@handle. YouTube-channel style: banner,
@@ -86,14 +88,17 @@ const PAGE_CSS = `
   .org-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
   @media (max-width: 620px) { .org-banner { height: 140px; } }
 
-  /* Short header row so the avatar reliably overlaps the banner; the tall
-     bio/links live in .org-about below (a tall row here would push the
-     flex-end-aligned avatar down past the banner). */
+  /* The avatar hangs into the banner. Aligned to the TOP of the row, not the
+     bottom: with flex-end a header that grew taller than the avatar (a long
+     verification label wrapping around 700px, a two-line name) dragged the
+     avatar down out of the banner. Top alignment pins the overlap to
+     margin-top alone, so the header can grow freely; the text is pushed
+     clear of the banner edge with padding instead. */
   .org-head {
-    display: flex; align-items: flex-end; gap: 20px;
+    display: flex; align-items: flex-start; gap: 20px;
     padding: 0 8px; margin-top: -54px; position: relative; z-index: 2;
   }
-  .org-headinfo { flex: 1; min-width: 0; padding-bottom: 6px; }
+  .org-headinfo { flex: 1; min-width: 0; padding-top: 58px; }
   .org-about { padding: 0 8px; margin-top: 18px; }
   .org-avatar {
     width: 116px; height: 116px; border-radius: 50%; flex-shrink: 0;
@@ -105,9 +110,14 @@ const PAGE_CSS = `
   }
   .org-avatar img { width: 100%; height: 100%; object-fit: cover; }
   @media (max-width: 620px) {
-    .org-head { margin-top: -44px; align-items: flex-start; flex-direction: column; gap: 10px; }
+    .org-head { margin-top: -44px; flex-direction: column; gap: 10px; }
+    /* Stacked: the avatar already clears the banner, so the offset that
+       pushes the name past it on desktop would only open a gap here. */
+    .org-headinfo { padding-top: 0; }
     .org-avatar { width: 92px; height: 92px; font-size: 32px; }
   }
+
+  .org-handle { font-size: 14px; font-weight: 500; color: var(--ink-3); margin-top: 3px; }
 
   .org-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
   .org-link {
@@ -130,7 +140,7 @@ const PAGE_CSS = `
   }
 `;
 
-function Shell({ hue, children }: { hue: number | null; children: React.ReactNode }) {
+function Shell({ hue, shareTitle, children }: { hue: number | null; shareTitle: string; children: React.ReactNode }) {
   return (
     <div className="app" style={hue != null ? ({ '--hue': hue } as React.CSSProperties) : undefined}>
       <style>{PAGE_CSS}</style>
@@ -139,9 +149,13 @@ function Shell({ hue, children }: { hue: number | null; children: React.ReactNod
           <PasslyLogo height={24} />
           <div className="nav">
             <Link href="/events">Events</Link>
+            <Link href="/so-funktionierts">So funktioniert&apos;s</Link>
           </div>
           <div className="topbar-right">
-            <Link href="/events" className="btn ghost sm">Events entdecken</Link>
+            {/* Was a second link to /events, identical to the nav entry next
+                to it. A page that exists to be shared should offer that
+                instead. */}
+            <ShareButton title={shareTitle} />
           </div>
         </div>
       </div>
@@ -249,17 +263,14 @@ export default async function OrganizerPublicPage({
   // Season passes still on sale. The profile is where a fan lands from a link
   // in a bio, so the series has to be buyable from here, not only from a
   // single date's shop page.
-  const passes = await loadProfilePasses(
-    organizer.wallet_address,
-    upcoming.map((e) => e.id),
-  );
+  const passes = await loadProfilePasses(organizer.wallet_address);
 
   const name = organizerDisplayName(organizer);
   const initials = name.slice(0, 2).toUpperCase();
   const links = Array.isArray(organizer.links) ? organizer.links.slice(0, 5) : [];
 
   return (
-    <Shell hue={organizer.accent_hue}>
+    <Shell hue={organizer.accent_hue} shareTitle={`${name} auf Passly`}>
       <div className="org-banner">
         {organizer.banner_url && (
           // eslint-disable-next-line @next/next/no-img-element -- remote Supabase Storage URL, sizes vary
@@ -281,6 +292,8 @@ export default async function OrganizerPublicPage({
             {name}
             {organizer.is_verified && <VerifiedCheck size={26} title={organizer.verified_label ?? 'Verifiziert'} />}
           </h1>
+          {/* The handle IS the page's address and was shown nowhere on it. */}
+          <div className="org-handle">@{organizer.handle ?? handle}</div>
           <div className="row gap-2" style={{ marginTop: 10, flexWrap: 'wrap' }}>
             <span className="chip ok"><Icon name="shield" size={11} /> Geprüft</span>
             {organizer.is_verified && organizer.verified_label && (
@@ -365,11 +378,14 @@ export default async function OrganizerPublicPage({
       </section>
 
       {past.length > 0 && (
-        <section>
+        <section style={{ marginTop: 36 }}>
           <div className="section-head">
             <div>
               <h2>Vergangene Events</h2>
-              <div className="sub">{past.length} gespielt</div>
+              {/* Only 12 are rendered; the raw total read as a broken list. */}
+              <div className="sub">
+                {past.length > 12 ? `Die letzten 12 von ${past.length}` : `${past.length} gespielt`}
+              </div>
             </div>
           </div>
           <div className="events-grid">
@@ -384,15 +400,14 @@ export default async function OrganizerPublicPage({
 }
 
 /**
- * Active passes of this organizer that still have capacity and cover at least
- * one upcoming date. A pass whose whole series has passed is not on sale.
+ * Active passes of this organizer that still have capacity and at least one
+ * attendable date left. The upcoming-event list is deliberately NOT used to
+ * pre-filter: a pass may include a private event, which never appears in that
+ * list and would have hidden an otherwise live pass.
  */
 async function loadProfilePasses(
   organizerWallet: string,
-  upcomingEventIds: string[],
 ): Promise<{ id: string; name: string; priceCents: number; dates: number }[]> {
-  if (upcomingEventIds.length === 0) return [];
-
   const { data: rows } = await supabaseAdmin
     .from('season_passes')
     .select('id, name, price_eur, capacity, tickets_sold, tickets_reserved')
@@ -408,20 +423,11 @@ async function loadProfilePasses(
   );
   if (live.length === 0) return [];
 
-  const { data: links } = await supabaseAdmin
-    .from('season_pass_events')
-    .select('pass_id, event_id')
-    .in('pass_id', live.map((p) => p.id));
-
-  const upcomingSet = new Set(upcomingEventIds);
-  const total = new Map<string, number>();
-  const hasUpcoming = new Set<string>();
-  for (const l of (links ?? []) as { pass_id: string; event_id: string }[]) {
-    total.set(l.pass_id, (total.get(l.pass_id) ?? 0) + 1);
-    if (upcomingSet.has(l.event_id)) hasUpcoming.add(l.pass_id);
-  }
+  // Dates still ahead and not cancelled — the shared definition, so this card
+  // can't advertise a different number than /pass/[id] or /shop/[id].
+  const sellable = await countSellablePassDates(live.map((p) => p.id));
 
   return live
-    .filter((p) => hasUpcoming.has(p.id))
-    .map((p) => ({ id: p.id, name: p.name, priceCents: p.price_eur, dates: total.get(p.id) ?? 0 }));
+    .map((p) => ({ id: p.id, name: p.name, priceCents: p.price_eur, dates: sellable.get(p.id) ?? 0 }))
+    .filter((p) => p.dates > 0);
 }

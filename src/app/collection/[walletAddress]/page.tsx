@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { LegalLinks } from '@/app/components/LegalLinks';
-import { ShareButton } from './ShareButton';
+import { ShareButton } from '@/app/components/ShareButton';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { supabaseAdmin } from '@/lib/supabase';
