@@ -226,13 +226,8 @@ const PAGE_CSS = `
   .sc-tier .n { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
   .sc-tier .a { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; }
   .sc-tier .p { font-size: 19px; font-weight: 640; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-  .sc-tickets-cta {
-    display: inline-flex; align-items: center; gap: 8px; margin-top: 20px;
-    padding: 12px 20px; border-radius: 12px;
-    background: var(--accent); color: #fff; font-size: 14.5px; font-weight: 600;
-    transition: background 0.2s, transform 0.2s;
-  }
-  .sc-tickets-cta:hover { background: var(--accent-2); color: #fff; transform: translateY(-1px); }
+  /* Optik aus .btn.primary.lg (globals.css); hier nur der Abstand. */
+  .sc-tickets-cta { margin-top: 20px; color: #fff; }
   .sc-fee { margin-top: 12px; font-size: 12.5px; color: var(--ink-3); }
 
   /* ── Saisonpaesse + Fuss ──────────────────────────────────────── */
@@ -299,12 +294,12 @@ const PAGE_CSS = `
       border-top: 1px solid var(--line);
     }
     .sc-sticky .p { font-size: 17px; font-weight: 640; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-    .sc-sticky .b {
-      display: inline-flex; align-items: center; gap: 7px;
-      padding: 12px 18px; border-radius: 12px; min-height: 44px;
-      background: var(--accent); color: #fff; font-size: 14.5px; font-weight: 600;
+    /* .btn.primary.lg plus die 44px-Untergrenze fuers Tippziel. */
+    .sc-sticky .b { min-height: 44px; gap: 7px; color: #fff; }
+    .sc-sticky .b.disabled {
+      background: var(--surface-3); color: var(--ink-3);
+      box-shadow: none; pointer-events: none;
     }
-    .sc-sticky .b.disabled { background: var(--surface-3); color: var(--ink-3); pointer-events: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -439,7 +434,7 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
             <div className="sc-fee">{t('showcase.feeNote', { fee: money(serviceFeePerTicketCents(minPrice), lang) })}</div>
           )}
           {buyable && (
-            <Link href={`/shop/${event.id}`} className="sc-tickets-cta">
+            <Link href={`/shop/${event.id}`} className="sc-tickets-cta btn primary lg">
               {t('showcase.getTickets')} <Icon name="arrow" size={16} />
             </Link>
           )}
@@ -536,9 +531,9 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
           <div className="sc-sticky">
             <span className="p">{priceLabel}</span>
             {buyable ? (
-              <Link href={`/shop/${event.id}`} className="b">{t('showcase.getTickets')} <Icon name="arrow" size={15} /></Link>
+              <Link href={`/shop/${event.id}`} className="b btn primary lg">{t('showcase.getTickets')} <Icon name="arrow" size={15} /></Link>
             ) : (
-              <span className="b disabled">{t('showcase.soldOut')}</span>
+              <span className="b btn primary lg disabled">{t('showcase.soldOut')}</span>
             )}
           </div>
         )}

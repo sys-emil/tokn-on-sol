@@ -89,7 +89,7 @@ export function EventCard({
         )}
         <div className="ev-card-foot">
           <span className="ev-price">{priceLabel}</span>
-          <span className={`ev-cta${ctaMuted ? ' waitlist' : ''}`}>
+          <span className={`ev-cta btn ${ctaMuted ? 'ghost' : 'primary'}`}>
             {ctaLabel}
             {!ctaMuted && <Icon name="arrow" size={15} />}
           </span>
@@ -193,17 +193,12 @@ export const EVENT_CARD_CSS = `
     padding-top: 14px; border-top: 1px solid var(--line);
   }
   .ev-price { font-size: 19px; font-weight: 640; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-  .ev-cta {
-    display: flex; align-items: center; gap: 7px;
-    padding: 10px 15px; border-radius: 10px;
-    font-size: 13.5px; font-weight: 600;
-    background: var(--accent); color: #fff; transition: background 0.2s;
-  }
-  .ev-card:hover .ev-cta { background: var(--accent-2); }
-  .ev-cta.waitlist {
-    background: var(--surface-3); border: 1px solid var(--line-2); color: var(--ink);
-  }
-  .ev-card:hover .ev-cta.waitlist { background: var(--surface); border-color: var(--ink-4); }
+  /* Optik kommt aus .btn.primary / .btn.ghost in globals.css — die Karte legt
+     nur den Hover der ganzen Karte darueber. Ausverkauft/Warteliste ist
+     .btn.ghost, deshalb gibt es hier keine eigene .waitlist-Variante mehr. */
+  .ev-cta { gap: 7px; }
+  .ev-card:hover .ev-cta.primary { background: var(--accent-2); }
+  .ev-card:hover .ev-cta.ghost { background: var(--surface-2); border-color: var(--ink-4); }
   .ev-foot-note { display: none; font-size: 12px; color: var(--ink-3); }
   .ev-card.is-soldout .ev-card-art img, .ev-card.is-soldout .ev-card-art .art-bg { filter: grayscale(0.7); opacity: 0.75; }
   .ev-card.is-soldout .ev-price { color: var(--ink-3); }
@@ -215,7 +210,9 @@ export const EVENT_CARD_CSS = `
       width: 92px; height: 92px; flex: none;
       aspect-ratio: auto; border-radius: 12px;
     }
-    .ev-datebadge, .ev-badge, .ev-progress, .ev-cta { display: none; }
+    .ev-datebadge, .ev-badge, .ev-progress { display: none; }
+    /* Ueber .ev-card, damit die Regel den .btn-Basisstil sicher schlaegt. */
+    .ev-card .ev-cta { display: none; }
     .ev-card-body { padding: 0; gap: 6px; min-width: 0; }
     .ev-card-eyebrow { display: block; }
     .ev-card h3 { font-size: 15px; font-weight: 620; letter-spacing: -0.02em; }

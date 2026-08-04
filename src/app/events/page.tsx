@@ -257,6 +257,7 @@ const PAGE_CSS = `
   .ev-pass-name { font-size: 17px; font-weight: 620; letter-spacing: -0.025em; line-height: 1.3; }
   .ev-pass-meta { font-size: 13.5px; color: var(--ink-3); }
   .ev-pass-card .ev-card-foot { margin-top: 12px; }
+  .ev-pass-card:hover .ev-cta.primary { background: var(--accent-2); }
 
   /* ── Leerzustand ──────────────────────────────────────────────── */
   .ev-empty {
@@ -346,7 +347,6 @@ const PAGE_CSS = `
 
     .ev-pass-card { padding: 14px; border-radius: 16px; }
     .ev-pass-card:hover { transform: none; }
-    .ev-pass-card .ev-cta { display: flex; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -686,7 +686,7 @@ export default async function EventsPage({ searchParams }: {
                           </div>
                           <div className="ev-card-foot">
                             <span className="ev-price">{formatPrice(p.priceCents, lang, freeLabel)}</span>
-                            <span className="ev-cta">{t('events.securePass')} <Icon name="arrow" size={15} /></span>
+                            <span className="ev-cta btn primary">{t('events.securePass')} <Icon name="arrow" size={15} /></span>
                           </div>
                         </Link>
                       ))}
