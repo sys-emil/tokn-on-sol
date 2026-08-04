@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
-import { TodayStamp } from '@/app/components/TodayStamp';
+import { HeroTicket } from '@/app/components/HeroTicket';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
 
@@ -103,106 +103,72 @@ const PAGE_CSS = `
     .aurora::before, .aurora::after, .glow { animation: none; }
   }
 
-  /* ── Hero ─────────────────────────────────────────────────── */
-  .landing-hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-    gap: 48px;
-    align-items: center;
-    padding: 64px 0 72px;
+  /* ── Hero (1:1 aus passly-hero.html) ──────────────────────── */
+  /* Vollbreite Sektion mit eigenem Verlaufs-Hintergrund; sie liegt deshalb
+     außerhalb von .container und deckt in ihrem Bereich Aurora/Glows ab. */
+  .hero-v2 { position: relative; overflow: hidden; background: var(--surface-2); }
+  .hero-v2-bg {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(680px 420px at 76% -6%, oklch(0.80 0.14 300/.55), transparent 62%),
+      radial-gradient(560px 380px at 96% 46%, oklch(0.85 0.10 220/.45), transparent 65%),
+      radial-gradient(520px 320px at 58% 96%, oklch(0.90 0.08 330/.35), transparent 70%);
+    filter: blur(6px);
+  }
+  .hero-v2-inner {
     position: relative;
+    display: grid; grid-template-columns: 1.05fr .95fr;
+    gap: 48px; align-items: center;
+    padding: 88px 64px 96px;
+    max-width: 1280px; margin: 0 auto;
   }
-  @media (max-width: 920px) {
-    .landing-hero { grid-template-columns: 1fr; padding: 40px 0 48px; gap: 40px; }
-  }
-  .landing-hero h1 {
-    font-size: clamp(38px, 5.4vw, 60px);
-    letter-spacing: -0.04em;
-    font-weight: 600;
-    line-height: 1.04;
-  }
-  .landing-hero h1 .accent { color: var(--accent); }
-  .landing-hero .lead {
-    margin-top: 18px;
-    font-size: 16.5px; line-height: 1.6;
-    color: var(--ink-3);
-    max-width: 48ch;
-  }
-  .hero-ctas { margin-top: 28px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .hero-guest {
-    margin-top: 18px;
-    font-size: 13px; color: var(--ink-3);
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  }
-  .hero-guest a { color: var(--accent); font-weight: 500; }
-  .hero-guest a:hover { color: var(--accent-2); }
-
-  /* ── Ticket mockup ───────────────────────────────────────── */
-  .mock-wrap { display: flex; justify-content: center; position: relative; }
-  .mock-ticket {
-    width: 300px;
-    max-width: 100%;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
-    transform: rotate(2.5deg);
-    animation: mockFloat 7s ease-in-out infinite;
-  }
-  @keyframes mockFloat {
-    0%, 100% { transform: rotate(2.5deg) translateY(0); }
-    50%      { transform: rotate(2.5deg) translateY(-8px); }
-  }
-  @media (prefers-reduced-motion: reduce) { .mock-ticket { animation: none; } }
-  .mock-head { padding: 18px 20px 14px; display: flex; align-items: center; justify-content: space-between; }
-  .mock-head .event { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
-  .mock-head .date { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
-  .mock-body {
-    background: var(--accent-wash);
-    border-top: 1px dashed var(--accent-line);
-    border-bottom: 1px dashed var(--accent-line);
-    padding: 22px 20px;
-    display: grid; place-items: center;
-    position: relative;
-  }
-  .mock-body::before, .mock-body::after {
-    content: "";
-    position: absolute; top: -7px;
-    width: 14px; height: 14px; border-radius: 50%;
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-  }
-  .mock-body::before { left: -8px; }
-  .mock-body::after { right: -8px; }
-  .mock-qr {
-    width: 148px; height: 148px;
-    background: var(--surface);
+  .hero-v2-eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 11.5px var(--font); letter-spacing: .09em;
+    text-transform: uppercase; color: var(--accent-ink);
+    background: rgba(255,255,255,.7);
     border: 1px solid var(--accent-line);
-    border-radius: 12px;
-    display: grid; place-items: center;
-    color: #23263c;
+    padding: 5px 11px; border-radius: 7px;
+    margin-bottom: 20px; white-space: nowrap;
+  }
+  .hero-v2-eyebrow .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .hero-v2 h1 {
+    margin: 0; font: 700 62px/1.03 var(--font);
+    letter-spacing: -0.045em; color: var(--ink);
+  }
+  .hero-v2 h1 .grad {
+    background: linear-gradient(92deg, oklch(0.54 0.22 285), oklch(0.58 0.19 320));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-v2 .lead {
+    margin: 22px 0 0; max-width: 520px;
+    font: 400 17px/1.65 var(--font); color: var(--ink-3);
+  }
+  .hero-v2-ctas { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+  .hero-v2-guest { margin: 20px 0 0; font: 400 13.5px var(--font); color: var(--ink-3); }
+  .hero-v2-guest a { font-weight: 500; color: var(--accent); }
+  .hero-v2-guest a:hover { color: var(--accent-2); }
+  .hero-v2-mock {
     position: relative;
-    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 520px; perspective: 1500px;
   }
-  /* Scan-Beam: der QR lebt, genau das Verkaufsargument */
-  .mock-qr::after {
-    content: "";
-    position: absolute; left: 8px; right: 8px; top: 0;
-    height: 36px; border-radius: 8px;
-    background: linear-gradient(180deg, transparent, oklch(0.56 0.22 var(--hue) / 0.22) 55%, oklch(0.56 0.22 var(--hue) / 0.45) 78%, transparent);
-    animation: qrScan 3s ease-in-out infinite;
-    pointer-events: none;
+  @keyframes shimmerSweep {
+    0%        { transform: translateX(-120%) skewX(-18deg); }
+    55%, 100% { transform: translateX(320%) skewX(-18deg); }
   }
-  @keyframes qrScan {
-    0%, 12%  { transform: translateY(-40px); opacity: 0; }
-    22%      { opacity: 1; }
-    68%      { opacity: 1; }
-    80%, 100% { transform: translateY(152px); opacity: 0; }
+  /* Nicht im Original: die Vorlage ist ein Desktop-Mockup ohne Umbruch. */
+  @media (max-width: 980px) {
+    .hero-v2-inner { grid-template-columns: 1fr; gap: 40px; padding: 56px 24px 64px; }
+    .hero-v2 h1 { font-size: clamp(38px, 8vw, 56px); }
+    .hero-v2-mock { min-height: 0; }
   }
-  @media (prefers-reduced-motion: reduce) { .mock-qr::after { animation: none; opacity: 0; } }
-  .mock-foot { padding: 14px 20px 18px; display: flex; align-items: center; justify-content: space-between; }
-  .mock-foot .id { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  @media (max-width: 420px) {
+    .hero-v2-ticket { width: 100% !important; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-v2-shimmer { animation: none; }
+  }
 
   /* ── Trust bar ────────────────────────────────────────────── */
   .trust-bar {
@@ -381,55 +347,38 @@ export default function Home() {
           <div className="glow glow-violet" aria-hidden="true" />
           <div className="glow glow-cool" aria-hidden="true" />
           <div className="glow glow-violet-2" aria-hidden="true" />
-          <div className="container">
 
-            {/* Hero */}
-            <section className="landing-hero">
-              <div data-reveal>
-                <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 11.5, color: 'var(--accent-ink)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 18 }}>
-                  <Icon name="calendar" size={13} /> Ticketing für Veranstalter
+          {/* Hero — 1:1 aus passly-hero.html, vollbreit außerhalb des Containers */}
+          <section className="hero-v2">
+            <div className="hero-v2-bg" aria-hidden="true" />
+            <div className="hero-v2-inner">
+              <div>
+                <div className="hero-v2-eyebrow">
+                  <span className="pulse" />Ticketing für Veranstalter
                 </div>
                 <h1>
                   Deine Gäste kaufen bei dir.<br />
-                  <span className="accent">Nicht bei uns.</span>
+                  <span className="grad">Nicht bei uns.</span>
                 </h1>
                 <p className="lead">
                   Passly ist Ticketing, das deinen Namen trägt: eigene Verkaufsseite,
                   100&nbsp;% des Ticketpreises und deine Regeln beim Einlass und beim
                   Weiterverkauf.
                 </p>
-                <div className="hero-ctas">
-                  <Link href="/become-organizer" className="btn primary lg btn-shine">
-                    Event anlegen <Icon name="arrow" size={14} />
-                  </Link>
+                <div className="hero-v2-ctas">
+                  <Link href="/become-organizer" className="btn primary lg">Event anlegen →</Link>
                   <Link href="/preise" className="btn ghost lg">Was es kostet</Link>
                 </div>
-                <div className="hero-guest">
-                  Du willst nur ein Ticket kaufen?
-                  <Link href="/events">Events entdecken →</Link>
-                </div>
+                <p className="hero-v2-guest">
+                  Du willst nur ein Ticket kaufen? <Link href="/events">Events entdecken →</Link>
+                </p>
               </div>
 
-              {/* Ticket mockup */}
-              <div className="mock-wrap" aria-hidden="true" data-reveal style={{ '--reveal-delay': '140ms' } as React.CSSProperties}>
-                <div className="mock-ticket">
-                  <div className="mock-head">
-                    <div>
-                      <div className="event">Die beste Nacht des Jahres</div>
-                      <div className="date"><TodayStamp suffix=" · Einlass 20:00" /></div>
-                    </div>
-                    <span className="chip ok"><span className="d" />Gültig</span>
-                  </div>
-                  <div className="mock-body">
-                    <div className="mock-qr"><Icon name="qr" size={96} strokeWidth={1.1} /></div>
-                  </div>
-                  <div className="mock-foot">
-                    <span className="id">#PSL-K4X2</span>
-                    <PasslyLogo height={16} asLink={false} />
-                  </div>
-                </div>
-              </div>
-            </section>
+              <HeroTicket />
+            </div>
+          </section>
+
+          <div className="container">
 
             {/* Trust-Leiste: konkrete, nachprüfbare Zusagen statt Kundenstimmen */}
             <section>
