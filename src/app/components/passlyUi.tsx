@@ -109,13 +109,20 @@ export function VerifiedCheck({ size = 16, title }: { size?: number; title?: str
 
 // Curated palette; same oklch chroma/lightness formula as --accent, just a
 // fixed hue, so every choice stays inside the design system's saturation.
-const ACCENT_HUES: { hue: number | null; name: string }[] = [
+/**
+ * Only hues from the brand's own arc. Passly is violet (`--hue: 285`), and an
+ * event card in amber, emerald or turquoise stopped looking like Passly at
+ * all — the accent is supposed to let an organizer set a tone inside the
+ * brand, not repaint the product. Blau and Rose are the two neighbours of 285
+ * that still read as "this is Passly, in a different mood".
+ *
+ * Don't re-add hues outside roughly 230–345. The card-border presets
+ * (BORDER_PRESETS) are the place for genuinely different looks.
+ */
+export const ACCENT_HUES: { hue: number | null; name: string }[] = [
   { hue: null, name: 'Violett (Standard)' },
-  { hue: 345, name: 'Rose' },
-  { hue: 45, name: 'Amber' },
-  { hue: 150, name: 'Smaragd' },
-  { hue: 195, name: 'Türkis' },
   { hue: 230, name: 'Blau' },
+  { hue: 345, name: 'Rose' },
 ];
 
 const BORDER_PRESETS: { value: string | null; name: string }[] = [
