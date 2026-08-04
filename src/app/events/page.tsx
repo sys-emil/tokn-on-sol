@@ -62,24 +62,9 @@ const PAGE_CSS = `
   @keyframes ev-breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 
   .ev-page { background: var(--surface-2); }
-  .ev-page .topbar-inner { height: 64px; padding: 0 32px; gap: 28px; }
-  .ev-page .nav a { font-size: 14px; border-radius: 8px; padding: 7px 13px; }
-  .ev-page .nav a.active { background: var(--surface-3); color: var(--ink); font-weight: 550; }
-  .ev-topbar-link { font-size: 14px; font-weight: 500; color: var(--ink-3); }
-  .ev-topbar-link:hover { color: var(--ink); }
-  .ev-topbar-cta {
-    display: inline-flex; align-items: center;
-    padding: 9px 16px; border-radius: 10px;
-    font-size: 14px; font-weight: 600;
-    background: var(--accent); color: #fff;
-    box-shadow: 0 2px 12px oklch(0.54 0.22 var(--hue) / 0.28);
-    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
-  }
-  .ev-topbar-cta:hover {
-    background: var(--accent-2); color: #fff;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 18px oklch(0.54 0.22 var(--hue) / 0.34);
-  }
+  /* Nur die Randbreite folgt dem 32px-Shell dieser Seite; Nav und Buttons
+     bleiben absichtlich auf den globalen Topbar-Stilen. */
+  .ev-page .topbar-inner { padding: 0 32px; }
 
   /* Kopfband: eigener Verlauf statt der globalen .aurora, damit die dunkle
      Featured-Karte einen ruhigen Hintergrund bekommt. */
@@ -300,7 +285,8 @@ const PAGE_CSS = `
 
   /* ── Mobil ────────────────────────────────────────────────────── */
   @media (max-width: 780px) {
-    .ev-page .topbar-inner { padding: 0 16px; gap: 10px; height: 60px; }
+    .ev-page .topbar-inner { padding: 0 16px; }
+    /* Auf dem Handy bleibt nur der Primaer-Button rechts stehen. */
     .ev-topbar-link { display: none; }
     .ev-shell { padding: 0 16px; }
     .ev-main { padding: 28px 16px 72px; }
@@ -366,9 +352,9 @@ const PAGE_CSS = `
   @media (prefers-reduced-motion: reduce) {
     .ev-featured-wrap, .ev-texthero, .ev-pass-card { animation: none; }
     .ev-featured-badge .dot, .ev-texthero .eyebrow .dot { animation: none; opacity: 1; }
-    .ev-pass-card, .ev-topbar-cta, .ev-buybox-cta,
+    .ev-pass-card, .ev-buybox-cta,
     .ev-featured-art img, .ev-featured-art .art-bg { transition: none; }
-    .ev-pass-card:hover, .ev-topbar-cta:hover { transform: none; }
+    .ev-pass-card:hover { transform: none; }
   }
 `;
 
@@ -529,8 +515,8 @@ export default async function EventsPage({ searchParams }: {
               <Link href="/my-tickets">{t('common.myTickets')}</Link>
             </div>
             <div className="topbar-right">
-              <Link href="/so-funktionierts" className="ev-topbar-link">{t('common.howItWorks')}</Link>
-              <Link href="/become-organizer" className="ev-topbar-cta">{t('events.getStarted')}</Link>
+              <Link href="/so-funktionierts" className="btn subtle sm ev-topbar-link">{t('common.howItWorks')}</Link>
+              <Link href="/become-organizer" className="btn primary sm">{t('events.createEvent')}</Link>
             </div>
           </div>
         </div>

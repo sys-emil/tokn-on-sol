@@ -105,7 +105,7 @@ const de = {
   "events.countSub": "{count} Termine · {cities} Städte",
   "events.countSubOneCity": "{count} Termine · eine Stadt",
   "events.countSubNoCity": "{count} Termine",
-  "events.getStarted": "Loslegen",
+  "events.createEvent": "Event anlegen",
   "events.filterCity": "Nur Events in {city}",
 
   // ── /event/[id] (Showcase zwischen Liste und Kauf) ───────────────────
@@ -387,7 +387,7 @@ const en: Record<TranslationKey, string> = {
   "events.countSub": "{count} dates · {cities} cities",
   "events.countSubOneCity": "{count} dates · one city",
   "events.countSubNoCity": "{count} dates",
-  "events.getStarted": "Get started",
+  "events.createEvent": "Create an event",
   "events.filterCity": "Only events in {city}",
 
   "showcase.tabOverview": "Overview",
