@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
+import { countSellablePassDates } from '@/lib/seasonPass';
 import type { Event, TicketTier } from '@/lib/supabase';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, VerifiedCheck } from '@/app/components/passlyUi';
@@ -63,19 +64,16 @@ async function getPasses(eventId: string): Promise<{ id: string; name: string; p
   const passIds = ((links ?? []) as { pass_id: string }[]).map((l) => l.pass_id);
   if (passIds.length === 0) return [];
 
-  const [{ data: passes }, { data: allDates }] = await Promise.all([
+  const [{ data: passes }, dateCount] = await Promise.all([
     supabaseAdmin
       .from('season_passes')
       .select('id, name, price_eur, capacity, tickets_sold, tickets_reserved')
       .in('id', passIds)
       .eq('active', true),
-    supabaseAdmin.from('season_pass_events').select('pass_id').in('pass_id', passIds),
+    // Dates still ahead and not cancelled; the shared definition, so this
+    // teaser can't advertise a different number than /pass/[id] does.
+    countSellablePassDates(passIds),
   ]);
-
-  const dateCount = new Map<string, number>();
-  for (const row of (allDates ?? []) as { pass_id: string }[]) {
-    dateCount.set(row.pass_id, (dateCount.get(row.pass_id) ?? 0) + 1);
-  }
 
   type PassRow = { id: string; name: string; price_eur: number; capacity: number; tickets_sold: number; tickets_reserved: number };
   return ((passes ?? []) as PassRow[])
@@ -85,7 +83,8 @@ async function getPasses(eventId: string): Promise<{ id: string; name: string; p
       name: p.name,
       priceCents: p.price_eur,
       dates: dateCount.get(p.id) ?? 0,
-    }));
+    }))
+    .filter((p) => p.dates > 0);
 }
 
 async function getTiers(eventId: string): Promise<TicketTier[]> {

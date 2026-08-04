@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
+import { todayIso } from '@/lib/seasonPass';
 import type { SeasonPass } from '@/lib/supabase';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, VerifiedCheck } from '@/app/components/passlyUi';
@@ -16,6 +17,8 @@ interface PassDate {
   startTime: string | null;
   venue: string | null;
   cancelled: boolean;
+  /** Already happened; still listed as context, but not part of the count. */
+  past: boolean;
 }
 
 async function getPass(id: string): Promise<SeasonPass | null> {
@@ -45,6 +48,7 @@ async function getDates(passId: string): Promise<PassDate[]> {
         startTime: (ev.start_time as string | null) ?? null,
         venue: (ev.venue as string | null) ?? null,
         cancelled: Boolean(ev.cancelled_at),
+        past: (ev.date as string) < todayIso(),
       };
     })
     .filter((d): d is PassDate => d !== null)
@@ -125,7 +129,9 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
   if (!pass) notFound();
 
   const dates = await getDates(id);
-  const liveDates = dates.filter((d) => !d.cancelled);
+  // "Gilt für N Termine" counts only what a buyer paying today can still
+  // attend; the list below still shows the past dates, dimmed, as context.
+  const liveDates = dates.filter((d) => !d.cancelled && !d.past);
 
   const { data: organizerRow } = await supabaseAdmin
     .from('organizers')
@@ -212,7 +218,7 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
             <div className="pass-dates">
               <div className="head">{t('pass.datesHead')}</div>
               {dates.map((d) => (
-                <div key={d.id} className={`pass-date${d.cancelled ? ' off' : ''}`}>
+                <div key={d.id} className={`pass-date${d.cancelled || d.past ? ' off' : ''}`}>
                   <div className="cal">
                     <div className="m">{monthShort(d.date, lang)}</div>
                     <div className="d">{dayNum(d.date)}</div>
@@ -224,7 +230,7 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
                     <div className="w">
                       {d.cancelled
                         ? t('shop.cancelled')
-                        : `${formatDate(d.date, lang)}${d.startTime ? ` · ${d.startTime}` : ''}${d.venue ? ` · ${d.venue}` : ''}`}
+                        : `${d.past ? `${t('pass.datePast')} · ` : ''}${formatDate(d.date, lang)}${d.startTime ? ` · ${d.startTime}` : ''}${d.venue ? ` · ${d.venue}` : ''}`}
                     </div>
                   </div>
                 </div>
@@ -239,7 +245,11 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
               </div>
             ) : liveDates.length === 0 ? (
               <div style={{ fontSize: 13, color: 'var(--ink-3)', textAlign: 'center', lineHeight: 1.6 }}>
-                {t('pass.noDates')}
+                {/* Selling a series whose dates have all passed would be
+                    selling nothing; the listings hide it for the same reason.
+                    "No dates on file" would be wrong when ten past ones are
+                    listed right above. */}
+                {dates.length > 0 ? t('pass.seriesOver') : t('pass.noDates')}
               </div>
             ) : (
               <PassClient passId={pass.id} priceCents={pass.price_eur} available={available} />

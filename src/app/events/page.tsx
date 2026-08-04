@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
+import { countSellablePassDates } from '@/lib/seasonPass';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { LegalLinks } from '@/app/components/LegalLinks';
@@ -781,16 +782,9 @@ async function loadPasses(
   if (veranstalter) query = query.eq('organizer_wallet', veranstalter);
   const { data: rows } = await query;
 
-  // Total date count per pass, including dates outside this page's window;
-  // "gilt für 8 Termine" is what the buyer is actually getting.
-  const { data: allLinks } = await supabaseAdmin
-    .from('season_pass_events')
-    .select('pass_id')
-    .in('pass_id', passIds);
-  const dateCount = new Map<string, number>();
-  for (const l of (allLinks ?? []) as { pass_id: string }[]) {
-    dateCount.set(l.pass_id, (dateCount.get(l.pass_id) ?? 0) + 1);
-  }
+  // Dates the buyer can still attend; see countSellablePassDates for why this
+  // is not simply every row in season_pass_events.
+  const dateCount = await countSellablePassDates(passIds);
 
   type PassRow = {
     id: string; name: string; price_eur: number; capacity: number;
@@ -805,5 +799,7 @@ async function loadPasses(
       priceCents: p.price_eur,
       dates: dateCount.get(p.id) ?? 0,
       organizerWallet: p.organizer_wallet,
-    }));
+    }))
+    // A pass with nothing left to attend is not a product any more.
+    .filter((p) => p.dates > 0);
 }
