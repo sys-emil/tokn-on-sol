@@ -23,11 +23,18 @@ import { ProPrice } from '@/app/components/ProPrice';
 
 const PAGE_CSS = `
   /* ── Stronger aurora on the landing page ─────────────────── */
+  /* Fester Pixel-Offset statt Prozent: ein prozentualer top-Wert rechnet gegen
+     die Hoehe von .main, und die ist auf dieser langen Seite ein paar tausend
+     Pixel — die Aurora landete damit weit oberhalb des Sichtbereichs und war
+     gar nicht zu sehen. Auf kurzen Seiten (globals.css, -40%) faellt das nicht
+     auf, hier schon. */
   .aurora {
-    inset: -46% -12% auto -12%;
+    inset: -220px -12% auto -12%;
     height: 680px;
     filter: blur(64px) saturate(1.1);
-    opacity: 0.85;
+    /* Zurueckhaltender als frueher: die Hero-Sektion bringt inzwischen mit
+       .hero-v2-bg eine eigene Farbgrafik mit, die darueber liegt. */
+    opacity: 0.6;
   }
   .aurora::before {
     left: 2%; top: 4%;
@@ -106,7 +113,10 @@ const PAGE_CSS = `
   /* ── Hero (1:1 aus passly-hero.html) ──────────────────────── */
   /* Vollbreite Sektion mit eigenem Verlaufs-Hintergrund; sie liegt deshalb
      außerhalb von .container und deckt in ihrem Bereich Aurora/Glows ab. */
-  .hero-v2 { position: relative; overflow: hidden; background: var(--surface-2); }
+  /* Kein eigener Hintergrund: body traegt bereits --surface-2. Waere die
+     Sektion deckend, wuerde sie die Glows der Seite an ihrer Unterkante
+     glatt abschneiden — als Linie sichtbar, sobald man scrollt. */
+  .hero-v2 { position: relative; overflow: hidden; }
   .hero-v2-bg {
     position: absolute; inset: 0; pointer-events: none;
     background:
@@ -114,6 +124,12 @@ const PAGE_CSS = `
       radial-gradient(560px 380px at 96% 46%, oklch(0.85 0.10 220/.45), transparent 65%),
       radial-gradient(520px 320px at 58% 96%, oklch(0.90 0.08 330/.35), transparent 70%);
     filter: blur(6px);
+    /* Der dritte Verlauf sitzt auf 96% Hoehe und ist an der Unterkante noch
+       fast voll deckend; overflow:hidden schnitte ihn mitten in der Farbe
+       durch. Die Maske blendet die Sektionsgrafik vorher aus, damit sie in
+       die Seite laeuft statt an einer Kante zu enden. */
+    -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
   }
   .hero-v2-inner {
     position: relative;
