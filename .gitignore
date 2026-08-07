@@ -48,3 +48,9 @@ ds-bundle/
 .design-sync/.cache/
 .design-sync/learnings/
 .design-sync/node_modules
+
+# Design-Vorlagen und Inspiration im Projektwurzelverzeichnis: Arbeitsmaterial,
+# aus dem Seiten nachgebaut werden, kein Teil der Anwendung.
+*.dc.html
+/passly-hero.html
+/Organizer Pro UI Inspo/
