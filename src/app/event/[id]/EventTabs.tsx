@@ -53,6 +53,11 @@ export default function EventTabs({
   // Die Messung passiert im ResizeObserver-Callback (feuert direkt beim
   // observe), nicht im Effect-Rumpf — so bleibt der erste Frame korrekt und
   // spaetere Umbrueche werden mitgenommen.
+  //
+  // Gemessen wird das Panel selbst, nicht sein Inhalt: .sc-panel traegt
+  // vertikales Padding (28px oben, 8px unten), das in der Hoehe des Inhalts
+  // nicht steckt. Wurde der Inhalt gemessen, war der Viewport um genau diese
+  // 36px zu niedrig und schnitt das Panel unten ab.
   useEffect(() => {
     const el = panelRefs.current[index];
     if (!el) return;
@@ -137,6 +142,7 @@ export default function EventTabs({
           {panels.map((p, i) => (
             <div
               key={p.key}
+              ref={(el) => { panelRefs.current[i] = el; }}
               className="sc-panel"
               role="tabpanel"
               id={`sc-panel-${p.key}`}
@@ -145,7 +151,7 @@ export default function EventTabs({
               // weder in der Tabreihenfolge noch im Accessibility-Baum.
               inert={i !== index}
             >
-              <div ref={(el) => { panelRefs.current[i] = el; }}>{p.node}</div>
+              {p.node}
             </div>
           ))}
         </div>
