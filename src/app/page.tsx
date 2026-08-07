@@ -153,9 +153,13 @@ const PAGE_CSS = `
     display: flex; align-items: center; justify-content: center;
     min-height: 520px; perspective: 1500px;
   }
+  /* 600% × 22% Streifenbreite = 132% der Karte: der Sweep laeuft vollstaendig
+     rechts hinaus statt kurz davor stehenzubleiben. Das Easing sitzt auf dem
+     Sweep-Segment, die Pause danach ist ein reiner Halt. */
   @keyframes shimmerSweep {
-    0%        { transform: translateX(-120%) skewX(-18deg); }
-    55%, 100% { transform: translateX(320%) skewX(-18deg); }
+    0%   { transform: translateX(-140%) skewX(-18deg); animation-timing-function: cubic-bezier(.42,.02,.3,1); }
+    52%  { transform: translateX(600%) skewX(-18deg); }
+    100% { transform: translateX(600%) skewX(-18deg); }
   }
   /* Nicht im Original: die Vorlage ist ein Desktop-Mockup ohne Umbruch. */
   @media (max-width: 980px) {

@@ -48,9 +48,10 @@ export function HeroTicket() {
           width: 352,
           borderRadius: 24,
           overflow: 'hidden',
+          // Kein backdrop-filter: die Kinder decken die Flaeche vollstaendig ab,
+          // der Blur war unsichtbar — kostete aber pro Shimmer-Frame ein
+          // Neuberechnen des Hintergrunds und war die Ursache des Ruckelns.
           background: 'rgba(255,255,255,.72)',
-          backdropFilter: 'blur(18px)',
-          WebkitBackdropFilter: 'blur(18px)',
           border: '1px solid rgba(255,255,255,.85)',
           boxShadow:
             '0 44px 90px -30px rgba(40,20,90,.45), 0 10px 26px rgba(17,20,45,.10), inset 0 1px 0 rgba(255,255,255,.9)',
@@ -60,15 +61,22 @@ export function HeroTicket() {
         }}
       >
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', borderRadius: 24 }}>
+          {/* Breite relativ zur Karte, sonst endet der Sweep bei fester px-Breite
+              je nach Kartenbreite an einer anderen Stelle. top/bottom ziehen den
+              Streifen über den Rand hinaus, damit die Schräge oben und unten
+              nicht als Ecke sichtbar wird. */}
           <div
             className="hero-v2-shimmer"
             style={{
               position: 'absolute',
-              top: 0,
-              bottom: 0,
-              width: 70,
+              top: '-20%',
+              bottom: '-20%',
+              left: 0,
+              width: '22%',
               background: 'linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent)',
-              animation: 'shimmerSweep 6s ease-in-out infinite',
+              transform: 'translateX(-140%) skewX(-18deg)',
+              willChange: 'transform',
+              animation: 'shimmerSweep 6s linear infinite',
             }}
           />
         </div>
