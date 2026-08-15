@@ -36,7 +36,8 @@ export const PRO_CSS = `
   .app {
     background:
       radial-gradient(1200px 520px at 12% -8%, oklch(0.32 0.10 285 / 0.30), transparent 62%),
-      radial-gradient(900px 420px at 92% 4%, oklch(0.30 0.08 240 / 0.18), transparent 60%),
+      /* Zweiter Schimmer auf der Magenta-Seite; Hue 240 war hier schlicht blau. */
+      radial-gradient(900px 420px at 92% 4%, oklch(0.30 0.08 310 / 0.18), transparent 60%),
       var(--surface-2);
   }
   .topbar {

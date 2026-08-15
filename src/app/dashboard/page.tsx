@@ -70,7 +70,8 @@ const PAGE_CSS = `
     width: 660px; height: 660px;
     background:
       radial-gradient(circle at 70% 40%, oklch(0.78 0.20 calc(var(--hue) + 40)) 0%, transparent 60%),
-      radial-gradient(circle at 40% 80%, oklch(0.80 0.18 calc(var(--hue) - 40)) 0%, transparent 60%);
+      /* Wie in globals.css: -40 ergab Hue 245 und damit einen blauen Schleier. */
+      radial-gradient(circle at 40% 80%, oklch(0.80 0.18 calc(var(--hue) - 12)) 0%, transparent 60%);
     animation: dashAuroraB 22s ease-in-out infinite alternate;
   }
   @keyframes dashAuroraA {
