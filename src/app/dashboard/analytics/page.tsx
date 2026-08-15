@@ -65,6 +65,8 @@ export default function ProDashboard() {
   const [customers, setCustomers] = useState<CustomersData | null>(null);
   const [loyalty, setLoyalty] = useState<LoyaltyData | null>(null);
   const [loadedAt, setLoadedAt] = useState<string | null>(null);
+  /** Fehlgeschlagene Auswertung sichtbar machen — sonst haengt die Seite still im Ladezustand. */
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const [drawer, setDrawer] = useState<'tier' | 'campaign' | null>(null);
@@ -134,9 +136,15 @@ export default function ProDashboard() {
       if (aRes.ok) setAnalytics((await aRes.json()) as AnalyticsData);
       if (cRes.ok) setCustomers((await cRes.json()) as CustomersData);
       if (lRes.ok) setLoyalty((await lRes.json()) as LoyaltyData);
+      const failed = [aRes, cRes, lRes].filter((r) => !r.ok);
+      setLoadError(failed.length > 0
+        ? `Auswertung konnte nicht geladen werden (HTTP ${failed.map((r) => r.status).join(', ')}).`
+        : null);
       setLoadedAt(new Date().toISOString());
     }
-    void load();
+    void load().catch((err: unknown) => {
+      if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err));
+    });
     return () => { cancelled = true; };
   }, [wallet, plan, range, token]);
 
@@ -249,12 +257,7 @@ export default function ProDashboard() {
 
           <div className="pro-head">
             <div className="hero">
-              <div className="eyebrow"><span className="pulse" /> Passly Pro</div>
-              <h1>Deine Gäste, <br /><span className="accent-line">richtig verstanden.</span></h1>
-              <p className="lead">
-                Analytics über alle Events, Kohorten deiner Stammgäste, Verkaufsprognosen
-                und dein eigenes Treueprogramm — alles an einem Ort.
-              </p>
+              <h1>Auswertung</h1>
             </div>
             {plan === 'pro' && (
               <div className="range-col">
@@ -335,6 +338,12 @@ export default function ProDashboard() {
                   <div className="live-dot" key={now}><i />Live · aktualisiert {relativeTime(loadedAt)}</div>
                 )}
               </div>
+
+              {loadError && (
+                <div className="card" style={{ padding: 18, marginBottom: 16, color: 'var(--bad)', fontSize: 13 }}>
+                  {loadError}
+                </div>
+              )}
 
               {tab === 'overview' && (
                 <OverviewTab

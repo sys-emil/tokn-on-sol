@@ -210,12 +210,7 @@ export default function PassesPage() {
         <div className="aurora" />
         <div className="container">
           <div className="hero">
-            <div className="eyebrow"><span className="pulse" /> Saisonpässe</div>
-            <h1>Ein Ticket, <br />die ganze Saison.</h1>
-            <p className="lead">
-              Ein Pass gilt für alle Termine, die du ihm zuordnest. Am Einlass wird er
-              pro Termin einmal eingelöst, danach ist er für den nächsten wieder gültig.
-            </p>
+            <h1>Saisonpässe</h1>
           </div>
 
           <section>

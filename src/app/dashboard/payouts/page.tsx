@@ -130,12 +130,7 @@ export default function PayoutsPage() {
         <div className="aurora" />
         <div className="container">
           <div className="hero">
-            <div className="eyebrow"><span className="pulse" /> Auszahlungen</div>
-            <h1>Dein Geld, <br />nachvollziehbar.</h1>
-            <p className="lead">
-              Jeder Verkauf wird dir automatisch überwiesen, sobald die Schutzfrist
-              deines Events abgelaufen ist, hier siehst du den Stand.
-            </p>
+            <h1>Auszahlungen</h1>
           </div>
 
           <section>

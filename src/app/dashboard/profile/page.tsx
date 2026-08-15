@@ -306,9 +306,6 @@ export default function OrganizerProfilePage() {
                 Öffentliches Profil
                 {profile?.is_verified && <VerifiedCheck size={20} title={profile.verified_label ?? 'Verifiziert'} />}
               </h1>
-              <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.6 }}>
-                So sehen dich Gäste auf deiner Veranstalter-Seite.
-              </p>
             </div>
             {handleTrimmed && handleValid && (
               <Link href={`/@${handleTrimmed}`} target="_blank" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>

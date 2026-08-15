@@ -34,7 +34,7 @@ const PAGE_CSS = `
     filter: blur(64px) saturate(1.1);
     /* Zurueckhaltender als frueher: die Hero-Sektion bringt inzwischen mit
        .hero-v2-bg eine eigene Farbgrafik mit, die darueber liegt. */
-    opacity: 0.6;
+    opacity: 0.34;
   }
   .aurora::before {
     left: 2%; top: 4%;
@@ -70,14 +70,14 @@ const PAGE_CSS = `
     width: 560px; height: 560px;
     left: -160px; top: 16%;
     background: radial-gradient(circle at 50% 50%, oklch(0.76 0.20 var(--hue)) 0%, transparent 68%);
-    opacity: 0.68;
+    opacity: 0.38;
     animation: glowFloatA 14s ease-in-out infinite alternate;
   }
   .glow-violet-2 {
     width: 480px; height: 480px;
     left: 8%; top: 76%;
     background: radial-gradient(circle at 50% 50%, oklch(0.77 0.18 calc(var(--hue) + 25)) 0%, transparent 68%);
-    opacity: 0.56;
+    opacity: 0.3;
     animation: glowFloatA 20s ease-in-out infinite alternate-reverse;
   }
   @keyframes glowFloatA {
@@ -107,9 +107,9 @@ const PAGE_CSS = `
   .hero-v2-bg {
     position: absolute; inset: 0; pointer-events: none;
     background:
-      radial-gradient(680px 420px at 76% -6%, oklch(0.80 0.14 300/.55), transparent 62%),
-      radial-gradient(560px 380px at 96% 46%, oklch(0.85 0.10 220/.45), transparent 65%),
-      radial-gradient(520px 320px at 58% 96%, oklch(0.90 0.08 330/.35), transparent 70%);
+      radial-gradient(680px 420px at 76% -6%, oklch(0.80 0.14 300/.30), transparent 62%),
+      radial-gradient(560px 380px at 96% 46%, oklch(0.85 0.10 220/.24), transparent 65%),
+      radial-gradient(520px 320px at 58% 96%, oklch(0.90 0.08 330/.20), transparent 70%);
     filter: blur(6px);
     /* Der dritte Verlauf sitzt auf 96% Hoehe und ist an der Unterkante noch
        fast voll deckend; overflow:hidden schnitte ihn mitten in der Farbe
@@ -125,16 +125,6 @@ const PAGE_CSS = `
     padding: 88px 64px 96px;
     max-width: 1280px; margin: 0 auto;
   }
-  .hero-v2-eyebrow {
-    display: inline-flex; align-items: center; gap: 8px;
-    font: 500 11.5px var(--font); letter-spacing: .09em;
-    text-transform: uppercase; color: var(--accent-ink);
-    background: rgba(255,255,255,.7);
-    border: 1px solid var(--accent-line);
-    padding: 5px 11px; border-radius: 7px;
-    margin-bottom: 20px; white-space: nowrap;
-  }
-  .hero-v2-eyebrow .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
   .hero-v2 h1 {
     margin: 0; font: 700 62px/1.03 var(--font);
     letter-spacing: -0.045em; color: var(--ink);
@@ -359,9 +349,6 @@ export default function Home() {
             <div className="hero-v2-bg" aria-hidden="true" />
             <div className="hero-v2-inner">
               <div>
-                <div className="hero-v2-eyebrow">
-                  <span className="pulse" />Ticketing für Veranstalter
-                </div>
                 <h1>
                   Deine Gäste kaufen bei dir.<br />
                   <span className="grad">Nicht bei uns.</span>

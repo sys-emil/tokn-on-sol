@@ -111,7 +111,6 @@ export default function Dashboard() {
   const [connectingStripe, setConnectingStripe] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [plan, setPlan] = useState<'free' | 'pro'>('free');
-  const [orgName, setOrgName] = useState<string | null>(null);
   const [orgVerified, setOrgVerified] = useState(false);
   const [orgVerifiedLabel, setOrgVerifiedLabel] = useState<string | null>(null);
   const [planCancelAtPeriodEnd, setPlanCancelAtPeriodEnd] = useState(false);
@@ -169,7 +168,6 @@ export default function Dashboard() {
         else if (!data.stripe_charges_enabled) setStripeStatus('pending');
         else setStripeStatus('connected');
         setPlan(data.plan === 'pro' ? 'pro' : 'free');
-        setOrgName(data.public_name?.trim() || null);
         setOrgVerified(Boolean(data.is_verified));
         setOrgVerifiedLabel(data.verified_label ?? null);
         setPlanPeriodEnd(data.plan_period_end ?? null);
@@ -249,7 +247,6 @@ export default function Dashboard() {
 
   const ownerWallet = solanaWalletAddress;
   const email = user?.email?.address ?? '';
-  const displayName = orgName || (email ? email.split('@')[0] : 'Organizer');
   const loadingEvents = !!ownerWallet && !eventsLoaded;
 
   const totalRevenueCents = events.reduce((a, e) => a + e.tickets_sold * e.price_eur, 0);
@@ -356,14 +353,12 @@ export default function Dashboard() {
               <div className="container">
 
                 <div className="hero">
-                  <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <span className="pulse" /> Willkommen zurück{displayName !== 'Organizer' ? `, ${displayName}` : ''}
-                    {orgVerified && <VerifiedCheck size={14} title={orgVerifiedLabel ?? 'Verifiziert'} />}
-                  </div>
-                  <h1>Deine Veranstaltungen <br />auf einen Blick.</h1>
-                  <p className="lead">
-                    Erstelle Tickets, teile sie per Link und prüfe den Einlass, alles fälschungssicher, ohne Papierchaos.
-                  </p>
+                  {/* Nur der Zweck der Seite, kein Werbetext: das Dashboard ist ein
+                      Arbeitsplatz, und der Veranstalter weiss, wo er ist. */}
+                  <h1 style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    Veranstaltungen
+                    {orgVerified && <VerifiedCheck size={18} title={orgVerifiedLabel ?? 'Verifiziert'} />}
+                  </h1>
                   <div className="row gap-2" style={{ marginTop: 22 }}>
                     <Link href="/dashboard/events/neu" className="btn primary lg">
                       <Icon name="plus" size={15} /> Veranstaltung erstellen

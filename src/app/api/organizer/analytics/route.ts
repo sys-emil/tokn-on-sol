@@ -263,6 +263,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // kommt über die Showcase herein (Direktlinks, Wiederverkauf, Warteliste),
   // deshalb die Vereinigung statt der ersten Stufe.
   const views = new Set([...stageCids.event_view, ...stageCids.shop_view]).size;
+  const viewsPrev = new Set([...stageCidsPrev.event_view, ...stageCidsPrev.shop_view]).size;
   const buyerCids = stageCids.purchase_completed;
   const funnel = FUNNEL_STAGES.map((s) => ({
     key: s.key,
@@ -383,7 +384,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       repeatShare: repeatShareOf(walletsCurrent),
       repeatSharePrev: repeatShareOf(walletsPrevious),
       conversion: share(buyerCids.size, views),
-      conversionPrev: share(stageCidsPrev.purchase_completed.size, stageCidsPrev.page_view.size),
+      conversionPrev: share(stageCidsPrev.purchase_completed.size, viewsPrev),
       views,
     },
     series: {

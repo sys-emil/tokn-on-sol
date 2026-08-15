@@ -100,7 +100,6 @@ export default function NewEventPage() {
             <div className="new-event-head">
               <Link href="/dashboard" className="back"><Icon name="chevronLeft" size={14} /> Dashboard</Link>
               <h1>Neue Veranstaltung</h1>
-              <p>Links siehst du sofort, wie dein Event bei den Gästen ankommt.</p>
             </div>
 
             {loading ? (
