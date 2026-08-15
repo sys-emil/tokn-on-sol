@@ -618,10 +618,17 @@ section + section { margin-top: 36px; }
 
 /* Badge medals; milestone tiles shared by /my-tickets and /collection.
    Per-badge color via --bh (hue from badgeMeta). */
-.badges-row { display: flex; flex-wrap: wrap; gap: 14px; }
+/* Selbstanpassendes Raster statt Flex mit fester Kachelbreite: die Reihe steht
+   einmal in einer schmalen Spalte (/my-tickets) und einmal ueber die volle
+   Seitenbreite (/collection). Mit 152px-Kacheln lief sie in der schmalen
+   Spalte ueber den Kartenrand hinaus. auto-fill loest das ohne Breakpoint. */
+.badges-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 14px;
+}
 .badge-tile {
   --bh: 285;
-  width: 152px;
   padding: 20px 14px 16px;
   text-align: center;
   position: relative;
@@ -853,8 +860,9 @@ section + section { margin-top: 36px; }
   .spark { display: none; }
   .kpi { padding: 16px 18px; }
   .kpi .value { font-size: 24px; }
-  .badges-row { gap: 10px; }
-  .badge-tile { width: calc(50% - 5px); }
+  .badges-row { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+  .badge-tile { padding: 16px 10px 14px; }
+  .badge-medal { width: 50px; height: 50px; font-size: 19px; }
 }
 
 /* Comfortable touch targets on touch devices (44pt guideline). */

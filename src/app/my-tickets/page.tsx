@@ -236,11 +236,44 @@ const PAGE_CSS = `
     border-radius: 10px; box-shadow: var(--shadow-sm);
   }
 
-  /* ── Vorteile ────────────────────────────────────────────── */
+  /* ── Vorteile + Abzeichen ────────────────────────────────── */
+  /* Mobil-zuerst eine Spalte. Nebeneinander lohnt sich erst, wenn beide
+     Karten mindestens ~430px breit werden — darunter quetscht die
+     Vorteilszeile Code und Knopf auf Briefmarkengroesse. */
+  .tk-rewards {
+    display: grid; grid-template-columns: minmax(0, 1fr);
+    gap: 16px; margin-top: 30px; align-items: stretch;
+  }
+  @media (min-width: 940px) {
+    .tk-rewards.is-split { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  }
+
+  /* Die Vorteilszeile richtet sich nach der Breite ihrer Karte, nicht nach
+     der des Fensters: dieselbe Karte steht mal ueber die volle Breite und
+     mal in der schmalen linken Spalte. */
+  .tk-perks-card { container-type: inline-size; }
+  /* Festes Raster statt flex-wrap: umgebrochen ist der Code zwar unter den
+     Text gerutscht, der senkrechte Trenner stand aber weiter daneben. Mit
+     drei Spalten gibt es diesen halb umgebrochenen Zwischenzustand nicht. */
   .tk-perk {
-    display: flex; align-items: center; gap: 14px; padding: 12px 14px;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center; gap: 14px; padding: 12px 14px;
     border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2);
-    flex-wrap: wrap;
+  }
+  .tk-perk-action {
+    text-align: right; padding-left: 14px;
+    border-left: 1px dashed var(--line-2);
+  }
+  @container (max-width: 380px) {
+    .tk-perk { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+    /* Gestapelt gehoert der Trenner nach oben; links stehend zeigte er
+       quer zur Leserichtung ins Leere. */
+    .tk-perk-action {
+      grid-column: 1 / -1; text-align: left;
+      padding-left: 0; padding-top: 12px;
+      border-left: none; border-top: 1px dashed var(--line-2);
+    }
+    .tk-perk-action .btn { width: 100%; }
   }
   .tk-perk-ic {
     width: 34px; height: 34px; flex: none; border-radius: 9px;
@@ -327,7 +360,7 @@ const PAGE_CSS = `
     outline: 2px solid oklch(0.56 0.20 var(--bh)); outline-offset: 2px;
   }
   .badge-slot {
-    width: 152px; text-align: center; color: var(--ink-4);
+    text-align: center; color: var(--ink-4);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 18px 12px;
   }
@@ -1353,9 +1386,9 @@ export default function MyTickets() {
 
                 {/* ── Vorteile + Abzeichen ──────────────────────── */}
                 {(loyalty.length > 0 || badges.length > 0 || progress?.nextMilestone || progress?.topOrganizer) && (
-                  <div style={{ display: 'grid', gridTemplateColumns: loyalty.length > 0 ? 'minmax(0, 1.1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap: 16, marginTop: 30, alignItems: 'stretch' }}>
+                  <div className={`tk-rewards${loyalty.length > 0 && (badges.length > 0 || progress?.nextMilestone || progress?.topOrganizer) ? ' is-split' : ''}`}>
                     {loyalty.length > 0 && (
-                      <div className="card" style={{ padding: '18px 20px' }}>
+                      <div className="card tk-perks-card" style={{ padding: '18px 20px' }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
                           <h2 style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Vorteile</h2>
                           <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Code am Einlass vorzeigen</span>
@@ -1367,7 +1400,7 @@ export default function MyTickets() {
                             return (
                               <div key={p.programId} className="tk-perk">
                                 <div className="tk-perk-ic"><Icon name="sparkle" size={17} /></div>
-                                <div style={{ flex: 1, minWidth: 160 }}>
+                                <div>
                                   <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.012em' }}>{p.benefitTitle}</div>
                                   <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 2 }}>
                                     von {p.organizerName}
@@ -1384,7 +1417,7 @@ export default function MyTickets() {
                                   )}
                                 </div>
                                 {p.qualified && (
-                                  <div style={{ textAlign: 'right', paddingLeft: 14, borderLeft: '1px dashed var(--line-2)' }}>
+                                  <div className="tk-perk-action">
                                     {p.claim ? (
                                       p.claim.redeemedAt ? (
                                         <span className="chip"><span className="d" />Eingelöst</span>
