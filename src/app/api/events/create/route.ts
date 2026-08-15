@@ -20,7 +20,7 @@ interface CreateEventBody {
   name: string;
   date: string;
   /** Optional start time "HH:MM" (24h). */
-  start_time?: string;
+  start_time?: string | null;
   /** Legacy single-price form; used when `tiers` is absent. */
   price_eur?: number;
   capacity?: number;
@@ -28,13 +28,13 @@ interface CreateEventBody {
   tiers?: TierInput[];
   is_private?: boolean;
   payout_hold_days?: number;
-  image_url?: string;
+  image_url?: string | null;
   /** Extra images for the showcase page /event/[id]; max 8, same storage gate as image_url. */
   gallery_urls?: string[];
-  venue?: string;
-  description?: string;
+  venue?: string | null;
+  description?: string | null;
   /** Long-form text on the showcase page; `description` stays the short teaser. */
-  long_description?: string;
+  long_description?: string | null;
   /** Organizer-chosen accent hue (0–360) for buyer-facing ticket cards. Free for all organizers. */
   accent_hue?: number | null;
   /** Pro-only card border preset. */
@@ -112,28 +112,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const capacity = tiers.reduce((sum, t) => sum + t.capacity, 0);
   const price_eur = Math.min(...tiers.map((t) => t.price_eur));
 
-  if (start_time !== undefined && (typeof start_time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(start_time))) {
+  // Optionale Felder kommen aus dem Editor als `null`, wenn sie leer sind (und
+  // das Titelbild wird durch `null` wieder entfernt). `null` ist hier also
+  // dasselbe wie "nicht gesetzt" — genau wie in /api/events/update.
+  if (start_time !== undefined && start_time !== null
+      && (typeof start_time !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(start_time))) {
     return NextResponse.json(
       { success: false, error: "start_time must be HH:MM (24h)" },
       { status: 400 }
     );
   }
 
-  if (venue !== undefined && (typeof venue !== "string" || venue.length > 200)) {
+  if (venue !== undefined && venue !== null && (typeof venue !== "string" || venue.length > 200)) {
     return NextResponse.json(
       { success: false, error: "venue must be a string of at most 200 characters" },
       { status: 400 }
     );
   }
 
-  if (description !== undefined && (typeof description !== "string" || description.length > 2000)) {
+  if (description !== undefined && description !== null
+      && (typeof description !== "string" || description.length > 2000)) {
     return NextResponse.json(
       { success: false, error: "description must be a string of at most 2000 characters" },
       { status: 400 }
     );
   }
 
-  if (long_description !== undefined
+  if (long_description !== undefined && long_description !== null
       && (typeof long_description !== "string" || long_description.length > MAX_LONG_DESCRIPTION)) {
     return NextResponse.json(
       { success: false, error: `long_description must be a string of at most ${MAX_LONG_DESCRIPTION} characters` },
@@ -169,7 +174,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Only URLs from our own upload endpoint end up in on-chain metadata.
-  if (image_url !== undefined && (typeof image_url !== "string" || !isOwnStorageUrl(image_url))) {
+  if (image_url !== undefined && image_url !== null
+      && (typeof image_url !== "string" || !isOwnStorageUrl(image_url))) {
     return NextResponse.json(
       { success: false, error: "image_url must come from /api/events/upload-image" },
       { status: 400 }

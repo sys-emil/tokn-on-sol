@@ -45,9 +45,7 @@ const PAGE_CSS = `
   .aurora::after {
     right: -4%; top: -10%;
     width: 860px; height: 860px;
-    background:
-      radial-gradient(circle at 70% 40%, oklch(0.78 0.22 calc(var(--hue) + 40)) 0%, transparent 62%),
-      radial-gradient(circle at 40% 80%, oklch(0.80 0.20 calc(var(--hue) - 40)) 0%, transparent 62%);
+    background: radial-gradient(circle at 70% 40%, oklch(0.78 0.22 calc(var(--hue) + 40)) 0%, transparent 62%);
     animation: auroraDriftB 20s ease-in-out infinite alternate;
   }
   @keyframes auroraDriftA {
@@ -58,7 +56,7 @@ const PAGE_CSS = `
     from { transform: translate3d(0, 0, 0); }
     to   { transform: translate3d(-48px, 18px, 0); }
   }
-  /* Blurry colour glows further down the page (violet + blue) */
+  /* Blurry colour glows further down the page (violet only) */
   .glow {
     position: absolute;
     border-radius: 50%;
@@ -75,13 +73,6 @@ const PAGE_CSS = `
     opacity: 0.68;
     animation: glowFloatA 14s ease-in-out infinite alternate;
   }
-  .glow-cool {
-    width: 600px; height: 600px;
-    right: -180px; top: 46%;
-    background: radial-gradient(circle at 50% 50%, oklch(0.78 0.18 calc(var(--hue) - 20)) 0%, transparent 68%);
-    opacity: 0.6;
-    animation: glowFloatB 18s ease-in-out infinite alternate;
-  }
   .glow-violet-2 {
     width: 480px; height: 480px;
     left: 8%; top: 76%;
@@ -92,10 +83,6 @@ const PAGE_CSS = `
   @keyframes glowFloatA {
     from { transform: translate3d(0, 0, 0) scale(1); }
     to   { transform: translate3d(36px, -24px, 0) scale(1.06); }
-  }
-  @keyframes glowFloatB {
-    from { transform: translate3d(0, 0, 0) scale(1); }
-    to   { transform: translate3d(-40px, 28px, 0) scale(1.05); }
   }
   @media (max-width: 640px) {
     .topbar .btn.subtle { display: none; }
@@ -365,7 +352,6 @@ export default function Home() {
           <ScrollReveal />
           <div className="aurora" aria-hidden="true" />
           <div className="glow glow-violet" aria-hidden="true" />
-          <div className="glow glow-cool" aria-hidden="true" />
           <div className="glow glow-violet-2" aria-hidden="true" />
 
           {/* Hero — 1:1 aus passly-hero.html, vollbreit außerhalb des Containers */}
