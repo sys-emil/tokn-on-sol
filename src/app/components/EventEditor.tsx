@@ -7,6 +7,7 @@ import { Icon, EventStyleFields } from '@/app/components/passlyUi';
 import { EventImagePicker } from '@/app/components/EventImagePicker';
 import { EventPreview } from '@/app/components/eventSurfaces/EventPreview';
 import type { PreviewDraft } from '@/app/components/eventSurfaces/EventPreview';
+import { minUnitPriceCentsFor, splitServiceFee, tooCheapForFeePayer, type FeePayer } from '@/lib/fees';
 
 /**
  * Event anlegen und bearbeiten mit Live-Vorschau.
@@ -44,6 +45,8 @@ export interface EventDraft {
   borderStyle: string | null;
   isPrivate: boolean;
   payoutHoldDays: string;
+  /** Wer die Servicegebuehr traegt; siehe splitServiceFee in src/lib/fees.ts. */
+  feePayer: FeePayer;
   resaleEnabled: boolean;
   resaleMaxMarkup: string;
   guestCheckout: boolean;
@@ -60,12 +63,15 @@ export const INITIAL_DRAFT: EventDraft = {
   name: '', date: '', startTime: '', venue: '', description: '', longDescription: '',
   tiers: [{ name: 'Standard', priceEur: '0', capacity: '100' }],
   imageUrl: null, galleryUrls: [], accentHue: null, borderStyle: null,
-  isPrivate: false, payoutHoldDays: '0', resaleEnabled: false, resaleMaxMarkup: '20',
+  isPrivate: false, payoutHoldDays: '0', feePayer: 'buyer',
+  resaleEnabled: false, resaleMaxMarkup: '20',
   guestCheckout: true, reentryEnabled: false, reentryCooldownMinutes: '2',
   queueEnabled: false, queueSlots: '50',
 };
 
 const MAX_TIERS = 5;
+
+const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 
 export function EventEditor({
   mode,
@@ -103,6 +109,37 @@ export function EventEditor({
 
   const anyPaid = draft.tiers.some((t) => (Number(t.priceEur) || 0) > 0);
 
+  /**
+   * Was der Gebuehren-Schalter konkret bedeutet, gerechnet an der guenstigsten
+   * bezahlten Kategorie — dort ist der Anteil relativ am groessten, und bei
+   * mehreren Kategorien waere eine Zahl ohne Bezug nicht nachvollziehbar.
+   */
+  const feeHint = (() => {
+    const paid = draft.tiers
+      .map((t) => ({ name: t.name.trim() || 'Standard', cents: Math.round((Number(t.priceEur) || 0) * 100) }))
+      .filter((t) => t.cents > 0)
+      .sort((a, b) => a.cents - b.cents);
+    const cheapest = paid[0];
+    if (!cheapest) return { text: '', thin: false };
+    const { buyerCents, organizerCents, totalCents } = splitServiceFee(cheapest.cents, draft.feePayer);
+    const net = cheapest.cents - organizerCents;
+    const named = paid.length > 1 ? ` Bei „${cheapest.name}“` : ' Davon';
+    if (draft.feePayer === 'buyer') {
+      return {
+        text: `Der Gast zahlt ${eur(totalCents)} pro Ticket obendrauf und damit ${eur(cheapest.cents + buyerCents)}.`
+          + ` Du bekommst die vollen ${eur(cheapest.cents)}.`,
+        thin: false,
+      };
+    }
+    const guestPays = `Der Gast zahlt ${eur(cheapest.cents + buyerCents)} pro Ticket`;
+    return {
+      text: draft.feePayer === 'organizer'
+        ? `${guestPays} – keine Gebühr obendrauf.${named} bleiben dir ${eur(net)}.`
+        : `${guestPays}, ${eur(organizerCents)} trägst du.${named} bleiben dir ${eur(net)}.`,
+      thin: net < cheapest.cents * 0.2,
+    };
+  })();
+
   /** Gemeinsame Pruefung beider Modi; gibt die geparsten Kategorien zurueck. */
   function validate(): { tiers: { id?: string; name: string; price_eur: number; capacity: number }[]; holdDays: number; markup: number; reentryCooldownSeconds: number } | null {
     const parsed = draft.tiers.map((t) => ({
@@ -132,6 +169,18 @@ export function EventEditor({
     const markup = Math.floor(Number(draft.resaleMaxMarkup));
     if (draft.resaleEnabled && (!Number.isInteger(markup) || markup < 0 || markup > 200)) {
       setError('Der maximale Aufpreis muss zwischen 0 und 200 % liegen.'); return null;
+    }
+    // Wer die Gebuehr traegt, muss zum Preis passen: ein Ticket, das billiger
+    // ist als der eigene Gebuehrenanteil, liesse dem Veranstalter nichts uebrig.
+    const priceCents = parsed.map((t) => Math.round(t.priceEurNum * 100));
+    const tooCheap = tooCheapForFeePayer(priceCents, draft.feePayer);
+    if (tooCheap !== null) {
+      const tier = parsed[priceCents.indexOf(tooCheap)];
+      const floor = eur(minUnitPriceCentsFor(draft.feePayer));
+      setError(draft.feePayer === 'organizer'
+        ? `Wenn du die Servicegebühr übernimmst, muss ein Ticket mindestens ${floor} kosten. „${tier.name}“ kostet ${eur(tooCheap)} – die Gebühr wäre höher als der Preis.`
+        : `Bei „Halbe/Halbe“ muss ein Ticket mindestens ${floor} kosten. „${tier.name}“ kostet ${eur(tooCheap)} – davon bliebe dir nichts.`);
+      return null;
     }
     const reentryCooldownSeconds = Math.round((Number(draft.reentryCooldownMinutes) || 0) * 60);
     if (draft.reentryEnabled && (reentryCooldownSeconds < 0 || reentryCooldownSeconds > 3600)) {
@@ -167,6 +216,7 @@ export function EventEditor({
         gallery_urls: draft.galleryUrls,
         is_private: draft.isPrivate,
         payout_hold_days: checked.holdDays,
+        fee_payer: draft.feePayer,
         resale_max_markup_pct: draft.resaleEnabled ? checked.markup : null,
         accent_hue: draft.accentHue,
         border_style: draft.borderStyle,
@@ -228,6 +278,7 @@ export function EventEditor({
     tiers: draft.tiers.map((t) => ({ name: t.name, priceEur: t.priceEur, capacity: t.capacity })),
     imageUrl: draft.imageUrl,
     galleryUrls: draft.galleryUrls,
+    feePayer: draft.feePayer,
     accentHue: draft.accentHue,
     borderStyle: draft.borderStyle,
     ticketsSold: draft.ticketsSold,
@@ -401,6 +452,23 @@ export function EventEditor({
                 {draft.isPrivate ? 'Nur über den direkten Link erreichbar.' : 'Erscheint in der öffentlichen Event-Liste.'}
               </span>
             </div>
+
+            {anyPaid && (
+              <div className="field">
+                <label>Servicegebühr (1,00 € + 4 % pro Ticket)</label>
+                <div className="seg">
+                  <button type="button" className={draft.feePayer === 'buyer' ? 'active' : ''} onClick={() => set('feePayer', 'buyer')} disabled={saving}>Gast zahlt</button>
+                  <button type="button" className={draft.feePayer === 'split' ? 'active' : ''} onClick={() => set('feePayer', 'split')} disabled={saving}>Halbe/Halbe</button>
+                  <button type="button" className={draft.feePayer === 'organizer' ? 'active' : ''} onClick={() => set('feePayer', 'organizer')} disabled={saving}>Ich übernehme</button>
+                </div>
+                <span className="hint">{feeHint.text}</span>
+                {feeHint.thin && (
+                  <span className="hint" style={{ color: 'var(--warn, #a16207)' }}>
+                    Bei diesem Preis bleibt dir kaum etwas übrig.
+                  </span>
+                )}
+              </div>
+            )}
 
             {anyPaid && (
               <div className="field">

@@ -6,6 +6,7 @@ import {
   claimWebhookEvent,
   computeAvailableAt,
   computeFeeSplit,
+  resolveFeeCents,
 } from "@/lib/payouts";
 import { serviceFeePerTicketCents, serviceFeeTotalCents } from "@/lib/fees";
 
@@ -101,6 +102,24 @@ describe("computeAvailableAt (payout hold period)", () => {
   });
 });
 
+describe("resolveFeeCents", () => {
+  it("takes a plausible fee straight from the metadata", () => {
+    expect(resolveFeeCents(5_400, 400)).toEqual({ feeCents: 400, source: "metadata" });
+    expect(resolveFeeCents(5_000, 0)).toEqual({ feeCents: 0, source: "metadata" });
+  });
+
+  it("falls back to the legacy 3% only when there is no usable metadata", () => {
+    expect(resolveFeeCents(5_000)).toEqual({ feeCents: 150, source: "legacy" });
+    expect(resolveFeeCents(5_000, null)).toEqual({ feeCents: 150, source: "legacy" });
+    expect(resolveFeeCents(5_000, -1)).toEqual({ feeCents: 150, source: "legacy" });
+    expect(resolveFeeCents(5_000, 12.5)).toEqual({ feeCents: 150, source: "legacy" });
+  });
+
+  it("clamps rather than reinterprets a fee above the gross", () => {
+    expect(resolveFeeCents(5_000, 6_000)).toEqual({ feeCents: 5_000, source: "clamped" });
+  });
+});
+
 describe("buildPayoutRow (from Stripe test-mode checkout session)", () => {
   // Shape taken from a Stripe test-mode checkout.session.completed event.
   const session = {
@@ -112,7 +131,7 @@ describe("buildPayoutRow (from Stripe test-mode checkout session)", () => {
 
   const now = new Date("2026-07-01T12:00:00Z");
 
-  it("uses the buyer-side service fee from the checkout metadata: organizer nets the full face price", () => {
+  it("buyer mode: the organizer nets the full face price", () => {
     // 2 × €25.00 face + 2 × €2.00 service fee (100 + 4% of 2500) = €54.00 gross
     const row = buildPayoutRow({
       session: { ...session, amount_total: 5_400 },
@@ -123,16 +142,63 @@ describe("buildPayoutRow (from Stripe test-mode checkout session)", () => {
       stripeAccountId: "acct_1Test",
       holdDays: 14,
       serviceFeeCents: 400,
+      buyerFeeCents: 400,
       now,
     });
     expect(row).toMatchObject({
       gross_cents: 5_400,
       fee_cents: 400,
+      buyer_fee_cents: 400,
       net_cents: 5_000,
     });
   });
 
-  it("ignores an implausible service fee (larger than gross) and falls back to the legacy split", () => {
+  it("organizer mode: the fee comes out of the face price, and the buyer paid none of it", () => {
+    // 2 × €25.00 is the whole charge; the €4.00 fee is the organizer's.
+    const row = buildPayoutRow({
+      session,
+      chargeId: "ch_3QTest123",
+      eventId: "evt-uuid",
+      eventDate: "2026-08-15",
+      organizerWallet: "So1anaWa11etXYZ",
+      stripeAccountId: "acct_1Test",
+      holdDays: 14,
+      serviceFeeCents: 400,
+      buyerFeeCents: 0,
+      now,
+    });
+    expect(row).toMatchObject({
+      gross_cents: 5_000,
+      fee_cents: 400,
+      buyer_fee_cents: 0,
+      net_cents: 4_600,
+    });
+  });
+
+  it("split mode: each side carries half", () => {
+    const row = buildPayoutRow({
+      session: { ...session, amount_total: 5_200 },
+      chargeId: "ch_3QTest123",
+      eventId: "evt-uuid",
+      eventDate: "2026-08-15",
+      organizerWallet: "So1anaWa11etXYZ",
+      stripeAccountId: "acct_1Test",
+      holdDays: 14,
+      serviceFeeCents: 400,
+      buyerFeeCents: 200,
+      now,
+    });
+    expect(row).toMatchObject({
+      gross_cents: 5_200,
+      fee_cents: 400,
+      buyer_fee_cents: 200,
+      net_cents: 4_800,
+    });
+  });
+
+  it("clamps a fee larger than gross instead of reinterpreting it as the legacy 3%", () => {
+    // Structurally impossible via splitServiceFee; a 3% fallback here would
+    // silently overpay the organizer under an absorbed fee.
     const row = buildPayoutRow({
       session,
       chargeId: "ch_3QTest123",
@@ -144,7 +210,7 @@ describe("buildPayoutRow (from Stripe test-mode checkout session)", () => {
       serviceFeeCents: 6_000,
       now,
     });
-    expect(row).toMatchObject({ gross_cents: 5_000, fee_cents: 150, net_cents: 4_850 });
+    expect(row).toMatchObject({ gross_cents: 5_000, fee_cents: 5_000, net_cents: 0 });
   });
 
   it("builds a complete legacy row (no service fee metadata) with 3% split and hold-based availability", () => {
@@ -167,6 +233,7 @@ describe("buildPayoutRow (from Stripe test-mode checkout session)", () => {
       stripe_account_id: "acct_1Test",
       gross_cents: 5_000,
       fee_cents: 150,
+      buyer_fee_cents: null,
       net_cents: 4_850,
       currency: "eur",
       available_at: "2026-08-29T00:00:00.000Z",

@@ -1,6 +1,7 @@
 /**
- * Buyer-side service fee: €1.00 + 4% per ticket, added on top of the face
- * price at checkout. The organizer receives 100% of the face price.
+ * Service fee: €1.00 + 4% per ticket. Who pays it is a per-event decision
+ * (`events.fee_payer`, see `splitServiceFee` below); by default the buyer does,
+ * on top of the face price, and the organizer receives 100% of it.
  *
  * Why base plus percentage: Stripe's processing cost is fixed-plus-percentage
  * (about €0.25 plus 1.5 to 2.9%), so a pure percentage loses money on cheap
@@ -29,6 +30,99 @@ export function serviceFeeTotalCents(unitPriceCents: number, quantity: number): 
     throw new Error(`quantity must be a positive integer, got ${quantity}`);
   }
   return serviceFeePerTicketCents(unitPriceCents) * quantity;
+}
+
+/**
+ * Who carries the service fee, decided per event by the organizer.
+ *
+ * - `buyer` — added on top of the face price (the default and the historical
+ *   behaviour; the organizer nets the full face price).
+ * - `split` — half each. The buyer's half is rounded down, so the odd cent
+ *   falls to the organizer.
+ * - `organizer` — the face price is the final price; the fee comes out of the
+ *   organizer's proceeds. This exists for organizers who advertise a round
+ *   door price and would rather calculate the fee into it.
+ */
+export type FeePayer = "buyer" | "split" | "organizer";
+
+export const FEE_PAYERS: readonly FeePayer[] = ["buyer", "split", "organizer"];
+
+export function isFeePayer(value: unknown): value is FeePayer {
+  return typeof value === "string" && (FEE_PAYERS as readonly string[]).includes(value);
+}
+
+export interface ServiceFeeSplit {
+  /** Added on top of the face price; what the buyer pays beyond the ticket. */
+  buyerCents: number;
+  /** Deducted from the organizer's proceeds. */
+  organizerCents: number;
+  /** The platform's take, always `serviceFeePerTicketCents(unitPriceCents)`. */
+  totalCents: number;
+}
+
+/**
+ * Split one ticket's service fee between buyer and organizer.
+ *
+ * The platform's take never changes with the mode — only who brings it. That
+ * is what keeps `payouts.net_cents = gross_cents − fee_cents` true in all three
+ * modes: gross is `unitPrice + buyerCents`, so `gross − total = unitPrice −
+ * organizerCents`, which is exactly what the organizer earns.
+ *
+ * **The organizer's share rolls over to the buyer when it would exceed the
+ * ticket price** (reachable through a deep discount code, since the fee is
+ * computed on the discounted price). Capping it without rolling over would
+ * either push the organizer's net below zero or make Passly eat the shortfall
+ * — i.e. fund somebody's guest list. Rolling over instead makes
+ * `unitPrice + buyerCents >= totalCents` structurally true, so a payout row can
+ * never book a fee larger than its gross.
+ */
+export function splitServiceFee(unitPriceCents: number, payer: FeePayer): ServiceFeeSplit {
+  const totalCents = serviceFeePerTicketCents(unitPriceCents);
+  if (totalCents === 0) return { buyerCents: 0, organizerCents: 0, totalCents: 0 };
+
+  const rawOrganizer = payer === "organizer"
+    ? totalCents
+    : payer === "split"
+      ? totalCents - Math.floor(totalCents / 2) // buyer floors, organizer carries the odd cent
+      : 0;
+  const organizerCents = Math.min(rawOrganizer, unitPriceCents);
+  return { buyerCents: totalCents - organizerCents, organizerCents, totalCents };
+}
+
+/**
+ * The organizer must keep at least this much per ticket. A zero-net payout row
+ * would mean a €0 Stripe transfer, which Stripe rejects.
+ */
+export const MIN_ORGANIZER_NET_CENTS = 1;
+
+/**
+ * Cheapest ticket price that still leaves the organizer something under the
+ * given mode: 0 for `buyer`, 52 cents for `split`, 105 cents for `organizer`.
+ *
+ * Searched rather than hardcoded so the numbers can't drift away from the fee
+ * formula if the fee ever changes.
+ */
+export function minUnitPriceCentsFor(payer: FeePayer): number {
+  if (payer === "buyer") return 0;
+  for (let price = 1; price <= 10_000; price++) {
+    const { organizerCents } = splitServiceFee(price, payer);
+    if (price - organizerCents >= MIN_ORGANIZER_NET_CENTS) return price;
+  }
+  // Unreachable for any sane fee schedule; better than returning a wrong floor.
+  throw new Error(`No viable minimum price for fee payer '${payer}'`);
+}
+
+/**
+ * First ticket price that is too cheap to carry its share of the fee under
+ * `payer`, or null when every price works. Free tiers are exempt (no fee).
+ *
+ * Shared by the event editor (German message) and the create/update routes
+ * (English message) so both refuse exactly the same events.
+ */
+export function tooCheapForFeePayer(pricesCents: number[], payer: FeePayer): number | null {
+  const floor = minUnitPriceCentsFor(payer);
+  if (floor === 0) return null;
+  return pricesCents.find((price) => price > 0 && price < floor) ?? null;
 }
 
 /**

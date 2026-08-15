@@ -416,7 +416,7 @@ export default function Dashboard() {
                         <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
                           {stripeStatus === 'pending'
                             ? 'Du kannst Events erstellen, aber bezahlte Ticketverkäufe bleiben deaktiviert, bis die Verifizierung abgeschlossen ist.'
-                            : 'Verbinde Stripe, um Einnahmen ausgezahlt zu bekommen. Du erhältst 100 % deines Ticketpreises, Käufer zahlen eine kleine Servicegebühr obendrauf.'}
+                            : 'Verbinde Stripe, um Einnahmen ausgezahlt zu bekommen. Pro Ticket fällt eine kleine Servicegebühr an; wer sie zahlt, legst du je Event fest.'}
                         </div>
                         {stripeError && (
                           <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>{stripeError}</div>

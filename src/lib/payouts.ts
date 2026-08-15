@@ -43,6 +43,12 @@ export type PayoutRow = {
   stripe_account_id: string | null;
   gross_cents: number;
   fee_cents: number;
+  /**
+   * The buyer's share of `fee_cents` (the rest was carried by the organizer,
+   * see `events.fee_payer`). NULL on rows written before that setting existed,
+   * which means the buyer paid all of it.
+   */
+  buyer_fee_cents: number | null;
   net_cents: number;
   currency: string;
   available_at: string;
@@ -95,13 +101,41 @@ export function computeAvailableAt(eventDate: string, holdDays: number, now: Dat
 }
 
 /**
+ * Decide what the platform keeps from a paid session.
+ *
+ * `serviceFeeCents` is the **full** service fee recorded in the session
+ * metadata at checkout creation, regardless of who paid it: the organizer's
+ * share is already missing from `grossCents`, so `net = gross − fee` holds in
+ * every `events.fee_payer` mode.
+ *
+ * Three outcomes, and the distinction matters:
+ * - `legacy` — no usable metadata, i.e. a session created before the buyer-side
+ *   fee existed. Only then is the old organizer-side 3% split correct.
+ * - `clamped` — metadata says the fee exceeds the gross. `splitServiceFee`
+ *   makes that structurally impossible, so it signals a bug; the fee is capped
+ *   at the gross rather than reinterpreted. Reinterpreting it as 3% would be a
+ *   real money error under an absorbed fee: the gross excludes the fee there,
+ *   so the organizer would be handed 97% *and* Passly would pay the fee itself.
+ * - `metadata` — the normal path.
+ */
+export function resolveFeeCents(
+  grossCents: number,
+  serviceFeeCents?: number | null,
+): { feeCents: number; source: "metadata" | "clamped" | "legacy" } {
+  const usable = typeof serviceFeeCents === "number"
+    && Number.isInteger(serviceFeeCents)
+    && serviceFeeCents >= 0;
+  if (!usable) return { feeCents: computeFeeSplit(grossCents).feeCents, source: "legacy" };
+  if (serviceFeeCents > grossCents) return { feeCents: grossCents, source: "clamped" };
+  return { feeCents: serviceFeeCents, source: "metadata" };
+}
+
+/**
  * Build the payouts-table row for a completed, paid checkout session.
  * Returns null for free sessions (nothing to pay out).
  *
- * `serviceFeeCents` is the buyer-side service fee recorded in the session
- * metadata at checkout creation: fee_cents = serviceFeeCents and the organizer
- * nets the full face price (gross − fee). Sessions without it (created before
- * the service fee existed) fall back to the legacy organizer-side 3% split.
+ * `serviceFeeCents` is the full platform take from the session metadata and
+ * `buyerFeeCents` the buyer's share of it; see `resolveFeeCents` above.
  */
 export function buildPayoutRow(params: {
   session: Pick<Stripe.Checkout.Session, "id" | "amount_total" | "currency" | "payment_intent">;
@@ -112,20 +146,16 @@ export function buildPayoutRow(params: {
   stripeAccountId: string | null;
   holdDays: number;
   serviceFeeCents?: number | null;
+  buyerFeeCents?: number | null;
   paymentMethod?: string | null;
   now?: Date;
 }): Omit<PayoutRow, "id" | "created_at" | "updated_at" | "transfer_id" | "dispute_id" | "failure_reason" | "status"> | null {
-  const { session, chargeId, eventId, eventDate, organizerWallet, stripeAccountId, holdDays, serviceFeeCents, paymentMethod, now } = params;
+  const { session, chargeId, eventId, eventDate, organizerWallet, stripeAccountId, holdDays, serviceFeeCents, buyerFeeCents, paymentMethod, now } = params;
   const grossCents = session.amount_total ?? 0;
   if (grossCents <= 0) return null;
 
-  const hasServiceFee = typeof serviceFeeCents === "number"
-    && Number.isInteger(serviceFeeCents)
-    && serviceFeeCents >= 0
-    && serviceFeeCents <= grossCents;
-  const { feeCents, netCents } = hasServiceFee
-    ? { feeCents: serviceFeeCents, netCents: grossCents - serviceFeeCents }
-    : computeFeeSplit(grossCents);
+  const { feeCents } = resolveFeeCents(grossCents, serviceFeeCents);
+  const netCents = grossCents - feeCents;
   return {
     stripe_session_id: session.id,
     payment_intent_id: typeof session.payment_intent === "string"
@@ -137,6 +167,9 @@ export function buildPayoutRow(params: {
     stripe_account_id: stripeAccountId,
     gross_cents: grossCents,
     fee_cents: feeCents,
+    buyer_fee_cents: typeof buyerFeeCents === "number" && Number.isInteger(buyerFeeCents)
+      ? Math.min(Math.max(0, buyerFeeCents), feeCents)
+      : null,
     net_cents: netCents,
     currency: session.currency ?? "eur",
     available_at: computeAvailableAt(eventDate, holdDays, now).toISOString(),

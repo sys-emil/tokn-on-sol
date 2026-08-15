@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { useEffect, useMemo, useState } from 'react';
+import type { FeePayer } from '@/lib/fees';
 
 interface TicketRow {
   assetId: string;
@@ -29,6 +30,7 @@ interface EventData {
   is_private: boolean;
   payout_hold_days: number;
   resale_max_markup_pct: number | null;
+  fee_payer: FeePayer | null;
   guest_checkout_enabled: boolean;
   queue_enabled: boolean;
   queue_slots: number;
@@ -439,6 +441,7 @@ export default function EventDetailPage() {
         description: event.description,
         isPrivate: event.is_private,
         payoutHoldDays: event.payout_hold_days ?? 0,
+        feePayer: event.fee_payer,
         resaleMaxMarkupPct: event.resale_max_markup_pct,
         accentHue: event.accent_hue,
         borderStyle: event.border_style,

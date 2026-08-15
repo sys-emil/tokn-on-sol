@@ -32,13 +32,15 @@ export interface ReceiptInput {
   productSubline: string | null;
   tierName: string | null;
   quantity: number;
-  /** Face price the organizer receives, per unit. */
+  /** Ticket price per unit, as advertised. */
   unitPriceCents: number;
-  /** Buyer-side service fee, total over all units. */
+  /** The share of the service fee the BUYER paid; 0 when the organizer carried it. */
   serviceFeeCents: number;
-  /** Face price total, i.e. the organizer's share. */
-  organizerNetCents: number;
-  /** What the order came to in total (organizer share + service fee). */
+  /** Ticket price total, i.e. what the line item comes to. */
+  faceTotalCents: number;
+  /** True when the organizer receives the whole ticket price (no share of the fee). */
+  organizerKeepsFace: boolean;
+  /** What the order came to in total (ticket total + the buyer's fee share). */
   totalCents: number;
   currency: string;
   paymentMethod: string | null;
@@ -61,7 +63,7 @@ export interface ReceiptInput {
 export async function loadReceiptInput(stripeSessionId: string): Promise<ReceiptInput | null> {
   const { data: payout } = await supabaseAdmin
     .from("payouts")
-    .select("stripe_session_id, event_id, season_pass_id, organizer_wallet, gross_cents, fee_cents, net_cents, currency, status, payment_method, skip_source_transaction, failure_reason, created_at")
+    .select("stripe_session_id, event_id, season_pass_id, organizer_wallet, gross_cents, fee_cents, buyer_fee_cents, net_cents, currency, status, payment_method, skip_source_transaction, failure_reason, created_at")
     .eq("stripe_session_id", stripeSessionId)
     .maybeSingle();
   if (!payout) return null;
@@ -119,6 +121,14 @@ export async function loadReceiptInput(stripeSessionId: string): Promise<Receipt
     : "Veranstalter";
 
   const netCents = payout.net_cents as number;
+  const grossCents = payout.gross_cents as number;
+  const feeCents = payout.fee_cents as number;
+  // NULL = row written before events.fee_payer existed, i.e. the buyer paid
+  // the whole fee. The ticket price is what is left of the charge once the
+  // buyer's fee share is taken out — deriving it from the organizer's net
+  // would print their yield as the ticket price whenever they carry the fee.
+  const buyerFeeCents = (payout.buyer_fee_cents as number | null) ?? feeCents;
+  const faceTotalCents = Math.max(0, grossCents - buyerFeeCents);
   const refundNote = payout.status === "refunded"
     ? "Diese Bestellung wurde vollständig erstattet."
     : typeof payout.failure_reason === "string" && payout.failure_reason.startsWith("Partially refunded")
@@ -134,10 +144,11 @@ export async function loadReceiptInput(stripeSessionId: string): Promise<Receipt
     productSubline,
     tierName: (tier?.name as string | undefined) ?? null,
     quantity,
-    unitPriceCents: Math.round(netCents / quantity),
-    serviceFeeCents: payout.fee_cents as number,
-    organizerNetCents: netCents,
-    totalCents: payout.gross_cents as number,
+    unitPriceCents: Math.round(faceTotalCents / quantity),
+    serviceFeeCents: buyerFeeCents,
+    faceTotalCents,
+    organizerKeepsFace: netCents >= faceTotalCents,
+    totalCents: grossCents,
     currency: (payout.currency as string | null) ?? "eur",
     paymentMethod: (payout.payment_method as string | null) ?? null,
     creditUsed: payout.skip_source_transaction === true,
@@ -318,7 +329,7 @@ export async function buildReceiptPdf(input: ReceiptInput): Promise<Uint8Array> 
   page.drawText(`${input.quantity} × ${itemLabel}`, {
     x: left, y, size: 11.5, font: semibold, color: INK, maxWidth: cardW - 2 * pad - 90,
   });
-  drawRight(page, money(input.organizerNetCents, input.currency), right, y, semibold, 11.5, INK);
+  drawRight(page, money(input.faceTotalCents, input.currency), right, y, semibold, 11.5, INK);
   y -= 14;
   const unitLine = `à ${money(input.unitPriceCents, input.currency)}`;
   page.drawText(
@@ -326,7 +337,12 @@ export async function buildReceiptPdf(input: ReceiptInput): Promise<Uint8Array> 
     { x: left, y, size: 9.5, font: regular, color: MUTED },
   );
   y -= 13;
-  page.drawText("geht an den Veranstalter", { x: left, y, size: 9, font: regular, color: FAINT });
+  // Only claim this where it is true: when the organizer carries part of the
+  // service fee, the ticket price is not what reaches them.
+  page.drawText(
+    input.organizerKeepsFace ? "geht an den Veranstalter" : "Leistung des Veranstalters",
+    { x: left, y, size: 9, font: regular, color: FAINT },
+  );
 
   if (input.serviceFeeCents > 0) {
     y -= 26;

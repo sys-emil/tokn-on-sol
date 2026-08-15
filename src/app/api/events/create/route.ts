@@ -8,6 +8,7 @@ import {
   MAX_LONG_DESCRIPTION,
 } from "@/lib/eventMetadata";
 import { DEFAULT_REENTRY_COOLDOWN_SECONDS, MAX_REENTRY_COOLDOWN_SECONDS } from "@/lib/reentry";
+import { isFeePayer, minUnitPriceCentsFor, tooCheapForFeePayer, type FeePayer } from "@/lib/fees";
 
 interface TierInput {
   name: string;
@@ -41,6 +42,8 @@ interface CreateEventBody {
   border_style?: string | null;
   /** Max resale markup over face value in percent (0–200). NULL/absent = resale disabled. */
   resale_max_markup_pct?: number | null;
+  /** Who carries the service fee: 'buyer' (default), 'split' or 'organizer'. */
+  fee_payer?: string;
   reentry_enabled?: boolean;
   reentry_cooldown_seconds?: number;
 }
@@ -95,7 +98,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, start_time, is_private, payout_hold_days, image_url, gallery_urls, venue, description, long_description, accent_hue, border_style, resale_max_markup_pct, reentry_enabled, reentry_cooldown_seconds } = body;
+  const { organizer_wallet, name, date, start_time, is_private, payout_hold_days, image_url, gallery_urls, venue, description, long_description, accent_hue, border_style, resale_max_markup_pct, reentry_enabled, reentry_cooldown_seconds, fee_payer } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -204,6 +207,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Who carries the service fee. A tier priced below the fee's own share would
+  // leave the organizer with nothing (or less than nothing), so the mode and
+  // the tier prices have to be checked against each other.
+  const feePayer: FeePayer = fee_payer === undefined ? "buyer" : (isFeePayer(fee_payer) ? fee_payer : "buyer");
+  if (fee_payer !== undefined && !isFeePayer(fee_payer)) {
+    return NextResponse.json(
+      { success: false, error: "fee_payer must be one of: buyer, split, organizer" },
+      { status: 400 }
+    );
+  }
+  const tooCheap = tooCheapForFeePayer(tiers.map((t) => t.price_eur), feePayer);
+  if (tooCheap !== null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `fee_payer '${feePayer}' requires every paid tier to cost at least `
+          + `${minUnitPriceCentsFor(feePayer)} cents (found ${tooCheap})`,
+      },
+      { status: 400 }
+    );
+  }
+
   // The caller must prove ownership of organizer_wallet via their Privy auth
   // token; otherwise anyone could create events in another organizer's name.
   if (!(await requestOwnsWallet(req, organizer_wallet))) {
@@ -252,6 +277,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         accent_hue: accent_hue ?? null,
         border_style: border_style ?? null,
         resale_max_markup_pct: resale_max_markup_pct ?? null,
+        fee_payer: feePayer,
         reentry_enabled: reentry_enabled === true,
         reentry_cooldown_seconds: reentryCooldown,
       })

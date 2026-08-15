@@ -9,7 +9,7 @@ import { ShowcaseHero, ShowcaseArt, SHOWCASE_HERO_CSS } from '@/app/components/e
 import { eventHue } from '@/app/components/eventSurfaces/EventCard';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { getT } from '@/lib/i18nServer';
-import { serviceFeePerTicketCents } from '@/lib/fees';
+import { isFeePayer, splitServiceFee, type FeePayer } from '@/lib/fees';
 import type { Lang } from '@/lib/i18n';
 import EventTabs, { Gallery } from './EventTabs';
 import type { TabPanel } from './EventTabs';
@@ -345,6 +345,13 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
 
   const prices = tierViews.map((tv) => tv.priceEur);
   const minPrice = prices.length > 0 ? Math.min(...prices) : event.price_eur;
+  // With an absorbed fee the ticket price already is the final price, so the
+  // "plus fee" note would be wrong rather than merely superfluous.
+  const feePayer: FeePayer = isFeePayer(event.fee_payer) ? event.fee_payer : 'buyer';
+  const buyerFeeCents = splitServiceFee(minPrice, feePayer).buyerCents;
+  const feeLabel = buyerFeeCents > 0
+    ? t('showcase.feeNote', { fee: money(buyerFeeCents, lang) })
+    : t('showcase.allIn');
   const uniformPrice = prices.length > 0 && prices.every((p) => p === minPrice);
   const priceLabel = minPrice === 0 && uniformPrice
     ? t('common.free')
@@ -430,9 +437,7 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
               <div className="p">{tv.priceEur === 0 ? t('common.free') : money(tv.priceEur, lang)}</div>
             </div>
           ))}
-          {minPrice > 0 && (
-            <div className="sc-fee">{t('showcase.feeNote', { fee: money(serviceFeePerTicketCents(minPrice), lang) })}</div>
-          )}
+          {minPrice > 0 && <div className="sc-fee">{feeLabel}</div>}
           {buyable && (
             <Link href={`/shop/${event.id}`} className="sc-tickets-cta btn primary lg">
               {t('showcase.getTickets')} <Icon name="arrow" size={16} />
@@ -471,7 +476,7 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
             organizerVerifiedLabel={organizerVerifiedLabel}
             verifiedLabel={t('shop.verified')}
             priceLabel={priceLabel}
-            feeLabel={minPrice > 0 ? t('showcase.feeNote', { fee: money(serviceFeePerTicketCents(minPrice), lang) }) : null}
+            feeLabel={minPrice > 0 ? feeLabel : null}
             trustLabel={t('shop.trust')}
             backLabel={t('showcase.backToEvents')}
             ctaLabel={buyable ? t('showcase.getTickets') : t('showcase.soldOut')}

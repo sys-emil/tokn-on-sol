@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@/app/components/passlyUi';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { BoxOffice } from './BoxOffice';
+import type { FeePayer } from '@/lib/fees';
 import {
   countInside,
   loadPending,
@@ -281,6 +282,7 @@ export default function DoormanPage() {
   // Kept in state, not read off the ref: the box office has to re-render when
   // the snapshot brings new price categories.
   const [tiers, setTiers] = useState<SnapshotTier[]>([]);
+  const [feePayer, setFeePayer] = useState<FeePayer>('buyer');
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [conflictCount, setConflictCount] = useState(0);
   const [nowTs, setNowTs] = useState(() => Date.now());
@@ -327,6 +329,7 @@ export default function DoormanPage() {
       // Snapshots cached before the box office existed carry no tiers; the
       // next online refresh fills them in.
       setTiers(snapshotRef.current.tiers ?? []);
+      setFeePayer(snapshotRef.current.feePayer ?? 'buyer');
       setReentry(snapshotRef.current.reentry ?? null);
       setInsideCount(countInside(snapshotRef.current, localScansRef.current));
     }
@@ -350,6 +353,7 @@ export default function DoormanPage() {
     snapshotRef.current = snap;
     saveSnapshot(eventId, snap);
     setTiers(snap.tiers ?? []);
+    setFeePayer(snap.feePayer ?? 'buyer');
     setSnapshotReady(true);
     setReentry(snap.reentry ?? null);
     setInsideCount(countInside(snap, localScansRef.current));
@@ -774,6 +778,7 @@ export default function DoormanPage() {
             <BoxOffice
               eventId={eventId}
               tiers={tiers}
+              feePayer={feePayer}
               authHeaders={doorAuthHeaders}
               onSold={() => { void refreshSnapshot(); }}
             />

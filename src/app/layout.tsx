@@ -13,12 +13,12 @@ const siteUrl = process.env.APP_URL
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'Passly: Fälschungssichere Tickets für dein Event',
-  description: 'Tickets, die man nicht fälschen kann. Passly ist das Ticketsystem für Veranstalter: 100 % des Ticketpreises, Einlass mit dem Handy, ohne Fixkosten.',
+  description: 'Tickets, die man nicht fälschen kann. Passly ist das Ticketsystem für Veranstalter: keine Fixkosten, Einlass mit dem Handy, und du entscheidest, wer die Servicegebühr zahlt.',
   openGraph: {
     type: 'website',
     siteName: 'Passly',
     title: 'Passly: Fälschungssichere Tickets für dein Event',
-    description: 'Tickets, die man nicht fälschen kann. Kaufen, anmelden, reingehen, oder als Veranstalter: 100 % des Ticketpreises, ohne Fixkosten.',
+    description: 'Tickets, die man nicht fälschen kann. Kaufen, anmelden, reingehen, oder als Veranstalter: ohne Fixkosten verkaufen.',
     images: ['/icon-512.png'],
   },
   twitter: {

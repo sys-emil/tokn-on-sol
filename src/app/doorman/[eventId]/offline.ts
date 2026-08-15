@@ -1,5 +1,6 @@
 import bs58 from 'bs58';
 import { backupChallenge } from '@/lib/backupChallenge';
+import type { FeePayer } from '@/lib/fees';
 
 export interface BackupPersonView {
   firstName: string;
@@ -57,6 +58,8 @@ export interface Snapshot {
   tickets: SnapshotTicket[];
   /** Absent in snapshots cached before the box office existed. */
   tiers?: SnapshotTier[];
+  /** Absent in caches written before the fee split existed; 'buyer' was the rule then. */
+  feePayer?: FeePayer;
   /** Absent in snapshots cached before re-entry existed; off is the default. */
   reentry?: SnapshotReentry;
 }

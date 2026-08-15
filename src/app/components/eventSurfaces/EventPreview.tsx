@@ -6,7 +6,7 @@ import { ShowcaseHero, ShowcaseArt, SHOWCASE_HERO_CSS } from './ShowcaseHero';
 import { eventCardView } from '@/lib/eventCardView';
 import type { CardLabel } from '@/lib/eventCardView';
 import { isVipTier } from '@/lib/tier';
-import { serviceFeePerTicketCents } from '@/lib/fees';
+import { splitServiceFee, type FeePayer } from '@/lib/fees';
 import { t as translate } from '@/lib/i18n';
 import { Icon } from '@/app/components/passlyUi';
 
@@ -44,6 +44,8 @@ export interface PreviewDraft {
   galleryUrls: string[];
   accentHue: number | null;
   borderStyle: string | null;
+  /** Wer die Servicegebuehr traegt; bestimmt, was der Gast im Warenkorb sieht. */
+  feePayer: FeePayer;
   /** Im Bearbeiten-Modus die echten Zahlen, beim Anlegen 0. */
   ticketsSold?: number;
   ticketsReserved?: number;
@@ -79,6 +81,7 @@ export function EventPreview({ draft }: { draft: PreviewDraft }) {
   const capacity = draft.tiers.reduce((sum, t) => sum + capacityOf(t), 0);
   const prices = draft.tiers.map(priceCents);
   const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+  const buyerFeeCents = splitServiceFee(minPrice, draft.feePayer).buyerCents;
   const uniform = prices.length > 0 && prices.every((p) => p === minPrice);
   const free = minPrice === 0 && uniform;
   const priceLabel = free ? 'Kostenlos' : `${uniform ? '' : 'ab '}${eur(minPrice)}`;
@@ -161,7 +164,9 @@ export function EventPreview({ draft }: { draft: PreviewDraft }) {
             verifiedLabel="Geprüft"
             organizerName="Dein Profil"
             priceLabel={priceLabel}
-            feeLabel={minPrice > 0 ? `zzgl. ${eur(serviceFeePerTicketCents(minPrice))} Servicegebühr pro Ticket` : null}
+            feeLabel={minPrice > 0
+              ? (buyerFeeCents > 0 ? `zzgl. ${eur(buyerFeeCents)} Servicegebühr pro Ticket` : 'inkl. aller Gebühren pro Ticket')
+              : null}
             trustLabel="Jedes Ticket ist einzigartig und fälschungssicher."
             backLabel="Alle Events"
             backHref={null}
@@ -213,7 +218,7 @@ export function EventPreview({ draft }: { draft: PreviewDraft }) {
               <div className="epv-shoprow">
                 <span className="k">
                   Ticketpreis
-                  {minPrice > 0 && <span className="sub">zzgl. Servicegebühr</span>}
+                  {minPrice > 0 && <span className="sub">{buyerFeeCents > 0 ? 'zzgl. Servicegebühr' : 'inkl. aller Gebühren'}</span>}
                 </span>
                 <span className="v big">{priceLabel}</span>
               </div>

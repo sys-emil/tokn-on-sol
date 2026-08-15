@@ -3,7 +3,7 @@ import { after } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
-import { buildPayoutRow, claimWebhookEvent, computeAvailableAt, computeFeeSplit } from "@/lib/payouts";
+import { buildPayoutRow, claimWebhookEvent, computeAvailableAt, computeFeeSplit, resolveFeeCents } from "@/lib/payouts";
 import { subscriptionPlanFromStatus } from "@/lib/subscription";
 import { processMintJobs } from "@/lib/mintJobs";
 import { sendAdminAlert } from "@/lib/email";
@@ -298,7 +298,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { data: payout } = await supabaseAdmin
       .from("payouts")
-      .select("id, status, stripe_session_id, event_id, currency, gross_cents, fee_cents")
+      .select("id, status, stripe_session_id, event_id, currency, gross_cents, fee_cents, buyer_fee_cents")
       .eq("charge_id", charge.id)
       .maybeSingle();
 
@@ -383,11 +383,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               return { feeCents: fee, netCents: remainingCents - fee };
             })()
           : computeFeeSplit(remainingCents);
+        // The buyer's share has to shrink with the same ratio, or the receipt
+        // would derive a wrong ticket price from `gross − buyer_fee_cents`.
+        const buyerFeeCents = payout.buyer_fee_cents == null
+          ? null
+          : payout.gross_cents > 0
+            ? Math.min(feeCents, Math.round((remainingCents * payout.buyer_fee_cents) / payout.gross_cents))
+            : 0;
         const { error: payoutError } = await supabaseAdmin
           .from("payouts")
           .update({
             gross_cents: remainingCents,
             fee_cents: feeCents,
+            buyer_fee_cents: buyerFeeCents,
             net_cents: netCents,
             failure_reason: `Partially refunded (${charge.amount_refunded} of ${charge.amount} ${payout.currency})`,
             updated_at: now,
@@ -552,12 +560,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         .eq("wallet_address", event.organizer_wallet)
         .maybeSingle();
 
-      // Buyer-side service fee recorded at checkout creation; absent on
-      // sessions from before the fee existed → legacy 3% split inside
-      // buildPayoutRow.
+      // Service fee recorded at checkout creation: `serviceFeeCents` is the
+      // full platform take, `buyerFeeCents` the share contained in the charge
+      // (the rest came out of the organizer's price, see events.fee_payer).
+      // Both absent on sessions from before their time → legacy 3% split.
       const serviceFeeRaw = session.metadata?.serviceFeeCents;
       const serviceFeeCents = serviceFeeRaw != null && /^\d+$/.test(serviceFeeRaw)
         ? parseInt(serviceFeeRaw, 10)
+        : null;
+      const buyerFeeRaw = session.metadata?.buyerFeeCents;
+      const buyerFeeCents = buyerFeeRaw != null && /^\d+$/.test(buyerFeeRaw)
+        ? parseInt(buyerFeeRaw, 10)
         : null;
 
       let payoutRow:
@@ -566,11 +579,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         | null;
 
       if (creditAppliedCents > 0) {
-        // Rebuild the row against the notional gross so the organizer nets the
-        // full face value regardless of how much credit the buyer burned.
-        const feeCents = serviceFeeCents != null && serviceFeeCents >= 0 && serviceFeeCents <= notionalGross
-          ? serviceFeeCents
-          : computeFeeSplit(notionalGross).feeCents;
+        // Rebuild the row against the notional gross so the organizer is paid
+        // off the full price regardless of how much credit the buyer burned.
+        const { feeCents } = resolveFeeCents(notionalGross, serviceFeeCents);
         payoutRow = {
           stripe_session_id: session.id,
           payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
@@ -580,6 +591,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           stripe_account_id: (organizer?.stripe_account_id as string | null) ?? null,
           gross_cents: notionalGross,
           fee_cents: feeCents,
+          buyer_fee_cents: buyerFeeCents != null ? Math.min(buyerFeeCents, feeCents) : null,
           net_cents: notionalGross - feeCents,
           currency: session.currency ?? "eur",
           available_at: computeAvailableAt(event.date, event.payout_hold_days ?? 0).toISOString(),
@@ -597,6 +609,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           stripeAccountId: (organizer?.stripe_account_id as string | null) ?? null,
           holdDays: event.payout_hold_days ?? 0,
           serviceFeeCents,
+          buyerFeeCents,
         });
       }
       if (payoutRow) {
@@ -738,9 +751,9 @@ async function handlePassCompleted(session: Stripe.Checkout.Session): Promise<vo
     const parsedFee = serviceFeeRaw != null && /^\d+$/.test(serviceFeeRaw)
       ? parseInt(serviceFeeRaw, 10)
       : null;
-    const feeCents = parsedFee != null && parsedFee <= grossCents
-      ? parsedFee
-      : computeFeeSplit(grossCents).feeCents;
+    // A season pass has no event, so `events.fee_payer` does not apply to it:
+    // the buyer always carries the whole fee here (v1).
+    const { feeCents } = resolveFeeCents(grossCents, parsedFee);
 
     const { error: payoutError } = await supabaseAdmin.from("payouts").upsert(
       {

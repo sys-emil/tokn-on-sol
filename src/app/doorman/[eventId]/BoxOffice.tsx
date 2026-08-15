@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { serviceFeePerTicketCents } from '@/lib/fees';
+import { splitServiceFee, type FeePayer } from '@/lib/fees';
 import type { SnapshotTier } from './offline';
 
 interface Props {
   eventId: string;
   tiers: SnapshotTier[];
+  /** events.fee_payer from the snapshot; decides the guest's share of the fee. */
+  feePayer?: FeePayer;
   authHeaders: () => Promise<Record<string, string>>;
   onSold: () => void;
 }
@@ -23,16 +25,17 @@ const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'c
  * because the guest is standing there and scanning a code you just handed them
  * would be theatre.
  *
- * The amount to collect is the **online total**: face price plus the same
- * service fee an online buyer pays. A cheaper door would slowly move the whole
- * sale to the evening. The fee share is subtracted from the organizer's next
- * online payout, which is why it's shown as its own line rather than folded
- * silently into the price.
+ * The amount to collect is the **online total**: face price plus whatever share
+ * of the service fee an online buyer pays for this event (`events.fee_payer`).
+ * A cheaper door would slowly move the whole sale to the evening. Passly's own
+ * take doesn't change with that setting — it is always subtracted from the
+ * organizer's next online payout — which is why the guest's share is shown as
+ * its own line rather than folded silently into the price.
  *
  * Needs connectivity: capacity and minting are server-side. Offline scanning
  * keeps working, only selling doesn't.
  */
-export function BoxOffice({ eventId, tiers, authHeaders, onSold }: Props) {
+export function BoxOffice({ eventId, tiers, feePayer = 'buyer', authHeaders, onSold }: Props) {
   const [open, setOpen] = useState(false);
   const [tierId, setTierId] = useState(tiers[0]?.id ?? '');
   const [quantity, setQuantity] = useState(1);
@@ -44,7 +47,9 @@ export function BoxOffice({ eventId, tiers, authHeaders, onSold }: Props) {
 
   const tier = tiers.find((t) => t.id === tierId) ?? tiers[0];
   const faceTotal = tier ? tier.priceCents * quantity : 0;
-  const feeTotal = tier ? serviceFeePerTicketCents(tier.priceCents) * quantity : 0;
+  // Only the guest's share is collected at the door; the organizer's share (if
+  // they chose to carry it) comes off their payout, exactly as it does online.
+  const feeTotal = tier ? splitServiceFee(tier.priceCents, feePayer).buyerCents * quantity : 0;
   const total = faceTotal + feeTotal;
 
   async function sell(): Promise<void> {
@@ -133,6 +138,12 @@ export function BoxOffice({ eventId, tiers, authHeaders, onSold }: Props) {
                 Gleicher Preis wie im Onlineshop. Die Servicegebühr ziehen wir von
                 der nächsten Auszahlung ab.
               </div>
+            </div>
+          )}
+          {feeTotal === 0 && faceTotal > 0 && (
+            <div className="bo-hint">
+              Gleicher Preis wie im Onlineshop: {eur(total)}. Die Servicegebühr
+              trägst du und wir ziehen sie von der nächsten Auszahlung ab.
             </div>
           )}
 

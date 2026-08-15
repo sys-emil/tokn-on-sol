@@ -6,7 +6,7 @@ import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 import { getOperatorWalletAddress } from "@/lib/transfer";
 import { processMintJobs } from "@/lib/mintJobs";
 import { ensureGuestOrder } from "@/lib/guestOrders";
-import { serviceFeePerTicketCents } from "@/lib/fees";
+import { isFeePayer, splitServiceFee, type FeePayer } from "@/lib/fees";
 import { sendAdminAlert } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { data: event } = await supabaseAdmin
     .from("events")
-    .select("id, organizer_wallet, name, date, cancelled_at")
+    .select("id, organizer_wallet, name, date, cancelled_at, fee_payer")
     .eq("id", eventId)
     .maybeSingle();
   if (!event) {
@@ -156,13 +156,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: jobError.message }, { status: 500 });
   }
 
-  // The buyer-side service fee the guest just paid in cash. It sat in the
-  // organizer's till, so we record it as owed and the payout cron subtracts it
-  // from their next transfer. Booked after the sale is final: at this point the
-  // ticket exists, and failing the request would make the door retry and sell
-  // the seat twice. A lost fee row is money we don't collect, never a wrong
-  // ticket — so it alerts instead of throwing.
-  const feePerTicket = serviceFeePerTicketCents(tier.price_eur);
+  // The service fee for this sale. Passly's take is the same whoever carries
+  // it, so the FULL amount is booked as owed and the payout cron subtracts it
+  // from the organizer's next transfer; only the guest's cash total moves with
+  // the mode. Booked after the sale is final: at this point the ticket exists,
+  // and failing the request would make the door retry and sell the seat twice.
+  // A lost fee row is money we don't collect, never a wrong ticket — so it
+  // alerts instead of throwing.
+  const feePayer: FeePayer = isFeePayer(event.fee_payer) ? event.fee_payer : "buyer";
+  const { buyerCents: buyerFeePerTicket, totalCents: feePerTicket } = splitServiceFee(tier.price_eur, feePayer);
   const feeTotal = feePerTicket * quantity;
   if (feeTotal > 0) {
     const { error: feeError } = await supabaseAdmin.from("platform_fees_due").insert({
@@ -212,11 +214,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     quantity,
     tierName: tier.name,
     priceCents: tier.price_eur,
-    // What the door actually collects: face price plus the same service fee an
-    // online buyer pays. `feeCents` is the part owed back to Passly.
+    // What the door actually collects: face price plus whatever share of the
+    // service fee an online buyer would pay for this event. `feeCents` is the
+    // full fee owed back to Passly, which can be more than the guest paid.
     feeCents: feeTotal,
+    buyerFeeCents: buyerFeePerTicket * quantity,
     faceTotalCents: tier.price_eur * quantity,
-    totalCents: (tier.price_eur + feePerTicket) * quantity,
+    totalCents: (tier.price_eur + buyerFeePerTicket) * quantity,
     admitted: admitNow,
     orderToken,
   });

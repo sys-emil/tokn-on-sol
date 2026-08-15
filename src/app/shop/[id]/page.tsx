@@ -8,6 +8,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, VerifiedCheck } from '@/app/components/passlyUi';
 import ShopClient from './ShopClient';
 import type { TierView } from './ShopClient';
+import { isFeePayer, splitServiceFee, type FeePayer } from '@/lib/fees';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -221,6 +222,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
 
   const prices = tierViews.map((t) => t.priceEur);
   const minPrice = prices.length > 0 ? Math.min(...prices) : event.price_eur;
+  const feePayer: FeePayer = isFeePayer(event.fee_payer) ? event.fee_payer : 'buyer';
   const uniformPrice = prices.length > 0 && prices.every((p) => p === minPrice);
   const priceFormatted = minPrice === 0 && uniformPrice
     ? 'Kostenlos'
@@ -280,7 +282,9 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
               <span className="label">
                 Ticketpreis
                 {minPrice > 0 && (
-                  <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>zzgl. Servicegebühr</span>
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>
+                    {splitServiceFee(minPrice, feePayer).buyerCents > 0 ? 'zzgl. Servicegebühr' : 'inkl. aller Gebühren'}
+                  </span>
                 )}
               </span>
               <span className="value big">{priceFormatted}</span>
@@ -353,6 +357,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
                 waitlistEnabled={waitlistEnabled}
                 guestAllowed={event.guest_checkout_enabled !== false}
                 queueEnabled={event.queue_enabled === true}
+                feePayer={feePayer}
               />
             )}
           </div>

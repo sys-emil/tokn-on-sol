@@ -7,7 +7,7 @@ import { ScrollReveal } from '@/app/components/ScrollReveal';
 export const metadata: Metadata = {
   title: 'Für Veranstalter · Passly',
   description:
-    'Event anlegen, fälschungssichere Tickets verkaufen, mit dem Handy einlassen und 100 % des Ticketpreises behalten. So funktioniert Passly für Veranstalter.',
+    'Event anlegen, fälschungssichere Tickets verkaufen, mit dem Handy einlassen — ohne Fixkosten, und du entscheidest, wer die Servicegebühr zahlt. So funktioniert Passly für Veranstalter.',
 };
 
 const PAGE_CSS = `
@@ -298,8 +298,8 @@ export default function FuerVeranstalterPage() {
               <p className="lead">
                 Passly ist dein komplettes Ticketsystem: Event anlegen, Tickets
                 verkaufen, Einlass mit dem Handy, fälschungssicher und ohne
-                Fixkosten. Die Servicegebühr zahlen deine Gäste transparent
-                obendrauf, nicht du.
+                Fixkosten. Die Servicegebühr zahlen standardmäßig deine Gäste
+                transparent obendrauf; du kannst sie aber auch selbst übernehmen.
               </p>
               <div className="hero-ctas">
                 <Link href="/become-organizer" className="btn primary lg">
@@ -406,22 +406,23 @@ export default function FuerVeranstalterPage() {
               <div className="section-head" data-reveal>
                 <div>
                   <h2>Was es kostet</h2>
-                  <div className="sub">Kurz gesagt: dich nichts</div>
+                  <div className="sub">Kurz gesagt: keine Fixkosten</div>
                 </div>
               </div>
               <div className="pricing" data-reveal>
                 <div className="pricing-main">
-                  <div className="big">100&nbsp;%</div>
-                  <div className="big-sub">des Ticketpreises gehören dir</div>
+                  <div className="big">0&nbsp;€</div>
+                  <div className="big-sub">Grundgebühr, dauerhaft</div>
                   <p>
-                    Keine Einrichtungskosten, keine monatliche Gebühr, kein Abzug vom
-                    Ticketpreis. Deine Gäste zahlen pro Ticket eine Servicegebühr von
-                    1&nbsp;€ plus 4&nbsp;%, transparent im Warenkorb ausgewiesen.
-                    Kostenlose Events sind komplett kostenlos, für alle.
+                    Keine Einrichtungskosten, keine monatliche Gebühr, kein prozentualer
+                    Anteil am Ticketpreis. Pro Ticket fällt eine Servicegebühr von
+                    1&nbsp;€ plus 4&nbsp;% an; standardmäßig zahlt sie dein Gast
+                    transparent im Warenkorb, du kannst sie je Event aber auch teilen
+                    oder übernehmen. Kostenlose Events sind komplett kostenlos, für alle.
                   </p>
                 </div>
                 <div className="pricing-example" aria-label="Beispielrechnung">
-                  <div className="cap">Beispiel: Ticket für 20 €</div>
+                  <div className="cap">Beispiel: 20 € Ticket, Gast zahlt die Gebühr</div>
                   <div className="row">
                     <span>Dein Ticketpreis</span>
                     <span className="val">20,00&nbsp;€</span>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireProOrganizer } from "@/lib/plan";
+import { isFeePayer, splitServiceFee, type FeePayer } from "@/lib/fees";
 import {
   DAY_MS,
   channelFromReferrer,
@@ -120,7 +121,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .in("event_id", eventIds),
     supabaseAdmin
       .from("payouts")
-      .select("stripe_session_id, event_id, gross_cents, net_cents, status")
+      .select("stripe_session_id, event_id, gross_cents, fee_cents, buyer_fee_cents, net_cents, status")
       .in("event_id", eventIds),
     supabaseAdmin
       .from("analytics_events")
@@ -135,17 +136,23 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const purchases = ((purchaseRows ?? []) as PurchaseRow[]).filter((p) => !p.revoked_at);
 
-  // Net (organizer share) and gross (what the guest paid) per session; refunded
-  // payout rows already carry 0, so they drop out of the numbers by themselves.
+  // Net (organizer share) per session; refunded payout rows already carry 0,
+  // so they drop out of the numbers by themselves.
   const netBySession = new Map<string, number>();
-  const grossBySession = new Map<string, number>();
+  // Der Nennwert: brutto minus dem Gebuehrenanteil des Gasts. Er ist der
+  // Ticketpreis, unabhaengig davon, wer die Servicegebuehr traegt — brutto
+  // waere je nach Modus zu hoch, netto zu niedrig.
+  const faceBySession = new Map<string, number>();
   const netByEvent = new Map<string, number>();
   for (const p of (payoutRows ?? []) as {
-    stripe_session_id: string | null; event_id: string; gross_cents: number; net_cents: number;
+    stripe_session_id: string | null; event_id: string; gross_cents: number;
+    fee_cents: number; buyer_fee_cents: number | null; net_cents: number;
   }[]) {
     if (p.stripe_session_id) {
       netBySession.set(p.stripe_session_id, p.net_cents ?? 0);
-      grossBySession.set(p.stripe_session_id, p.gross_cents ?? 0);
+      // NULL = Altzeile, damals zahlte der Gast die ganze Gebuehr.
+      const buyerFee = p.buyer_fee_cents ?? p.fee_cents ?? 0;
+      faceBySession.set(p.stripe_session_id, Math.max(0, (p.gross_cents ?? 0) - buyerFee));
     }
     netByEvent.set(p.event_id, (netByEvent.get(p.event_id) ?? 0) + (p.net_cents ?? 0));
   }
@@ -160,9 +167,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const total = netBySession.get(p.stripe_session_id) ?? 0;
     return total / (ticketsPerSession.get(p.stripe_session_id) || 1);
   };
-  const grossOf = (p: PurchaseRow): number => {
+  const faceOf = (p: PurchaseRow): number => {
     if (!p.stripe_session_id) return 0;
-    const total = grossBySession.get(p.stripe_session_id) ?? 0;
+    const total = faceBySession.get(p.stripe_session_id) ?? 0;
     return total / (ticketsPerSession.get(p.stripe_session_id) || 1);
   };
 
@@ -186,13 +193,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   let ticketsPrevious = 0;
   let revenueCurrent = 0;
   let revenuePrevious = 0;
-  let grossCurrent = 0;
-  let grossPrevious = 0;
+  // Nennwert-Summe der bezahlten Tickets; Basis fuer den Ø-Ticketpreis. Brutto
+  // waere je nach fee_payer mal mit, mal ohne Gebuehr und damit kein Preis.
+  let faceCurrent = 0;
+  let pricedCurrent = 0;
+  let facePrevious = 0;
+  let pricedPrevious = 0;
 
   for (const p of purchases) {
     const key = dayKey(p.created_at);
     const net = netOf(p);
-    const gross = grossOf(p);
     const ci = curIndex.get(key);
     if (ci !== undefined) {
       cur.revenue[ci] += net;
@@ -200,7 +210,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       cur.buyerSets[ci].add(p.buyer_wallet);
       ticketsCurrent++;
       revenueCurrent += net;
-      grossCurrent += gross;
+      if (p.stripe_session_id) { faceCurrent += faceOf(p); pricedCurrent++; }
       if (!walletsCurrent.has(p.buyer_wallet)) walletsCurrent.set(p.buyer_wallet, new Set());
       walletsCurrent.get(p.buyer_wallet)!.add(p.event_id);
       continue;
@@ -212,7 +222,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       prev.buyerSets[pi].add(p.buyer_wallet);
       ticketsPrevious++;
       revenuePrevious += net;
-      grossPrevious += gross;
+      if (p.stripe_session_id) { facePrevious += faceOf(p); pricedPrevious++; }
       if (!walletsPrevious.has(p.buyer_wallet)) walletsPrevious.set(p.buyer_wallet, new Set());
       walletsPrevious.get(p.buyer_wallet)!.add(p.event_id);
     }
@@ -343,6 +353,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const rows = purchases.filter((p) => p.event_id === e.id);
     const redeemed = rows.filter((p) => p.redeemed_at).length;
     const revenueCents = netByEvent.get(e.id) ?? 0;
+    // Ø-Preis gegen den Nennwert, nicht gegen den Erloes: sonst laese sich ein
+    // Event, dessen Veranstalter die Gebuehr traegt, wie eine Preissenkung.
+    const priced = rows.filter((p) => p.stripe_session_id);
+    const faceCents = priced.reduce((sum, p) => sum + faceOf(p), 0);
     return {
       id: e.id,
       name: e.name,
@@ -353,7 +367,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       revenueCents,
       redeemed,
       redemptionPct: rows.length > 0 ? Math.round((redeemed / rows.length) * 100) : null,
-      avgPriceCents: rows.length > 0 ? Math.round(revenueCents / rows.length) : 0,
+      avgPriceCents: priced.length > 0 ? Math.round(faceCents / priced.length) : 0,
     };
   });
 
@@ -377,8 +391,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       tickets: ticketsCurrent,
       ticketsPrev: ticketsPrevious,
       ticketsDelta: pctChange(ticketsCurrent, ticketsPrevious),
-      avgPriceCents: ticketsCurrent > 0 ? Math.round(grossCurrent / ticketsCurrent) : 0,
-      avgPricePrevCents: ticketsPrevious > 0 ? Math.round(grossPrevious / ticketsPrevious) : 0,
+      avgPriceCents: pricedCurrent > 0 ? Math.round(faceCurrent / pricedCurrent) : 0,
+      avgPricePrevCents: pricedPrevious > 0 ? Math.round(facePrevious / pricedPrevious) : 0,
       customers: walletsCurrent.size,
       customersPrev: walletsPrevious.size,
       repeatShare: repeatShareOf(walletsCurrent),
@@ -427,16 +441,31 @@ async function loadOffBookRevenue(
   const startMs = periodStart.getTime();
   const inPeriod = (iso: string): boolean => Date.parse(iso) >= startMs;
 
-  // Box office: priced from the tier, since no payouts row exists.
+  // Box office: priced from the tier, since no payouts row exists. What the
+  // organizer keeps is the tier price minus their share of the service fee —
+  // that share is booked as a platform_fees_due row and comes off a later
+  // payout, so counting the full price here would overstate the door.
   const cashRows = purchases.filter((p) => p.source === "box_office" && inPeriod(p.created_at));
   let cashCents = 0;
   if (cashRows.length > 0) {
     const tierIds = [...new Set(cashRows.map((p) => p.tier_id).filter((id): id is string => Boolean(id)))];
-    const { data: tiers } = tierIds.length > 0
-      ? await supabaseAdmin.from("ticket_tiers").select("id, price_eur").in("id", tierIds)
-      : { data: [] };
+    const eventIds = [...new Set(cashRows.map((p) => p.event_id).filter((id): id is string => Boolean(id)))];
+    const [{ data: tiers }, { data: cashEvents }] = await Promise.all([
+      tierIds.length > 0
+        ? supabaseAdmin.from("ticket_tiers").select("id, price_eur").in("id", tierIds)
+        : Promise.resolve({ data: [] }),
+      eventIds.length > 0
+        ? supabaseAdmin.from("events").select("id, fee_payer").in("id", eventIds)
+        : Promise.resolve({ data: [] }),
+    ]);
     const priceById = new Map(((tiers ?? []) as { id: string; price_eur: number }[]).map((t) => [t.id, t.price_eur]));
-    for (const p of cashRows) cashCents += p.tier_id ? priceById.get(p.tier_id) ?? 0 : 0;
+    const payerById = new Map(((cashEvents ?? []) as { id: string; fee_payer: string | null }[])
+      .map((e) => [e.id, isFeePayer(e.fee_payer) ? e.fee_payer : "buyer" as FeePayer]));
+    for (const p of cashRows) {
+      const price = p.tier_id ? priceById.get(p.tier_id) ?? 0 : 0;
+      const payer = (p.event_id ? payerById.get(p.event_id) : undefined) ?? "buyer";
+      cashCents += price - splitServiceFee(price, payer).organizerCents;
+    }
   }
 
   // Season passes: their payouts rows carry season_pass_id instead of event_id,

@@ -9,6 +9,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { EventEditor, INITIAL_DRAFT } from '@/app/components/EventEditor';
 import type { EventDraft } from '@/app/components/EventEditor';
+import { isFeePayer, type FeePayer } from '@/lib/fees';
 
 /**
  * Veranstaltung bearbeiten — derselbe Editor wie beim Anlegen, nur mit den
@@ -49,6 +50,7 @@ export default function EditEventPage() {
           image_url: string | null; gallery_urls: string[] | null;
           accent_hue: number | null; border_style: string | null;
           is_private: boolean; payout_hold_days: number; resale_max_markup_pct: number | null;
+          fee_payer: FeePayer | null;
           guest_checkout_enabled: boolean; queue_enabled: boolean; queue_slots: number;
           reentry_enabled: boolean; reentry_cooldown_seconds: number;
           tickets_sold: number; cancelled_at: string | null;
@@ -77,6 +79,7 @@ export default function EditEventPage() {
         borderStyle: e.border_style,
         isPrivate: e.is_private,
         payoutHoldDays: String(e.payout_hold_days ?? 0),
+        feePayer: isFeePayer(e.fee_payer) ? e.fee_payer : 'buyer',
         resaleEnabled: e.resale_max_markup_pct != null,
         resaleMaxMarkup: String(e.resale_max_markup_pct ?? 20),
         guestCheckout: e.guest_checkout_enabled !== false,

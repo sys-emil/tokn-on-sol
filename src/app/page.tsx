@@ -423,11 +423,12 @@ export default function Home() {
                   <div className="pillar-icon"><Icon name="euro" size={18} /></div>
                   <h3>Der Ticketpreis gehört dir</h3>
                   <p>
-                    Kein Abzug vom Nennwert. Die Servicegebühr zahlt der Gast sichtbar
-                    obendrauf, statt sie dir vom Umsatz zu nehmen.
+                    Kein prozentualer Abzug vom Nennwert. Die Servicegebühr zahlt
+                    standardmäßig der Gast sichtbar obendrauf; ob du sie lieber teilst
+                    oder selbst trägst, entscheidest du je Event.
                   </p>
                   <ul className="pillar-points">
-                    <li><Icon name="check" size={14} /> 100&nbsp;% des Ticketpreises, ohne Grundgebühr</li>
+                    <li><Icon name="check" size={14} /> Ohne Grundgebühr, du bestimmst wer die Gebühr zahlt</li>
                     <li><Icon name="check" size={14} /> Auszahlung aufs Bankkonto, Puffer selbst gewählt</li>
                     <li><Icon name="check" size={14} /> Jede Auszahlung einzeln nachvollziehbar</li>
                     <li><Icon name="check" size={14} /> Kostenlose Events kosten auch dich nichts</li>
@@ -457,10 +458,11 @@ export default function Home() {
                 <div className="fee-copy">
                   <h2>Rechne selbst nach.</h2>
                   <p>
-                    Du bekommst den Ticketpreis, den du festlegst; auf den Cent. Deine
-                    Gäste zahlen 1&nbsp;€ plus 4&nbsp;% pro Ticket obendrauf, offen im
-                    Warenkorb ausgewiesen. Keine Einrichtungskosten, keine monatliche
-                    Gebühr, keine Mindestlaufzeit.
+                    1&nbsp;€ plus 4&nbsp;% Servicegebühr pro Ticket. Standardmäßig zahlt
+                    sie dein Gast obendrauf, offen im Warenkorb ausgewiesen, und du bekommst
+                    den Ticketpreis auf den Cent. Willst du lieber einen runden Endpreis,
+                    übernimmst du sie. Keine Einrichtungskosten, keine monatliche Gebühr,
+                    keine Mindestlaufzeit.
                   </p>
                   <Link href="/preise" className="more">
                     Alle Preise im Detail <Icon name="arrow" size={13} />

@@ -5,6 +5,7 @@ export type OrganizerType = 'private' | 'business';
 
 export type { BadgeType } from "@/lib/badgeMeta";
 import type { BadgeType as BadgeTypeImport } from "@/lib/badgeMeta";
+import type { FeePayer } from "@/lib/fees";
 
 export type Badge = {
   id: string;
@@ -65,6 +66,8 @@ export type Event = {
   long_description: string | null;
   /** Max resale markup over face value in percent. NULL = resale disabled for this event. */
   resale_max_markup_pct: number | null;
+  /** Who carries the service fee; see `splitServiceFee` in src/lib/fees.ts. */
+  fee_payer: FeePayer;
   /** Allow buying without an account (the ticket is unlocked by signing in afterwards). */
   guest_checkout_enabled: boolean;
   /** Virtual waiting room: buyers need an admitted queue slot to check out. */

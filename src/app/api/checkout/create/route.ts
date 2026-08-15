@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { TicketTier } from "@/lib/supabase";
-import { serviceFeePerTicketCents } from "@/lib/fees";
+import { isFeePayer, splitServiceFee, type FeePayer } from "@/lib/fees";
 import { findValidDiscount, discountedUnitPrice, type ValidDiscount } from "@/lib/discounts";
 import { requestOwnsWallet } from "@/lib/privyServer";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
@@ -287,11 +287,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const origin = `${protocol}://${host}`;
   const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MINUTES * 60; // Stripe minimum session lifetime
 
-  // Buyer-side service fee (€1 + 4% per ticket, src/lib/fees.ts) as its own
-  // line item; the organizer nets 100% of the face price. The total is stored
-  // in the session metadata so the webhook books fee_cents/net_cents from what
-  // the buyer actually agreed to, not from a re-computation that could drift.
-  const feePerTicket = serviceFeePerTicketCents(unitPrice);
+  // Service fee (€1 + 4% per ticket, src/lib/fees.ts). Who carries it is the
+  // organizer's per-event choice; only the buyer's share becomes a line item,
+  // the organizer's share is simply missing from the charge and comes off their
+  // payout. Both numbers go into the session metadata so the webhook books
+  // fee_cents/net_cents from what the buyer actually agreed to, not from a
+  // re-computation that could drift.
+  //
+  // Computed on the DISCOUNTED price, so a deep discount can push the
+  // organizer's share above the ticket price; `splitServiceFee` then rolls the
+  // excess back onto the buyer rather than letting Passly fund the discount.
+  const feePayer: FeePayer = isFeePayer(event.fee_payer) ? event.fee_payer : "buyer";
+  const { buyerCents: buyerFeePerTicket, totalCents: feePerTicket } = splitServiceFee(unitPrice, feePayer);
   const lineItemName = tiers.length > 1 ? `${event.name}; ${tier.name}` : event.name;
   const lineItemDescription = discount
     ? `Ticket for ${event.date} · Code ${discount.code} (−${discount.percentOff} %)`
@@ -301,7 +308,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // hold-id before the session is created so a concurrent checkout of the same
   // wallet can't spend the same balance; redeemed by the completed webhook and
   // released by the expiry webhook. Requires proof of wallet ownership.
-  const totalDueCents = unitPrice * quantity + feePerTicket * quantity;
+  const totalDueCents = (unitPrice + buyerFeePerTicket) * quantity;
   let creditHoldId: string | null = null;
   let creditAppliedCents = 0;
   if (body.useCredit && totalDueCents > 0) {
@@ -398,13 +405,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             product_data: { name: lineItemName, description: lineItemDescription },
           },
         },
-        ...(feePerTicket > 0
+        ...(buyerFeePerTicket > 0
           ? [
               {
                 quantity,
                 price_data: {
                   currency: "eur" as const,
-                  unit_amount: feePerTicket,
+                  unit_amount: buyerFeePerTicket,
                   product_data: { name: "Service fee", description: "Per ticket" },
                 },
               },
@@ -421,7 +428,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // The confirmation mail is sent minutes later by the mint worker, long
         // after this request's cookies are gone; the language has to travel.
         lang: await getLang(),
+        // The full platform take, regardless of who paid it; `buyerFeeCents`
+        // is the part contained in `amount_total`.
         serviceFeeCents: String(feePerTicket * quantity),
+        buyerFeeCents: String(buyerFeePerTicket * quantity),
         ...(isGuest ? { guest: "1" } : {}),
         ...(discount ? { discountCodeId: discount.id, discountPercent: String(discount.percentOff) } : {}),
         ...(creditHoldId ? { creditHoldId, creditAppliedCents: String(creditAppliedCents) } : {}),

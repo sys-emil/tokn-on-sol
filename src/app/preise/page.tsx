@@ -57,7 +57,7 @@ const PRO_FEATURES = [
 export const metadata: Metadata = {
   title: 'Preise · Passly',
   description:
-    'Passly kostet Veranstalter nichts: 100 % des Ticketpreises gehen an dich, die Servicegebühr von 1 € + 4 % zahlt der Gast. Pro-Funktionen optional.',
+    'Passly kostet Veranstalter keine Grundgebühr: 1 € + 4 % Servicegebühr pro Ticket, und du entscheidest je Event, ob sie der Gast trägt, ihr sie teilt oder du sie übernimmst. Pro-Funktionen optional.',
 };
 
 const PAGE_CSS = `
@@ -257,9 +257,9 @@ export default function PreisePage() {
                 <span className="accent">Für deine Gäste transparent.</span>
               </h1>
               <p className="lead">
-                Passly nimmt dir nichts vom Ticketpreis. Die Servicegebühr zahlt der Gast
-                und sieht sie vor dem Kauf. Keine Einrichtungskosten, keine Grundgebühr,
-                keine Mindestlaufzeit.
+                Passly nimmt keine Grundgebühr und keinen Anteil vom Ticketpreis.
+                Es gibt eine Servicegebühr pro Ticket, und du entscheidest je Event,
+                wer sie trägt. Keine Einrichtungskosten, keine Mindestlaufzeit.
               </p>
             </section>
 
@@ -277,8 +277,9 @@ export default function PreisePage() {
                       <span className="unit">für dich, dauerhaft</span>
                     </div>
                     <p className="what">
-                      Deine Gäste zahlen pro Ticket 1&nbsp;€ + 4&nbsp;% Servicegebühr.
-                      Kostenlose Tickets sind komplett gebührenfrei.
+                      Pro Ticket 1&nbsp;€ + 4&nbsp;% Servicegebühr. Standardmäßig zahlt
+                      der Gast sie obendrauf; du kannst sie je Event auch teilen oder
+                      selbst übernehmen. Kostenlose Tickets sind komplett gebührenfrei.
                     </p>
                     <div className="listhead">Enthalten</div>
                     <ul>
@@ -307,8 +308,8 @@ export default function PreisePage() {
                     </div>
                     <p className="what">
                       Ein volles Haus ist schön. Gäste, die beim nächsten Mal wiederkommen,
-                      sind das Geschäft. Pro gibt dir die Werkzeuge dafür — die
-                      Servicegebühr für deine Gäste bleibt unverändert.
+                      sind das Geschäft. Pro gibt dir die Werkzeuge dafür — an der
+                      Servicegebühr ändert sich dadurch nichts.
                     </p>
                     <div className="listhead">Alles aus Kostenlos, plus</div>
                     <ul>
@@ -333,10 +334,10 @@ export default function PreisePage() {
               <div className="price-note" data-reveal>
                 <Icon name="shield" size={16} />
                 <div>
-                  Die Servicegebühr deckt Zahlungsabwicklung, Betrieb und Support. Sie wird
-                  im Warenkorb getrennt vom Ticketpreis ausgewiesen, damit deine Gäste
-                  wissen, wofür sie zahlen; und damit klar bleibt, dass der Ticketpreis
-                  vollständig bei dir landet.
+                  Die Servicegebühr deckt Zahlungsabwicklung, Betrieb und Support.
+                  Zahlt sie dein Gast, wird sie im Warenkorb getrennt vom Ticketpreis
+                  ausgewiesen, damit er weiß, wofür er zahlt. Übernimmst du sie, ist dein
+                  Ticketpreis der Endpreis und im Warenkorb steht keine Gebühr mehr.
                 </div>
               </div>
             </section>
@@ -368,8 +369,20 @@ export default function PreisePage() {
                   <h3>Zahle ich wirklich nichts?</h3>
                   <p>
                     Für den kostenlosen Plan zahlst du keine Einrichtungsgebühr, keine
-                    monatliche Gebühr und keinen Anteil am Ticketpreis. Passly verdient an
-                    der Servicegebühr, die deine Gäste beim Kauf zahlen.
+                    monatliche Gebühr und keinen prozentualen Anteil am Ticketpreis. Passly
+                    verdient an der Servicegebühr pro Ticket — standardmäßig zahlt die dein
+                    Gast, du kannst sie aber je Event auch übernehmen.
+                  </p>
+                </div>
+                <div className="card faq-item" data-reveal>
+                  <h3>Wer zahlt die Servicegebühr?</h3>
+                  <p>
+                    Das entscheidest du je Event. Standard ist „Gast zahlt&ldquo;: die Gebühr
+                    kommt im Warenkorb sichtbar auf den Ticketpreis obendrauf, und du
+                    bekommst den Nennwert vollständig. Du kannst sie auch mit deinem Gast
+                    teilen oder ganz übernehmen — dann ist dein Ticketpreis der Endpreis,
+                    und wir ziehen die Gebühr von deiner Auszahlung ab. Das ist vor allem
+                    dann praktisch, wenn du runde Eintrittspreise plakatierst.
                   </p>
                 </div>
                 <div className="card faq-item" data-reveal>

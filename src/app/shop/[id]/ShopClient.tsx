@@ -4,7 +4,7 @@ import { usePrivy, getAccessToken } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { serviceFeePerTicketCents } from '@/lib/fees';
+import { splitServiceFee, type FeePayer } from '@/lib/fees';
 import { track } from '@/lib/track';
 
 export interface TierView {
@@ -22,6 +22,8 @@ interface Props {
   guestAllowed?: boolean;
   /** events.queue_enabled; buyers must hold a waiting-room slot to check out. */
   queueEnabled?: boolean;
+  /** events.fee_payer; decides how much of the service fee lands on the buyer. */
+  feePayer?: FeePayer;
 }
 
 function formatPrice(cents: number): string {
@@ -44,7 +46,7 @@ function formatCountdown(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export default function ShopClient({ eventId, tiers, waitlistEnabled = false, guestAllowed = true, queueEnabled = false }: Props) {
+export default function ShopClient({ eventId, tiers, waitlistEnabled = false, guestAllowed = true, queueEnabled = false, feePayer = 'buyer' }: Props) {
   const { ready, authenticated, login } = usePrivy();
   const { wallets: solanaWallets } = useWallets();
   const [loading, setLoading] = useState(false);
@@ -99,7 +101,9 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
       ? Math.max(0, Math.round((tier.priceEur * (100 - applied.percentOff)) / 100))
       : tier.priceEur
     : 0;
-  const feePerTicket = tier ? serviceFeePerTicketCents(unitPrice) : 0;
+  // Only the buyer's share shows up here; the organizer's share (if they chose
+  // to carry it) never touches the buyer's total. Mirrors /api/checkout/create.
+  const feePerTicket = tier ? splitServiceFee(unitPrice, feePayer).buyerCents : 0;
   const feeTotal = feePerTicket * quantity;
   const grandTotal = tier ? (unitPrice + feePerTicket) * quantity : 0;
   // Credit the buyer can apply to this purchase (capped at the total due).
@@ -849,7 +853,9 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
 
           <div className="fee-summary">
             <div className="label">
-              Gesamt{feeTotal > 0 ? ` · inkl. ${formatPrice(feeTotal)} Servicegebühr` : ''}
+              Gesamt{feeTotal > 0
+                ? ` · inkl. ${formatPrice(feeTotal)} Servicegebühr`
+                : unitPrice > 0 ? ' · inkl. aller Gebühren' : ''}
             </div>
             <div className="total">{dueAfterCredit === 0 ? 'Kostenlos' : formatPrice(dueAfterCredit)}</div>
           </div>

@@ -9,6 +9,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { EventEditor, INITIAL_DRAFT } from '@/app/components/EventEditor';
 import type { EventDraft } from '@/app/components/EventEditor';
+import { isFeePayer } from '@/lib/fees';
 
 /**
  * Veranstaltung anlegen — mit Live-Vorschau statt Blindflug.
@@ -42,7 +43,7 @@ export default function NewEventPage() {
         const d = JSON.parse(raw) as {
           name?: string; startTime?: string | null; venue?: string | null; description?: string | null;
           isPrivate?: boolean; payoutHoldDays?: number; accentHue?: number | null; borderStyle?: string | null;
-          resaleMaxMarkupPct?: number | null;
+          resaleMaxMarkupPct?: number | null; feePayer?: string;
           tiers?: { name: string; priceEur: string; capacity: string }[];
         };
         // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot read of sessionStorage, runs once on mount
@@ -54,6 +55,7 @@ export default function NewEventPage() {
           description: d.description ?? '',
           isPrivate: d.isPrivate === true,
           payoutHoldDays: String(d.payoutHoldDays ?? 0),
+          feePayer: isFeePayer(d.feePayer) ? d.feePayer : 'buyer',
           accentHue: d.accentHue ?? null,
           borderStyle: d.borderStyle ?? null,
           resaleEnabled: d.resaleMaxMarkupPct != null,

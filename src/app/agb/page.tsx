@@ -82,10 +82,14 @@ export default function AgbPage() {
         vom Veranstalter festgelegt und steht diesem vollständig zu.
       </p>
       <p>
-        (2) Zusätzlich zum Ticketpreis erhebt Passly vom Gast eine{' '}
+        (2) Für jedes verkaufte Ticket erhebt Passly eine{' '}
         <strong>Servicegebühr von 1,00&nbsp;€ zzgl. 4&nbsp;% des Ticketpreises pro
-        Ticket</strong>. Die Servicegebühr wird vor Abschluss des Kaufs
-        ausgewiesen. Für kostenlose Tickets fällt keine Servicegebühr an.
+        Ticket</strong>. Wer sie trägt, legt der Veranstalter je Event fest: der
+        Gast zusätzlich zum Ticketpreis, beide je zur Hälfte, oder der
+        Veranstalter allein. Der auf den Gast entfallende Anteil wird vor
+        Abschluss des Kaufs ausgewiesen; trägt der Veranstalter die Gebühr
+        vollständig, ist der ausgewiesene Ticketpreis der Endpreis. Für
+        kostenlose Tickets fällt keine Servicegebühr an.
       </p>
 
       <h2>§ 5 Bezahlung</h2>
@@ -182,9 +186,10 @@ export default function AgbPage() {
         Auszahlung der Ticketerlöse bereit.
       </p>
       <p>
-        (2) Der Veranstalter erhält <strong>100&nbsp;% des von ihm festgelegten
-        Ticketpreises</strong>. Die Servicegebühr (§&nbsp;4 Abs.&nbsp;2) trägt der
-        Gast.
+        (2) Der Veranstalter erhält den von ihm festgelegten Ticketpreis
+        abzüglich des von ihm gewählten Anteils an der Servicegebühr
+        (§&nbsp;4 Abs.&nbsp;2). Wählt er die Voreinstellung „Gast zahlt&ldquo;, erhält er{' '}
+        <strong>100&nbsp;% des von ihm festgelegten Ticketpreises</strong>.
       </p>
 
       <h2>§ 12 Auszahlung und Identitätsprüfung</h2>

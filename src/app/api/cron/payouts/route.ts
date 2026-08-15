@@ -106,6 +106,25 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
     const amount = (payout.net_cents as number) - offset.offsetCents;
 
+    // Nothing left to send. Reachable when a deep discount code eats the whole
+    // ticket price on an event whose organizer absorbs the service fee. Stripe
+    // rejects a €0 transfer, so calling it would only park the row in `held`
+    // and alarm an admin about a payout that is genuinely complete.
+    if (amount <= 0) {
+      await supabaseAdmin
+        .from("payouts")
+        .update({
+          status: "paid",
+          stripe_account_id: accountId,
+          failure_reason: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", payout.id);
+      paid++;
+      offsetCents += offset.offsetCents;
+      continue;
+    }
+
     try {
       const transfer = await stripe.transfers.create(
         {

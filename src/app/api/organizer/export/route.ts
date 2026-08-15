@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
-import { serviceFeePerTicketCents } from "@/lib/fees";
+import { isFeePayer, splitServiceFee, type FeePayer } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
@@ -113,11 +113,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: events } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, venue")
+    .select("id, name, date, venue, fee_payer")
     .eq("organizer_wallet", walletAddress);
-  const eventById = new Map(
-    ((events ?? []) as { id: string; name: string; date: string; venue: string | null }[])
-      .map((e) => [e.id, e]),
+  const eventRows = (events ?? []) as
+    { id: string; name: string; date: string; venue: string | null; fee_payer: string | null }[];
+  const eventById = new Map(eventRows.map((e) => [e.id, e]));
+  // Box-office rows are priced from the tier, so they also need the event's
+  // fee mode to split that fee the same way the door did.
+  const feePayerByEvent = new Map<string, FeePayer>(
+    eventRows.map((e) => [e.id, isFeePayer(e.fee_payer) ? e.fee_payer : "buyer"]),
   );
 
   const [{ data: payouts }, { data: passes }] = await Promise.all([
@@ -215,17 +219,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // One row per box-office ticket. The guest pays the online total in cash, so
-  // the gross carries the service fee like a card sale does; the difference is
-  // that the organizer already holds the whole amount and the fee is recovered
-  // by deducting it from a later transfer. Booking it as fee + payout keeps the
-  // export comparable with the online rows instead of overstating door revenue.
+  // the gross carries whatever share of the service fee an online buyer would
+  // pay for this event; the difference is that the organizer already holds the
+  // whole amount and the full fee is recovered by deducting it from a later
+  // transfer. Booking it as fee + payout keeps the export comparable with the
+  // online rows instead of overstating door revenue.
   for (const c of (cashRows ?? []) as {
     stripe_session_id: string | null; event_id: string; tier_id: string | null; created_at: string;
   }[]) {
     const event = eventById.get(c.event_id);
     const tier = c.tier_id ? tierById.get(c.tier_id) : null;
     const priceCents = tier?.price_eur ?? 0;
-    const feeCents = serviceFeePerTicketCents(priceCents);
+    const { buyerCents, organizerCents, totalCents: feeCents } =
+      splitServiceFee(priceCents, feePayerByEvent.get(c.event_id) ?? "buyer");
     rows.push({
       // Own prefix: a cash sale is not a Passly receipt, and the export must
       // not make it look like one.
@@ -236,9 +242,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       termin: event ? day(`${event.date}T12:00:00Z`) : "",
       kategorie: tier?.name ?? "",
       anzahl: 1,
-      bruttoCents: priceCents + feeCents,
+      bruttoCents: priceCents + buyerCents,
       gebuehrCents: feeCents,
-      auszahlungCents: priceCents,
+      auszahlungCents: priceCents - organizerCents,
       waehrung: "EUR",
       zahlungsart: "Bar",
       status: feeCents > 0 ? "Bar erhalten · Gebühr wird abgezogen" : "Bar erhalten",

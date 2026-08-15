@@ -280,9 +280,11 @@ export default function SoFunktioniertsPage() {
                     <span className="faq-chev"><Icon name="chevronRight" size={15} /></span>
                   </summary>
                   <div className="faq-a">
-                    Zum Ticketpreis kommt eine Servicegebühr von 1&nbsp;€ plus 4&nbsp;%
-                    pro Ticket. Die siehst du transparent vor dem Bezahlen, versteckte
-                    Kosten gibt es nicht. Kostenlose Events sind komplett kostenlos.
+                    Meistens kommt zum Ticketpreis eine Servicegebühr von 1&nbsp;€ plus
+                    4&nbsp;% pro Ticket. Manche Veranstalter übernehmen sie ganz oder
+                    zur Hälfte, dann zahlst du weniger oder gar nichts extra. Was
+                    anfällt, siehst du in jedem Fall vor dem Bezahlen; versteckte Kosten
+                    gibt es nicht. Kostenlose Events sind komplett kostenlos.
                   </div>
                 </details>
                 <details>

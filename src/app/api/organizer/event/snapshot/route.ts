@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 import { passTicketsForEvent } from "@/lib/seasonPass";
 import { currentScanStates } from "@/lib/reentry";
+import { isFeePayer } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: event, error } = await supabaseAdmin
     .from("events")
-    .select("id, organizer_wallet, cancelled_at, reentry_enabled, reentry_cooldown_seconds")
+    .select("id, organizer_wallet, cancelled_at, reentry_enabled, reentry_cooldown_seconds, fee_payer")
     .eq("id", id)
     .single();
   if (error || !event) {
@@ -75,6 +76,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     cancelled: Boolean(event.cancelled_at),
+    // The box office charges the online total, so it needs to know how much of
+    // the service fee falls on the guest.
+    feePayer: isFeePayer(event.fee_payer) ? event.fee_payer : "buyer",
     reentry: {
       enabled: reentryEnabled,
       cooldownSeconds: (event.reentry_cooldown_seconds as number) ?? 0,

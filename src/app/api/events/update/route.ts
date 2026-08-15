@@ -11,6 +11,7 @@ import {
 } from "@/lib/eventMetadata";
 import { sendAdminAlert } from "@/lib/email";
 import { MAX_REENTRY_COOLDOWN_SECONDS } from "@/lib/reentry";
+import { isFeePayer, minUnitPriceCentsFor, tooCheapForFeePayer, type FeePayer } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // cancel refunds many charges sequentially
@@ -44,6 +45,8 @@ interface UpdateEventBody {
     accent_hue?: number | null;
     border_style?: string | null;
     resale_max_markup_pct?: number | null;
+    /** Who carries the service fee: 'buyer', 'split' or 'organizer'. */
+    fee_payer?: string;
     guest_checkout_enabled?: boolean;
     queue_enabled?: boolean;
     queue_slots?: number;
@@ -181,6 +184,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     update.resale_max_markup_pct = fields.resale_max_markup_pct;
   }
+  if (fields.fee_payer !== undefined) {
+    if (!isFeePayer(fields.fee_payer)) {
+      return NextResponse.json(
+        { success: false, error: "fee_payer must be one of: buyer, split, organizer" },
+        { status: 400 },
+      );
+    }
+    update.fee_payer = fields.fee_payer;
+  }
   if (fields.guest_checkout_enabled !== undefined) {
     update.guest_checkout_enabled = fields.guest_checkout_enabled === true;
   }
@@ -238,6 +250,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .order("sort")
     .order("created_at");
   const existingTiers = (existingTiersRaw ?? []) as TicketTier[];
+
+  // Fee payer vs. tier prices, checked against the EFFECTIVE state rather than
+  // the payload: the two arrive independently, so someone could switch to an
+  // absorbed fee today and cut a tier below its own fee tomorrow, with each
+  // request looking harmless on its own.
+  const effectiveFeePayer: FeePayer = isFeePayer(update.fee_payer)
+    ? update.fee_payer
+    : (isFeePayer(event.fee_payer) ? event.fee_payer : "buyer");
+  const effectivePrices = body.tiers !== undefined && Array.isArray(body.tiers)
+    ? body.tiers.map((t) => t?.price_eur).filter((p): p is number => typeof p === "number")
+    : existingTiers.map((t) => t.price_eur);
+  const tooCheap = tooCheapForFeePayer(effectivePrices, effectiveFeePayer);
+  if (tooCheap !== null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `fee_payer '${effectiveFeePayer}' requires every paid tier to cost at least `
+          + `${minUnitPriceCentsFor(effectiveFeePayer)} cents (found ${tooCheap})`,
+      },
+      { status: 400 },
+    );
+  }
 
   if (body.tiers !== undefined) {
     const edits = body.tiers;
