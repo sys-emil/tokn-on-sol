@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
+import { outstandingFeesCents } from "@/lib/platformFees";
 
 export const dynamic = "force-dynamic";
 
@@ -68,8 +69,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Service fees collected in cash at the box office. They are deducted from
+  // the next transfer, so the organizer has to be able to see them coming;
+  // an unexplained shortfall on a payout is exactly the kind of surprise that
+  // costs trust.
+  const outstandingFees = await outstandingFeesCents(walletAddress);
+
   return NextResponse.json({
-    summary: { pendingCents, paidCents, heldCount, nextAvailableAt },
+    summary: { pendingCents, paidCents, heldCount, nextAvailableAt, outstandingFees },
     payouts: payouts.map((p) => ({
       id: p.id,
       eventName: (p.event_id ? eventNames.get(p.event_id) : null)

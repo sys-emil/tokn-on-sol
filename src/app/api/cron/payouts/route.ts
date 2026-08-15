@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { sendAdminAlert } from "@/lib/email";
 import { sendDueEventReminders } from "@/lib/reminders";
 import { sweepWaitlists } from "@/lib/waitlist";
+import { claimOffsetForPayout, releaseOffset } from "@/lib/platformFees";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -65,6 +66,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   let paid = 0;
   let held = 0;
+  let offsetCents = 0;
   const heldDetails: string[] = [];
 
   for (const payout of due ?? []) {
@@ -92,16 +94,32 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       continue;
     }
 
+    // Service fees the organizer collected in cash at the box office come off
+    // here — that is the only place Passly ever sees that money. Claimed
+    // before the transfer and released again if Stripe rejects it.
+    const currency = (payout.currency as string | null) ?? "eur";
+    const offset = await claimOffsetForPayout({
+      payoutId: payout.id as string,
+      organizerWallet: payout.organizer_wallet as string,
+      netCents: payout.net_cents as number,
+      currency,
+    });
+    const amount = (payout.net_cents as number) - offset.offsetCents;
+
     try {
       const transfer = await stripe.transfers.create(
         {
-          amount: payout.net_cents,
-          currency: payout.currency ?? "eur",
+          amount,
+          currency,
           destination: accountId,
           // Credit-funded payouts draw from the platform balance (the card
           // charge is smaller than the organizer's net); no source_transaction.
           ...(payout.charge_id && !payout.skip_source_transaction ? { source_transaction: payout.charge_id } : {}),
-          metadata: { payout_id: payout.id, stripe_session_id: payout.stripe_session_id },
+          metadata: {
+            payout_id: payout.id,
+            stripe_session_id: payout.stripe_session_id,
+            ...(offset.offsetCents > 0 ? { box_office_fee_offset_cents: String(offset.offsetCents) } : {}),
+          },
         },
         { idempotencyKey: `payout-transfer-${payout.id}` },
       );
@@ -117,6 +135,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         })
         .eq("id", payout.id);
       paid++;
+      offsetCents += offset.offsetCents;
     } catch (err) {
       // Restricted/disabled account, missing transfer capability, etc.
       // funds remain on the platform balance, row goes to 'held' for the
@@ -125,6 +144,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         ? `${err.code ?? err.type}: ${err.message}`
         : err instanceof Error ? err.message : String(err);
       console.error(`Transfer failed for payout ${payout.id}:`, message);
+
+      // No transfer, no deduction: the dues go back into the pool so the next
+      // successful payout of this organizer picks them up.
+      await releaseOffset(offset.dues);
 
       await supabaseAdmin
         .from("payouts")
@@ -182,6 +205,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     processed: (due ?? []).length,
     paid,
     held,
+    // Box-office service fees recovered by deducting them from transfers.
+    offsetCents,
     releasedReservations: (releasedReservations as number | null) ?? 0,
     reminders,
     waitlistMails,

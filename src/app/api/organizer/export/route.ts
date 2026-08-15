@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
+import { serviceFeePerTicketCents } from "@/lib/fees";
 
 export const dynamic = "force-dynamic";
 
@@ -213,14 +214,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
   }
 
-  // One row per box-office sale; the organizer already holds this cash, so
-  // gross and payout are the same number and the fee is zero.
+  // One row per box-office ticket. The guest pays the online total in cash, so
+  // the gross carries the service fee like a card sale does; the difference is
+  // that the organizer already holds the whole amount and the fee is recovered
+  // by deducting it from a later transfer. Booking it as fee + payout keeps the
+  // export comparable with the online rows instead of overstating door revenue.
   for (const c of (cashRows ?? []) as {
     stripe_session_id: string | null; event_id: string; tier_id: string | null; created_at: string;
   }[]) {
     const event = eventById.get(c.event_id);
     const tier = c.tier_id ? tierById.get(c.tier_id) : null;
     const priceCents = tier?.price_eur ?? 0;
+    const feeCents = serviceFeePerTicketCents(priceCents);
     rows.push({
       // Own prefix: a cash sale is not a Passly receipt, and the export must
       // not make it look like one.
@@ -231,12 +236,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       termin: event ? day(`${event.date}T12:00:00Z`) : "",
       kategorie: tier?.name ?? "",
       anzahl: 1,
-      bruttoCents: priceCents,
-      gebuehrCents: 0,
+      bruttoCents: priceCents + feeCents,
+      gebuehrCents: feeCents,
       auszahlungCents: priceCents,
       waehrung: "EUR",
       zahlungsart: "Bar",
-      status: "Bar erhalten",
+      status: feeCents > 0 ? "Bar erhalten · Gebühr wird abgezogen" : "Bar erhalten",
       auszahlungAm: "",
       referenz: c.stripe_session_id ?? "",
       sortAt: c.created_at,

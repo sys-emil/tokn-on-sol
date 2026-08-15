@@ -26,6 +26,8 @@ interface PayoutData {
     paidCents: number;
     heldCount: number;
     nextAvailableAt: string | null;
+    /** Box-office service fees still to be deducted from a future transfer. */
+    outstandingFees: number;
   };
   payouts: PayoutRow[];
 }
@@ -149,6 +151,15 @@ export default function PayoutsPage() {
                 <div className="value">{eur(summary?.paidCents ?? 0)}</div>
                 <div className="delta" style={{ color: 'var(--ink-3)' }}>an dein Bankkonto überwiesen</div>
               </div>
+              {(summary?.outstandingFees ?? 0) > 0 && (
+                <div className="kpi">
+                  <div className="label">Servicegebühr Abendkasse</div>
+                  <div className="value">−{eur(summary?.outstandingFees ?? 0)}</div>
+                  <div className="delta" style={{ color: 'var(--ink-3)' }}>
+                    bar kassiert, wird von der nächsten Auszahlung abgezogen
+                  </div>
+                </div>
+              )}
               <div className="kpi">
                 <div className="label">In Klärung</div>
                 <div className="value">{summary?.heldCount ?? 0}</div>

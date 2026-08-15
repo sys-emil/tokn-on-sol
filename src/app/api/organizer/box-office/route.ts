@@ -6,6 +6,8 @@ import { requestMayWorkTheDoor } from "@/lib/doorAccess";
 import { getOperatorWalletAddress } from "@/lib/transfer";
 import { processMintJobs } from "@/lib/mintJobs";
 import { ensureGuestOrder } from "@/lib/guestOrders";
+import { serviceFeePerTicketCents } from "@/lib/fees";
+import { sendAdminAlert } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // after() mints the ticket once the response is out
@@ -19,9 +21,16 @@ export const maxDuration = 300; // after() mints the ticket once the response is
  * could oversell.
  *
  * **No money moves through Passly here.** The cash stays with the organizer, so
- * there is no Stripe session, no `payouts` row and no service fee. These sales
- * are marked `source = 'box_office'` so revenue reporting can tell them apart
- * from card sales.
+ * there is no Stripe session and no `payouts` row. These sales are marked
+ * `source = 'box_office'` so revenue reporting can tell them apart from card
+ * sales.
+ *
+ * The guest nevertheless pays the **same total as online** (face price plus the
+ * buyer-side service fee). Anything else makes the door the cheap entrance and
+ * trains guests to skip the online sale. Since the whole amount is collected in
+ * cash by the organizer, the fee share is booked as a `platform_fees_due` row
+ * and subtracted from their next online payout transfer — that keeps the
+ * incentive neutral on both sides without a second money rail.
  *
  * Gated by `requestMayWorkTheDoor`, so staff holding a door link can sell
  * without the organizer's login — the same people who already scan tickets.
@@ -147,6 +156,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: jobError.message }, { status: 500 });
   }
 
+  // The buyer-side service fee the guest just paid in cash. It sat in the
+  // organizer's till, so we record it as owed and the payout cron subtracts it
+  // from their next transfer. Booked after the sale is final: at this point the
+  // ticket exists, and failing the request would make the door retry and sell
+  // the seat twice. A lost fee row is money we don't collect, never a wrong
+  // ticket — so it alerts instead of throwing.
+  const feePerTicket = serviceFeePerTicketCents(tier.price_eur);
+  const feeTotal = feePerTicket * quantity;
+  if (feeTotal > 0) {
+    const { error: feeError } = await supabaseAdmin.from("platform_fees_due").insert({
+      organizer_wallet: event.organizer_wallet,
+      event_id: eventId,
+      session_id: sessionId,
+      source: "box_office",
+      quantity,
+      fee_cents: feeTotal,
+    });
+    if (feeError) {
+      console.error("Box office fee booking failed:", feeError.message);
+      void sendAdminAlert({
+        subject: "Abendkassen-Servicegebühr konnte nicht gebucht werden",
+        text: `Verkauf ${sessionId} (Event ${eventId}, ${quantity}× ${tier.name}) ist gebucht, `
+          + `aber die offene Servicegebühr von ${feeTotal} Cent wurde nicht erfasst.\n`
+          + `Fehler: ${feeError.message}\n\n`
+          + `Nachtragen in platform_fees_due, sonst wird sie nie einbehalten.`,
+      }).catch((err) => console.error("Admin alert failed:", err));
+    }
+  }
+
   // Always recorded, even for a walk-up who was let straight in: the token is
   // the only handle anyone has on an escrowed ticket, and without it a later
   // support request ("I did buy at the door") is unanswerable.
@@ -174,7 +212,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     quantity,
     tierName: tier.name,
     priceCents: tier.price_eur,
-    totalCents: tier.price_eur * quantity,
+    // What the door actually collects: face price plus the same service fee an
+    // online buyer pays. `feeCents` is the part owed back to Passly.
+    feeCents: feeTotal,
+    faceTotalCents: tier.price_eur * quantity,
+    totalCents: (tier.price_eur + feePerTicket) * quantity,
     admitted: admitNow,
     orderToken,
   });
