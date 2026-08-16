@@ -38,21 +38,16 @@ export default function TicketClient({ assetId }: { assetId: string }) {
         const t = Math.floor(Date.now() / 60000);
         const challenge = `passly:verify:${assetId}:${t}`;
         const msgBytes = new TextEncoder().encode(challenge);
-        // First signature shows a friendly confirmation (no crypto wording,
-        // per design language); the automatic per-minute refreshes sign
-        // silently; a popup every 55 s would make the ticket unusable.
+        // Every signature is silent, the first one included. Opening your own
+        // ticket IS the intent to see the code, so a confirmation dialog asks
+        // a question that was already answered — and it asked it at the worst
+        // possible moment, with the guest standing at the door. The per-minute
+        // refreshes were silent from the start; a popup every 55 s would have
+        // made the ticket unusable.
         const output = await signMessage({
           message: msgBytes,
           wallet: walletObj,
-          options: {
-            uiOptions: hadQr.current
-              ? { showWalletUIs: false }
-              : {
-                  title: 'Authentifizieren',
-                  description: 'Bestätige kurz, damit dein persönlicher Einlass-Code angezeigt wird.',
-                  buttonText: 'Code anzeigen',
-                },
-          },
+          options: { uiOptions: { showWalletUIs: false } },
         });
         const s = bs58.encode(Uint8Array.from(output.signature));
         const payload = JSON.stringify({ a: assetId, t, w: walletObj.address, s });
