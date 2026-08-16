@@ -10,6 +10,7 @@ import { ProfileNudge } from '@/app/components/ProfileNudge';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, Spark, VerifiedCheck } from '@/app/components/passlyUi';
+import { LoyaltyRedeem } from '@/app/components/LoyaltyRedeem';
 import { useEffect, useState } from 'react';
 
 interface EventRow {
@@ -525,6 +526,32 @@ export default function Dashboard() {
                     </Link>
                   </div>
                 </section>
+
+                {/* Eingeloest wird am Einlass, waehrend ein Gast mit seinem
+                    Code davorsteht. Der Weg dorthin fuehrte bisher ueber die
+                    Pro-Auswertung und drei Klicks — an der Tuer der falsche
+                    Ort, deshalb steht das Feld hier gleich auf der ersten
+                    Seite. Nur fuer Pro, weil das Treueprogramm eine
+                    Pro-Funktion ist und die Route entsprechend gated. */}
+                {plan === 'pro' && (
+                  <section>
+                    <div className="card" style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--accent-wash)', display: 'grid', placeItems: 'center', color: 'var(--accent)', flexShrink: 0 }}>
+                        <Icon name="sparkle" size={16} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 240, display: 'grid', gap: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 600 }}>Treue-Vorteil einlösen</div>
+                          <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
+                            Stammgäste holen ihren Vorteil unter „Meine Tickets&ldquo; ab und zeigen
+                            dir am Einlass einen sechsstelligen Code.
+                          </div>
+                        </div>
+                        <LoyaltyRedeem walletAddress={solanaWalletAddress ?? ''} getToken={getAccessToken} />
+                      </div>
+                    </div>
+                  </section>
+                )}
 
                 <section>
                   <div className="section-head">

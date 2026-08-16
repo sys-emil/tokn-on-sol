@@ -618,6 +618,13 @@ section + section { margin-top: 36px; }
   padding: 48px 24px; text-align: center; color: var(--ink-3);
 }
 
+/* Rueckmeldung beim Einloesen eines Treue-Codes. Steht hier statt nur im
+   Pro-Theme, weil das Formular auch auf dem hellen /dashboard sitzt; die
+   dunklen Textfarben des Pro-Bereichs ueberschreiben diese Regeln dort. */
+.redeem-msg { padding: 11px 14px; border-radius: 10px; font-size: 12.5px; line-height: 1.5; }
+.redeem-msg.ok { background: var(--ok-wash); color: oklch(0.38 0.12 150); }
+.redeem-msg.bad { background: var(--warn-wash); color: oklch(0.42 0.13 70); }
+
 /* Ladeplatzhalter. Ein "Laedt …" sagt nur, dass etwas passiert; ein Skelett in
    der Form der fertigen Seite sagt zusaetzlich, was gleich kommt, und haelt das
    Layout ruhig, wenn die Daten eintreffen. Deshalb bekommt jede Seite ihr

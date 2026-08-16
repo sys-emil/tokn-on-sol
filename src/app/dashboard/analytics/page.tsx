@@ -9,6 +9,7 @@ import { AccountMenu } from '@/app/components/AccountMenu';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, Spark } from '@/app/components/passlyUi';
+import { LoyaltyRedeem } from '@/app/components/LoyaltyRedeem';
 import { CampaignDrawer, TierDrawer, tierDraftFrom, type TierDraft } from './ProDrawers';
 import { TrendChart } from './TrendChart';
 import { PRO_CSS } from './proTheme';
@@ -1082,39 +1083,6 @@ function LoyaltyTab({
   onEdit: (tier: LoyaltyTier | null) => void;
   onRedeemed: () => void;
 }) {
-  const [code, setCode] = useState('');
-  const [redeeming, setRedeeming] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
-
-  async function redeem(): Promise<void> {
-    if (!code.trim() || redeeming) return;
-    setResult(null);
-    setRedeeming(true);
-    try {
-      const t = await getToken();
-      if (!t) return;
-      const res = await fetch('/api/organizer/loyalty/redeem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ walletAddress, code }),
-      });
-      const body = (await res.json()) as { success: boolean; benefitTitle?: string; error?: string };
-      if (body.success) {
-        setResult({ ok: true, text: `Vorteil eingelöst: ${body.benefitTitle ?? 'Vorteil'}` });
-        setCode('');
-        onRedeemed();
-      } else if (body.error === 'already_redeemed') {
-        setResult({ ok: false, text: 'Dieser Code wurde bereits eingelöst.' });
-      } else if (body.error === 'unknown_code') {
-        setResult({ ok: false, text: 'Unbekannter Code.' });
-      } else {
-        setResult({ ok: false, text: body.error ?? 'Einlösen fehlgeschlagen.' });
-      }
-    } finally {
-      setRedeeming(false);
-    }
-  }
-
   if (!data) return (
     <div className="tab-panel" aria-busy="true" aria-label="Treueprogramm wird geladen">
       {/* Stufenkarten im selben Raster wie die echten Treuestufen. */}
@@ -1242,17 +1210,7 @@ function LoyaltyTab({
             </div>
           </div>
           <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <input className="input mono" placeholder="CODE, Z. B. A3K7QP" value={code} maxLength={6}
-                     onChange={(e) => setCode(e.target.value.toUpperCase())}
-                     onKeyDown={(e) => { if (e.key === 'Enter') void redeem(); }}
-                     style={{ letterSpacing: '0.1em', textTransform: 'uppercase', fontSize: 14, padding: '12px 14px' }} />
-              <button className="btn primary" style={{ flex: 'none' }}
-                      onClick={() => void redeem()} disabled={redeeming || code.trim().length < 6}>
-                {redeeming ? 'Prüfe …' : 'Einlösen'}
-              </button>
-            </div>
-            {result && <div className={`redeem-msg ${result.ok ? 'ok' : 'bad'}`}>{result.text}</div>}
+            <LoyaltyRedeem walletAddress={walletAddress} getToken={getToken} onRedeemed={onRedeemed} />
 
             <div className="subhead" style={{ marginTop: 2 }}>Zuletzt eingelöst</div>
             {data.redemptions.length === 0 ? (
