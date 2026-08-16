@@ -87,6 +87,43 @@ const PAGE_CSS = `
   }
 `;
 
+/**
+ * Ladezustand des Event-Rasters.
+ *
+ * Dieselben Karten im selben Raster, damit die Uebersicht beim Eintreffen der
+ * Daten nicht von einer schmalen Zeile auf mehrere Spalten aufspringt. Die
+ * feststehenden Beschriftungen bleiben stehen: sie sind schon richtig und
+ * machen sofort klar, was hier gleich steht.
+ */
+function EventsSkeleton() {
+  return (
+    <div className="events-grid" aria-busy="true" aria-label="Veranstaltungen werden geladen">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="event-card" style={{ cursor: 'default' }}>
+          <div className="row gap-3">
+            <div className="sk block" style={{ width: 44, height: 46, flex: 'none' }} />
+            <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 7 }}>
+              <div className="sk" style={{ width: `${76 - i * 12}%`, height: 13 }} />
+              <div className="sk" style={{ width: 116, height: 10 }} />
+            </div>
+          </div>
+          <div>
+            <div className="sold">
+              <div className="sk" style={{ width: 128, height: 10 }} />
+              <div className="sk" style={{ width: 28, height: 10 }} />
+            </div>
+            <div className="progress"><span style={{ width: 0 }} /></div>
+          </div>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <div className="sk" style={{ width: 62, height: 20, borderRadius: 6 }} />
+            <div className="sk" style={{ width: 74, height: 10 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function isUpcoming(iso: string): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -498,7 +535,7 @@ export default function Dashboard() {
                   </div>
 
                   {loadingEvents ? (
-                    <div className="card"><div className="empty">Lade Veranstaltungen …</div></div>
+                    <EventsSkeleton />
                   ) : (
                     <div className="events-grid">
                       {events.map((e) => {

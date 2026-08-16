@@ -530,6 +530,52 @@ const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
 const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
 const formatDateShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+/**
+ * Ladezustand der Ticketuebersicht.
+ *
+ * Zeichnet die Brieftaschen-Bahn nach: links die vorderste Karte in ihren
+ * echten Maszen (296px hoch), rechts die Detailspalte mit Countdown-Feld und
+ * Knopfreihe. Vorher stand hier eine schmale Karte mit „Lade Tickets …", und
+ * die Seite baute sich danach in voller Breite neu auf.
+ */
+function TicketsSkeleton() {
+  return (
+    <div className="tk-lane" aria-busy="true" aria-label="Tickets werden geladen">
+      <div>
+        <div className="tk-lane-label" style={{ marginBottom: 10 }}>Als nächstes</div>
+        <div className="sk block" style={{ width: '100%', height: 296, borderRadius: 14 }} />
+        {/* Angedeutete Kanten der Karten darunter, wie im eingeklappten Stapel. */}
+        <div className="sk block" style={{ width: '96%', height: 34, borderRadius: 14, margin: '10px auto 0', opacity: 0.7 }} />
+        <div className="sk block" style={{ width: '92%', height: 34, borderRadius: 14, margin: '8px auto 0', opacity: 0.45 }} />
+      </div>
+
+      <div className="card" style={{ padding: 22 }}>
+        <div className="tk-lane-label">Dein nächstes Ticket</div>
+        <div className="sk" style={{ width: '84%', height: 22, marginTop: 14 }} />
+        <div style={{ display: 'grid', gap: 11, marginTop: 18 }}>
+          {[188, 156, 172].map((w, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <div className="sk" style={{ width: 15, height: 15, flex: 'none' }} />
+              <div className="sk" style={{ width: w, height: 11 }} />
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)' }}>
+          <div style={{ fontSize: 12, color: 'var(--accent-ink)', fontWeight: 500 }}>Türöffnung in</div>
+          <div className="sk" style={{ width: 132, height: 30, marginTop: 4 }} />
+        </div>
+        <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
+          <div className="sk block" style={{ width: '100%', height: 46 }} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div className="sk block" style={{ width: '100%', height: 38 }} />
+            <div className="sk block" style={{ width: '100%', height: 38 }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function daysUntil(iso: string): number {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   return Math.ceil((new Date(iso + 'T00:00:00').getTime() - today.getTime()) / 86400000);
@@ -1217,9 +1263,7 @@ export default function MyTickets() {
               </div>
             )}
 
-            {loading && (
-              <div className="card"><div className="empty">Lade Tickets …</div></div>
-            )}
+            {loading && <TicketsSkeleton />}
 
             {!loading && isAllEmpty && (
               <div className="card">

@@ -285,8 +285,19 @@ export default function BecomeOrganizer() {
                 </div>
               )}
 
+              {/* Geruest des Bewerbungsformulars: dieselbe Karte, dieselben
+                  Feldabstaende. Vorher stand hier eine flache Karte mit
+                  „Einen Moment …", und das Formular klappte danach auf. */}
               {pageState === 'loading' && (
-                <div className="card"><div className="empty">Einen Moment …</div></div>
+                <div className="card" style={{ padding: '24px 24px 22px' }} aria-busy="true" aria-label="Wird geladen">
+                  {[132, 96, 118].map((w, i) => (
+                    <div key={i} className="field">
+                      <div className="sk" style={{ width: w, height: 11, marginBottom: 8 }} />
+                      <div className="sk block" style={{ width: '100%', height: 42 }} />
+                    </div>
+                  ))}
+                  <div className="sk block" style={{ width: '100%', height: 46, marginTop: 22 }} />
+                </div>
               )}
 
               <LegalLinks style={{ marginTop: 40 }} />
