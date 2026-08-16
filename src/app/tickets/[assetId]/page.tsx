@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { getT } from '@/lib/i18nServer';
+import { TICKET_SHELL_CSS } from './ticketShell';
 
 interface DasAsset {
   content?: { metadata?: { name?: string; attributes?: { trait_type: string; value: string }[] } };
@@ -125,39 +126,7 @@ async function getPassDates(passId: string, purchaseId: string): Promise<PassDat
 const formatDate = (iso: string, lang: string) =>
   new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'en' ? 'en-GB' : 'de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
 
-const PAGE_CSS = `
-  .ticket-canvas {
-    min-height: 100vh;
-    display: grid; place-items: center;
-    padding: 40px 20px;
-    background:
-      radial-gradient(1000px 500px at 50% -10%, var(--accent-wash), transparent 60%),
-      var(--surface-2);
-  }
-  .ticket-screen {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 24px;
-    box-shadow: var(--shadow-lg);
-    width: 380px; max-width: 100%;
-    display: flex; flex-direction: column;
-    overflow: hidden;
-  }
-  .ticket-body {
-    margin: 0 18px;
-    padding: 20px;
-    border-radius: 18px;
-    background: var(--accent-wash);
-    border: 1px solid var(--accent-line);
-    position: relative;
-  }
-  .perf {
-    position: absolute;
-    width: 18px; height: 18px; border-radius: 50%;
-    background: var(--surface); border: 1px solid var(--accent-line);
-    top: 50%; transform: translateY(-50%);
-  }
-
+const PAGE_CSS = TICKET_SHELL_CSS + `
   /* ── VIP: gold treatment ─────────────────────────────────────────── */
   .ticket-canvas.vip {
     background:

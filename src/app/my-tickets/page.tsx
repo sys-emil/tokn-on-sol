@@ -116,6 +116,22 @@ const PAGE_CSS = `
   .tk-stub:hover { box-shadow: var(--shadow-lg); border-color: var(--line-2); }
   .tk-stub.is-muted { opacity: 0.78; }
 
+  /* ── Druckrueckmeldung ───────────────────────────────────────
+     Zwischen Tippen und fertiger Ticketseite liegen zwei Netzaufrufe. Ohne
+     eine Reaktion auf den Druck wirkt die Liste in dieser Zeit tot, und man
+     tippt ein zweites Mal. Die Karte gibt deshalb sofort nach; das Skelett
+     unter /tickets/[assetId] uebernimmt danach.
+     :has() statt eines schlichten :active, damit nur der Ticket-Link die
+     Karte drueckt — die Knoepfe darin (Teilen, Verkaufen) oeffnen nichts. */
+  .tk-stub:has(.tk-stub-link:active) {
+    transform: scale(0.985);
+    box-shadow: var(--shadow-sm);
+    transition-duration: 0.08s;
+  }
+  /* Saisonpass-Karten sind Links; nur die reagieren, nicht jede .card. */
+  a.card { transition: transform 0.08s ease, box-shadow 0.15s ease; }
+  a.card:active { transform: scale(0.985); box-shadow: var(--shadow-sm); }
+
   /* Rand-Presets des Veranstalters (Pro) + VIP; gleiche Rangfolge wie auf den
      Event-Karten: VIP > Rand-Preset > Akzentfarbe > Bild. */
   .tk-stub.border-gold, .tk-wcard.border-gold {
@@ -195,6 +211,8 @@ const PAGE_CSS = `
     border-radius: 6px; padding: 2px 6px;
   }
   .tk-stub-action:hover:not(:disabled) { color: var(--accent); background: var(--accent-wash); }
+  .tk-stub-action { transition: transform 0.08s ease, color 0.15s ease, background 0.15s ease; }
+  .tk-stub-action:active:not(:disabled) { transform: scale(0.94); }
   .tk-stub-action:disabled { opacity: 0.6; cursor: default; }
   .tk-qrbox {
     width: 60px; height: 60px; border: 1px solid var(--line);
@@ -234,7 +252,9 @@ const PAGE_CSS = `
     display: flex; align-items: center; gap: 12px; padding: 10px 14px;
     background: var(--surface); border: 1px solid var(--line);
     border-radius: 10px; box-shadow: var(--shadow-sm);
+    transition: transform 0.08s ease, box-shadow 0.15s ease;
   }
+  .tk-timeline-item:active { transform: scale(0.985); box-shadow: none; }
 
   /* ── Vorteile + Abzeichen ────────────────────────────────── */
   /* Mobil-zuerst eine Spalte. Nebeneinander lohnt sich erst, wenn beide
