@@ -103,7 +103,42 @@ export function TrafficTab({ secret }: { secret: string }) {
         </div>
       </div>
 
-      {!data && <div className="card"><div className="empty">{loading ? 'Lädt …' : 'Keine Daten.'}</div></div>}
+      {!data && (loading
+        ? (
+          /* Geruest der fertigen Ansicht: KPI-Reihe, Verlaufskarte, zwei
+             Listenspalten. Ein „Lädt …" in einer leeren Karte liess die Seite
+             beim Eintreffen der Daten komplett neu aufbauen. */
+          <div aria-busy="true" aria-label="Zahlen werden geladen">
+            <div className="kpi-grid">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="card kpi">
+                  <div className="sk" style={{ width: 108, height: 11 }} />
+                  <div className="sk" style={{ width: 84, height: 28, marginTop: 8 }} />
+                  <div className="sk" style={{ width: 62, height: 10, marginTop: 12 }} />
+                </div>
+              ))}
+            </div>
+            <div className="card" style={{ padding: '18px 20px 20px', marginBottom: 24 }}>
+              <div className="sk" style={{ width: 168, height: 12 }} />
+              <div className="sk block" style={{ width: '100%', height: 180, marginTop: 16 }} />
+            </div>
+            <div className="traffic-cols">
+              {[0, 1].map((col) => (
+                <section key={col} className="card panel">
+                  <div className="sk" style={{ width: 148, height: 12, marginBottom: 16 }} />
+                  {[92, 74, 84, 61, 70].map((w, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, marginBottom: 12 }}>
+                      <div className="sk" style={{ width: `${w}%`, height: 10 }} />
+                      <div className="sk" style={{ width: 34, height: 10, flex: 'none' }} />
+                    </div>
+                  ))}
+                </section>
+              ))}
+            </div>
+          </div>
+        )
+        : <div className="card"><div className="empty">Keine Daten.</div></div>
+      )}
 
       {data && (
         <>

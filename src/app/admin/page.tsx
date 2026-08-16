@@ -371,7 +371,13 @@ function SolanaBalanceCard({ secret }: { secret: string }) {
               Operator-Wallet · SOL-Guthaben
               {bal && <span className="bal-net">{bal.network === 'devnet' ? 'Devnet' : 'Mainnet'}</span>}
             </div>
-            <div className="bal-value">{loading && !bal ? 'Lädt …' : `${sol} SOL`}</div>
+            <div className="bal-value">
+              {loading && !bal
+                /* Gleiche Hoehe wie die Zahl, damit die Karte beim Eintreffen
+                   des Guthabens nicht nachrueckt. */
+                ? <div className="sk" style={{ width: 148, height: 30 }} />
+                : `${sol} SOL`}
+            </div>
             {bal && <div className="bal-addr">{bal.address}</div>}
           </div>
 

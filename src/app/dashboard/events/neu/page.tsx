@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
-import { EventEditor, INITIAL_DRAFT } from '@/app/components/EventEditor';
+import { EventEditor, EventEditorSkeleton, INITIAL_DRAFT } from '@/app/components/EventEditor';
 import type { EventDraft } from '@/app/components/EventEditor';
 import { isFeePayer } from '@/lib/fees';
 
@@ -105,7 +105,7 @@ export default function NewEventPage() {
             </div>
 
             {loading ? (
-              <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--ink-3)' }}>Lädt …</div>
+              <EventEditorSkeleton />
             ) : orgStatus !== 'approved' ? (
               <div className="card" style={{ padding: 32 }}>
                 <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Noch nicht freigeschaltet</h3>

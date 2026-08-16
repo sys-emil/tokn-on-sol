@@ -283,7 +283,18 @@ function OrganizerEvents({ wallet, secret }: { wallet: string; secret: string })
   }, [wallet, secret]);
 
   if (error) return <div style={{ padding: 12, fontSize: 12.5, color: 'var(--bad)' }}>{error}</div>;
-  if (!events) return <div style={{ padding: 12, fontSize: 12.5, color: 'var(--ink-3)' }}>Lädt …</div>;
+  // Platzhalterzeilen in der Form der Eventliste darunter: Datum, Name, Zahlen.
+  if (!events) return (
+    <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }} aria-busy="true">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="row gap-2" style={{ alignItems: 'center' }}>
+          <div className="sk" style={{ width: 84, height: 11, flex: 'none' }} />
+          <div className="sk" style={{ width: 168 - i * 24, height: 11 }} />
+          <div className="sk" style={{ width: 92, height: 11, marginLeft: 'auto', flex: 'none' }} />
+        </div>
+      ))}
+    </div>
+  );
   if (events.length === 0) return <div style={{ padding: 12, fontSize: 12.5, color: 'var(--ink-3)' }}>Keine Events.</div>;
 
   return (

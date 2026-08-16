@@ -585,6 +585,40 @@ export function EventEditor({
   );
 }
 
+/**
+ * Ladezustand des Editors.
+ *
+ * Steht hier neben dem Editor selbst und benutzt dessen Raster, damit die
+ * beiden Spalten (Vorschau links, Einstellungen rechts) beim Umschalten an
+ * derselben Stelle stehen. Vorher zeigten /dashboard/events/neu und
+ * .../bearbeiten in dieser Zeit eine leere Karte mit „Lädt …", und das
+ * gesamte Layout sprang danach auf einen Schlag hinein.
+ */
+export function EventEditorSkeleton() {
+  return (
+    <>
+      <style>{EDITOR_CSS}</style>
+      <div className="eed" aria-busy="true" aria-label="Editor wird geladen">
+        <div className="eed-preview">
+          {/* Die Vorschau ist eine Karte im Seitenverhältnis der Event-Karte. */}
+          <div className="sk block" style={{ width: 190, height: 12, marginBottom: 14 }} />
+          <div className="sk block" style={{ width: '100%', aspectRatio: '16 / 10', minHeight: 260 }} />
+        </div>
+        <div className="eed-panel">
+          <div className="sk" style={{ width: 128, height: 13, marginBottom: 20 }} />
+          {[74, 96, 62, 88].map((w, i) => (
+            <div key={i} style={{ display: 'grid', gap: 8, marginBottom: 18 }}>
+              <div className="sk" style={{ width: w, height: 10 }} />
+              <div className="sk block" style={{ width: '100%', height: 40 }} />
+            </div>
+          ))}
+          <div className="sk block" style={{ width: '100%', height: 44, marginTop: 24 }} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 const EDITOR_CSS = `
   .eed {
     display: grid; grid-template-columns: minmax(0, 1fr) 400px;

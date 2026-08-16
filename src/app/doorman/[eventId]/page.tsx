@@ -672,12 +672,32 @@ export default function DoormanPage() {
       <style>{PAGE_CSS}</style>
 
       {/* Loading / auth / access denied states */}
+      {/* Ladezustand in der Form der fertigen Einlass-Ansicht: Kopfzeile,
+          Zaehler, Scannerfeld. Eine zentrierte Karte mit „Wird geladen …" sprang
+          danach auf ein voellig anderes Layout um — schlecht an einer Tuer, wo
+          jemand in Sekunden begreifen muss, wo er hinhalten soll. */}
       {(phase.tag === 'loading' || !event) && phase.tag !== 'denied' && phase.tag !== 'camera-error' && (
-        <div className="center-screen">
-          <div className="card" style={{ padding: 32, textAlign: 'center', maxWidth: 340 }}>
-            <div className="spinner" style={{ margin: '0 auto 14px' }} />
-            <div style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Einlass</div>
-            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 4 }}>Wird geladen …</div>
+        <div className="door-root" aria-busy="true" aria-label="Einlass wird geladen">
+          <header className="door-header">
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 11.5, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Einlass</div>
+              <div className="sk" style={{ width: 168, height: 14 }} />
+              <div className="sk" style={{ width: 104, height: 10 }} />
+            </div>
+            <div className="sk" style={{ width: 72, height: 22, borderRadius: 6 }} />
+          </header>
+
+          <div className="door-counters">
+            {['Eingelassen', 'Letzter Scan'].map((label) => (
+              <div key={label} className="door-counter">
+                <div className="l">{label}</div>
+                <div className="sk" style={{ width: 54, height: 18, marginTop: 4 }} />
+              </div>
+            ))}
+          </div>
+
+          <div className="scanner-wrap">
+            <div className="spinner" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
           </div>
         </div>
       )}

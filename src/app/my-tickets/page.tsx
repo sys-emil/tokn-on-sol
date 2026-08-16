@@ -56,6 +56,13 @@ const PAGE_CSS = `
                 box-shadow 0.2s;
   }
   .tk-wcard:hover { box-shadow: 0 14px 40px rgba(17, 20, 45, 0.16); }
+  /* Gefaechert steht die Karte schraeg; der Druck kommt als zweite
+     Transformation dazu, statt die Neigung zu ersetzen. */
+  .tk-wcard { transform: rotate(var(--tilt, 0deg)); }
+  .tk-wcard:active {
+    transform: rotate(var(--tilt, 0deg)) scale(0.965);
+    transition-duration: 0.08s;
+  }
   .tk-wcard-head {
     display: flex; align-items: center; gap: 11px; padding: 0 14px; height: 62px;
     flex: none; border-bottom: 1px solid var(--line); background: var(--surface);
@@ -1253,11 +1260,15 @@ export default function MyTickets() {
                           const vip = isVipTier(t);
                           const slot = fan ? (i === 0 ? stackCount - 1 : i - 1) : i;
                           const center = (stackCount - 1) / 2;
-                          const pos: React.CSSProperties = fan
+                          const pos: React.CSSProperties = (fan
                             ? {
                                 top: Math.round(46 + Math.pow(slot - center, 2) * 7 + (i === 0 ? -14 : 0)),
                                 left: Math.round(20 + slot * fanStep),
-                                transform: `rotate(${((slot - center) * (stackGeometry.availW < 660 ? 0 : 2.6)).toFixed(2)}deg)`,
+                                // Die Neigung reist als Custom Property, nicht als
+                                // inline transform: sonst gaebe es keinen Weg, die
+                                // Druck-Skalierung dazuzurechnen (inline schlaegt
+                                // jede Klassenregel).
+                                '--tilt': `${((slot - center) * (stackGeometry.availW < 660 ? 0 : 2.6)).toFixed(2)}deg`,
                                 transformOrigin: 'bottom center',
                                 zIndex: 10 + slot,
                                 boxShadow: 'var(--shadow-lg)',
@@ -1266,7 +1277,7 @@ export default function MyTickets() {
                                 top: i === 0 ? 0 : 300 + (i - 1) * 48,
                                 zIndex: i === 0 ? 5 : 10 + i,
                                 boxShadow: i === 0 ? 'var(--shadow-lg)' : '0 -6px 18px rgba(17,20,45,.07)',
-                              };
+                              }) as React.CSSProperties;
                           // Eingeklappt bringt ein Klick auf eine Kante das Ticket
                           // nach vorn; gefächert (oder auf der Frontkarte) öffnet er es.
                           const bringToFront = !fan && i > 0;

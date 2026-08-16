@@ -618,6 +618,29 @@ section + section { margin-top: 36px; }
   padding: 48px 24px; text-align: center; color: var(--ink-3);
 }
 
+/* Ladeplatzhalter. Ein "Laedt …" sagt nur, dass etwas passiert; ein Skelett in
+   der Form der fertigen Seite sagt zusaetzlich, was gleich kommt, und haelt das
+   Layout ruhig, wenn die Daten eintreffen. Deshalb bekommt jede Seite ihr
+   eigenes Geruest — hier steht nur der gemeinsame Baustein. */
+.sk {
+  background: var(--line);
+  background-image: linear-gradient(100deg, transparent 20%, var(--surface) 50%, transparent 80%);
+  background-size: 220% 100%;
+  border-radius: 5px;
+  animation: skShimmer 1.25s ease-in-out infinite;
+}
+.sk.block { border-radius: 10px; }
+.sk.circle { border-radius: 50%; }
+@keyframes skShimmer {
+  from { background-position: 120% 0; }
+  to   { background-position: -120% 0; }
+}
+/* Eine dauerhaft pulsierende Flaeche ist fuer manche Menschen unangenehm;
+   ohne Animation bleibt sie als ruhiger Platzhalter stehen. */
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; background-image: none; }
+}
+
 /* Badge medals; milestone tiles shared by /my-tickets and /collection.
    Per-badge color via --bh (hue from badgeMeta). */
 /* Selbstanpassendes Raster statt Flex mit fester Kachelbreite: die Reihe steht

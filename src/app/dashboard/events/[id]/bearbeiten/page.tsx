@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
-import { EventEditor, INITIAL_DRAFT } from '@/app/components/EventEditor';
+import { EventEditor, EventEditorSkeleton, INITIAL_DRAFT } from '@/app/components/EventEditor';
 import type { EventDraft } from '@/app/components/EventEditor';
 import { isFeePayer, type FeePayer } from '@/lib/fees';
 
@@ -127,7 +127,7 @@ export default function EditEventPage() {
                 <Link href={`/dashboard/events/${eventId}`} className="btn ghost" style={{ marginTop: 16 }}>Zurück</Link>
               </div>
             ) : !draft || !ownerWallet ? (
-              <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--ink-3)' }}>Lädt …</div>
+              <EventEditorSkeleton />
             ) : (
               <EventEditor
                 mode="edit"

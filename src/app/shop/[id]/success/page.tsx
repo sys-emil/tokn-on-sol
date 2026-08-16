@@ -313,20 +313,49 @@ function SuccessInner() {
   );
 }
 
+/**
+ * Ladezustand, solange die Suchparameter (und damit die Bestellung) fehlen.
+ *
+ * Zeigt dieselbe Karte mit denselben Ticketzeilen wie das Ergebnis, damit
+ * beim Eintreffen der Daten nur der Inhalt wechselt. Die Zusage
+ * „Zahlung bestätigt" steht schon hier: sie stimmt in dem Moment, in dem
+ * Stripe hierher zurückleitet, und ist genau das, was jemand nach dem
+ * Bezahlen als Erstes wissen will.
+ */
+function SuccessSkeleton() {
+  return (
+    <div className="success-card" aria-busy="true" aria-label="Bestellung wird geladen">
+      <div className="success-head">
+        <span className="chip accent"><span className="d" />Zahlung bestätigt</span>
+        <div className="sk" style={{ width: '62%', height: 19, marginTop: 12 }} />
+        <div className="sk" style={{ width: 148, height: 11, marginTop: 10 }} />
+      </div>
+      <div className="success-body">
+        <div className="ticket-list">
+          {[0, 1].map((i) => (
+            <div key={i} className="ticket-row">
+              <span className="ticket-num">{i + 1}</span>
+              <div className="ticket-status" style={{ display: 'grid', gap: 6 }}>
+                <div className="sk" style={{ width: i === 0 ? 132 : 108, height: 11 }} />
+                <div className="sk" style={{ width: i === 0 ? 196 : 164, height: 9 }} />
+              </div>
+              <div className="sk circle" style={{ width: 22, height: 22, flexShrink: 0 }} />
+            </div>
+          ))}
+        </div>
+        <div className="sk block" style={{ width: '100%', height: 46, marginTop: 14 }} />
+      </div>
+    </div>
+  );
+}
+
 export default function SuccessPage() {
   return (
     <>
       <style>{PAGE_CSS}</style>
       <div className="success-page">
         <PasslyLogo height={24} />
-        <Suspense fallback={
-          <div className="success-card">
-            <div className="success-head">
-              <span className="chip accent"><span className="d" />Zahlung bestätigt</span>
-              <h1>Lädt …</h1>
-            </div>
-          </div>
-        }>
+        <Suspense fallback={<SuccessSkeleton />}>
           <SuccessInner />
         </Suspense>
         <LegalLinks style={{ marginTop: 22 }} />
