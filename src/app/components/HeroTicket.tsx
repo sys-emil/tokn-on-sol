@@ -190,10 +190,10 @@ export function HeroTicket() {
 
 /* Dieselbe Bewegung wie unter dem Zeiger, nur von allein: die Karte kippt auf
    beiden Achsen und bleibt dabei an Ort und Stelle — keine Verschiebung, kein
-   translateZ. Der Ausschlag ist etwa ein Drittel dessen, was die Maus erreicht
-   (die kommt auf rund ±11 Grad seitlich), damit es nach ruhigem Schweben
-   aussieht und nicht nach einem Karussell. `rotate(1.5deg)` bleibt fest, genau
-   wie im Zeiger-Handler: das ist die Schraeglage der Karte selbst.
+   translateZ. Der Ausschlag liegt bei gut zwei Dritteln dessen, was die Maus
+   erreicht (die kommt auf rund ±11 Grad seitlich) und bleibt damit im selben
+   Bereich, den der Zeiger auch abfahren wuerde. `rotate(1.5deg)` bleibt fest,
+   genau wie im Zeiger-Handler: das ist die Schraeglage der Karte selbst.
 
    Vier Stationen im Kreis statt eines Hin und Her, sonst wirkt es wie ein
    Metronom. 0% und 100% tragen REST_TRANSFORM, damit das Ein- und Ausschalten
@@ -203,9 +203,9 @@ const IDLE_CSS = `
   .hero-v2-ticket.is-tilting { animation: none; }
   @keyframes heroTicketIdle {
     0%   { transform: rotateY(-8deg) rotateX(4deg) rotate(1.5deg); }
-    25%  { transform: rotateY(-12deg) rotateX(2deg) rotate(1.5deg); }
-    50%  { transform: rotateY(-5deg) rotateX(6.5deg) rotate(1.5deg); }
-    75%  { transform: rotateY(-10.5deg) rotateX(6deg) rotate(1.5deg); }
+    25%  { transform: rotateY(-16deg) rotateX(0deg) rotate(1.5deg); }
+    50%  { transform: rotateY(-2deg) rotateX(9deg) rotate(1.5deg); }
+    75%  { transform: rotateY(-13deg) rotateX(8deg) rotate(1.5deg); }
     100% { transform: rotateY(-8deg) rotateX(4deg) rotate(1.5deg); }
   }
   @media (prefers-reduced-motion: reduce) {
