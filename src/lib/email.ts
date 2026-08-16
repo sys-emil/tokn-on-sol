@@ -8,6 +8,12 @@ import { normalizeLang, t, type Lang } from "@/lib/i18n";
 // verschluckt, von der Kaufbestaetigung bis zum Admin-Alarm.
 const FROM = process.env.EMAIL_FROM ?? "Passly <tickets@contact.getpassly.de>";
 
+// Der Absender ist eine reine Versand-Subdomain ohne Postfach. Ohne reply_to
+// liefen Antworten von Gaesten und Veranstaltern dorthin und damit ins Leere —
+// jemand, der auf seine Ticketbestaetigung antwortet, erwartet zu Recht, dass
+// das gelesen wird.
+const REPLY_TO = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@getpassly.de";
+
 // Impressums-Angaben für den E-Mail-Footer (geschäftliche E-Mails müssen den
 // Absender erkennen lassen). VOR GO-LIVE ausfüllen, grep nach "PLATZHALTER".
 const LEGAL_NAME = "[PLATZHALTER: Vor- und Nachname]";
@@ -65,7 +71,7 @@ export async function sendAdminAlert({ subject, text }: { subject: string; text:
   if (!process.env.RESEND_API_KEY || !to) return;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  await resend.emails.send({ from: FROM, to, subject: `[Passly Alert] ${subject}`, text });
+  await resend.emails.send({ from: FROM, replyTo: REPLY_TO, to, subject: `[Passly Alert] ${subject}`, text });
 }
 
 /**
@@ -101,6 +107,7 @@ export async function sendOrganizerMessage({
     const { error } = await resend.batch.send(
       chunk.map((to) => ({
         from: FROM,
+        replyTo: REPLY_TO,
         to,
         subject: `[${eventName}] ${subject}`,
         text: body,
@@ -148,6 +155,7 @@ export async function sendOrganizerCampaign({
     const { error } = await resend.batch.send(
       chunk.map((to) => ({
         from: FROM,
+        replyTo: REPLY_TO,
         to,
         subject: `${organizerName}: ${subject}`,
         text: body,
@@ -183,7 +191,7 @@ export async function sendBadgeProgressEmail({
   const resend = new Resend(process.env.RESEND_API_KEY);
   const body = `${detail}\n\nDeine Sammlung und alle Abzeichen findest du hier:\n${baseUrl}/my-tickets\n\n--\nDu bekommst diese E-Mail, weil du gerade ein Ticket über Passly eingelöst hast.\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
 
-  await resend.emails.send({ from: FROM, to, subject: headline, text: body });
+  await resend.emails.send({ from: FROM, replyTo: REPLY_TO, to, subject: headline, text: body });
 }
 
 /**
@@ -212,6 +220,7 @@ export async function sendOrganizerApplicationDecision({
 
   await resend.emails.send({
     from: FROM,
+    replyTo: REPLY_TO,
     to,
     subject: approved ? "Deine Veranstalter-Bewerbung ist freigegeben" : "Update zu deiner Veranstalter-Bewerbung",
     text: body,
@@ -256,6 +265,7 @@ export async function sendEventReminder({
     const { error } = await resend.batch.send(
       chunk.map((to) => ({
         from: FROM,
+        replyTo: REPLY_TO,
         to,
         subject,
         text: body,
@@ -299,6 +309,7 @@ export async function sendWaitlistEmail({
     const { error } = await resend.batch.send(
       chunk.map((to) => ({
         from: FROM,
+        replyTo: REPLY_TO,
         to,
         subject,
         text: body,
@@ -332,6 +343,7 @@ export async function sendBackupTicketEmail({
 
   await resend.emails.send({
     from: FROM,
+    replyTo: REPLY_TO,
     to,
     subject: `Dein Backup-Ticket für ${eventName}`,
     text: body,
@@ -438,6 +450,7 @@ export async function sendTicketConfirmation({
 
   await resend.emails.send({
     from: FROM,
+    replyTo: REPLY_TO,
     to,
     subject: plural
       ? t(lang, "mail.ticketSubjectMany", { count: assetIds.length, event: eventName })

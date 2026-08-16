@@ -274,7 +274,7 @@ RESEND_API_KEY         # Resend API key; all outgoing mail goes through it (src/
 EMAIL_FROM             # Sender of every mail. The domain MUST be verified in Resend or Resend rejects the send; the verified one is the subdomain contact.getpassly.de. Defaults to "Passly <tickets@contact.getpassly.de>".
 ADMIN_ALERT_EMAIL      # Recipient for operational alerts (permanently failed mint jobs); alerts are skipped when unset
 ADMIN_SECRET           # Auth for /admin/payouts + /admin/organizers and their /api/admin/* routes (x-admin-secret header)
-NEXT_PUBLIC_SUPPORT_EMAIL  # Shown on /hilfe; defaults to support@getpassly.de when unset
+NEXT_PUBLIC_SUPPORT_EMAIL  # Shown on /hilfe AND used as the reply-to of every outgoing mail (the sending subdomain has no inbox); defaults to support@getpassly.de when unset
 NEXTAUTH_SECRET        # Legacy name; no longer used for QR signing; do not remove
 VERCEL_URL             # Auto-set by Vercel; fallback for building absolute URLs
 APP_URL                # Stable production domain (e.g. https://passly.app); takes priority over VERCEL_URL for metadata URIs, claim links, and email links
