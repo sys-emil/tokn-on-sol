@@ -270,6 +270,8 @@ STRIPE_SECRET_KEY / STRIPE_PUBLIC_KEY / STRIPE_WEBHOOK_SECRET
 STRIPE_CONNECT_WEBHOOK_SECRET  # Signing secret of the second (Connect) webhook endpoint
 STRIPE_PRO_PRICE_ID    # Monthly recurring Price for the Dashboard-Pro subscription; billing checkout returns 503 when unset
 CRON_SECRET            # Auth for /api/cron/payouts + /api/cron/mint (Vercel Cron sends it as Bearer token)
+RESEND_API_KEY         # Resend API key; all outgoing mail goes through it (src/lib/email.ts)
+EMAIL_FROM             # Sender of every mail, e.g. "Passly <tickets@getpassly.de>". The domain MUST be verified in Resend or Resend rejects the send. Falls back to "Passly <tickets@passly.xyz>", which is a leftover — set this explicitly.
 ADMIN_ALERT_EMAIL      # Recipient for operational alerts (permanently failed mint jobs); alerts are skipped when unset
 ADMIN_SECRET           # Auth for /admin/payouts + /admin/organizers and their /api/admin/* routes (x-admin-secret header)
 NEXT_PUBLIC_SUPPORT_EMAIL  # Shown on /hilfe; defaults to support@getpassly.de when unset
