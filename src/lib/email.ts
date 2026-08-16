@@ -1,7 +1,12 @@
 import { Resend } from "resend";
 import { normalizeLang, t, type Lang } from "@/lib/i18n";
 
-const FROM = process.env.EMAIL_FROM ?? "Passly <tickets@passly.xyz>";
+// Absender aller ausgehenden Mails. Die Domain muss in Resend verifiziert
+// sein, sonst lehnt Resend den Versand ab — der Fallback zeigt deshalb auf
+// die verifizierte Subdomain und nicht mehr auf die alte passly.xyz, die uns
+// nicht gehoert: eine vergessene Env-Variable haette sonst jede Mail
+// verschluckt, von der Kaufbestaetigung bis zum Admin-Alarm.
+const FROM = process.env.EMAIL_FROM ?? "Passly <tickets@contact.getpassly.de>";
 
 // Impressums-Angaben für den E-Mail-Footer (geschäftliche E-Mails müssen den
 // Absender erkennen lassen). VOR GO-LIVE ausfüllen, grep nach "PLATZHALTER".
