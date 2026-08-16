@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { TodayStamp } from '@/app/components/TodayStamp';
 
 /**
@@ -10,6 +10,11 @@ import { TodayStamp } from '@/app/components/TodayStamp';
  * zur Kartenmitte wird direkt auf rotateY/rotateX gelegt, beim Verlassen
  * federt die Karte in ihre Ruhelage zurück. Das Datum kommt weiterhin aus
  * <TodayStamp>, damit im Mockup nicht irgendwann ein Datum von gestern steht.
+ *
+ * Ohne Zeiger atmet die Karte von selbst (`heroTicketIdle`): eine sehr langsame
+ * Drift um die Ruhelage, damit der Hero nicht wie ein Screenshot wirkt und
+ * sichtbar ist, dass die Karte auf Berührung reagiert. Auf Touch-Geräten, wo
+ * es kein Hover gibt, ist das die einzige Bewegung überhaupt.
  */
 
 const REST_TRANSFORM = 'rotateY(-8deg) rotateX(4deg) rotate(1.5deg)';
@@ -17,9 +22,18 @@ const REST_TRANSFORM = 'rotateY(-8deg) rotateX(4deg) rotate(1.5deg)';
 export function HeroTicket() {
   const ref = useRef<HTMLDivElement>(null);
 
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (resumeTimer.current) clearTimeout(resumeTimer.current); }, []);
+
   function handleMove(ev: React.MouseEvent<HTMLDivElement>) {
     const el = ref.current;
     if (!el) return;
+    // Die Idle-Animation muss weichen, nicht nur pausieren: eine laufende
+    // CSS-Animation schlaegt im Cascade jede Inline-Transformation, die
+    // Karte wuerde dem Zeiger sonst gar nicht folgen.
+    if (resumeTimer.current) { clearTimeout(resumeTimer.current); resumeTimer.current = null; }
+    el.classList.add('is-tilting');
     const r = el.getBoundingClientRect();
     const dx = (ev.clientX - r.left) / r.width - 0.5;
     const dy = (ev.clientY - r.top) / r.height - 0.5;
@@ -33,10 +47,19 @@ export function HeroTicket() {
     if (!el) return;
     el.style.transition = 'transform 700ms cubic-bezier(.16,1,.3,1)';
     el.style.transform = REST_TRANSFORM;
+    // Erst zurueckfedern lassen, dann die Drift wieder uebernehmen. Sofort
+    // wieder anzuschalten wuerde die 700ms-Feder ueberspringen, weil die
+    // Animation ab ihrem ersten Frame gewinnt.
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    resumeTimer.current = setTimeout(() => {
+      ref.current?.classList.remove('is-tilting');
+      resumeTimer.current = null;
+    }, 700);
   }
 
   return (
     <div className="hero-v2-mock" aria-hidden="true">
+      <style>{IDLE_CSS}</style>
       <div
         ref={ref}
         className="hero-v2-ticket"
@@ -163,3 +186,20 @@ export function HeroTicket() {
     </div>
   );
 }
+
+/* Die Eckwerte sind bewusst winzig: gut 1,5 Grad und ein paar Pixel. Mehr sieht
+   nach Karussell aus statt nach einer Karte, die auf dem Tisch liegt. 0% traegt
+   genau REST_TRANSFORM, damit das Ein- und Ausschalten der Animation an keiner
+   Stelle springt; `alternate` haelt Anfang und Ende zusammen. */
+const IDLE_CSS = `
+  .hero-v2-ticket { animation: heroTicketIdle 11s ease-in-out infinite alternate; }
+  .hero-v2-ticket.is-tilting { animation: none; }
+  @keyframes heroTicketIdle {
+    0%   { transform: rotateY(-8deg) rotateX(4deg) rotate(1.5deg) translate3d(0, 0, 0); }
+    50%  { transform: rotateY(-6.4deg) rotateX(3.2deg) rotate(1deg) translate3d(0, -8px, 6px); }
+    100% { transform: rotateY(-9.3deg) rotateX(4.7deg) rotate(2deg) translate3d(0, 3px, 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-v2-ticket { animation: none; }
+  }
+`;

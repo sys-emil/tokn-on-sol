@@ -257,7 +257,9 @@ export default function ProDashboard() {
 
           <div className="pro-head">
             <div className="hero">
-              <h1>Auswertung</h1>
+              {/* „Pro" in Violett: die Seite ist das Aushaengeschild des Abos,
+                  und der Name sagt mehr darueber aus als „Auswertung". */}
+              <h1>Passly <span className="accent-line">Pro</span></h1>
             </div>
             {plan === 'pro' && (
               <div className="range-col">
@@ -444,7 +446,33 @@ function OverviewTab({
     });
   }, [data?.events, sort]);
 
-  if (!data) return <div className="tab-panel"><div className="card" style={{ padding: 28 }}><div className="empty">Lade Auswertung …</div></div></div>;
+  if (!data) return (
+    <div className="tab-panel" aria-busy="true" aria-label="Auswertung wird geladen">
+      {/* KPI-Leiste, Verlauf, Trichter — dieselbe Reihenfolge wie unten. */}
+      <div className="card kpi-strip">
+        <div className="accent-rule" />
+        <div className="kpi-grid">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div className="kpi-cell" key={i}>
+              <div className="sk" style={{ width: 116, height: 11 }} />
+              <div className="sk" style={{ width: 92, height: 26, marginTop: 10 }} />
+              <div className="sk" style={{ width: 74, height: 10, marginTop: 10 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="card" style={{ padding: 22, marginTop: 18 }}>
+        <div className="sk" style={{ width: 168, height: 12 }} />
+        <div className="sk block" style={{ width: '100%', height: 220, marginTop: 18 }} />
+      </div>
+      <div className="card" style={{ padding: 22, marginTop: 18 }}>
+        <div className="sk" style={{ width: 132, height: 12, marginBottom: 18 }} />
+        {[100, 78, 56, 34].map((w, i) => (
+          <div key={i} className="sk block" style={{ width: `${w}%`, height: 34, marginBottom: 10 }} />
+        ))}
+      </div>
+    </div>
+  );
 
   const k = data.kpis;
   const series = metric === 'revenue'
@@ -864,7 +892,33 @@ function CustomersTab({
       });
   }, [data, segment, query, sort]);
 
-  if (!data) return <div className="tab-panel"><div className="card" style={{ padding: 28 }}><div className="empty">Lade Kundendaten …</div></div></div>;
+  if (!data) return (
+    <div className="tab-panel" aria-busy="true" aria-label="Kundendaten werden geladen">
+      {/* Vier Segmentkarten, darunter Kohorten-Matrix und Kundentabelle. */}
+      <div className="segment-grid">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="card" style={{ padding: 18 }}>
+            <div className="sk circle" style={{ width: 30, height: 30 }} />
+            <div className="sk" style={{ width: 68, height: 26, marginTop: 14 }} />
+            <div className="sk" style={{ width: 104, height: 10, marginTop: 8 }} />
+          </div>
+        ))}
+      </div>
+      <div className="card" style={{ padding: 22, marginTop: 18 }}>
+        <div className="sk" style={{ width: 186, height: 12, marginBottom: 18 }} />
+        <div className="sk block" style={{ width: '100%', height: 190 }} />
+      </div>
+      <div className="card" style={{ padding: 22, marginTop: 18 }}>
+        <div className="sk" style={{ width: 142, height: 12, marginBottom: 16 }} />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 13 }}>
+            <div className="sk" style={{ width: `${44 - i * 4}%`, height: 11 }} />
+            <div className="sk" style={{ width: 64, height: 11, flex: 'none' }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   const bestCohort = data.cohorts
     .map((c) => ({ label: c.label, value: c.cells[1] }))
@@ -1061,7 +1115,26 @@ function LoyaltyTab({
     }
   }
 
-  if (!data) return <div className="tab-panel"><div className="card" style={{ padding: 28 }}><div className="empty">Lade Treueprogramm …</div></div></div>;
+  if (!data) return (
+    <div className="tab-panel" aria-busy="true" aria-label="Treueprogramm wird geladen">
+      {/* Stufenkarten im selben Raster wie die echten Treuestufen. */}
+      <div className="tier-grid">
+        {[0, 1].map((i) => (
+          <div key={i} className="card" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="sk block" style={{ width: 38, height: 38, flex: 'none' }} />
+              <div style={{ display: 'grid', gap: 7, flex: 1 }}>
+                <div className="sk" style={{ width: 118, height: 13 }} />
+                <div className="sk" style={{ width: 158, height: 10 }} />
+              </div>
+            </div>
+            <div className="sk block" style={{ width: '100%', height: 52, marginTop: 18 }} />
+            <div className="sk" style={{ width: '72%', height: 10, marginTop: 14 }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   const maxImpact = (row: LoyaltyData['impact']['rows'][number]) => Math.max(row.member, row.other, 1);
   const formatImpact = (row: LoyaltyData['impact']['rows'][number], value: number): string =>

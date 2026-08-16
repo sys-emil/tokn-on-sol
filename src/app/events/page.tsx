@@ -103,20 +103,7 @@ const PAGE_CSS = `
     gap: 40px; align-items: end; padding: 56px 44px 44px; min-height: 460px;
   }
   .ev-featured-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
-  .ev-featured-badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 12px 6px 10px; border-radius: 8px;
-    background: rgba(255, 255, 255, 0.13); border: 1px solid rgba(255, 255, 255, 0.22);
-    backdrop-filter: blur(10px);
-    font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em;
-    text-transform: uppercase; color: rgba(255, 255, 255, 0.92);
-  }
-  .ev-featured-badge .dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: oklch(0.78 0.19 var(--hue));
-    animation: ev-breathe 2.4s ease-in-out infinite;
-  }
-  .ev-featured h1 {
+.ev-featured h1 {
     margin: 0; font-size: 60px; line-height: 1.02; font-weight: 640;
     letter-spacing: -0.04em; color: #fff; text-wrap: balance; max-width: 15ch;
   }
@@ -351,7 +338,7 @@ const PAGE_CSS = `
 
   @media (prefers-reduced-motion: reduce) {
     .ev-featured-wrap, .ev-texthero, .ev-pass-card { animation: none; }
-    .ev-featured-badge .dot, .ev-texthero .eyebrow .dot { animation: none; opacity: 1; }
+    .ev-texthero .eyebrow .dot { animation: none; opacity: 1; }
     .ev-pass-card, .ev-buybox-cta,
     .ev-featured-art img, .ev-featured-art .art-bg { transition: none; }
     .ev-pass-card:hover { transform: none; }
@@ -534,11 +521,10 @@ export default async function EventsPage({ searchParams }: {
                   <div className="ev-featured-scrim" aria-hidden="true" />
                   <div className="ev-featured-inner">
                     <div className="ev-featured-copy">
-                      <span className="ev-featured-badge">
-                        <span className="dot" />
-                        {t('events.featuredEyebrow')}
-                        {cityFromVenue(featured.venue) ? ` · ${cityFromVenue(featured.venue)}` : ''}
-                      </span>
+                      {/* Die „Als nächstes"-Badge stand hier als abgerundetes
+                          Rechteck ueber dem Titel und wiederholte nur den Ort,
+                          der zwei Zeilen tiefer ohnehin in der Meta-Zeile
+                          steht. Weniger Kasten, mehr Event. */}
                       <h1>{featured.name}</h1>
                       <p className="ev-featured-desc">
                         {featured.description ? truncate(featured.description, 180) : t('events.leadEmpty')}

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
+import { SignInButton } from '@/app/components/SignInButton';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { HeroTicket } from '@/app/components/HeroTicket';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
@@ -333,7 +334,7 @@ export default function Home() {
             </div>
             <div className="topbar-right">
               <Link href="/my-tickets" className="btn subtle sm">Meine Tickets</Link>
-              <Link href="/become-organizer" className="btn primary sm">Event anlegen</Link>
+              <SignInButton />
             </div>
           </div>
         </div>

@@ -503,7 +503,42 @@ export default function EventDetailPage() {
         <div className="main">
           <div className="container">
 
-            {!loaded && <div className="empty">Lade Veranstaltung …</div>}
+            {/* Kopfzeile, Aktionsknoepfe und das zweispaltige Detailraster —
+                dieselbe Anordnung wie unten, damit die Seite beim Eintreffen
+                der Daten nicht komplett neu aufgebaut wird. */}
+            {!loaded && (
+              <div aria-busy="true" aria-label="Veranstaltung wird geladen">
+                <div className="crumbs">
+                  <span className="sk" style={{ display: 'inline-block', width: 116, height: 10 }} />
+                </div>
+                <div className="row gap-3" style={{ justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap' }}>
+                  <div style={{ maxWidth: 640, display: 'grid', gap: 10 }}>
+                    <div className="sk" style={{ width: 78, height: 20, borderRadius: 6 }} />
+                    <div className="sk" style={{ width: 320, maxWidth: '100%', height: 28 }} />
+                    <div className="sk" style={{ width: 236, height: 12 }} />
+                  </div>
+                  <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+                    {[104, 108, 128].map((w, i) => (
+                      <div key={i} className="sk block" style={{ width: w, height: 36 }} />
+                    ))}
+                  </div>
+                </div>
+                <div className="detail-grid">
+                  {[0, 1].map((col) => (
+                    <div key={col} className="card" style={{ padding: 20 }}>
+                      <div className="sk" style={{ width: 178, height: 13 }} />
+                      <div className="sk" style={{ width: 214, height: 10, marginTop: 8 }} />
+                      {[0, 1, 2, 3].map((i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 16 }}>
+                          <div className="sk" style={{ width: `${52 - i * 5}%`, height: 11 }} />
+                          <div className="sk" style={{ width: 72, height: 11, flex: 'none' }} />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {loaded && loadError && <div className="empty">{loadError}</div>}
 
             {loaded && event && (
