@@ -11,10 +11,11 @@ import { TodayStamp } from '@/app/components/TodayStamp';
  * federt die Karte in ihre Ruhelage zurück. Das Datum kommt weiterhin aus
  * <TodayStamp>, damit im Mockup nicht irgendwann ein Datum von gestern steht.
  *
- * Ohne Zeiger atmet die Karte von selbst (`heroTicketIdle`): eine sehr langsame
- * Drift um die Ruhelage, damit der Hero nicht wie ein Screenshot wirkt und
- * sichtbar ist, dass die Karte auf Berührung reagiert. Auf Touch-Geräten, wo
- * es kein Hover gibt, ist das die einzige Bewegung überhaupt.
+ * Ohne Zeiger kippt die Karte von selbst weiter (`heroTicketIdle`) — dieselbe
+ * Bewegung wie unter der Maus, nur langsamer und an Ort und Stelle. Damit wirkt
+ * der Hero nicht wie ein Screenshot, und es ist zu sehen, dass die Karte auf
+ * Berührung reagiert. Auf Touch-Geräten, wo es kein Hover gibt, ist das die
+ * einzige Bewegung überhaupt.
  */
 
 const REST_TRANSFORM = 'rotateY(-8deg) rotateX(4deg) rotate(1.5deg)';
@@ -187,17 +188,25 @@ export function HeroTicket() {
   );
 }
 
-/* Die Eckwerte sind bewusst winzig: gut 1,5 Grad und ein paar Pixel. Mehr sieht
-   nach Karussell aus statt nach einer Karte, die auf dem Tisch liegt. 0% traegt
-   genau REST_TRANSFORM, damit das Ein- und Ausschalten der Animation an keiner
-   Stelle springt; `alternate` haelt Anfang und Ende zusammen. */
+/* Dieselbe Bewegung wie unter dem Zeiger, nur von allein: die Karte kippt auf
+   beiden Achsen und bleibt dabei an Ort und Stelle — keine Verschiebung, kein
+   translateZ. Der Ausschlag ist etwa ein Drittel dessen, was die Maus erreicht
+   (die kommt auf rund ±11 Grad seitlich), damit es nach ruhigem Schweben
+   aussieht und nicht nach einem Karussell. `rotate(1.5deg)` bleibt fest, genau
+   wie im Zeiger-Handler: das ist die Schraeglage der Karte selbst.
+
+   Vier Stationen im Kreis statt eines Hin und Her, sonst wirkt es wie ein
+   Metronom. 0% und 100% tragen REST_TRANSFORM, damit das Ein- und Ausschalten
+   der Animation an keiner Stelle springt. */
 const IDLE_CSS = `
-  .hero-v2-ticket { animation: heroTicketIdle 11s ease-in-out infinite alternate; }
+  .hero-v2-ticket { animation: heroTicketIdle 13s ease-in-out infinite; }
   .hero-v2-ticket.is-tilting { animation: none; }
   @keyframes heroTicketIdle {
-    0%   { transform: rotateY(-8deg) rotateX(4deg) rotate(1.5deg) translate3d(0, 0, 0); }
-    50%  { transform: rotateY(-6.4deg) rotateX(3.2deg) rotate(1deg) translate3d(0, -8px, 6px); }
-    100% { transform: rotateY(-9.3deg) rotateX(4.7deg) rotate(2deg) translate3d(0, 3px, 0); }
+    0%   { transform: rotateY(-8deg) rotateX(4deg) rotate(1.5deg); }
+    25%  { transform: rotateY(-12deg) rotateX(2deg) rotate(1.5deg); }
+    50%  { transform: rotateY(-5deg) rotateX(6.5deg) rotate(1.5deg); }
+    75%  { transform: rotateY(-10.5deg) rotateX(6deg) rotate(1.5deg); }
+    100% { transform: rotateY(-8deg) rotateX(4deg) rotate(1.5deg); }
   }
   @media (prefers-reduced-motion: reduce) {
     .hero-v2-ticket { animation: none; }
