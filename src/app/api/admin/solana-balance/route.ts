@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { connection, getOperatorKeypair, heliusRpcUrl } from "@/lib/solana";
+import { getOperatorKeypair, heliusRpcUrl } from "@/lib/solana";
+import { checkOperatorBalance } from "@/lib/operatorBalance";
 import { fetchTreeCapacities, type TreeCapacity } from "@/lib/treeCapacity";
 import { requireAdmin } from "@/lib/adminAuth";
 
@@ -12,18 +12,12 @@ export const dynamic = "force-dynamic";
  * ADMIN_SECRET via the x-admin-secret header, same pattern as the other
  * /api/admin/* routes.
  *
- * A compressed-NFT (Bubblegum) mint costs essentially just the base transaction
- * fee — the Merkle trees are pre-funded, so leaves need no rent. With no
- * priority fee in mint.ts, the marginal cost is the 5000-lamport base signature
- * fee. We use a slightly padded estimate so the "remaining mints" figure stays
- * conservative against occasional retries.
+ * A compressed-NFT (Bubblegum) mint costs the base transaction fee plus the
+ * priority fee — the Merkle trees are pre-funded, so leaves need no rent. Both
+ * numbers come from src/lib/operatorBalance.ts, the same module mint.ts reads
+ * when it sets the fee, so this estimate can never drift away from what a mint
+ * actually costs.
  */
-// Padded estimate of the per-mint cost in lamports (base fee is 5000; the
-// padding absorbs the odd retry / minor priority fee so the estimate errs low).
-const LAMPORTS_PER_MINT = 7000;
-
-// Below this the operator wallet should be topped up before it can run dry.
-const LOW_BALANCE_LAMPORTS = 0.05 * LAMPORTS_PER_SOL;
 
 export type SolanaBalance = {
   address: string;
@@ -55,8 +49,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const [lamports, trees] = await Promise.all([
-      connection.getBalance(getOperatorKeypair().publicKey),
+    const [balance, trees] = await Promise.all([
+      checkOperatorBalance(),
       fetchTreeCapacities(),
     ]);
     const network: SolanaBalance["network"] = /devnet/i.test(heliusRpcUrl()) ? "devnet" : "mainnet";
@@ -65,12 +59,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const treeMinted = ok.reduce((s, t) => s + t.minted, 0);
     const payload: SolanaBalance = {
       address,
-      lamports,
-      sol: lamports / LAMPORTS_PER_SOL,
+      lamports: balance.lamports,
+      sol: balance.sol,
       network,
-      estMintsRemaining: Math.floor(lamports / LAMPORTS_PER_MINT),
-      lamportsPerMint: LAMPORTS_PER_MINT,
-      low: lamports < LOW_BALANCE_LAMPORTS,
+      estMintsRemaining: balance.estMintsRemaining,
+      lamportsPerMint: balance.lamportsPerMint,
+      low: balance.low,
       trees,
       treeCapacity,
       treeMinted,

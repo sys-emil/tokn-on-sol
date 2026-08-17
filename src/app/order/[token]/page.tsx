@@ -1,8 +1,10 @@
 import Link from 'next/link';
+import { after } from 'next/server';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
 import { loadGuestOrder } from '@/lib/guestOrders';
+import { processMintJobs } from '@/lib/mintJobs';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { ReceiptButton } from '@/app/components/ReceiptButton';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
@@ -37,6 +39,30 @@ function formatDate(iso: string): string {
  * it is required *after* paying rather than before, which is where buyers drop
  * out.
  */
+/**
+ * Kick the mint worker when this order's job never finished. Checking the job
+ * row is exact — `guest_orders` does not carry the ordered quantity, so the
+ * number of minted tickets alone cannot tell us whether any are still missing.
+ */
+async function kickUnfinishedMint(stripeSessionId: string): Promise<void> {
+  const { data: job } = await supabaseAdmin
+    .from('mint_jobs')
+    .select('status')
+    .eq('stripe_session_id', stripeSessionId)
+    .maybeSingle();
+
+  const status = job?.status as string | undefined;
+  if (!status || status === 'done' || status === 'failed') return;
+
+  after(async () => {
+    try {
+      await processMintJobs(3);
+    } catch (err) {
+      console.error('Mint kick from guest order page failed:', err);
+    }
+  });
+}
+
 export default async function GuestOrderPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
@@ -57,6 +83,14 @@ export default async function GuestOrderPage({ params }: { params: Promise<{ tok
   ]);
 
   if (!event) notFound();
+
+  // A guest's mint job is queued against the OPERATOR wallet (the ticket sits
+  // in escrow until they sign in), so the buyer-wallet check in /api/my-tickets
+  // can never see it. This page is the only place a guest comes looking, which
+  // makes it the right place to nudge a stalled mint — the daily cron would
+  // otherwise be their next chance. Runs in after(), so the page still renders
+  // immediately; see /api/checkout/confirm for why polling can't stampede.
+  await kickUnfinishedMint(order.stripe_session_id);
 
   const rows = (purchases ?? []) as { asset_id: string; revoked_at: string | null; redeemed_at: string | null }[];
   const valid = rows.filter((r) => !r.revoked_at);

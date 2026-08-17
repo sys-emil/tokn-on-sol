@@ -1,10 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/privyServer";
 import { MILESTONES, STAMMGAST_THRESHOLD } from "@/lib/badgeMeta";
 import { maxResalePriceCents } from "@/lib/fees";
+import { processMintJobs } from "@/lib/mintJobs";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300; // after() may mint outstanding tickets once the response is sent
+
+/**
+ * Nudge the mint worker when this buyer has an unfinished mint job.
+ *
+ * The webhook's own after() is the primary path and the success page's polling
+ * the secondary — but that polling only runs while the buyer keeps that tab
+ * open. On the Hobby plan the cron fallback is daily, so a buyer who closed the
+ * tab after a crashed run would otherwise wait until 03:30 for a ticket they
+ * already paid for. Opening one's ticket list is exactly the moment to heal it.
+ *
+ * Safe to call on every request: claim_mint_jobs is FOR UPDATE SKIP LOCKED and
+ * ignores jobs touched in the last 10 minutes, so polling cannot stampede — the
+ * same reasoning documented over /api/checkout/confirm.
+ */
+async function kickPendingMints(walletAddress: string): Promise<void> {
+  const { data: unfinished } = await supabaseAdmin
+    .from("mint_jobs")
+    .select("id")
+    .eq("buyer_wallet", walletAddress)
+    .in("status", ["queued", "processing"])
+    .limit(1);
+
+  if (!unfinished || unfinished.length === 0) return;
+
+  after(async () => {
+    try {
+      await processMintJobs(3);
+    } catch (err) {
+      console.error("Mint kick from my-tickets failed:", err);
+    }
+  });
+}
 
 interface PassPurchaseRow {
   id: string;
@@ -107,6 +142,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!(await requestOwnsWallet(req, buyerWallet))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Heal a stalled mint before building the response; the work itself runs in
+  // after(), so it costs the buyer nothing.
+  await kickPendingMints(buyerWallet);
 
   const { data: allRows, error } = await supabaseAdmin
     .from("purchases")

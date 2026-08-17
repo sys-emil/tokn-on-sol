@@ -65,6 +65,43 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Claim the order before moving anything. Reading `claimed_at` above is not
+  // enough on its own: two concurrent requests from two different signed-in
+  // wallets would both pass that check and race into the transfer loop.
+  // `claimer_wallet` doubles as the mutex — the guard admits a wallet that is
+  // already mid-claim, so a retry finishes the remainder, but locks out a
+  // second one.
+  //
+  // A claim that fails permanently therefore keeps the order bound to that
+  // wallet. That is deliberate: tickets may already have moved there, so
+  // handing the rest to somebody else would split the order across two
+  // accounts. An admin can clear `claimer_wallet` to release it.
+  if (order.claimer_wallet && order.claimer_wallet !== claimerWallet) {
+    return NextResponse.json(
+      { success: false, error: "Diese Tickets werden gerade von einem anderen Konto übernommen." },
+      { status: 409 },
+    );
+  }
+
+  // Compare-and-swap against the value we just read, so a request that lost the
+  // race between the check above and this update finds the row already taken.
+  const claimQuery = supabaseAdmin
+    .from("guest_orders")
+    .update({ claimer_wallet: claimerWallet })
+    .eq("id", order.id)
+    .is("claimed_at", null);
+  const { data: mutex } = await (order.claimer_wallet
+    ? claimQuery.eq("claimer_wallet", claimerWallet)
+    : claimQuery.is("claimer_wallet", null)
+  ).select("id");
+
+  if (!mutex || mutex.length === 0) {
+    return NextResponse.json(
+      { success: false, error: "Diese Tickets werden gerade von einem anderen Konto übernommen." },
+      { status: 409 },
+    );
+  }
+
   const { data: purchases } = await supabaseAdmin
     .from("purchases")
     .select("asset_id, revoked_at")

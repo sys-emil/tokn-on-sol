@@ -279,6 +279,11 @@ export default function DoormanPage() {
   const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine));
   const [pendingCount, setPendingCount] = useState(0);
   const [snapshotReady, setSnapshotReady] = useState(false);
+  // When the cached ticket list was generated. Offline we cannot re-check
+  // ownership on-chain and are trusting exactly this list, so the doorman
+  // needs to see how old it is — the snapshot itself lives in a ref and would
+  // never re-render the status line on its own.
+  const [snapshotAt, setSnapshotAt] = useState<string | null>(null);
   // Kept in state, not read off the ref: the box office has to re-render when
   // the snapshot brings new price categories.
   const [tiers, setTiers] = useState<SnapshotTier[]>([]);
@@ -326,6 +331,7 @@ export default function DoormanPage() {
     }
     if (snapshotRef.current) {
       setSnapshotReady(true);
+      setSnapshotAt(snapshotRef.current.generatedAt);
       // Snapshots cached before the box office existed carry no tiers; the
       // next online refresh fills them in.
       setTiers(snapshotRef.current.tiers ?? []);
@@ -355,6 +361,7 @@ export default function DoormanPage() {
     setTiers(snap.tiers ?? []);
     setFeePayer(snap.feePayer ?? 'buyer');
     setSnapshotReady(true);
+    setSnapshotAt(snap.generatedAt);
     setReentry(snap.reentry ?? null);
     setInsideCount(countInside(snap, localScansRef.current));
     setLastSyncAt(new Date().toISOString());
@@ -750,10 +757,11 @@ export default function DoormanPage() {
                   ? lastSyncAt
                     ? `Synchronisiert ${agoLabel(lastSyncAt, nowTs)}`
                     : 'Synchronisiert …'
-                  : pendingCount > 0
-                  ? `${pendingCount} Scan${pendingCount === 1 ? '' : 's'} in Warteschlange`
                   : snapshotReady
-                  ? 'Prüfung läuft lokal weiter'
+                  ? `Liste ${snapshotAt ? agoLabel(snapshotAt, nowTs) : 'unbekannten Alters'}`
+                    + (pendingCount > 0
+                      ? ` · ${pendingCount} Scan${pendingCount === 1 ? '' : 's'} wartet`
+                      : '')
                   : 'Scans nicht möglich'}
               </span>
               {online && pendingCount > 0 && (

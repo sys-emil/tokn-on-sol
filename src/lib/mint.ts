@@ -3,6 +3,7 @@ import {
   keypairIdentity,
   createSignerFromKeypair,
   publicKey,
+  type TransactionBuilder,
   type TransactionSignature,
   type Umi,
 } from "@metaplex-foundation/umi";
@@ -14,7 +15,12 @@ import {
   parseLeafFromMintV1Transaction,
 } from "@metaplex-foundation/mpl-bubblegum";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
+import { setComputeUnitLimit, setComputeUnitPrice } from "@metaplex-foundation/mpl-toolbox";
 import { getOperatorKeypair, pickMerkleTree, heliusRpcUrl } from "@/lib/solana";
+import {
+  PRIORITY_CU_LIMIT,
+  priorityFeeMicroLamports,
+} from "@/lib/operatorBalance";
 import bs58 from "bs58";
 
 export interface MintTicketParams {
@@ -112,7 +118,7 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
     },
   });
 
-  const { signature } = await builder.sendAndConfirm(umi, {
+  const { signature } = await withPriorityFee(umi, builder).sendAndConfirm(umi, {
     confirm: { commitment: "confirmed" },
   });
 
@@ -166,7 +172,7 @@ export async function mintBadge(params: MintBadgeParams): Promise<MintTicketResu
     },
   });
 
-  const { signature } = await builder.sendAndConfirm(umi, {
+  const { signature } = await withPriorityFee(umi, builder).sendAndConfirm(umi, {
     confirm: { commitment: "confirmed" },
   });
 
@@ -177,4 +183,18 @@ export async function mintBadge(params: MintBadgeParams): Promise<MintTicketResu
   const signatureEncoded = bs58.encode(signature);
 
   return { assetId, signature: signatureEncoded };
+}
+
+/**
+ * Prepend the ComputeBudget instructions to a mint. Without them a transaction
+ * carries only the base signature fee, and during mainnet congestion it can
+ * fail to land repeatedly — which the worker's retries hide slowly before
+ * auto-refunding a buyer whose ticket was never actually a problem.
+ *
+ * See `src/lib/operatorBalance.ts` for why the CU limit is a cost multiplier.
+ */
+function withPriorityFee(umi: Umi, builder: TransactionBuilder): TransactionBuilder {
+  return setComputeUnitLimit(umi, { units: PRIORITY_CU_LIMIT })
+    .add(setComputeUnitPrice(umi, { microLamports: priorityFeeMicroLamports() }))
+    .add(builder);
 }
