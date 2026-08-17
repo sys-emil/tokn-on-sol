@@ -11,7 +11,6 @@ import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { badgeDisplay, BADGE_META, type BadgeType } from '@/lib/badgeMeta';
-import { resaleFeeBreakdown } from '@/lib/fees';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const PAGE_CSS = `
@@ -491,9 +490,9 @@ interface Ticket {
   borderStyle: string | null;
   tierName: string | null;
   faceValueCents: number;
-  resaleMaxMarkupPct: number | null;
-  resaleMaxPriceCents: number | null;
-  resaleListing: { id: string; listPriceCents: number; feeCents: number; netCents: number; status: string } | null;
+  returnEnabled: boolean;
+  returnPreview: { paidCents: number; returnFeeCents: number; refundCents: number } | null;
+  returnOffer: { id: string; paidCents: number; returnFeeCents: number; refundCents: number; status: string } | null;
 }
 
 const euro = (cents: number) => (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
@@ -692,9 +691,10 @@ export default function MyTickets() {
   const [celebration, setCelebration] = useState<{ emoji: string; title: string; message: string } | null>(null);
   const [badgeDetail, setBadgeDetail] = useState<{ type: string; earnedAt: string } | null>(null);
   const [badgeClosing, setBadgeClosing] = useState(false);
-  const [creditCents, setCreditCents] = useState(0);
   const [resaleModal, setResaleModal] = useState<Ticket | null>(null);
-  const [resalePrice, setResalePrice] = useState('');
+  const [resaleQuote, setResaleQuote] = useState<
+    { paidCents: number; returnFeeCents: number; refundCents: number; backupIssued: boolean } | null
+  >(null);
   const [resaleBusy, setResaleBusy] = useState(false);
   const [resaleError, setResaleError] = useState<string | null>(null);
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
@@ -815,12 +815,11 @@ export default function MyTickets() {
           fetch(`/api/loyalty/status?buyerWallet=${buyerWallet}`, { headers: authHeaders }),
         ]);
         if (res.ok) {
-          const data = (await res.json()) as { tickets: Ticket[]; passes?: PassView[]; badges: BadgeItem[]; progress?: Progress; creditCents?: number };
+          const data = (await res.json()) as { tickets: Ticket[]; passes?: PassView[]; badges: BadgeItem[]; progress?: Progress };
           setTickets(data.tickets);
           setPasses(data.passes ?? []);
           setBadges(data.badges ?? []);
           setProgress(data.progress ?? null);
-          setCreditCents(data.creditCents ?? 0);
         }
         if (loyaltyRes.ok) {
           const data = (await loyaltyRes.json()) as { programs: LoyaltyProgramView[] };
@@ -858,57 +857,73 @@ export default function MyTickets() {
     }
   }
 
-  function openResale(t: Ticket) {
+  // Das Angebot wird zweistufig bestaetigt: erst fragt die Seite den Server nach
+  // dem exakten Betrag (nur die payouts-Zeile weiss, was wirklich gezahlt wurde),
+  // dann bestaetigt der Verkaeufer. Ein geschaetzter Betrag im Dialog waere hier
+  // besonders unschoen, weil er ueber echtes Geld entscheidet.
+  async function openResale(t: Ticket) {
     setResaleError(null);
-    // Default the price to the face value (the "just get rid of it" case).
-    setResalePrice((t.faceValueCents / 100).toFixed(2));
+    setResaleQuote(null);
     setResaleModal(t);
+    try {
+      const authToken = await getAccessToken();
+      const res = await fetch('/api/resale/offer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
+        body: JSON.stringify({ assetId: t.assetId, sellerWallet: buyerWallet }),
+      });
+      const data = (await res.json()) as {
+        success: boolean; error?: string;
+        paidCents?: number; returnFeeCents?: number; refundCents?: number; backupIssued?: boolean;
+      };
+      if (data.success && data.refundCents != null) {
+        setResaleQuote({
+          paidCents: data.paidCents ?? 0,
+          returnFeeCents: data.returnFeeCents ?? 0,
+          refundCents: data.refundCents,
+          backupIssued: data.backupIssued === true,
+        });
+      } else {
+        setResaleError(data.error ?? 'Die Rückgabe ist für dieses Ticket nicht möglich.');
+      }
+    } catch {
+      setResaleError('Die Rückgabe konnte nicht geprüft werden.');
+    }
   }
 
   async function submitResale() {
     if (!resaleModal || resaleBusy) return;
-    const cents = Math.round(Number(resalePrice.replace(',', '.')) * 100);
-    if (!Number.isFinite(cents) || cents <= 0) {
-      setResaleError('Bitte gib einen gültigen Preis ein.');
-      return;
-    }
-    if (resaleModal.resaleMaxPriceCents != null && cents > resaleModal.resaleMaxPriceCents) {
-      setResaleError(`Höchstpreis: ${euro(resaleModal.resaleMaxPriceCents)}.`);
-      return;
-    }
     setResaleBusy(true);
     setResaleError(null);
     try {
       const authToken = await getAccessToken();
-      const res = await fetch('/api/resale/list', {
+      const res = await fetch('/api/resale/offer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
-        body: JSON.stringify({ assetId: resaleModal.assetId, listPriceCents: cents }),
+        body: JSON.stringify({ assetId: resaleModal.assetId, sellerWallet: buyerWallet, confirm: true }),
       });
       const data = (await res.json()) as { success: boolean; error?: string };
       if (data.success) {
         setResaleModal(null);
-        setLoaded(false); // reload, the ticket moves into the "angeboten" state
-      } else if (data.error === 'not_delegated') {
-        setResaleError('Dieses Ticket wurde gekauft, bevor der Weiterverkauf unterstützt wurde.');
+        setLoaded(false); // neu laden, das Ticket wechselt in den Zustand "angeboten"
       } else {
-        setResaleError(data.error ?? 'Das Angebot konnte nicht erstellt werden.');
+        setResaleError(data.error ?? 'Die Rückgabe konnte nicht angelegt werden.');
       }
     } finally {
       setResaleBusy(false);
     }
   }
 
-  async function withdrawResale(listingId: string) {
+  async function withdrawResale(offerId: string) {
     if (cancelBusyId) return;
-    setCancelBusyId(listingId);
+    setCancelBusyId(offerId);
     setResaleError(null);
     try {
       const authToken = await getAccessToken();
-      const res = await fetch('/api/resale/cancel', {
+      const res = await fetch('/api/resale/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
-        body: JSON.stringify({ listingId }),
+        body: JSON.stringify({ offerId, sellerWallet: buyerWallet }),
       });
       const data = (await res.json()) as { success: boolean; error?: string };
       if (data.success) {
@@ -1073,19 +1088,23 @@ export default function MyTickets() {
 
   /** Aktionen auf einem bevorstehenden Ticket (Teilen / Verkaufen / Zurückziehen). */
   const ticketActions = (t: Ticket) => {
-    if (t.resaleListing) {
+    if (t.returnOffer) {
+      // Verkauft, aber noch nicht erstattet: zurueckziehen geht nicht mehr.
+      const sold = t.returnOffer.status === 'sold';
       return (
         <div className="tk-stub-actions">
           <span className="chip accent" style={{ whiteSpace: 'nowrap' }}>
-            <span className="d" />{euro(t.resaleListing.listPriceCents)}
+            <span className="d" />{sold ? 'verkauft' : euro(t.returnOffer.refundCents)}
           </span>
-          <button
-            className="tk-stub-action"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); void withdrawResale(t.resaleListing!.id); }}
-            disabled={cancelBusyId === t.resaleListing.id}
-          >
-            <Icon name="x" size={13} />{cancelBusyId === t.resaleListing.id ? '…' : 'Zurückziehen'}
-          </button>
+          {!sold && (
+            <button
+              className="tk-stub-action"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); void withdrawResale(t.returnOffer!.id); }}
+              disabled={cancelBusyId === t.returnOffer.id}
+            >
+              <Icon name="x" size={13} />{cancelBusyId === t.returnOffer.id ? '…' : 'Zurückholen'}
+            </button>
+          )}
         </div>
       );
     }
@@ -1099,12 +1118,12 @@ export default function MyTickets() {
           <Icon name="share" size={13} />
           {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Link kopieren' : 'Teilen'}
         </button>
-        {t.resaleMaxPriceCents != null && (
+        {t.returnEnabled && (
           <button
             className="tk-stub-action"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openResale(t); }}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); void openResale(t); }}
           >
-            <Icon name="euro" size={13} />Verkaufen
+            <Icon name="euro" size={13} />Zurückgeben
           </button>
         )}
         <Link href={`/tickets/${t.assetId}`} className="tk-stub-action">
@@ -1247,11 +1266,6 @@ export default function MyTickets() {
                   <span style={{ fontSize: 13.5, color: 'var(--ink-3)' }}>
                     {upcoming.length} bevorstehend · {past.length} besucht · {badges.length} Abzeichen
                   </span>
-                  {creditCents > 0 && (
-                    <span className="chip accent" title="Wird beim nächsten Ticketkauf automatisch verrechnet.">
-                      <Icon name="euro" size={12} /> {euro(creditCents)} Guthaben
-                    </span>
-                  )}
                 </div>
               </div>
               <Link href="/events" className="btn primary"><Icon name="search" size={15} /> Events entdecken</Link>
@@ -1426,25 +1440,26 @@ export default function MyTickets() {
                             <Icon name="share" size={15} />
                             {sharingAssetId === frontTicket.assetId ? '…' : frontTicket.claimUrl ? 'Link' : 'Teilen'}
                           </button>
-                          {frontTicket.resaleListing ? (
+                          {frontTicket.returnOffer ? (
                             <button
                               className="btn ghost"
                               style={{ justifyContent: 'center' }}
-                              onClick={() => void withdrawResale(frontTicket.resaleListing!.id)}
-                              disabled={cancelBusyId === frontTicket.resaleListing.id}
+                              onClick={() => void withdrawResale(frontTicket.returnOffer!.id)}
+                              disabled={cancelBusyId === frontTicket.returnOffer.id || frontTicket.returnOffer.status === 'sold'}
+                              title={frontTicket.returnOffer.status === 'sold' ? 'Bereits verkauft, die Erstattung ist unterwegs.' : undefined}
                             >
                               <Icon name="x" size={15} />
-                              {cancelBusyId === frontTicket.resaleListing.id ? '…' : 'Zurückziehen'}
+                              {cancelBusyId === frontTicket.returnOffer.id ? '…' : 'Zurückholen'}
                             </button>
                           ) : (
                             <button
                               className="btn ghost"
                               style={{ justifyContent: 'center' }}
-                              onClick={() => openResale(frontTicket)}
-                              disabled={frontTicket.resaleMaxPriceCents == null}
-                              title={frontTicket.resaleMaxPriceCents == null ? 'Der Veranstalter hat den Weiterverkauf für dieses Event nicht freigegeben.' : undefined}
+                              onClick={() => void openResale(frontTicket)}
+                              disabled={!frontTicket.returnEnabled}
+                              title={!frontTicket.returnEnabled ? 'Der Veranstalter hat die Rückgabe für dieses Event nicht freigegeben.' : undefined}
                             >
-                              <Icon name="euro" size={15} /> Verkaufen
+                              <Icon name="euro" size={15} /> Zurückgeben
                             </button>
                           )}
                         </div>
@@ -1802,58 +1817,75 @@ export default function MyTickets() {
         />
       )}
 
-      {resaleModal && (() => {
-        const cents = Math.round(Number(resalePrice.replace(',', '.')) * 100);
-        const valid = Number.isFinite(cents) && cents > 0
-          && (resaleModal.resaleMaxPriceCents == null || cents <= resaleModal.resaleMaxPriceCents);
-        const breakdown = valid ? resaleFeeBreakdown(cents, resaleModal.faceValueCents) : null;
-        const sellerFee = breakdown?.sellerFeeCents ?? 0;
-        const net = breakdown?.sellerNetCents ?? 0;
-        const buyerTotal = breakdown?.buyerTotalCents ?? 0;
-        return (
-          <div className="modal-backdrop" onClick={() => !resaleBusy && setResaleModal(null)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-head">
-                <h3>Ticket weiterverkaufen</h3>
-                <button className="close-btn" aria-label="Schließen" onClick={() => setResaleModal(null)} disabled={resaleBusy}><Icon name="x" size={16} /></button>
-              </div>
-              <div className="modal-body">
-                <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
-                  <b style={{ color: 'var(--ink)' }}>{resaleModal.eventName}</b><br />
-                  Originalpreis {euro(resaleModal.faceValueCents)}. Höchstpreis {resaleModal.resaleMaxPriceCents != null ? euro(resaleModal.resaleMaxPriceCents) : 'nicht festgelegt'} (bis {resaleModal.resaleMaxMarkupPct}% Aufpreis). Der Erlös landet als Passly-Guthaben in deinem Konto.
-                </p>
-                <div className="field">
-                  <label>Dein Verkaufspreis</label>
-                  <input
-                    type="number" className="input" value={resalePrice} min={0}
-                    max={resaleModal.resaleMaxPriceCents != null ? resaleModal.resaleMaxPriceCents / 100 : undefined}
-                    step="0.01" inputMode="decimal" disabled={resaleBusy}
-                    onChange={(e) => setResalePrice(e.target.value)}
-                  />
-                </div>
-                <div className="card" style={{ padding: '12px 14px', marginTop: 12, fontSize: 13, display: 'grid', gap: 6 }}>
-                  <div className="row" style={{ justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Dein Verkaufspreis</span><span>{valid ? euro(cents) : 'offen'}</span></div>
-                  <div className="row" style={{ justifyContent: 'space-between' }}><span style={{ color: 'var(--ink-3)' }}>Deine Gebühr (halbe Servicegebühr)</span><span>{valid ? '− ' + euro(sellerFee) : 'offen'}</span></div>
-                  <div className="row" style={{ justifyContent: 'space-between', fontWeight: 600, borderTop: '1px solid var(--line)', paddingTop: 6 }}><span>Dein Guthaben</span><span style={{ color: 'var(--accent)' }}>{valid ? euro(net) : 'offen'}</span></div>
-                </div>
-                <p style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5, marginTop: 10 }}>
-                  {valid ? <>Käufer zahlen {euro(buyerTotal)} (inkl. ihrer Hälfte der Servicegebühr). </> : null}
-                  Solange dein Ticket angeboten wird, liegt es sicher bei Passly und kann nicht selbst genutzt werden. Du kannst das Angebot jederzeit zurückziehen.
-                </p>
-                {resaleError && (
-                  <div style={{ marginTop: 12, fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{resaleError}</div>
-                )}
-              </div>
-              <div className="modal-foot">
-                <button className="btn ghost" onClick={() => setResaleModal(null)} disabled={resaleBusy}>Abbrechen</button>
-                <button className="btn primary" onClick={() => void submitResale()} disabled={!valid || resaleBusy}>
-                  {resaleBusy ? 'Wird eingestellt …' : 'Zum Verkauf anbieten'}
-                </button>
-              </div>
+      {resaleModal && (
+        <div className="modal-backdrop" onClick={() => !resaleBusy && setResaleModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Ticket zurückgeben</h3>
+              <button className="close-btn" aria-label="Schließen" onClick={() => setResaleModal(null)} disabled={resaleBusy}><Icon name="x" size={16} /></button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
+                <b style={{ color: 'var(--ink)' }}>{resaleModal.eventName}</b><br />
+                Dein Platz geht zurück in den Verkauf. Sobald ihn jemand kauft, bekommst du dein
+                Geld auf dem Weg zurück, auf dem du bezahlt hast.
+              </p>
+
+              {!resaleQuote && !resaleError && (
+                <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>Wird geprüft …</div>
+              )}
+
+              {resaleQuote && (
+                <>
+                  <div className="card" style={{ padding: '12px 14px', fontSize: 13, display: 'grid', gap: 6 }}>
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--ink-3)' }}>Du hast gezahlt</span><span>{euro(resaleQuote.paidCents)}</span>
+                    </div>
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--ink-3)' }}>Rückgabegebühr</span><span>− {euro(resaleQuote.returnFeeCents)}</span>
+                    </div>
+                    <div className="row" style={{ justifyContent: 'space-between', fontWeight: 600, borderTop: '1px solid var(--line)', paddingTop: 6 }}>
+                      <span>Du bekommst zurück</span>
+                      <span style={{ color: 'var(--accent)' }}>{euro(resaleQuote.refundCents)}</span>
+                    </div>
+                  </div>
+
+                  {/* Wer eine Offline-PDF gezogen hat, muss es VOR der Bestaetigung
+                      erfahren: das Blatt liegt ausgedruckt irgendwo und wird wertlos. */}
+                  {resaleQuote.backupIssued && (
+                    <div
+                      className="card"
+                      style={{ padding: '12px 14px', marginTop: 12, fontSize: 12.5, lineHeight: 1.55, display: 'flex', gap: 10, borderColor: 'var(--warn, var(--line))' }}
+                    >
+                      <Icon name="shield" size={15} />
+                      <span>
+                        Du hast für dieses Ticket ein Offline-Ticket erzeugt. Mit der Rückgabe
+                        verliert es seine Gültigkeit — bitte vernichte den Ausdruck.
+                      </span>
+                    </div>
+                  )}
+
+                  <p style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5, marginTop: 10 }}>
+                    Solange dein Ticket angeboten ist, kannst du es nicht selbst nutzen. Du kannst
+                    es jederzeit zurückholen, solange es niemand gekauft hat. Verkauft es sich bis
+                    zum Eventtag nicht, bekommst du es automatisch zurück.
+                  </p>
+                </>
+              )}
+
+              {resaleError && (
+                <div style={{ marginTop: 12, fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{resaleError}</div>
+              )}
+            </div>
+            <div className="modal-foot">
+              <button className="btn ghost" onClick={() => setResaleModal(null)} disabled={resaleBusy}>Abbrechen</button>
+              <button className="btn primary" onClick={() => void submitResale()} disabled={!resaleQuote || resaleBusy}>
+                {resaleBusy ? 'Wird angeboten …' : 'Zurückgeben'}
+              </button>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {shareModal && (
         <div className="modal-backdrop" onClick={() => setShareModal(null)}>

@@ -49,7 +49,7 @@ export default function EditEventPage() {
           description: string | null; long_description: string | null;
           image_url: string | null; gallery_urls: string[] | null;
           accent_hue: number | null; border_style: string | null;
-          is_private: boolean; payout_hold_days: number; resale_max_markup_pct: number | null;
+          is_private: boolean; payout_hold_days: number; resale_enabled: boolean;
           fee_payer: FeePayer | null;
           guest_checkout_enabled: boolean; queue_enabled: boolean; queue_slots: number;
           reentry_enabled: boolean; reentry_cooldown_seconds: number;
@@ -80,8 +80,7 @@ export default function EditEventPage() {
         isPrivate: e.is_private,
         payoutHoldDays: String(e.payout_hold_days ?? 0),
         feePayer: isFeePayer(e.fee_payer) ? e.fee_payer : 'buyer',
-        resaleEnabled: e.resale_max_markup_pct != null,
-        resaleMaxMarkup: String(e.resale_max_markup_pct ?? 20),
+        resaleEnabled: e.resale_enabled === true,
         guestCheckout: e.guest_checkout_enabled !== false,
         queueEnabled: e.queue_enabled === true,
         queueSlots: String(e.queue_slots ?? 50),

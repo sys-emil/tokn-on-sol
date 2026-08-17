@@ -5,6 +5,7 @@ import { sendTicketConfirmation, sendAdminAlert } from "@/lib/email";
 import { checkPurchaseBadges } from "@/lib/badges";
 import { passEventDates } from "@/lib/seasonPass";
 import { buildReceiptPdf, loadReceiptInput } from "@/lib/receipt";
+import { settleReturnRefund, type ResaleOfferRow } from "@/lib/resaleReturn";
 
 /**
  * Async mint queue (decouples slow Bubblegum mints from the Stripe webhook).
@@ -173,6 +174,47 @@ async function loadMintSubject(job: MintJob): Promise<{ name: string; date: stri
   };
 }
 
+/**
+ * Pay out the sellers whose returned seats this job just re-sold.
+ *
+ * One offer per delivered ticket, claimed atomically (`claim_resale_offer` uses
+ * FOR UPDATE SKIP LOCKED), so two concurrent purchases can never settle the same
+ * seller twice. Oldest offer first: whoever gave their ticket back first gets
+ * their money first.
+ *
+ * Two kinds of sale are excluded on purpose:
+ * - **Season passes** (`event_id` is null) belong to no single event.
+ * - **Box office**, because that cash never passed through Passly. Consuming an
+ *   offer there would oblige Passly to refund a seller out of its own pocket for
+ *   money the organizer collected at the door. The offer simply stays open for
+ *   the next online buyer.
+ *
+ * Never throws: a stuck refund leaves the offer `sold` with an empty
+ * `refund_id`, and the payout cron's `sweepResaleOffers` retries it. A buyer who
+ * has already paid must not lose their ticket over someone else's payout.
+ */
+async function settleReturnOffers(job: MintJob, count: number): Promise<void> {
+  if (!job.event_id || job.season_pass_id) return;
+  if ((job.source ?? "online") !== "online") return;
+
+  for (let i = 0; i < count; i++) {
+    try {
+      const { data: offer, error } = await supabaseAdmin.rpc("claim_resale_offer", {
+        p_event_id: job.event_id,
+        p_tier_id: job.tier_id,
+        p_session_id: job.stripe_session_id,
+      });
+      if (error) throw new Error(error.message);
+      if (!offer) return; // keine offenen Angebote mehr
+
+      await settleReturnRefund(offer as ResaleOfferRow);
+    } catch (err) {
+      console.error(`Return-offer settlement failed for job ${job.id}:`, err);
+      return;
+    }
+  }
+}
+
 async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
   const event = await loadMintSubject(job);
 
@@ -238,6 +280,12 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
   }
 
   const totalMinted = alreadyMinted + minted;
+
+  // Every freshly delivered ticket may settle one open return offer: somebody
+  // gave their seat back, this buyer took it, so that seller now gets their
+  // money. Deliberately after the mint — the seller is only paid once a real
+  // ticket exists for the buyer, never the other way round.
+  if (minted > 0) await settleReturnOffers(job, minted);
 
   if (totalMinted >= job.quantity) {
     await supabaseAdmin

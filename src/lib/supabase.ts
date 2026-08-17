@@ -65,7 +65,7 @@ export type Event = {
   /** Long-form event text on the showcase page; falls back to `description` when NULL. */
   long_description: string | null;
   /** Max resale markup over face value in percent. NULL = resale disabled for this event. */
-  resale_max_markup_pct: number | null;
+  resale_enabled: boolean;
   /** Who carries the service fee; see `splitServiceFee` in src/lib/fees.ts. */
   fee_payer: FeePayer;
   /** Allow buying without an account (the ticket is unlocked by signing in afterwards). */

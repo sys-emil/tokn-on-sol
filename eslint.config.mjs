@@ -19,6 +19,10 @@ const eslintConfig = defineConfig([
     // Befunde im eigenen Code unsichtbar gemacht hat.
     "ds-bundle/**",
     ".ds-sync/**",
+    // Stillgelegter Code, absichtlich aufbewahrt (siehe archive/*/README.md).
+    // Er wird nicht gebaut und steht auch in tsconfig.json unter "exclude";
+    // ihn zu linten hiesse, Befunde zu Code zu melden, der nie wieder laeuft.
+    "archive/**",
   ]),
 ]);
 

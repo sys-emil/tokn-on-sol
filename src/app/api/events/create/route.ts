@@ -41,7 +41,7 @@ interface CreateEventBody {
   /** Pro-only card border preset. */
   border_style?: string | null;
   /** Max resale markup over face value in percent (0–200). NULL/absent = resale disabled. */
-  resale_max_markup_pct?: number | null;
+  resale_enabled?: boolean;
   /** Who carries the service fee: 'buyer' (default), 'split' or 'organizer'. */
   fee_payer?: string;
   reentry_enabled?: boolean;
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { organizer_wallet, name, date, start_time, is_private, payout_hold_days, image_url, gallery_urls, venue, description, long_description, accent_hue, border_style, resale_max_markup_pct, reentry_enabled, reentry_cooldown_seconds, fee_payer } = body;
+  const { organizer_wallet, name, date, start_time, is_private, payout_hold_days, image_url, gallery_urls, venue, description, long_description, accent_hue, border_style, resale_enabled, reentry_enabled, reentry_cooldown_seconds, fee_payer } = body;
 
   if (!organizer_wallet || !name || !date) {
     return NextResponse.json(
@@ -199,14 +199,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (resale_max_markup_pct !== undefined && resale_max_markup_pct !== null
-      && (!Number.isInteger(resale_max_markup_pct) || resale_max_markup_pct < 0 || resale_max_markup_pct > 200)) {
-    return NextResponse.json(
-      { success: false, error: "resale_max_markup_pct must be an integer between 0 and 200" },
-      { status: 400 }
-    );
-  }
-
   // Who carries the service fee. A tier priced below the fee's own share would
   // leave the organizer with nothing (or less than nothing), so the mode and
   // the tier prices have to be checked against each other.
@@ -276,7 +268,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         long_description: long_description?.trim() || null,
         accent_hue: accent_hue ?? null,
         border_style: border_style ?? null,
-        resale_max_markup_pct: resale_max_markup_pct ?? null,
+        resale_enabled: resale_enabled === true,
         fee_payer: feePayer,
         reentry_enabled: reentry_enabled === true,
         reentry_cooldown_seconds: reentryCooldown,

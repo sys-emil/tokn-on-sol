@@ -29,7 +29,7 @@ interface EventData {
   tickets_sold: number;
   is_private: boolean;
   payout_hold_days: number;
-  resale_max_markup_pct: number | null;
+  resale_enabled: boolean;
   fee_payer: FeePayer | null;
   guest_checkout_enabled: boolean;
   queue_enabled: boolean;
@@ -442,7 +442,7 @@ export default function EventDetailPage() {
         isPrivate: event.is_private,
         payoutHoldDays: event.payout_hold_days ?? 0,
         feePayer: event.fee_payer,
-        resaleMaxMarkupPct: event.resale_max_markup_pct,
+        resaleEnabled: event.resale_enabled,
         accentHue: event.accent_hue,
         borderStyle: event.border_style,
         tiers: tiers.map((t) => ({ name: t.name, priceEur: String(t.price_eur / 100), capacity: String(t.capacity) })),

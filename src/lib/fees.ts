@@ -126,96 +126,45 @@ export function tooCheapForFeePayer(pricesCents: number[], payer: FeePayer): num
 }
 
 /**
- * Resale (secondary market) fee, split 50/50 between buyer and seller.
+ * Return fee for "Rückgabe & Neuverkauf" (see src/lib/resaleReturn.ts).
  *
- * The percentage of the list price is a gentle ramp: an 8% base when selling at
- * or below face value, rising by 1 percentage point per 5% of markup over the
- * ticket's face value, capped at 15%. Scalping is bounded by the organizer's
- * markup cap, not by this fee, hence the ramp stays mild.
+ * A gives their ticket back, the organizer sells the seat again, and A is
+ * refunded on their ORIGINAL payment minus this fee. That refund is what keeps
+ * Passly out of the merchant-of-record role and away from any KYC obligation:
+ * money only ever travels back the way it came.
  *
- * A minimum fee of €0.50 floors the percentage so a cheap resale still covers
- * Stripe's fixed per-charge cost (~€0.25): below roughly €4 the 8% alone would
- * leave the platform underwater on Stripe fees. The floor kicks in only there;
- * at normal prices the percentage dominates.
+ * The fee is charged against **what the seller actually paid**, not the tier's
+ * face value. That is a hard constraint, not a preference — a ticket bought with
+ * a 50 % discount code cannot be refunded at face value, because Stripe refuses
+ * to refund more than the charge and the difference would be a real loss. For a
+ * normally bought ticket the two are identical.
  *
- * The buyer pays the seller's list price plus their half of the fee; the
- * seller's half is deducted from their proceeds (paid out as Passly credit).
- * Kept dependency-free, since the seller and buyer UI import it to preview the
- * split live.
+ * The €1 floor covers Stripe's fixed per-refund cost on cheap tickets.
+ * Client-safe: the sell UI previews the payout live.
  */
-export const RESALE_FEE_BASE_BPS = 800; // 8% baseline at or below face value
-export const RESALE_FEE_MAX_BPS = 1_500; // capped at 15%
-export const RESALE_MARKUP_STEP_BPS = 500; // each 5% of markup
-export const RESALE_FEE_STEP_BPS = 100; // adds 1 percentage point
-export const RESALE_FEE_MIN_CENTS = 50; // €0.50 floor to cover Stripe's fixed cost
+export const RETURN_FEE_BPS = 1_000; // 10 %
+export const RETURN_FEE_MIN_CENTS = 100; // €1.00
 
-/** Fee percentage (in basis points) for a given markup over face value (bps). */
-export function resaleFeeBps(markupBps: number): number {
-  const steps = Math.floor(Math.max(0, markupBps) / RESALE_MARKUP_STEP_BPS);
-  return Math.min(RESALE_FEE_MAX_BPS, RESALE_FEE_BASE_BPS + steps * RESALE_FEE_STEP_BPS);
-}
-
-export interface ResaleFeeBreakdown {
-  /** Total platform fee in cents (buyer half plus seller half). */
-  totalFeeCents: number;
-  /** Buyer's half, added on top of the list price. */
-  buyerFeeCents: number;
-  /** Seller's half, deducted from their proceeds. */
-  sellerFeeCents: number;
-  /** Credit the seller receives: list price minus their half of the fee. */
-  sellerNetCents: number;
-  /** What the buyer actually pays: list price plus their half of the fee. */
-  buyerTotalCents: number;
+export interface ReturnBreakdown {
+  /** What the seller paid for this one ticket, excluding their service-fee share. */
+  paidCents: number;
+  /** Passly's cut, deducted from the refund. */
+  returnFeeCents: number;
+  /** What actually gets refunded to the original payment method. */
+  refundCents: number;
 }
 
 /**
- * Full split for a ticket listed at `listPriceCents` whose original face value
- * is `faceValueCents`. Money is conserved: buyerTotal = sellerNet + totalFee.
+ * Split a return. Never returns a refund above `paidCents`, and never a
+ * negative one: on a ticket cheap enough that the floor would eat all of it,
+ * the fee is capped at the full amount and the refund is 0 rather than the
+ * seller owing us money.
  */
-export function resaleFeeBreakdown(listPriceCents: number, faceValueCents: number): ResaleFeeBreakdown {
-  if (!Number.isInteger(listPriceCents) || listPriceCents <= 0) {
-    throw new Error(`listPriceCents must be a positive integer, got ${listPriceCents}`);
+export function returnBreakdown(paidCents: number): ReturnBreakdown {
+  if (!Number.isInteger(paidCents) || paidCents < 0) {
+    throw new Error(`paidCents must be a non-negative integer, got ${paidCents}`);
   }
-  if (!Number.isInteger(faceValueCents) || faceValueCents < 0) {
-    throw new Error(`faceValueCents must be a non-negative integer, got ${faceValueCents}`);
-  }
-  // Markup relative to face value, clamped at 0 so selling below face never
-  // yields a negative (fee-reducing) markup.
-  const markupBps = faceValueCents > 0
-    ? Math.max(0, Math.round(((listPriceCents - faceValueCents) / faceValueCents) * 10_000))
-    : 0;
-  const bps = resaleFeeBps(markupBps);
-  const percentageFee = Math.round((listPriceCents * bps) / 10_000);
-  // Floor at the minimum so cheap resales still cover Stripe's fixed per-charge cost.
-  const totalFeeCents = Math.max(percentageFee, RESALE_FEE_MIN_CENTS);
-  const buyerFeeCents = Math.round(totalFeeCents / 2);
-  const sellerFeeCents = totalFeeCents - buyerFeeCents;
-  return {
-    totalFeeCents,
-    buyerFeeCents,
-    sellerFeeCents,
-    sellerNetCents: Math.max(0, listPriceCents - sellerFeeCents),
-    buyerTotalCents: listPriceCents + buyerFeeCents,
-  };
-}
-
-/** Total platform fee (both halves) for a resale at the given list and face value. */
-export function resaleFeeCents(listPriceCents: number, faceValueCents: number): number {
-  return resaleFeeBreakdown(listPriceCents, faceValueCents).totalFeeCents;
-}
-
-/** Net proceeds the seller receives as credit (list price minus their half of the fee). */
-export function resaleNetProceedsCents(listPriceCents: number, faceValueCents: number): number {
-  return resaleFeeBreakdown(listPriceCents, faceValueCents).sellerNetCents;
-}
-
-/** Highest list price the organizer's markup cap allows for a given face value. */
-export function maxResalePriceCents(faceValueCents: number, maxMarkupPct: number): number {
-  if (!Number.isInteger(faceValueCents) || faceValueCents < 0) {
-    throw new Error(`faceValueCents must be a non-negative integer, got ${faceValueCents}`);
-  }
-  if (!Number.isInteger(maxMarkupPct) || maxMarkupPct < 0) {
-    throw new Error(`maxMarkupPct must be a non-negative integer, got ${maxMarkupPct}`);
-  }
-  return faceValueCents + Math.floor((faceValueCents * maxMarkupPct) / 100);
+  const percentage = Math.round((paidCents * RETURN_FEE_BPS) / 10_000);
+  const returnFeeCents = Math.min(paidCents, Math.max(percentage, RETURN_FEE_MIN_CENTS));
+  return { paidCents, returnFeeCents, refundCents: paidCents - returnFeeCents };
 }

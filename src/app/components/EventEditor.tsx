@@ -48,7 +48,6 @@ export interface EventDraft {
   /** Wer die Servicegebuehr traegt; siehe splitServiceFee in src/lib/fees.ts. */
   feePayer: FeePayer;
   resaleEnabled: boolean;
-  resaleMaxMarkup: string;
   guestCheckout: boolean;
   reentryEnabled: boolean;
   /** Minuten zwischen zwei Scans desselben Tickets; die API rechnet in Sekunden. */
@@ -64,7 +63,7 @@ export const INITIAL_DRAFT: EventDraft = {
   tiers: [{ name: 'Standard', priceEur: '0', capacity: '100' }],
   imageUrl: null, galleryUrls: [], accentHue: null, borderStyle: null,
   isPrivate: false, payoutHoldDays: '0', feePayer: 'buyer',
-  resaleEnabled: false, resaleMaxMarkup: '20',
+  resaleEnabled: false,
   guestCheckout: true, reentryEnabled: false, reentryCooldownMinutes: '2',
   queueEnabled: false, queueSlots: '50',
 };
@@ -141,7 +140,7 @@ export function EventEditor({
   })();
 
   /** Gemeinsame Pruefung beider Modi; gibt die geparsten Kategorien zurueck. */
-  function validate(): { tiers: { id?: string; name: string; price_eur: number; capacity: number }[]; holdDays: number; markup: number; reentryCooldownSeconds: number } | null {
+  function validate(): { tiers: { id?: string; name: string; price_eur: number; capacity: number }[]; holdDays: number; reentryCooldownSeconds: number } | null {
     const parsed = draft.tiers.map((t) => ({
       id: t.id,
       name: t.name.trim(),
@@ -166,10 +165,6 @@ export function EventEditor({
     }
     const holdDays = Math.floor(Number(draft.payoutHoldDays)) || 0;
     if (holdDays < 0 || holdDays > 90) { setError('Der Auszahlungs-Puffer muss zwischen 0 und 90 Tagen liegen.'); return null; }
-    const markup = Math.floor(Number(draft.resaleMaxMarkup));
-    if (draft.resaleEnabled && (!Number.isInteger(markup) || markup < 0 || markup > 200)) {
-      setError('Der maximale Aufpreis muss zwischen 0 und 200 % liegen.'); return null;
-    }
     // Wer die Gebuehr traegt, muss zum Preis passen: ein Ticket, das billiger
     // ist als der eigene Gebuehrenanteil, liesse dem Veranstalter nichts uebrig.
     const priceCents = parsed.map((t) => Math.round(t.priceEurNum * 100));
@@ -190,7 +185,6 @@ export function EventEditor({
       reentryCooldownSeconds,
       tiers: parsed.map((t) => ({ ...(t.id ? { id: t.id } : {}), name: t.name, price_eur: Math.round(t.priceEurNum * 100), capacity: t.capacity })),
       holdDays,
-      markup,
     };
   }
 
@@ -217,7 +211,7 @@ export function EventEditor({
         is_private: draft.isPrivate,
         payout_hold_days: checked.holdDays,
         fee_payer: draft.feePayer,
-        resale_max_markup_pct: draft.resaleEnabled ? checked.markup : null,
+        resale_enabled: draft.resaleEnabled,
         accent_hue: draft.accentHue,
         border_style: draft.borderStyle,
         reentry_enabled: draft.reentryEnabled,
@@ -482,26 +476,16 @@ export function EventEditor({
             )}
 
             <div className="field">
-              <label>Weiterverkauf (Fan-zu-Fan)</label>
+              <label>Ticket-Rückgabe</label>
               <div className="seg">
                 <button type="button" className={!draft.resaleEnabled ? 'active' : ''} onClick={() => set('resaleEnabled', false)} disabled={saving}>Aus</button>
                 <button type="button" className={draft.resaleEnabled ? 'active' : ''} onClick={() => set('resaleEnabled', true)} disabled={saving}>Erlauben</button>
               </div>
-              {draft.resaleEnabled ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-                    <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Max. Aufpreis</span>
-                    <input type="number" className="input" style={{ width: 90 }} value={draft.resaleMaxMarkup} min={0} max={200} step={1}
-                      onChange={(e) => set('resaleMaxMarkup', e.target.value)} disabled={saving} />
-                    <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>% über Nennwert</span>
-                  </div>
-                  <span className="hint">
-                    Höchstens {Math.floor(Number(draft.resaleMaxMarkup)) || 0} % über dem Originalpreis. Höhere Aufpreise verursachen höhere Verkaufsgebühren.
-                  </span>
-                </>
-              ) : (
-                <span className="hint">Gäste können ihre Tickets nicht offiziell weiterverkaufen (nur kostenlos per Link weitergeben).</span>
-              )}
+              <span className="hint">
+                {draft.resaleEnabled
+                  ? 'Gäste können ihr Ticket zurückgeben. Der Platz geht zum Originalpreis zurück in den Verkauf, der Gast bekommt sein Geld abzüglich 10 % Rückgabegebühr auf seine Zahlungsmethode erstattet. Für dich ändert sich nichts: Du wurdest für den Platz bereits bezahlt.'
+                  : 'Gäste können ihr Ticket nicht zurückgeben (nur kostenlos per Link weitergeben).'}
+              </span>
             </div>
 
             <div className="field">

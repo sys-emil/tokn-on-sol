@@ -7,6 +7,7 @@ import { sendDueEventReminders } from "@/lib/reminders";
 import { sweepWaitlists } from "@/lib/waitlist";
 import { claimOffsetForPayout, releaseOffset } from "@/lib/platformFees";
 import { checkOperatorBalance } from "@/lib/operatorBalance";
+import { sweepResaleOffers } from "@/lib/resaleReturn";
 import { fetchTreeCapacities } from "@/lib/treeCapacity";
 
 export const dynamic = "force-dynamic";
@@ -43,11 +44,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     console.error("Failed to release expired reservations:", sweepError.message);
   }
 
-  // Safety net for missed resale-checkout expiry webhooks: re-open listings
-  // whose buyer hold elapsed without a completed payment.
-  const { error: resaleSweepError } = await supabaseAdmin.rpc("release_expired_resale_listings");
-  if (resaleSweepError) {
-    console.error("Failed to release expired resale listings:", resaleSweepError.message);
+  // Rückgabe-Angebote: unverkaufte gehen am Eventtag an den Verkäufer zurück
+  // (niemand darf sein Ticket verlieren, nur weil es sich nicht verkauft hat),
+  // und hängengebliebene Erstattungen werden erneut versucht.
+  let resaleOffers = { expired: 0, refunded: 0 };
+  try {
+    resaleOffers = await sweepResaleOffers();
+  } catch (err) {
+    console.error("Resale offer sweep failed:", err instanceof Error ? err.message : err);
   }
 
   // Waiting-room leftovers: promotion happens on every status poll, so this is
@@ -272,6 +276,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Box-office service fees recovered by deducting them from transfers.
     offsetCents,
     releasedReservations: (releasedReservations as number | null) ?? 0,
+    resaleOffers,
     reminders,
     waitlistMails,
   });

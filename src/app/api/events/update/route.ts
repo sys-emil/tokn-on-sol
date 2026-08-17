@@ -44,7 +44,7 @@ interface UpdateEventBody {
     payout_hold_days?: number;
     accent_hue?: number | null;
     border_style?: string | null;
-    resale_max_markup_pct?: number | null;
+    resale_enabled?: boolean;
     /** Who carries the service fee: 'buyer', 'split' or 'organizer'. */
     fee_payer?: string;
     guest_checkout_enabled?: boolean;
@@ -177,12 +177,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     update.payout_hold_days = fields.payout_hold_days;
   }
-  if (fields.resale_max_markup_pct !== undefined) {
-    if (fields.resale_max_markup_pct !== null
-        && (!Number.isInteger(fields.resale_max_markup_pct) || fields.resale_max_markup_pct < 0 || fields.resale_max_markup_pct > 200)) {
-      return NextResponse.json({ success: false, error: "resale_max_markup_pct must be 0–200" }, { status: 400 });
-    }
-    update.resale_max_markup_pct = fields.resale_max_markup_pct;
+  if (fields.resale_enabled !== undefined) {
+    update.resale_enabled = fields.resale_enabled === true;
   }
   if (fields.fee_payer !== undefined) {
     if (!isFeePayer(fields.fee_payer)) {

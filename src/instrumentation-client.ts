@@ -19,8 +19,8 @@ try {
     protect: [
       { path: "/api/checkout/create", method: "POST" },
       { path: "/api/checkout/pass", method: "POST" },
-      { path: "/api/resale/checkout", method: "POST" },
-      { path: "/api/resale/list", method: "POST" },
+      { path: "/api/resale/offer", method: "POST" },
+      { path: "/api/resale/withdraw", method: "POST" },
       { path: "/api/claims/create", method: "POST" },
       { path: "/api/guest-order/claim", method: "POST" },
       { path: "/api/organizers/apply", method: "POST" },

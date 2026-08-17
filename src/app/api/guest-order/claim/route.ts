@@ -1,18 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { loadGuestOrder } from "@/lib/guestOrders";
-import { getOperatorWalletAddress, transferCnft } from "@/lib/transfer";
-import { getAssetOwner } from "@/lib/resale";
+import { getOperatorWalletAddress } from "@/lib/transfer";
+import { mintTicket } from "@/lib/mint";
+import { getAssetOwner } from "@/lib/resaleReturn";
 import { requestOwnsWallet } from "@/lib/privyServer";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // one on-chain transfer per ticket
+export const maxDuration = 300; // one on-chain mint per ticket
 
 /**
- * Moves every ticket of a guest order out of operator escrow into the wallet of
- * the now-signed-in buyer.
+ * Hands every ticket of a guest order to the wallet of the now-signed-in buyer.
+ *
+ * The ticket is **minted fresh** rather than transferred out of escrow: a
+ * Bubblegum transfer clears the operator delegation, and without it Passly can
+ * never move that ticket again (no sharing by link, no support re-issue). See
+ * the comment at the mint call below.
  *
  * Two credentials are required together: the order token (proves possession of
  * the mail) and a Privy session owning the target wallet (proves where the
@@ -121,23 +126,58 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const moved: string[] = [];
   const failed: string[] = [];
 
+  // What the fresh ticket is minted from. Same source the mint worker uses.
+  const { data: event } = await supabaseAdmin
+    .from("events")
+    .select("name, date, metadata_uri")
+    .eq("id", order.event_id)
+    .maybeSingle();
+  if (!event) {
+    return NextResponse.json({ success: false, error: "Event nicht gefunden." }, { status: 404 });
+  }
+  const baseUrl = process.env.APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
   for (const assetId of assets) {
     try {
-      // Skip anything already out of escrow (a retry after a partial run).
+      // A retry after a partial run: this row already carries a ticket that
+      // belongs to the claimer, nothing left to do.
       const owner = await getAssetOwner(assetId);
       if (owner && owner !== operator) {
         if (owner === claimerWallet) moved.push(assetId);
         else failed.push(assetId);
         continue;
       }
-      await transferCnft({ assetId, fromWallet: operator, toWallet: claimerWallet });
+
+      // Mint a NEW ticket instead of handing the escrowed one over.
+      //
+      // Bubblegum's `transfer` clears the operator delegation, and the
+      // delegation is what lets Passly move a ticket without the owner
+      // signing. A transferred ticket was therefore a dead end: its owner
+      // could never share it by link, and support could never re-issue it.
+      // Minting fresh costs about a fifth of a cent and keeps every ticket on
+      // the same footing as one bought with an account from the start.
+      //
+      // The escrowed cNFT stays behind in the operator wallet, unreferenced.
+      // Nobody ever held a code for it — a guest has no account until this
+      // very moment — so it is inert rather than a second valid ticket.
+      const { assetId: freshAssetId, signature } = await mintTicket({
+        eventName: event.name as string,
+        eventDate: event.date as string,
+        ownerWallet: claimerWallet,
+        baseUrl,
+        metadataUri: (event.metadata_uri as string | null) ?? null,
+      });
+
+      // Repoint the existing row rather than adding one: the order keeps
+      // exactly one purchase per ticket, so counts and refund maths stay right.
       await supabaseAdmin
         .from("purchases")
-        .update({ buyer_wallet: claimerWallet })
+        .update({ asset_id: freshAssetId, signature, buyer_wallet: claimerWallet })
         .eq("asset_id", assetId);
-      moved.push(assetId);
+      moved.push(freshAssetId);
     } catch (err) {
-      console.error(`Guest claim transfer failed for ${assetId}:`, err);
+      console.error(`Guest claim mint failed for ${assetId}:`, err);
       failed.push(assetId);
     }
   }

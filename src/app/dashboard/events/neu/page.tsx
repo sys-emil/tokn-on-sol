@@ -43,7 +43,7 @@ export default function NewEventPage() {
         const d = JSON.parse(raw) as {
           name?: string; startTime?: string | null; venue?: string | null; description?: string | null;
           isPrivate?: boolean; payoutHoldDays?: number; accentHue?: number | null; borderStyle?: string | null;
-          resaleMaxMarkupPct?: number | null; feePayer?: string;
+          resaleEnabled?: boolean; feePayer?: string;
           tiers?: { name: string; priceEur: string; capacity: string }[];
         };
         // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot read of sessionStorage, runs once on mount
@@ -58,8 +58,7 @@ export default function NewEventPage() {
           feePayer: isFeePayer(d.feePayer) ? d.feePayer : 'buyer',
           accentHue: d.accentHue ?? null,
           borderStyle: d.borderStyle ?? null,
-          resaleEnabled: d.resaleMaxMarkupPct != null,
-          resaleMaxMarkup: String(d.resaleMaxMarkupPct ?? 20),
+          resaleEnabled: d.resaleEnabled === true,
           tiers: d.tiers && d.tiers.length > 0 ? d.tiers : INITIAL_DRAFT.tiers,
         });
       }

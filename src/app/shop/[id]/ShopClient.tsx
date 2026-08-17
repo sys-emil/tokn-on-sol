@@ -80,17 +80,6 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
   const [wlDone, setWlDone] = useState(false);
   const [wlError, setWlError] = useState<string | null>(null);
 
-  // Passly credit (funded by prior resales), applied to this purchase.
-  const [creditCents, setCreditCents] = useState(0);
-  const [useCredit, setUseCredit] = useState(true);
-
-  // Secondary market: tickets other fans are reselling for this event.
-  interface ResaleOffer { id: string; listPriceCents: number; faceValueCents: number; buyerTotalCents: number }
-  const [resaleOffers, setResaleOffers] = useState<ResaleOffer[]>([]);
-  const [resaleBuyingId, setResaleBuyingId] = useState<string | null>(null);
-  const [resaleError, setResaleError] = useState<string | null>(null);
-  const pendingResaleId = useRef<string | null>(null);
-
   const walletAddress = solanaWallets[0]?.address;
   const tier = tiers.find((t) => t.id === tierId) ?? tiers[0];
   const soldOut = tiers.every((t) => t.available <= 0);
@@ -106,9 +95,6 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
   const feePerTicket = tier ? splitServiceFee(unitPrice, feePayer).buyerCents : 0;
   const feeTotal = feePerTicket * quantity;
   const grandTotal = tier ? (unitPrice + feePerTicket) * quantity : 0;
-  // Credit the buyer can apply to this purchase (capped at the total due).
-  const creditApplicable = useCredit ? Math.min(creditCents, grandTotal) : 0;
-  const dueAfterCredit = Math.max(0, grandTotal - creditApplicable);
   // In line and not yet admitted: the buy button is replaced by the position.
   const waiting = queuePos !== null && queuePos > 0;
 
@@ -176,84 +162,6 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
     pendingCheckout.current = false;
     void startCheckout(walletAddress);
   }, [authenticated, walletAddress]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Resume a resale purchase the buyer started before logging in.
-  useEffect(() => {
-    if (!pendingResaleId.current) return;
-    if (!authenticated || !walletAddress) return;
-    const id = pendingResaleId.current;
-    pendingResaleId.current = null;
-    void startResaleCheckout(id, walletAddress);
-  }, [authenticated, walletAddress]);
-
-  // Waiting room: poll for our position. Each poll also drives the promotion
-  // server-side, so the line moves whenever anyone is watching it.
-  useEffect(() => {
-    if (!queueToken || queuePos === 0) return;
-    let stopped = false;
-    const tick = async () => {
-      try {
-        const res = await fetch(`/api/queue?eventId=${encodeURIComponent(eventId)}&token=${encodeURIComponent(queueToken)}`);
-        if (stopped) return;
-        if (res.status === 404) {
-          // Token purged; send the buyer back to the start rather than let
-          // them wait on something that no longer exists.
-          setQueueToken(null);
-          setQueuePos(null);
-          setError('Deine Warteschlangen-Position ist abgelaufen. Bitte versuch es erneut.');
-          return;
-        }
-        const data = (await res.json()) as { success: boolean; admitted?: boolean; position?: number };
-        if (!data.success || stopped) return;
-        if (data.admitted) {
-          setQueuePos(0);
-          if (queueResume.current) {
-            queueResume.current = false;
-            void proceedBuy();
-          }
-        } else {
-          setQueuePos(data.position ?? 1);
-        }
-      } catch {
-        // transient; the next tick retries
-      }
-    };
-    const timer = setInterval(() => void tick(), 4000);
-    return () => { stopped = true; clearInterval(timer); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- proceedBuy closes over current form state on purpose
-  }, [queueToken, queuePos, eventId]);
-
-  // Load resale offers for this event (public) once on mount.
-  useEffect(() => {
-    let stale = false;
-    void (async () => {
-      try {
-        const res = await fetch(`/api/resale/event/${eventId}`);
-        if (!res.ok) return;
-        const data = (await res.json()) as { listings: ResaleOffer[] };
-        if (!stale) setResaleOffers(data.listings ?? []);
-      } catch { /* best-effort */ }
-    })();
-    return () => { stale = true; };
-  }, [eventId]);
-
-  // Load the signed-in buyer's Passly credit balance.
-  useEffect(() => {
-    if (!authenticated || !walletAddress) return;
-    let stale = false;
-    void (async () => {
-      try {
-        const token = await getAccessToken();
-        const res = await fetch(`/api/credit?walletAddress=${walletAddress}`, {
-          headers: { Authorization: `Bearer ${token ?? ''}` },
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as { creditCents: number };
-        if (!stale) setCreditCents(data.creditCents ?? 0);
-      } catch { /* best-effort */ }
-    })();
-    return () => { stale = true; };
-  }, [authenticated, walletAddress]);
 
   // An applied code can become invalid when the quantity changes (soft cap
   // max_uses is checked per quantity), so revalidate instead of letting the
@@ -328,8 +236,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
     setError(null);
     track('checkout_started', { eventId, quantity });
     try {
-      const wantCredit = wallet !== null && useCredit && creditCents > 0;
-      const token = wantCredit ? await getAccessToken() : null;
+      const token = wallet !== null ? await getAccessToken() : null;
       const res = await fetch('/api/checkout/create', {
         method: 'POST',
         headers: {
@@ -342,7 +249,6 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
           quantity,
           tierId: tier?.id,
           ...(applied ? { discountCode: applied.code } : {}),
-          ...(wantCredit ? { useCredit: true } : {}),
           ...(queueToken ? { queueToken } : {}),
         }),
       });
@@ -439,43 +345,6 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
     login();
   }
 
-  async function startResaleCheckout(listingId: string, wallet: string) {
-    setResaleBuyingId(listingId);
-    setResaleError(null);
-    try {
-      const token = await getAccessToken();
-      const res = await fetch('/api/resale/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ listingId, buyerWallet: wallet }),
-      });
-      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
-      if (!res.ok || !data.success || !data.url) {
-        setResaleError(data.error ?? 'Der Kauf konnte nicht gestartet werden.');
-        setResaleOffers((prev) => prev.filter((o) => o.id !== listingId));
-        return;
-      }
-      window.location.href = data.url;
-    } catch {
-      setResaleError('Netzwerkfehler. Bitte versuch es erneut.');
-    } finally {
-      setResaleBuyingId(null);
-    }
-  }
-
-  function handleResaleBuy(listingId: string) {
-    if (resaleBuyingId || !ready) return;
-    if (!authenticated) {
-      pendingResaleId.current = listingId;
-      login();
-      return;
-    }
-    if (!walletAddress) {
-      setResaleError('Dein Konto wird noch eingerichtet. Warte einen Moment und versuch es dann erneut.');
-      return;
-    }
-    void startResaleCheckout(listingId, walletAddress);
-  }
 
   return (
     <>
@@ -689,30 +558,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
         .waitlist-box .wl-row { display: flex; gap: 8px; margin-top: 10px; }
         .waitlist-box .wl-row .input { flex: 1; min-width: 0; }
 
-        .credit-row {
-          display: flex; align-items: center; gap: 9px;
-          padding: 10px 12px; margin-bottom: 12px;
-          background: var(--accent-wash); border: 1px solid var(--accent-line);
-          border-radius: 10px; font-size: 13px; cursor: pointer;
-        }
-        .credit-row input { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; }
 
-        .resale-box {
-          padding: 14px; margin-top: 16px;
-          background: var(--surface); border: 1px solid var(--line-2); border-radius: 10px;
-        }
-        .resale-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-        .resale-title { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; }
-        .resale-sub { font-size: 12px; color: var(--ink-3); }
-        .resale-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-        .resale-offer {
-          display: flex; align-items: center; justify-content: space-between; gap: 12px;
-          padding: 10px 12px; background: var(--surface-2);
-          border: 1px solid var(--line); border-radius: 9px;
-        }
-        .resale-offer .ro-price { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; display: flex; flex-direction: column; gap: 1px; }
-        .resale-offer .ro-fee { font-size: 10.5px; font-weight: 400; color: var(--ink-3); letter-spacing: 0; }
-        .resale-note { font-size: 11.5px; color: var(--ink-3); line-height: 1.5; margin-top: 10px; }
       `}</style>
 
       {pending && remainingSec > 0 && (
@@ -841,23 +687,13 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
           )}
           {codeError && <div className="buy-error" style={{ marginTop: 0, marginBottom: 14 }}>{codeError}</div>}
 
-          {authenticated && creditCents > 0 && (
-            <label className="credit-row">
-              <input type="checkbox" checked={useCredit} onChange={(e) => setUseCredit(e.target.checked)} disabled={loading} />
-              <span>
-                <b>{formatPrice(creditCents)} Guthaben</b> verrechnen
-                {useCredit && creditApplicable > 0 && <>: <span style={{ color: 'var(--accent)' }}>−{formatPrice(creditApplicable)}</span></>}
-              </span>
-            </label>
-          )}
-
           <div className="fee-summary">
             <div className="label">
               Gesamt{feeTotal > 0
                 ? ` · inkl. ${formatPrice(feeTotal)} Servicegebühr`
                 : unitPrice > 0 ? ' · inkl. aller Gebühren' : ''}
             </div>
-            <div className="total">{dueAfterCredit === 0 ? 'Kostenlos' : formatPrice(dueAfterCredit)}</div>
+            <div className="total">{grandTotal === 0 ? 'Kostenlos' : formatPrice(grandTotal)}</div>
           </div>
         </>
       )}
@@ -892,7 +728,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
 
       {error && <div className="buy-error">{error}</div>}
 
-      {!soldOut && !tierSoldOut && dueAfterCredit > 0 && (
+      {!soldOut && !tierSoldOut && grandTotal > 0 && (
         <div className="pay-methods">Karte, PayPal, Apple&nbsp;Pay und Google&nbsp;Pay</div>
       )}
 
@@ -940,33 +776,6 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
         </div>
       )}
 
-      {resaleOffers.length > 0 && (
-        <div className="resale-box">
-          <div className="resale-head">
-            <span className="resale-title">Von Fans weiterverkauft</span>
-            <span className="resale-sub">{resaleOffers.length} Angebot{resaleOffers.length !== 1 ? 'e' : ''}</span>
-          </div>
-          <div className="resale-list">
-            {resaleOffers.map((o) => (
-              <div key={o.id} className="resale-offer">
-                <div className="ro-price">
-                  {formatPrice(o.buyerTotalCents)}
-                  <span className="ro-fee">inkl. Servicegebühr</span>
-                </div>
-                <button
-                  className="btn primary sm"
-                  onClick={() => handleResaleBuy(o.id)}
-                  disabled={resaleBuyingId === o.id || !ready}
-                >
-                  {resaleBuyingId === o.id ? '…' : 'Kaufen'}
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="resale-note">Diese Tickets stammen von anderen Gästen. Fälschungsschutz und Einlass funktionieren identisch.</div>
-          {resaleError && <div className="buy-error">{resaleError}</div>}
-        </div>
-      )}
 
       {!soldOut && (
         <p

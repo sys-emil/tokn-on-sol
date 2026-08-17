@@ -195,6 +195,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Record THAT an offline ticket exists — never the personalization itself,
+  // which stays exclusively in the signed QR and on the printout. The flag is
+  // what lets the return flow warn precisely the sellers whose printout is
+  // about to become worthless, instead of warning everyone about nothing.
+  void supabaseAdmin
+    .from("purchases")
+    .update({ backup_issued_at: new Date().toISOString() })
+    .in("asset_id", items.map((i) => i.assetId))
+    .is("backup_issued_at", null)
+    .then(({ error }) => {
+      if (error) console.error("backup_issued_at update failed:", error.message);
+    });
+
   return NextResponse.json({
     success: true,
     emailed,
