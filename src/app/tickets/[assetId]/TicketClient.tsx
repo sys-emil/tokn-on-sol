@@ -32,6 +32,24 @@ export default function TicketClient({ assetId }: { assetId: string }) {
       const walletObj = wallet;
       if (!walletObj) return;
 
+      // Keine Signatur fuer einen Code, den gerade niemand sieht.
+      //
+      // Jede Erneuerung kostet eine Wallet-Signatur, und das Kontingent ist
+      // begrenzt. Frueher lief die Schleife auch dann weiter, wenn das Ticket
+      // in einem Hintergrund-Tab lag — bis zu 65 Signaturen pro Stunde fuer
+      // nichts. Aufgebraucht ist das Kontingent ausgerechnet dann, wenn viele
+      // gleichzeitig auf ihr Ticket schauen: am Einlass.
+      //
+      // Die Schleife wird trotzdem NICHT angehalten, sondern nur uebersprungen.
+      // Wuerde sie sich allein auf das visibilitychange-Event verlassen und das
+      // Event in irgendeinem Browser ausbleiben, stuende der Gast mit einem
+      // veralteten Code vor der Tuer. Ein Tick alle 55 s kostet nichts, das
+      // Ticket bleibt aber unter allen Umstaenden selbstheilend.
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        timer = setTimeout(() => { void sign(); }, 55_000);
+        return;
+      }
+
       setStatus(hadQr.current ? 'refreshing' : 'loading');
 
       try {
@@ -72,11 +90,22 @@ export default function TicketClient({ assetId }: { assetId: string }) {
       }
     }
 
+    // Beim Zurueckkehren sofort erneuern, statt bis zu 55 s auf den naechsten
+    // Tick zu warten: der angezeigte Code ist dann fast immer abgelaufen, und
+    // genau in diesem Moment haelt jemand sein Handy an den Scanner.
+    function onVisibilityChange(): void {
+      if (cancelled || document.visibilityState !== 'visible') return;
+      clearTimeout(timer);
+      void sign();
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
     void sign();
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [wallet, assetId]);
 
