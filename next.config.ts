@@ -39,6 +39,33 @@ const supabaseOrigin = (() => {
   }
 })();
 
+/**
+ * Privy runs on a subdomain of OUR domain (e.g. https://privy.getpassly.de),
+ * not on auth.privy.io.
+ *
+ * That is what verifying the domain for HttpOnly cookies does: so the session
+ * cookie is first-party, Privy proxies its API and wallet iframe through a
+ * subdomain we point at them. Privy's published sample CSP predates that setup
+ * and only lists auth.privy.io, which is why a policy copied straight from
+ * their docs blocks the login with
+ *   "Fetch API cannot load https://privy.<domain>/api/v1/passwordless/init"
+ * — `connect-src 'self'` matches the exact host only, never subdomains.
+ *
+ * A wildcard over our own apex rather than one hardcoded hostname: we control
+ * this DNS zone, and Privy may add further hosts to the custom-domain setup
+ * without warning. Every other origin stays explicitly listed.
+ */
+const ownDomainWildcard = (() => {
+  const raw = process.env.APP_URL;
+  try {
+    const host = raw ? new URL(raw).hostname : "getpassly.de";
+    const apex = host.split(".").slice(-2).join(".");
+    return `https://*.${apex}`;
+  } catch {
+    return "https://*.getpassly.de";
+  }
+})();
+
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
@@ -50,9 +77,9 @@ const csp = [
   "form-action 'self'",
   // Modern equivalent of X-Frame-Options: DENY. Nothing may embed Passly.
   "frame-ancestors 'none'",
-  "child-src https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org",
-  "frame-src https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org https://challenges.cloudflare.com",
-  "connect-src 'self' https://auth.privy.io https://*.rpc.privy.systems wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://explorer-api.walletconnect.com",
+  `child-src ${ownDomainWildcard} https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org`,
+  `frame-src ${ownDomainWildcard} https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org https://challenges.cloudflare.com`,
+  `connect-src 'self' ${ownDomainWildcard} https://auth.privy.io https://*.rpc.privy.systems wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://explorer-api.walletconnect.com`,
   "worker-src 'self'",
   "manifest-src 'self'",
 ].join("; ");
