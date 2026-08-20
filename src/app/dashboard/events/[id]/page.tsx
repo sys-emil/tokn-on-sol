@@ -1017,7 +1017,7 @@ export default function EventDetailPage() {
                     Deine Gäste bekommen den vollen Betrag zurück, inklusive Servicegebühr.
                     Die Gebühr, die der Zahlungsdienstleister bei einer Erstattung einbehält,
                     tragen wir nicht für dich: sie wird von deiner nächsten Auszahlung
-                    abgezogen — bei einem 20-€-Ticket je nach Zahlart etwa 0,55&nbsp;€
+                    abgezogen, bei einem 20-€-Ticket je nach Zahlart etwa 0,55&nbsp;€
                     (Karte) bis 1,00&nbsp;€ (PayPal).
                   </p>
                   <div className="field" style={{ marginTop: 14 }}>

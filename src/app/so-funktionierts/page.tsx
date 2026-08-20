@@ -281,7 +281,7 @@ export default function SoFunktioniertsPage() {
                   </summary>
                   <div className="faq-a">
                     Meistens kommt zum Ticketpreis eine Servicegebühr von 7,9&nbsp;% pro
-                    Ticket, mindestens 0,99&nbsp;€ — bei teureren Tickets wird der Satz
+                    Ticket, mindestens 0,99&nbsp;€. Bei teureren Tickets wird der Satz
                     kleiner. Manche Veranstalter übernehmen sie ganz oder
                     zur Hälfte, dann zahlst du weniger oder gar nichts extra. Was
                     anfällt, siehst du in jedem Fall vor dem Bezahlen; versteckte Kosten

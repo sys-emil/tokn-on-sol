@@ -205,7 +205,7 @@ export default function PayoutsPage() {
               <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.6 }}>
                 Eine Zeile pro Bestellung, mit Bruttobetrag, Servicegebühr und dem Betrag,
                 der bei dir ankommt. Deine Steuerberatung kann die Spalten direkt zuordnen.
-                Wir weisen bewusst keine Umsatzsteuer aus — welcher Satz für dich gilt,
+                Wir weisen bewusst keine Umsatzsteuer aus. Welcher Satz für dich gilt,
                 weißt nur du.
               </div>
             </div>

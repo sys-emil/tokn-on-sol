@@ -313,7 +313,7 @@ export default function PreisePage() {
                       <span className="unit">für dich, dauerhaft</span>
                     </div>
                     <p className="what">
-                      Pro Ticket 7,9&nbsp;% Servicegebühr, mindestens 0,99&nbsp;€ — und der
+                      Pro Ticket 7,9&nbsp;% Servicegebühr, mindestens 0,99&nbsp;€. Der
                       Satz sinkt, je teurer das Ticket ist. Standardmäßig zahlt der Gast sie
                       obendrauf; du kannst sie je Event auch teilen oder selbst übernehmen.
                       Kostenlose Tickets sind komplett gebührenfrei.
@@ -345,7 +345,7 @@ export default function PreisePage() {
                     </div>
                     <p className="what">
                       Ein volles Haus ist schön. Gäste, die beim nächsten Mal wiederkommen,
-                      sind das Geschäft. Pro gibt dir die Werkzeuge dafür — an der
+                      sind das Geschäft. Pro gibt dir die Werkzeuge dafür. An der
                       Servicegebühr ändert sich dadurch nichts.
                     </p>
                     <div className="listhead">Alles aus Kostenlos, plus</div>
@@ -380,7 +380,7 @@ export default function PreisePage() {
                 <p className="fine">
                   Gestaffelt wie die Einkommensteuer: jeder Satz gilt nur für den Teil des
                   Preises, der in seine Stufe fällt. Ein 25-€-Ticket kostet also 7,9&nbsp;% auf
-                  die ersten 15&nbsp;€ plus 5,9&nbsp;% auf die restlichen 10&nbsp;€ — zusammen
+                  die ersten 15&nbsp;€ plus 5,9&nbsp;% auf die restlichen 10&nbsp;€, zusammen
                   1,78&nbsp;€.
                 </p>
               </div>
@@ -426,7 +426,7 @@ export default function PreisePage() {
                   <p>
                     Für den kostenlosen Plan zahlst du keine Einrichtungsgebühr, keine
                     monatliche Gebühr und keinen prozentualen Anteil am Ticketpreis. Passly
-                    verdient an der Servicegebühr pro Ticket — standardmäßig zahlt die dein
+                    verdient an der Servicegebühr pro Ticket. Standardmäßig zahlt die dein
                     Gast, du kannst sie aber je Event auch übernehmen.
                   </p>
                 </div>
@@ -436,7 +436,7 @@ export default function PreisePage() {
                     Das entscheidest du je Event. Standard ist „Gast zahlt&ldquo;: die Gebühr
                     kommt im Warenkorb sichtbar auf den Ticketpreis obendrauf, und du
                     bekommst den Nennwert vollständig. Du kannst sie auch mit deinem Gast
-                    teilen oder ganz übernehmen — dann ist dein Ticketpreis der Endpreis,
+                    teilen oder ganz übernehmen. Dann ist dein Ticketpreis der Endpreis,
                     und wir ziehen die Gebühr von deiner Auszahlung ab. Das ist vor allem
                     dann praktisch, wenn du runde Eintrittspreise plakatierst.
                   </p>

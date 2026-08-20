@@ -7,7 +7,7 @@ import { ScrollReveal } from '@/app/components/ScrollReveal';
 export const metadata: Metadata = {
   title: 'Für Veranstalter · Passly',
   description:
-    'Event anlegen, fälschungssichere Tickets verkaufen, mit dem Handy einlassen — ohne Fixkosten, und du entscheidest, wer die Servicegebühr zahlt. So funktioniert Passly für Veranstalter.',
+    'Event anlegen, fälschungssichere Tickets verkaufen, mit dem Handy einlassen, ohne Fixkosten. Du entscheidest, wer die Servicegebühr zahlt. So funktioniert Passly für Veranstalter.',
 };
 
 const PAGE_CSS = `
