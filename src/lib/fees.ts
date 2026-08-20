@@ -1,28 +1,85 @@
 /**
- * Service fee: €1.00 + 4% per ticket. Who pays it is a per-event decision
- * (`events.fee_payer`, see `splitServiceFee` below); by default the buyer does,
- * on top of the face price, and the organizer receives 100% of it.
+ * Service fee per ticket: a **degressive, marginal** schedule with a floor.
+ * Who pays it is a per-event decision (`events.fee_payer`, see `splitServiceFee`
+ * below); by default the buyer does, on top of the face price.
  *
- * Why base plus percentage: Stripe's processing cost is fixed-plus-percentage
- * (about €0.25 plus 1.5 to 2.9%), so a pure percentage loses money on cheap
- * tickets (backlog #13: a €5 ticket at the old organizer-side 3% lost ~€0.18).
- * €1.00 + 4% clears Stripe cost plus VAT on the fee at every price point.
+ *   up to  15 €  →  7.9 %
+ *      15 – 50 € →  5.9 %   (on the part above 15 €)
+ *      above 50 € →  4.5 %   (on the part above 50 €)
+ *   never less than 0.99 € on a paid ticket
+ *
+ * Why marginal bands rather than one rate per price bracket: a bracket schedule
+ * has cliffs, and a cliff points the wrong way — a 15.01 € ticket would carry a
+ * *smaller* fee than a 15.00 € one, which is both unexplainable and gameable.
+ * Summed marginally the fee is monotone in the price by construction
+ * (asserted over the whole range in serviceFeeBands.test.ts).
+ *
+ * Why degressive at all: the previous 1.00 € + 4 % was regressive — 24 % on a
+ * 5 € ticket but 4.8 % on a 120 € one. That is backwards. Cheap tickets are the
+ * ones a surcharge scares away, and expensive ones were leaving money behind:
+ * the contribution margin used to sit flat at ~0.70 € from 5 € to 300 €, i.e.
+ * the platform did not grow with GMV.
+ *
+ * Why a floor and not a base: Stripe's cost is fixed-plus-percentage (about
+ * 0.25 € + 1.5 % on an EEA card, 0.35 € + 2.99 % via PayPal), so a pure
+ * percentage loses money on cheap tickets. 0.99 € is the floor measured against
+ * PayPal — the most expensive method we accept — not against cards. It stops
+ * binding at ~12.50 €, where 7.9 % overtakes it.
+ *
+ * **Why there is no absolute cap.** A cap in euros looks generous on a 150 €
+ * ticket and is a loss: Stripe's percentage runs on uncapped, so past a certain
+ * price the fee would be smaller than the cost of collecting it. Degression is
+ * expressed as a falling *marginal rate* instead, and the lowest band (4.5 %)
+ * stays deliberately above PayPal's 2.99 %. Don't add a cap.
+ *
+ * The margins above assume Passly is a Kleinunternehmer, i.e. the fee carries
+ * no VAT. Should that change, every margin drops by ~16 % and the weakest point
+ * (a 10 € ticket paid via PayPal) falls from ~0.31 € to ~0.15 €. Still positive,
+ * but that is the moment to revisit the floor.
  *
  * Free tickets (price 0) carry no fee, since free events skip Stripe entirely.
  *
- * This module is imported by client components (shop page fee display), so it
- * must stay dependency-free and side-effect-free.
+ * This module is imported by client components (shop page fee display, the
+ * pricing-page calculator), so it must stay dependency-free and side-effect-free.
  */
 
-export const SERVICE_FEE_BASE_CENTS = 100; // €1.00 per ticket
-export const SERVICE_FEE_BPS = 400; // + 4% of the face price
+export interface ServiceFeeBand {
+  /** Upper bound of the band in cents; the last band is open-ended. */
+  readonly upToCents: number;
+  /** Rate applied to the part of the price that falls inside this band. */
+  readonly bps: number;
+}
+
+/**
+ * Exported so the pricing page can render the schedule from the same constant
+ * the checkout charges from — marketing copy and the charge cannot drift apart.
+ */
+export const SERVICE_FEE_BANDS: readonly ServiceFeeBand[] = [
+  { upToCents: 1_500, bps: 790 },
+  { upToCents: 5_000, bps: 590 },
+  { upToCents: Number.POSITIVE_INFINITY, bps: 450 },
+];
+
+/** Smallest fee on a paid ticket. See the floor rationale above. */
+export const MIN_SERVICE_FEE_CENTS = 99;
 
 export function serviceFeePerTicketCents(unitPriceCents: number): number {
   if (!Number.isInteger(unitPriceCents) || unitPriceCents < 0) {
     throw new Error(`unitPriceCents must be a non-negative integer, got ${unitPriceCents}`);
   }
   if (unitPriceCents === 0) return 0;
-  return SERVICE_FEE_BASE_CENTS + Math.round((unitPriceCents * SERVICE_FEE_BPS) / 10_000);
+
+  // Rounded ONCE at the end. Rounding per band would let the sum jump around a
+  // band edge and break monotonicity.
+  let raw = 0;
+  let consumed = 0;
+  for (const band of SERVICE_FEE_BANDS) {
+    const portion = Math.min(unitPriceCents, band.upToCents) - consumed;
+    if (portion <= 0) break;
+    raw += (portion * band.bps) / 10_000;
+    consumed += portion;
+  }
+  return Math.max(MIN_SERVICE_FEE_CENTS, Math.round(raw));
 }
 
 export function serviceFeeTotalCents(unitPriceCents: number, quantity: number): number {
@@ -97,7 +154,7 @@ export const MIN_ORGANIZER_NET_CENTS = 1;
 
 /**
  * Cheapest ticket price that still leaves the organizer something under the
- * given mode: 0 for `buyer`, 52 cents for `split`, 105 cents for `organizer`.
+ * given mode: 0 for `buyer`, 51 cents for `split`, 100 cents for `organizer`.
  *
  * Searched rather than hardcoded so the numbers can't drift away from the fee
  * formula if the fee ever changes.

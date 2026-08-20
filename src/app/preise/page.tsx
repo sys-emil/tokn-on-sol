@@ -5,6 +5,7 @@ import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
+import { MIN_SERVICE_FEE_CENTS, SERVICE_FEE_BANDS } from '@/lib/fees';
 
 /*
  * Canonical pricing page (since 2026-07-30). /fuer-veranstalter links here
@@ -15,6 +16,25 @@ import { ProPrice } from '@/app/components/ProPrice';
  * No competitor comparisons: their fee schedules change and a wrong claim in
  * German comparative advertising is an actual legal risk, not just sloppy.
  */
+
+const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+
+/*
+ * Die Staffel wird aus SERVICE_FEE_BANDS gerendert, nicht abgetippt: Marketing
+ * und Kasse koennen so nicht auseinanderlaufen (dasselbe Prinzip wie ProPrice
+ * gegenueber Stripe).
+ */
+const FEE_BAND_ROWS = SERVICE_FEE_BANDS.map((band, i) => {
+  const from = i === 0 ? 0 : SERVICE_FEE_BANDS[i - 1].upToCents;
+  return {
+    label: !Number.isFinite(band.upToCents)
+      ? `Anteil über ${eur(from)}`
+      : i === 0
+        ? `Bis ${eur(band.upToCents)}`
+        : `Anteil von ${eur(from)} bis ${eur(band.upToCents)}`,
+    rate: `${(band.bps / 100).toLocaleString('de-DE', { minimumFractionDigits: 1 })} %`,
+  };
+});
 
 /*
  * Feature lists as data, not markup: the two columns must stay comparable,
@@ -57,7 +77,7 @@ const PRO_FEATURES = [
 export const metadata: Metadata = {
   title: 'Preise · Passly',
   description:
-    'Passly kostet Veranstalter keine Grundgebühr: 1 € + 4 % Servicegebühr pro Ticket, und du entscheidest je Event, ob sie der Gast trägt, ihr sie teilt oder du sie übernimmst. Pro-Funktionen optional.',
+    'Passly kostet Veranstalter keine Grundgebühr: 7,9 % Servicegebühr pro Ticket (mindestens 0,99 €, sinkend bei teureren Tickets), und du entscheidest je Event, ob sie der Gast trägt, ihr sie teilt oder du sie übernimmst. Pro-Funktionen optional.',
 };
 
 const PAGE_CSS = `
@@ -187,6 +207,22 @@ const PAGE_CSS = `
   }
   .price-note svg { color: var(--accent); flex-shrink: 0; margin-top: 2px; }
 
+  .fee-bands { padding: 20px 22px; }
+  .fee-bands .cap {
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent-ink); margin-bottom: 14px;
+  }
+  .fee-bands ul { display: flex; flex-direction: column; }
+  .fee-bands li {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+    padding: 9px 0; border-bottom: 1px solid var(--line);
+    font-size: 14px; color: var(--ink-2);
+  }
+  .fee-bands li:last-child { border-bottom: none; }
+  .fee-bands li.edge { color: var(--ink-3); }
+  .fee-bands .val { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
+  .fee-bands .fine { margin-top: 14px; font-size: 13px; color: var(--ink-3); line-height: 1.6; }
+
   .calc-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: center; }
   @media (max-width: 900px) { .calc-section { grid-template-columns: 1fr; gap: 24px; } }
   .calc-copy h2 { font-size: clamp(23px, 3.2vw, 30px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.18; }
@@ -277,9 +313,10 @@ export default function PreisePage() {
                       <span className="unit">für dich, dauerhaft</span>
                     </div>
                     <p className="what">
-                      Pro Ticket 1&nbsp;€ + 4&nbsp;% Servicegebühr. Standardmäßig zahlt
-                      der Gast sie obendrauf; du kannst sie je Event auch teilen oder
-                      selbst übernehmen. Kostenlose Tickets sind komplett gebührenfrei.
+                      Pro Ticket 7,9&nbsp;% Servicegebühr, mindestens 0,99&nbsp;€ — und der
+                      Satz sinkt, je teurer das Ticket ist. Standardmäßig zahlt der Gast sie
+                      obendrauf; du kannst sie je Event auch teilen oder selbst übernehmen.
+                      Kostenlose Tickets sind komplett gebührenfrei.
                     </p>
                     <div className="listhead">Enthalten</div>
                     <ul>
@@ -327,6 +364,25 @@ export default function PreisePage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            <section>
+              <div className="card fee-bands" data-reveal>
+                <div className="cap">Die Servicegebühr pro Ticket</div>
+                <ul>
+                  {FEE_BAND_ROWS.map((row) => (
+                    <li key={row.label}><span>{row.label}</span><span className="val">{row.rate}</span></li>
+                  ))}
+                  <li className="edge"><span>Mindestens je Ticket</span><span className="val">{eur(MIN_SERVICE_FEE_CENTS)}</span></li>
+                  <li className="edge"><span>Kostenlose Tickets</span><span className="val">{eur(0)}</span></li>
+                </ul>
+                <p className="fine">
+                  Gestaffelt wie die Einkommensteuer: jeder Satz gilt nur für den Teil des
+                  Preises, der in seine Stufe fällt. Ein 25-€-Ticket kostet also 7,9&nbsp;% auf
+                  die ersten 15&nbsp;€ plus 5,9&nbsp;% auf die restlichen 10&nbsp;€ — zusammen
+                  1,78&nbsp;€.
+                </p>
               </div>
             </section>
 

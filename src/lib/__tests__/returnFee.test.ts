@@ -75,14 +75,14 @@ describe("Zahlungsfähigkeit des Weiterverkaufs", () => {
   });
 
   it("earns the return fee on top of the ordinary service fee", () => {
-    // 25 € Ticket, Gast trägt die Gebühr: 2 € Servicegebühr vom Käufer plus
+    // 25 € Ticket, Gast trägt die Gebühr: 1,78 € Servicegebühr vom Käufer plus
     // 2,50 € Rückgabegebühr vom Verkäufer.
     const face = 2_500;
     const serviceFee = serviceFeePerTicketCents(face);
     const { returnFeeCents } = returnBreakdown(face);
-    expect(serviceFee).toBe(200);
+    expect(serviceFee).toBe(178);
     expect(returnFeeCents).toBe(250);
-    expect(serviceFee + returnFeeCents).toBe(450);
+    expect(serviceFee + returnFeeCents).toBe(428);
   });
 
   // Ein rabattiert gekauftes Ticket ist der Grund, warum die Gebühr gegen den

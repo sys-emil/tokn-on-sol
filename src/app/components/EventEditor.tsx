@@ -70,6 +70,15 @@ export const INITIAL_DRAFT: EventDraft = {
 
 const MAX_TIERS = 5;
 
+/**
+ * Unter diesem Preis schlaegt der Editor vor, dass der Veranstalter die
+ * Servicegebuehr uebernimmt. Prozentual sieht ein Aufschlag hier hart aus
+ * (0,99 € auf ein 8-€-Ticket sind 12 %), waehrend ein runder Eintrittspreis
+ * so aussieht wie an der Tuer. Es bleibt ein Vorschlag: derselbe Euro, nur
+ * anders praesentiert, und der Schalter daneben kippt ihn jederzeit.
+ */
+const CHEAP_TICKET_CENTS = 1_200;
+
 const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 
 export function EventEditor({
@@ -108,22 +117,56 @@ export function EventEditor({
 
   const anyPaid = draft.tiers.some((t) => (Number(t.priceEur) || 0) > 0);
 
+  /** Bezahlte Kategorien, guenstigste zuerst — Bezugspunkt fuer alles Folgende. */
+  const paidTiers = draft.tiers
+    .map((t) => ({ name: t.name.trim() || 'Standard', cents: Math.round((Number(t.priceEur) || 0) * 100) }))
+    .filter((t) => t.cents > 0)
+    .sort((a, b) => a.cents - b.cents);
+  const cheapestPaid = paidTiers[0] ?? null;
+
+  /**
+   * Der Gebuehren-Vorschlag fuer billige Events (siehe CHEAP_TICKET_CENTS).
+   *
+   * Sobald der Veranstalter den Schalter einmal angefasst hat, fassen wir ihn
+   * nie wieder an. Beim Bearbeiten gilt er von vornherein als angefasst: dort
+   * ist `fee_payer` eine getroffene Entscheidung ueber echtes Geld und darf
+   * sich nicht dadurch verschieben, dass jemand einen Preis korrigiert.
+   *
+   * Nicht unter `minUnitPriceCentsFor('organizer')` vorschlagen — die Gebuehr
+   * waere hoeher als das Ticket und das Speichern schluege fehl.
+   */
+  const [feePayerTouched, setFeePayerTouched] = useState(mode === 'edit');
+  const suggestOrganizerFee = !feePayerTouched
+    && cheapestPaid !== null
+    && cheapestPaid.cents < CHEAP_TICKET_CENTS
+    && cheapestPaid.cents >= minUnitPriceCentsFor('organizer');
+
+  /**
+   * Der Vorschlag ist *abgeleitet*, nicht in den Draft geschrieben: er soll
+   * dem Preis folgen, solange niemand ihn angefasst hat, und genau ab dem
+   * ersten Klick nicht mehr. Ein State-Sync haette denselben Effekt nur
+   * verzoegert und mit einer Runde ueberfluessigem Rendern.
+   */
+  const feePayer: FeePayer = suggestOrganizerFee ? 'organizer' : draft.feePayer;
+
+  const pickFeePayer = (payer: FeePayer) => {
+    setFeePayerTouched(true);
+    set('feePayer', payer);
+  };
+
   /**
    * Was der Gebuehren-Schalter konkret bedeutet, gerechnet an der guenstigsten
    * bezahlten Kategorie — dort ist der Anteil relativ am groessten, und bei
    * mehreren Kategorien waere eine Zahl ohne Bezug nicht nachvollziehbar.
    */
   const feeHint = (() => {
-    const paid = draft.tiers
-      .map((t) => ({ name: t.name.trim() || 'Standard', cents: Math.round((Number(t.priceEur) || 0) * 100) }))
-      .filter((t) => t.cents > 0)
-      .sort((a, b) => a.cents - b.cents);
-    const cheapest = paid[0];
+    const paid = paidTiers;
+    const cheapest = cheapestPaid;
     if (!cheapest) return { text: '', thin: false };
-    const { buyerCents, organizerCents, totalCents } = splitServiceFee(cheapest.cents, draft.feePayer);
+    const { buyerCents, organizerCents, totalCents } = splitServiceFee(cheapest.cents, feePayer);
     const net = cheapest.cents - organizerCents;
     const named = paid.length > 1 ? ` Bei „${cheapest.name}“` : ' Davon';
-    if (draft.feePayer === 'buyer') {
+    if (feePayer === 'buyer') {
       return {
         text: `Der Gast zahlt ${eur(totalCents)} pro Ticket obendrauf und damit ${eur(cheapest.cents + buyerCents)}.`
           + ` Du bekommst die vollen ${eur(cheapest.cents)}.`,
@@ -132,7 +175,7 @@ export function EventEditor({
     }
     const guestPays = `Der Gast zahlt ${eur(cheapest.cents + buyerCents)} pro Ticket`;
     return {
-      text: draft.feePayer === 'organizer'
+      text: feePayer === 'organizer'
         ? `${guestPays} – keine Gebühr obendrauf.${named} bleiben dir ${eur(net)}.`
         : `${guestPays}, ${eur(organizerCents)} trägst du.${named} bleiben dir ${eur(net)}.`,
       thin: net < cheapest.cents * 0.2,
@@ -168,11 +211,11 @@ export function EventEditor({
     // Wer die Gebuehr traegt, muss zum Preis passen: ein Ticket, das billiger
     // ist als der eigene Gebuehrenanteil, liesse dem Veranstalter nichts uebrig.
     const priceCents = parsed.map((t) => Math.round(t.priceEurNum * 100));
-    const tooCheap = tooCheapForFeePayer(priceCents, draft.feePayer);
+    const tooCheap = tooCheapForFeePayer(priceCents, feePayer);
     if (tooCheap !== null) {
       const tier = parsed[priceCents.indexOf(tooCheap)];
-      const floor = eur(minUnitPriceCentsFor(draft.feePayer));
-      setError(draft.feePayer === 'organizer'
+      const floor = eur(minUnitPriceCentsFor(feePayer));
+      setError(feePayer === 'organizer'
         ? `Wenn du die Servicegebühr übernimmst, muss ein Ticket mindestens ${floor} kosten. „${tier.name}“ kostet ${eur(tooCheap)} – die Gebühr wäre höher als der Preis.`
         : `Bei „Halbe/Halbe“ muss ein Ticket mindestens ${floor} kosten. „${tier.name}“ kostet ${eur(tooCheap)} – davon bliebe dir nichts.`);
       return null;
@@ -210,7 +253,7 @@ export function EventEditor({
         gallery_urls: draft.galleryUrls,
         is_private: draft.isPrivate,
         payout_hold_days: checked.holdDays,
-        fee_payer: draft.feePayer,
+        fee_payer: feePayer,
         resale_enabled: draft.resaleEnabled,
         accent_hue: draft.accentHue,
         border_style: draft.borderStyle,
@@ -272,7 +315,7 @@ export function EventEditor({
     tiers: draft.tiers.map((t) => ({ name: t.name, priceEur: t.priceEur, capacity: t.capacity })),
     imageUrl: draft.imageUrl,
     galleryUrls: draft.galleryUrls,
-    feePayer: draft.feePayer,
+    feePayer,
     accentHue: draft.accentHue,
     borderStyle: draft.borderStyle,
     ticketsSold: draft.ticketsSold,
@@ -449,13 +492,20 @@ export function EventEditor({
 
             {anyPaid && (
               <div className="field">
-                <label>Servicegebühr (1,00 € + 4 % pro Ticket)</label>
+                <label>Servicegebühr (7,9 % pro Ticket, mindestens 0,99 €)</label>
                 <div className="seg">
-                  <button type="button" className={draft.feePayer === 'buyer' ? 'active' : ''} onClick={() => set('feePayer', 'buyer')} disabled={saving}>Gast zahlt</button>
-                  <button type="button" className={draft.feePayer === 'split' ? 'active' : ''} onClick={() => set('feePayer', 'split')} disabled={saving}>Halbe/Halbe</button>
-                  <button type="button" className={draft.feePayer === 'organizer' ? 'active' : ''} onClick={() => set('feePayer', 'organizer')} disabled={saving}>Ich übernehme</button>
+                  <button type="button" className={feePayer === 'buyer' ? 'active' : ''} onClick={() => pickFeePayer('buyer')} disabled={saving}>Gast zahlt</button>
+                  <button type="button" className={feePayer === 'split' ? 'active' : ''} onClick={() => pickFeePayer('split')} disabled={saving}>Halbe/Halbe</button>
+                  <button type="button" className={feePayer === 'organizer' ? 'active' : ''} onClick={() => pickFeePayer('organizer')} disabled={saving}>Ich übernehme</button>
                 </div>
                 <span className="hint">{feeHint.text}</span>
+                {suggestOrganizerFee && (
+                  <span className="hint">
+                    Vorgeschlagen, weil deine Tickets günstig sind: prozentual sieht ein
+                    Aufschlag hier hart aus, ein runder Eintrittspreis wie an der Tür nicht.
+                    Du kannst jederzeit umstellen.
+                  </span>
+                )}
                 {feeHint.thin && (
                   <span className="hint" style={{ color: 'var(--warn, #a16207)' }}>
                     Bei diesem Preis bleibt dir kaum etwas übrig.

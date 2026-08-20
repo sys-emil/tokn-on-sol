@@ -10,20 +10,24 @@ import {
 } from "@/lib/payouts";
 import { serviceFeePerTicketCents, serviceFeeTotalCents } from "@/lib/fees";
 
-describe("serviceFeePerTicketCents (buyer-side €1 + 4% fee)", () => {
-  it("charges €1 + 4% per ticket", () => {
-    expect(serviceFeePerTicketCents(500)).toBe(120); // €5 → €1.20
-    expect(serviceFeePerTicketCents(1_500)).toBe(160); // €15 → €1.60
-    expect(serviceFeePerTicketCents(5_000)).toBe(300); // €50 → €3.00
+describe("serviceFeePerTicketCents (degressive bands, floor \u20ac0.99)", () => {
+  it("applies the marginal bands", () => {
+    expect(serviceFeePerTicketCents(500)).toBe(99); // \u20ac5 \u2192 floor
+    expect(serviceFeePerTicketCents(1_500)).toBe(119); // \u20ac15 \u2192 7.9%
+    expect(serviceFeePerTicketCents(5_000)).toBe(325); // \u20ac50 \u2192 1.19 + 5.9% of 35
+    expect(serviceFeePerTicketCents(12_000)).toBe(640); // \u20ac120 \u2192 3.25 + 4.5% of 70
   });
 
   it("free tickets carry no fee", () => {
     expect(serviceFeePerTicketCents(0)).toBe(0);
   });
 
-  it("rounds the percentage part to the nearest cent", () => {
-    // €0.33 → 4% = 1.32 cents → 1 cent + 100 base
-    expect(serviceFeePerTicketCents(33)).toBe(101);
+  it("never charges less than the floor on a paid ticket", () => {
+    // 7.9% only overtakes \u20ac0.99 at \u20ac12.53.
+    expect(serviceFeePerTicketCents(1)).toBe(99);
+    expect(serviceFeePerTicketCents(33)).toBe(99);
+    expect(serviceFeePerTicketCents(1_250)).toBe(99);
+    expect(serviceFeePerTicketCents(1_300)).toBe(103);
   });
 
   it("rejects negative or fractional prices", () => {
@@ -34,7 +38,7 @@ describe("serviceFeePerTicketCents (buyer-side €1 + 4% fee)", () => {
 
 describe("serviceFeeTotalCents", () => {
   it("multiplies the per-ticket fee by quantity", () => {
-    expect(serviceFeeTotalCents(500, 4)).toBe(480);
+    expect(serviceFeeTotalCents(500, 4)).toBe(396);
     expect(serviceFeeTotalCents(0, 4)).toBe(0);
   });
 

@@ -459,7 +459,8 @@ export default function Home() {
                 <div className="fee-copy">
                   <h2>Rechne selbst nach.</h2>
                   <p>
-                    1&nbsp;€ plus 4&nbsp;% Servicegebühr pro Ticket. Standardmäßig zahlt
+                    7,9&nbsp;% Servicegebühr pro Ticket, mindestens 0,99&nbsp;€ — und der
+                    Satz sinkt, je teurer das Ticket ist. Standardmäßig zahlt
                     sie dein Gast obendrauf, offen im Warenkorb ausgewiesen, und du bekommst
                     den Ticketpreis auf den Cent. Willst du lieber einen runden Endpreis,
                     übernimmst du sie. Keine Einrichtungskosten, keine monatliche Gebühr,

@@ -414,11 +414,12 @@ export default function FuerVeranstalterPage() {
                   <div className="big">0&nbsp;€</div>
                   <div className="big-sub">Grundgebühr, dauerhaft</div>
                   <p>
-                    Keine Einrichtungskosten, keine monatliche Gebühr, kein prozentualer
+                    Keine Einrichtungskosten, keine monatliche Gebühr, kein fester
                     Anteil am Ticketpreis. Pro Ticket fällt eine Servicegebühr von
-                    1&nbsp;€ plus 4&nbsp;% an; standardmäßig zahlt sie dein Gast
-                    transparent im Warenkorb, du kannst sie je Event aber auch teilen
-                    oder übernehmen. Kostenlose Events sind komplett kostenlos, für alle.
+                    7,9&nbsp;% an (mindestens 0,99&nbsp;€), und der Satz sinkt, je teurer
+                    das Ticket ist; standardmäßig zahlt sie dein Gast transparent im
+                    Warenkorb, du kannst sie je Event aber auch teilen oder übernehmen.
+                    Kostenlose Events sind komplett kostenlos, für alle.
                   </p>
                 </div>
                 <div className="pricing-example" aria-label="Beispielrechnung">
@@ -429,11 +430,11 @@ export default function FuerVeranstalterPage() {
                   </div>
                   <div className="row">
                     <span>Servicegebühr (Gast)</span>
-                    <span className="val">+&nbsp;1,80&nbsp;€</span>
+                    <span className="val">+&nbsp;1,48&nbsp;€</span>
                   </div>
                   <div className="row">
                     <span>Dein Gast zahlt</span>
-                    <span className="val">21,80&nbsp;€</span>
+                    <span className="val">21,48&nbsp;€</span>
                   </div>
                   <div className="row total">
                     <span>Du erhältst</span>

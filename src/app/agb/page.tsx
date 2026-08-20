@@ -83,8 +83,12 @@ export default function AgbPage() {
       </p>
       <p>
         (2) Für jedes verkaufte Ticket erhebt Passly eine{' '}
-        <strong>Servicegebühr von 1,00&nbsp;€ zzgl. 4&nbsp;% des Ticketpreises pro
-        Ticket</strong>. Wer sie trägt, legt der Veranstalter je Event fest: der
+        <strong>Servicegebühr in Höhe von 7,9&nbsp;% des Ticketpreises bis
+        15,00&nbsp;€, zuzüglich 5,9&nbsp;% des darüber hinausgehenden Anteils bis
+        50,00&nbsp;€ und 4,5&nbsp;% des darüber hinausgehenden Anteils, mindestens
+        jedoch 0,99&nbsp;€ je Ticket</strong>. Der jeweilige Satz gilt nur für den
+        Teil des Ticketpreises, der in die betreffende Stufe fällt. Wer sie trägt,
+        legt der Veranstalter je Event fest: der
         Gast zusätzlich zum Ticketpreis, beide je zur Hälfte, oder der
         Veranstalter allein. Der auf den Gast entfallende Anteil wird vor
         Abschluss des Kaufs ausgewiesen; trägt der Veranstalter die Gebühr
