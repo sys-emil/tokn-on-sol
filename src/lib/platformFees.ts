@@ -1,13 +1,20 @@
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
- * Service fees the organizer collected in cash but owes Passly.
+ * Amounts the organizer owes Passly, settled by deducting them from their next
+ * online payout transfer rather than by building a second money rail.
  *
- * The only source today is the box office: the guest pays the same total as
- * online (face price + buyer-side service fee), and the whole amount stays in
- * the organizer's till because no money passes through Passly at the door.
- * Rather than build a second money rail to invoice that fee, it is subtracted
- * from the organizer's next online payout transfer.
+ * Two sources (`platform_fees_due.source`):
+ * - `box_office` — the guest pays the same total as online (face price +
+ *   buyer-side service fee) and the whole amount stays in the organizer's till,
+ *   because no money passes through Passly at the door.
+ * - `cancellation` — the organizer cancelled an event, every guest was refunded
+ *   in full including the service fee, and Stripe **keeps its processing fee on
+ *   a refund**. That is a real euro Passly paid out for a sale that no longer
+ *   exists. Only the amount Stripe actually withheld is passed on, never
+ *   Passly's own margin: reclaiming a fee for a service that was not delivered
+ *   would be a penalty, while passing through a payment-provider cost the
+ *   organizer caused is what the terms cover (AGB § 4).
  *
  * Design decisions worth keeping:
  * - **Whole rows only.** A due is either subtracted from a payout in full or
@@ -110,12 +117,70 @@ export async function releaseOffset(dues: PlatformFeeDue[]): Promise<void> {
   if (error) console.error("Failed to release platform fee dues:", error.message);
 }
 
-/** What an organizer still owes; shown on their payout page. */
-export async function outstandingFeesCents(organizerWallet: string): Promise<number> {
+export type OutstandingFees = {
+  totalCents: number;
+  /** Service fees collected in cash at the door. */
+  boxOfficeCents: number;
+  /** Stripe's processing fees on refunds after a cancelled event. */
+  cancellationCents: number;
+};
+
+/**
+ * What an organizer still owes; shown on their payout page. Split by source
+ * because the two mean very different things to the reader — one is money they
+ * are holding, the other is a cost they caused.
+ */
+export async function outstandingFees(organizerWallet: string): Promise<OutstandingFees> {
   const { data } = await supabaseAdmin
     .from("platform_fees_due")
-    .select("fee_cents")
+    .select("fee_cents, source")
     .eq("organizer_wallet", organizerWallet)
     .eq("status", "pending");
-  return ((data ?? []) as { fee_cents: number }[]).reduce((sum, d) => sum + d.fee_cents, 0);
+  const rows = (data ?? []) as { fee_cents: number; source: string | null }[];
+  const sumWhere = (match: (source: string | null) => boolean) =>
+    rows.filter((r) => match(r.source)).reduce((sum, r) => sum + r.fee_cents, 0);
+  return {
+    totalCents: rows.reduce((sum, r) => sum + r.fee_cents, 0),
+    cancellationCents: sumWhere((source) => source === "cancellation"),
+    // Anything not explicitly a cancellation is a door sale, including rows
+    // written before `source` was ever set to something else.
+    boxOfficeCents: sumWhere((source) => source !== "cancellation"),
+  };
+}
+
+/**
+ * Book Stripe's non-refundable processing fee on a cancellation refund.
+ *
+ * `session_id` is UNIQUE on the table, which makes this idempotent for free: a
+ * re-run of the cancellation loop (or a retried request) cannot book the same
+ * refund twice. A duplicate is success, not an error.
+ *
+ * Never throws. The refund has already gone out at this point, and failing here
+ * would only risk the caller retrying a loop that issues money. An uncollected
+ * fee is revenue we miss; a double refund would be a real loss.
+ */
+export async function bookCancellationFee(params: {
+  organizerWallet: string;
+  eventId: string;
+  sessionId: string;
+  quantity: number;
+  feeCents: number;
+  currency: string;
+}): Promise<"booked" | "duplicate" | "skipped" | "failed"> {
+  const { organizerWallet, eventId, sessionId, quantity, feeCents, currency } = params;
+  if (!Number.isInteger(feeCents) || feeCents <= 0) return "skipped";
+
+  const { error } = await supabaseAdmin.from("platform_fees_due").insert({
+    organizer_wallet: organizerWallet,
+    event_id: eventId,
+    session_id: sessionId,
+    source: "cancellation",
+    quantity: Math.max(1, quantity),
+    fee_cents: feeCents,
+    currency,
+  });
+  if (!error) return "booked";
+  if (error.code === "23505") return "duplicate"; // already booked
+  console.error("Failed to book cancellation fee:", error.message);
+  return "failed";
 }

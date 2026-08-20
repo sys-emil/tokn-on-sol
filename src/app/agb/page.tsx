@@ -95,6 +95,16 @@ export default function AgbPage() {
         vollständig, ist der ausgewiesene Ticketpreis der Endpreis. Für
         kostenlose Tickets fällt keine Servicegebühr an.
       </p>
+      <p>
+        (3) Sagt der Veranstalter ein Event ab, erhalten die Gäste den vollen
+        gezahlten Betrag einschließlich der Servicegebühr erstattet. Die
+        Entgelte, die der Zahlungsdienstleister für die ursprüngliche Zahlung
+        erhoben hat und bei einer Erstattung <strong>nicht zurückerstattet</strong>,
+        trägt der Veranstalter. Passly reicht ausschließlich diese tatsächlich
+        angefallenen Fremdkosten weiter, nicht die eigene Servicegebühr, und
+        behält sie von der nächsten Auszahlung an den Veranstalter ein. Die
+        Höhe ist im Veranstalter-Konto einsehbar.
+      </p>
 
       <h2>§ 5 Bezahlung</h2>
       <p>

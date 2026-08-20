@@ -132,7 +132,7 @@ Tables:
 - `discount_codes`: Pro feature; `id, event_id, code (unique per event, case-insensitive), percent_off (1–100; 100 = guest list), max_uses (soft cap), uses, active`. Validation authority: `findValidDiscount`/`discountedUnitPrice` in `src/lib/discounts.ts`, used by BOTH `/api/checkout/validate-code` (public preview, rate-limited) and `/api/checkout/create` (`discountCode` in body scales the tier price + recomputes the service fee; metadata `discountCodeId`/`discountPercent`). Uses are incremented by the completed webhook via SQL function `increment_discount_uses` (webhook idempotency claim = dedupe). CRUD: `/api/organizer/discount-codes` (Pro-gated); DELETE deactivates.
 - `waitlist_entries`: Pro feature; `id, event_id, email, notified_at, unique(event_id, email)`. Signup: `POST /api/waitlist/join` (public, rate-limited, only when sold out AND organizer plan = pro; shop page shows the form via server-side plan check). Notification (`src/lib/waitlist.ts`): `notifyWaitlistIfSeats` claims entries atomically (notified_at while NULL) and mails "wieder verfügbar"; hooked into `charge.refunded` (full refund), `checkout.session.expired`, and the daily `sweepWaitlists` in the payout cron. One mail per entry, ever; the mail reserves nothing.
 - `door_access_links`: time-limited doorman access; `id, event_id, token (unique plaintext bearer), label, expires_at (event date + 2 days), revoked_at`. Managed via `/api/organizer/door-links` (GET/POST/DELETE, organizer-gated, max 10 active/event; DELETE revokes instead of deleting). Doorman opens `/doorman/[eventId]?key=<token>` without Privy login; the key is validated via the snapshot route.
-- `platform_fees_due`: service fees the organizer collected in cash and owes Passly; `id, organizer_wallet, event_id, season_pass_id, session_id (unique), source, quantity, fee_cents, currency, status (pending|settled|waived), settled_payout_id, settled_at, created_at`. Written by the box-office route, consumed by the payout cron. See **Box office** above.
+- `platform_fees_due`: amounts the organizer owes Passly, settled by deducting them from their next payout; `id, organizer_wallet, event_id, season_pass_id, session_id (unique), source, quantity, fee_cents, currency, status (pending|settled|waived), settled_payout_id, settled_at, created_at`. Two sources: `box_office` (service fee collected in cash, see **Box office** above) and `cancellation` (see below). Consumed by the payout cron; `session_id` being UNIQUE is what makes every writer idempotent. An admin sets `status = 'waived'` by hand to forgive one.
 - `stripe_webhook_events`: processed Stripe event IDs (`id` = evt_… primary key); the webhook idempotency gate.
 - `resale_offers`: Rückgabe-Angebote ("Rückgabe & Neuverkauf"); `id, purchase_id, asset_id, event_id, tier_id, seller_wallet, origin_session_id, origin_charge_id, origin_payment_intent_id, paid_cents, return_fee_cents, refund_cents, currency, status (active|sold|withdrawn|expired), refund_id, sold_session_id, sold_at, refunded_at, closed_at`. Partial-unique index on `asset_id WHERE status = 'active'`. Claimed via `claim_resale_offer` (FOR UPDATE SKIP LOCKED); seats move via `release_sold_seats` / `reclaim_sold_seat`. See **Ticket return & resale** below.
 
@@ -207,6 +207,37 @@ no merchant-of-record role.
   original card become unreliable after roughly half a year. Box-office sales
   also never *consume* an offer: that cash never passed through Passly, so
   settling one would make Passly refund a seller out of its own pocket.
+
+### Cancellation costs (since 2026-08-20)
+
+**Stripe keeps its processing fee on a refund.** When an organizer cancels an
+event, every guest is refunded in full *including* the service fee, so Passly is
+out of pocket by exactly what Stripe withheld — ~€0.57 on a €20 card sale,
+~€1.00 via PayPal. That cost is passed through to the organizer as a
+`platform_fees_due` row with `source = 'cancellation'`, deducted from their next
+payout by the same machinery as the box-office dues (`bookCancellationFee` in
+`src/lib/platformFees.ts`, called from `cancelEvent` in `/api/events/update`).
+
+- **Only the amount Stripe actually withheld, never Passly's own fee.** Passing
+  through a payment-provider cost the organizer caused is what AGB § 4 Abs. 3
+  covers; keeping a service fee for a service that was not delivered would be a
+  penalty and far more attackable. Don't "round it up" to the service fee.
+- **The amount is read, not estimated.** `stripe.refunds.create` expands
+  `charge.balance_transaction`, whose `fee` is the exact withheld amount — no
+  second round trip, which matters because a sold-out event's cancellation
+  already makes one Stripe call per payout row inside a 300 s budget. If the
+  expansion yields nothing the row is **not** booked and the session is listed
+  in the admin alert; an invented amount deducted from someone's payout would be
+  worse than an uncollected one.
+- `bookCancellationFee` never throws and treats `23505` as success. The refund
+  has already gone out at that point; making the caller retry a loop that issues
+  money to protect a bookkeeping row would be the wrong trade.
+- The organizer sees it before confirming (cancel modal on
+  `/dashboard/events/[id]`) and afterwards as the „Einbehalt nächste Auszahlung"
+  KPI on `/dashboard/payouts`, which now names both sources — labelling a
+  cancellation cost „Servicegebühr Abendkasse" would simply be wrong.
+- Same known v1 gap as the box office: an organizer with no further online sales
+  accumulates dues that never settle.
 
 ### Accounting: receipts & export (since 2026-07-29)
 

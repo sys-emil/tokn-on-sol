@@ -468,6 +468,7 @@ export default function EventDetailPage() {
         refunded?: number;
         skipped?: { session: string; reason: string }[];
         failed?: { session: string; error: string }[];
+        feesBookedCents?: number;
       };
       if (!res.ok || !data.success) {
         setCancelError(data.error ?? `Absagen fehlgeschlagen (HTTP ${res.status}).`);
@@ -476,6 +477,9 @@ export default function EventDetailPage() {
       const parts = [`${data.refunded ?? 0} Zahlung(en) erstattet`];
       if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} übersprungen (manuell klären)`);
       if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} fehlgeschlagen`);
+      if ((data.feesBookedCents ?? 0) > 0) {
+        parts.push(`${eur(data.feesBookedCents ?? 0)} Zahlungsgebühren werden von deiner nächsten Auszahlung abgezogen`);
+      }
       setCancelResult(parts.join(' · '));
       setLoaded(false); // reload, event is now cancelled
     } catch (err) {
@@ -1008,6 +1012,13 @@ export default function EventDetailPage() {
                     alle {event.tickets_sold} verkauften Tickets werden ungültig und jede
                     noch nicht ausgezahlte Zahlung wird vollständig erstattet. Das lässt
                     sich nicht rückgängig machen.
+                  </p>
+                  <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-3)', marginTop: 10 }}>
+                    Deine Gäste bekommen den vollen Betrag zurück, inklusive Servicegebühr.
+                    Die Gebühr, die der Zahlungsdienstleister bei einer Erstattung einbehält,
+                    tragen wir nicht für dich: sie wird von deiner nächsten Auszahlung
+                    abgezogen — bei einem 20-€-Ticket je nach Zahlart etwa 0,55&nbsp;€
+                    (Karte) bis 1,00&nbsp;€ (PayPal).
                   </p>
                   <div className="field" style={{ marginTop: 14 }}>
                     <label>Zur Bestätigung „absagen&ldquo; eintippen</label>

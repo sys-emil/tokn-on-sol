@@ -12,6 +12,7 @@ import {
 import { sendAdminAlert } from "@/lib/email";
 import { MAX_REENTRY_COOLDOWN_SECONDS } from "@/lib/reentry";
 import { isFeePayer, minUnitPriceCentsFor, tooCheapForFeePayer, type FeePayer } from "@/lib/fees";
+import { bookCancellationFee } from "@/lib/platformFees";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // cancel refunds many charges sequentially
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   if (action === "cancel") {
-    return cancelEvent(eventId, event as { cancelled_at: string | null; name: string });
+    return cancelEvent(eventId, event as { cancelled_at: string | null; name: string; organizer_wallet: string });
   }
 
   if (event.cancelled_at) {
@@ -392,7 +393,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 async function cancelEvent(
   eventId: string,
-  event: { cancelled_at: string | null; name: string },
+  event: { cancelled_at: string | null; name: string; organizer_wallet: string },
 ): Promise<NextResponse> {
   if (event.cancelled_at) {
     return NextResponse.json({ success: false, error: "Event ist bereits abgesagt." }, { status: 409 });
@@ -434,10 +435,25 @@ async function cancelEvent(
   // webhook revokes the tickets, frees the seats and marks the payout.
   const { data: payouts } = await supabaseAdmin
     .from("payouts")
-    .select("id, status, payment_intent_id, charge_id, stripe_session_id")
+    .select("id, status, payment_intent_id, charge_id, stripe_session_id, currency")
     .eq("event_id", eventId);
 
+  // Ticket counts per session, for the `platform_fees_due` rows below. Fetched
+  // once instead of per refund: the loop already makes one Stripe call per row
+  // and shares a 300 s budget with them.
+  const { data: jobs } = await supabaseAdmin
+    .from("mint_jobs")
+    .select("stripe_session_id, quantity")
+    .eq("event_id", eventId);
+  const quantityBySession = new Map(
+    ((jobs ?? []) as { stripe_session_id: string; quantity: number | null }[])
+      .map((j) => [j.stripe_session_id, j.quantity ?? 1]),
+  );
+
   let refunded = 0;
+  /** Stripe fees passed on to the organizer, and the ones we could not read. */
+  let feesBookedCents = 0;
+  const feeUnknown: string[] = [];
   const skipped: { session: string; reason: string }[] = [];
   const failed: { session: string; error: string }[] = [];
 
@@ -456,16 +472,44 @@ async function cancelEvent(
       continue;
     }
     try {
-      await stripe.refunds.create(
+      const refund = await stripe.refunds.create(
         {
           ...(p.payment_intent_id
             ? { payment_intent: p.payment_intent_id as string }
             : { charge: p.charge_id as string }),
           metadata: { event_id: eventId, cause: "event_cancelled" },
+          // Stripe keeps its processing fee on a refund, so the original
+          // charge's balance transaction is the exact amount Passly is out of
+          // pocket. Expanded here rather than fetched afterwards: a second
+          // round trip per refund would double the run time of a sold-out
+          // event's cancellation.
+          expand: ["charge.balance_transaction"],
         },
         { idempotencyKey: `cancel-refund-${p.id}` },
       );
       refunded++;
+
+      const sessionId = p.stripe_session_id as string;
+      const charge = typeof refund.charge === "object" && refund.charge !== null ? refund.charge : null;
+      const balanceTransaction = charge && typeof charge.balance_transaction === "object"
+        ? charge.balance_transaction
+        : null;
+      if (!balanceTransaction) {
+        // Never guess a fee from a rate table: an invented amount deducted from
+        // someone's payout is worse than an uncollected one.
+        feeUnknown.push(sessionId);
+      } else {
+        const outcome = await bookCancellationFee({
+          organizerWallet: event.organizer_wallet,
+          eventId,
+          sessionId,
+          quantity: quantityBySession.get(sessionId) ?? 1,
+          feeCents: balanceTransaction.fee,
+          currency: balanceTransaction.currency ?? (p.currency as string) ?? "eur",
+        });
+        if (outcome === "booked") feesBookedCents += balanceTransaction.fee;
+        if (outcome === "failed") feeUnknown.push(sessionId);
+      }
     } catch (err) {
       failed.push({
         session: p.stripe_session_id as string,
@@ -495,18 +539,23 @@ async function cancelEvent(
     .eq("status", "queued");
 
   // Anything the automatic refund loop could not settle needs a human.
-  if (skipped.length > 0 || failed.length > 0) {
+  if (skipped.length > 0 || failed.length > 0 || feeUnknown.length > 0) {
     void sendAdminAlert({
-      subject: `Event abgesagt; ${skipped.length + failed.length} Zahlung(en) brauchen manuelle Klärung`,
-      text: `Event „${event.name}" (${eventId}) wurde abgesagt; ${refunded} Zahlung(en) automatisch erstattet.\n\n`
+      subject: `Event abgesagt; ${skipped.length + failed.length + feeUnknown.length} Vorgang/Vorgänge brauchen manuelle Klärung`,
+      text: `Event „${event.name}" (${eventId}) wurde abgesagt; ${refunded} Zahlung(en) automatisch erstattet.\n`
+        + `Von Stripe einbehaltene Gebühren, die dem Veranstalter belastet wurden: ${(feesBookedCents / 100).toFixed(2)} €.\n\n`
         + (skipped.length > 0
           ? `Übersprungen:\n${skipped.map((s) => `- ${s.session}: ${s.reason}`).join("\n")}\n\n`
           : "")
         + (failed.length > 0
-          ? `Fehlgeschlagen:\n${failed.map((f) => `- ${f.session}: ${f.error}`).join("\n")}`
+          ? `Fehlgeschlagen:\n${failed.map((f) => `- ${f.session}: ${f.error}`).join("\n")}\n\n`
+          : "")
+        + (feeUnknown.length > 0
+          ? `Stripe-Gebühr nicht auslesbar, nicht belastet (Passly trägt sie):\n`
+            + `${feeUnknown.map((s) => `- ${s}`).join("\n")}`
           : ""),
     }).catch((err) => console.error("Admin alert failed:", err));
   }
 
-  return NextResponse.json({ success: true, refunded, skipped, failed });
+  return NextResponse.json({ success: true, refunded, skipped, failed, feesBookedCents });
 }

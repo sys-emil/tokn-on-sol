@@ -28,6 +28,8 @@ interface PayoutData {
     nextAvailableAt: string | null;
     /** Box-office service fees still to be deducted from a future transfer. */
     outstandingFees: number;
+    outstandingBoxOffice: number;
+    outstandingCancellation: number;
   };
   payouts: PayoutRow[];
 }
@@ -153,10 +155,19 @@ export default function PayoutsPage() {
               </div>
               {(summary?.outstandingFees ?? 0) > 0 && (
                 <div className="kpi">
-                  <div className="label">Servicegebühr Abendkasse</div>
+                  <div className="label">Einbehalt nächste Auszahlung</div>
                   <div className="value">−{eur(summary?.outstandingFees ?? 0)}</div>
                   <div className="delta" style={{ color: 'var(--ink-3)' }}>
-                    bar kassiert, wird von der nächsten Auszahlung abgezogen
+                    {/* Beide Quellen benennen: „Servicegebühr" allein wäre bei
+                        Absage-Kosten schlicht falsch. */}
+                    {[
+                      (summary?.outstandingBoxOffice ?? 0) > 0
+                        ? `${eur(summary?.outstandingBoxOffice ?? 0)} Servicegebühr Abendkasse (bar kassiert)`
+                        : null,
+                      (summary?.outstandingCancellation ?? 0) > 0
+                        ? `${eur(summary?.outstandingCancellation ?? 0)} Zahlungsgebühren aus abgesagten Events`
+                        : null,
+                    ].filter(Boolean).join(' · ')}
                   </div>
                 </div>
               )}
