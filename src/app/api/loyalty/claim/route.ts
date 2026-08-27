@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestUser } from "@/lib/sessionUser";
 import { countAttendedEvents, generateClaimCode } from "@/lib/loyalty";
 
 export const dynamic = "force-dynamic";
@@ -10,21 +10,22 @@ export const dynamic = "force-dynamic";
  * one claim per customer per program (DB unique), code shown at the venue.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  let body: { buyerWallet?: string; programId?: string };
+  let body: { programId?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const buyerWallet = body.buyerWallet ?? "";
   const programId = body.programId ?? "";
-  if (!buyerWallet || !programId) {
-    return NextResponse.json({ success: false, error: "buyerWallet und programId sind erforderlich" }, { status: 400 });
+  if (!programId) {
+    return NextResponse.json({ success: false, error: "programId ist erforderlich" }, { status: 400 });
   }
-  if (!(await requestOwnsWallet(req, buyerWallet))) {
+  const user = await requestUser(req);
+  if (!user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
+  const buyerWallet = user.walletAddress;
 
   const { data: program } = await supabaseAdmin
     .from("loyalty_programs")

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import bs58 from "bs58";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildBackupPdf } from "@/lib/backupTicket";
 import { backupChallenge } from "@/lib/backupChallenge";
@@ -7,6 +6,8 @@ import { passEventDates } from "@/lib/seasonPass";
 import { sendBackupTicketEmail } from "@/lib/email";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
+import { requestUser } from "@/lib/sessionUser";
+import { signAsUser } from "@/lib/wallet";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,13 +15,8 @@ export const maxDuration = 60;
 const NAME_RE = /^[\p{L}\p{M}' .-]{1,40}$/u;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-interface BackupItem {
-  assetId: string;
-  signature: string; // base58, over `passly:backup:<assetId>`
-}
-
 interface BackupBody {
-  items: BackupItem[];
+  assetIds: string[];
   firstName: string;
   lastName: string;
   birthDate: string;
@@ -28,8 +24,9 @@ interface BackupBody {
 
 /**
  * Issues a personalized backup-ticket PDF (static QR for venues without
- * connectivity). Auth is the signatures themselves: only the owner of the
- * buyer wallet can produce them, so no separate session check is needed.
+ * connectivity). Auth is the session plus ownership of every listed ticket:
+ * the signatures are now produced here, so they can no longer double as the
+ * authorization the way they did while the buyer's key sat in the browser.
  * The personalization is printed onto the PDF and mailed; never stored.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -62,15 +59,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Bitte gib ein gültiges Geburtsdatum an." }, { status: 400 });
   }
 
-  const items = Array.isArray(body.items) ? body.items.slice(0, 10) : [];
-  if (items.length === 0 || items.some((i) => !i.assetId || !i.signature)) {
-    return NextResponse.json({ success: false, error: "items are required" }, { status: 400 });
+  const assetIds = Array.isArray(body.assetIds)
+    ? body.assetIds.filter((a) => typeof a === "string" && a).slice(0, 10)
+    : [];
+  if (assetIds.length === 0) {
+    return NextResponse.json({ success: false, error: "assetIds are required" }, { status: 400 });
+  }
+
+  const user = await requestUser(req);
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Nicht angemeldet." }, { status: 401 });
   }
 
   // All tickets must exist, be unrevoked, and belong to ONE product; either
   // the same event or the same season pass. Mixing them on one sheet would
   // print a single date over tickets that don't share it.
-  const assetIds = items.map((i) => i.assetId);
   const { data: purchases } = await supabaseAdmin
     .from("purchases")
     .select("asset_id, buyer_wallet, event_id, season_pass_id, revoked_at, stripe_session_id")
@@ -87,32 +90,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Ein Ticket wurde storniert." }, { status: 409 });
   }
 
-  // Verify each signature against the ticket's buyer wallet; that IS the
-  // authorization: only the wallet owner can sign the backup challenge.
-  for (const item of items) {
-    const purchase = byAsset.get(item.assetId)!;
-    let ok = false;
-    try {
-      const key = await crypto.subtle.importKey(
-        "raw",
-        Uint8Array.from(bs58.decode(purchase.buyer_wallet)),
-        "Ed25519",
-        false,
-        ["verify"],
-      );
-      ok = await crypto.subtle.verify(
-        "Ed25519",
-        key,
-        Uint8Array.from(bs58.decode(item.signature)),
-        new TextEncoder().encode(backupChallenge(item.assetId, { firstName, lastName, birthDate })),
-      );
-    } catch {
-      ok = false;
-    }
-    if (!ok) {
-      return NextResponse.json({ success: false, error: "Signatur ungültig." }, { status: 401 });
-    }
+  // Every ticket must belong to the signed-in account. This replaces the old
+  // check that the caller could produce a valid signature — which stopped being
+  // proof of anything the moment the signing key moved to the server.
+  if ([...byAsset.values()].some((p) => p.buyer_wallet !== user.walletAddress)) {
+    return NextResponse.json({ success: false, error: "Ticket nicht gefunden." }, { status: 404 });
   }
+
+  // The person is bound into the challenge, so the name and birth date the
+  // doorman reads come from the signature rather than from the printed sheet,
+  // which anyone could edit.
+  const items = assetIds.map((assetId) => ({
+    assetId,
+    signature: signAsUser(
+      user.id,
+      user.keyVersion,
+      new TextEncoder().encode(backupChallenge(assetId, { firstName, lastName, birthDate })),
+    ),
+  }));
 
   // A backup pass carries no single date; the printed line names the series
   // instead. At the door the token verifies exactly like a live pass scan

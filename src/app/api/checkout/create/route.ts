@@ -9,11 +9,10 @@ import { getOperatorWalletAddress } from "@/lib/transfer";
 import { isBot, botDenied } from "@/lib/botCheck";
 import { holdsQueueSlot } from "@/lib/queue";
 import { getLang } from "@/lib/i18nServer";
+import { requestUser } from "@/lib/sessionUser";
 
 interface CheckoutBody {
   eventId: string;
-  /** Omitted for guest checkout; the operator wallet holds the ticket instead. */
-  buyerWallet?: string;
   quantity?: number;
   tierId?: string;
   discountCode?: string;
@@ -95,21 +94,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const quantity = Math.max(1, Math.min(4, Math.floor(rawQty ?? 1)));
   const isGuest = body.guest === true;
 
-  if (!eventId || (!isGuest && !body.buyerWallet)) {
+  if (!eventId) {
     return NextResponse.json(
-      { success: false, error: "eventId and buyerWallet are required" },
+      { success: false, error: "eventId is required" },
       { status: 400 }
     );
   }
 
-  // Per-buyer limit: a queue slot (we issued it) beats a wallet address (the
-  // client claims it, and an attacker can invent new ones — which is why the
-  // IP cap above still applies to everyone). Guests have neither identifier and
-  // are covered by the IP bucket alone.
+  // The destination address is resolved from the session, never taken from the
+  // request. It is derived from the user id (src/lib/wallet.ts), so a client
+  // that could name it would be naming where someone else's ticket gets minted.
+  const user = isGuest ? null : await requestUser(req);
+  if (!isGuest && !user) {
+    return NextResponse.json(
+      { success: false, error: "Bitte melde dich an, um Tickets zu kaufen." },
+      { status: 401 }
+    );
+  }
+
+  // Per-buyer limit: a queue slot (we issued it) or the session's user id
+  // (we issued that too). Both beat the wallet address this used to key on,
+  // which the client claimed and an attacker could invent — the reason the IP
+  // cap above applies to everyone regardless. Guests have neither identifier
+  // and are covered by the IP bucket alone.
   const identity = body.queueToken
     ? `q:${body.queueToken}`
-    : !isGuest && body.buyerWallet
-      ? `w:${body.buyerWallet}`
+    : user
+      ? `u:${user.id}`
       : null;
   if (identity) {
     const idRl = rateLimit(`checkout:${identity}`, 8, 60_000);
@@ -123,7 +134,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Guest tickets are minted into operator escrow; the buyer reaches them via
   // the order token that the confirmation mail carries.
-  const buyerWallet = isGuest ? getOperatorWalletAddress() : (body.buyerWallet as string);
+  const buyerWallet = isGuest ? getOperatorWalletAddress() : (user as NonNullable<typeof user>).walletAddress;
 
   const { data: event, error } = await supabaseAdmin
     .from("events")

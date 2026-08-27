@@ -245,7 +245,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
         },
         body: JSON.stringify({
           eventId,
-          ...(wallet === null ? { guest: true } : { buyerWallet: wallet }),
+          ...(wallet === null ? { guest: true } : {}),
           quantity,
           tierId: tier?.id,
           ...(applied ? { discountCode: applied.code } : {}),

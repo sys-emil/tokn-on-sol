@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { releaseOfferBackToSeller } from "@/lib/resaleReturn";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestUser } from "@/lib/sessionUser";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
 
@@ -9,7 +9,6 @@ export const dynamic = "force-dynamic";
 
 interface WithdrawBody {
   offerId: string;
-  sellerWallet: string;
 }
 
 /**
@@ -40,17 +39,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const offerId = (body.offerId ?? "").trim();
-  const sellerWallet = (body.sellerWallet ?? "").trim();
-  if (!offerId || !sellerWallet) {
+  if (!offerId) {
     return NextResponse.json(
-      { success: false, error: "offerId and sellerWallet are required" },
+      { success: false, error: "offerId is required" },
       { status: 400 },
     );
   }
 
-  if (!(await requestOwnsWallet(req, sellerWallet))) {
+  // Adresse aus der Sitzung statt aus dem Request: sie wird aus der Nutzer-ID
+  // abgeleitet und laesst sich nicht mehr behaupten.
+  const user = await requestUser(req);
+  if (!user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
+  const sellerWallet = user.walletAddress;
 
   const { data: offer } = await supabaseAdmin
     .from("resale_offers")

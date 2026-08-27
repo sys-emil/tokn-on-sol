@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestUser } from "@/lib/sessionUser";
 import { supabaseAdmin } from "@/lib/supabase";
 
 const MAX_NAME_LENGTH = 40;
@@ -14,8 +14,9 @@ export interface ProfileRow {
 
 /** Own profile for the account editor; requires proof of wallet ownership. */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const walletAddress = req.nextUrl.searchParams.get("walletAddress") ?? "";
-  if (!(await requestOwnsWallet(req, walletAddress))) {
+  const sessionUser = await requestUser(req);
+  const walletAddress = sessionUser?.walletAddress ?? "";
+  if (!sessionUser) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
@@ -32,7 +33,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 interface PutBody {
-  walletAddress: string;
   displayName?: string;
   bio?: string;
   isPrivate?: boolean;
@@ -46,8 +46,9 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
   }
 
-  const walletAddress = body.walletAddress ?? "";
-  if (!(await requestOwnsWallet(req, walletAddress))) {
+  const sessionUser = await requestUser(req);
+  const walletAddress = sessionUser?.walletAddress ?? "";
+  if (!sessionUser) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 

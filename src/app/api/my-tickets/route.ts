@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestUser } from "@/lib/sessionUser";
 import { MILESTONES, STAMMGAST_THRESHOLD } from "@/lib/badgeMeta";
 import { returnBreakdown } from "@/lib/fees";
 import { processMintJobs } from "@/lib/mintJobs";
@@ -126,25 +126,15 @@ async function loadPasses(rows: PassPurchaseRow[]): Promise<PassView[]> {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const buyerWallet = new URL(req.url).searchParams.get("buyerWallet");
-
-  if (!buyerWallet) {
-    return NextResponse.json(
-      { error: "buyerWallet is required" },
-      { status: 400 }
-    );
+  // Die Adresse kommt aus der Sitzung, nicht aus der URL. Sie wird aus der
+  // Nutzer-ID abgeleitet, also kann der Aufrufer sie gar nicht mehr behaupten —
+  // die Besitzpruefung faellt damit weg, statt sie zu wiederholen.
+  const user = await requestUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
   }
+  const buyerWallet = user.walletAddress;
 
-  // The response exposes personal purchase history AND live claim tokens
-  // (bearer secrets that transfer the ticket). A wallet address is public, so
-  // the caller must prove they own this wallet via their Privy auth token,
-  // otherwise anyone could enumerate and hijack another buyer's tickets.
-  if (!(await requestOwnsWallet(req, buyerWallet))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // Heal a stalled mint before building the response; the work itself runs in
-  // after(), so it costs the buyer nothing.
   await kickPendingMints(buyerWallet);
 
   const { data: allRows, error } = await supabaseAdmin

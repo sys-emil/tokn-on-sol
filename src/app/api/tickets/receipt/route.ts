@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestUser } from "@/lib/sessionUser";
 import { buildReceiptPdf, loadReceiptInput } from "@/lib/receipt";
 
 export const dynamic = "force-dynamic";
@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
  * Purchase receipt ("Beleg") for one order, as a PDF.
  *
  * Two ways in, matching the two ways a buyer can hold a ticket:
- * - `assetId` — the caller must prove ownership of the buying wallet
- *   (`requestOwnsWallet`), since the receipt carries the buyer's e-mail.
+ * - `assetId` — the ticket must belong to the signed-in account, since the
+ *   receipt carries the buyer's e-mail.
  * - `orderToken` — a guest order; the token IS the credential, exactly as on
  *   /order/[token], and it was mailed to the buyer's own address.
  *
@@ -49,7 +49,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 404 },
       );
     }
-    if (!(await requestOwnsWallet(req, purchase.buyer_wallet as string))) {
+    const user = await requestUser(req);
+    if (!user || user.walletAddress !== purchase.buyer_wallet) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
     sessionId = purchase.stripe_session_id as string;

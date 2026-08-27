@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { checkOfferEligibility } from "@/lib/resaleReturn";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestUser } from "@/lib/sessionUser";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
 
@@ -9,7 +9,6 @@ export const dynamic = "force-dynamic";
 
 interface OfferBody {
   assetId: string;
-  sellerWallet: string;
   /** Without this the route only prices the return; nothing is changed. */
   confirm?: boolean;
 }
@@ -46,17 +45,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const assetId = (body.assetId ?? "").trim();
-  const sellerWallet = (body.sellerWallet ?? "").trim();
-  if (!assetId || !sellerWallet) {
+  if (!assetId) {
     return NextResponse.json(
-      { success: false, error: "assetId and sellerWallet are required" },
+      { success: false, error: "assetId is required" },
       { status: 400 },
     );
   }
 
-  if (!(await requestOwnsWallet(req, sellerWallet))) {
+  // Adresse aus der Sitzung statt aus dem Request: sie wird aus der Nutzer-ID
+  // abgeleitet und laesst sich nicht mehr behaupten.
+  const user = await requestUser(req);
+  if (!user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
+  const sellerWallet = user.walletAddress;
 
   const eligibility = await checkOfferEligibility(assetId, sellerWallet);
   if (!eligibility.ok) {

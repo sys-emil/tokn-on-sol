@@ -21,7 +21,7 @@ export function ClaimTickets({ token, count }: { token: string; count: number })
 
   const wallet = wallets[0]?.address;
 
-  async function claim(walletAddress: string): Promise<void> {
+  async function claim(): Promise<void> {
     setBusy(true);
     setError(null);
     try {
@@ -29,7 +29,7 @@ export function ClaimTickets({ token, count }: { token: string; count: number })
       const res = await fetch('/api/guest-order/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
-        body: JSON.stringify({ token, claimerWallet: walletAddress }),
+        body: JSON.stringify({ token }),
       });
       const data = (await res.json()) as { success: boolean; error?: string };
       if (!res.ok || !data.success) {
@@ -49,7 +49,7 @@ export function ClaimTickets({ token, count }: { token: string; count: number })
   useEffect(() => {
     if (!pending.current || !ready || !authenticated || !wallet) return;
     pending.current = false;
-    void claim(wallet);
+    void claim();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-running on wallet arrival is the intent
   }, [ready, authenticated, wallet]);
 
@@ -60,7 +60,7 @@ export function ClaimTickets({ token, count }: { token: string; count: number })
       if (!authenticated) login();
       return;
     }
-    void claim(wallet);
+    void claim();
   }
 
   const waitingForWallet = authenticated && !wallet;

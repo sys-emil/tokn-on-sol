@@ -1,15 +1,13 @@
 'use client';
 
-import { useSignMessage, useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
-import bs58 from 'bs58';
+import { getAccessToken } from '@privy-io/react-auth';
 import { useState } from 'react';
-import { backupChallenge } from '@/lib/backupChallenge';
 
 /**
  * "Backup-Ticket erstellen": personalizes a static QR PDF for venues without
- * connectivity. The wallet signs `passly:backup:<assetId>` per ticket
- * (silently, the user already confirmed via the form), the server verifies
- * the signatures, builds the PDF, mails it, and returns it for download.
+ * connectivity. The server signs the person-bound challenge per ticket with
+ * the account's derived key, builds the PDF, mails it, and returns it for
+ * download.
  */
 export function BackupTicketModal({
   assetIds,
@@ -20,10 +18,6 @@ export function BackupTicketModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const { wallets } = useSolanaWallets();
-  const { signMessage } = useSignMessage();
-  const wallet = wallets[0];
-
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState('');
@@ -33,31 +27,24 @@ export function BackupTicketModal({
 
   if (!open) return null;
 
-  const canSubmit = firstName.trim() && lastName.trim() && birthDate && wallet && !busy;
+  const canSubmit = firstName.trim() && lastName.trim() && birthDate && !busy;
 
   async function create(): Promise<void> {
-    if (!wallet || busy) return;
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
-      // Sign the person-bound challenge so the name/birth date the doorman
-      // reads come from the signature, not the (editable) printed PDF.
-      const person = { firstName: firstName.trim(), lastName: lastName.trim(), birthDate };
-      const items: { assetId: string; signature: string }[] = [];
-      for (const assetId of assetIds) {
-        const msg = new TextEncoder().encode(backupChallenge(assetId, person));
-        const output = await signMessage({
-          message: msg,
-          wallet,
-          options: { uiOptions: { showWalletUIs: false } },
-        });
-        items.push({ assetId, signature: bs58.encode(Uint8Array.from(output.signature)) });
-      }
-
+      // Der Server bindet Name und Geburtsdatum in die Signatur ein, damit der
+      // Tuersteher sie aus der Signatur liest und nicht vom (editierbaren)
+      // Ausdruck.
+      const token = await getAccessToken();
       const res = await fetch('/api/tickets/backup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, firstName, lastName, birthDate }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ assetIds, firstName, lastName, birthDate }),
       });
       const data = (await res.json()) as { success: boolean; emailed?: boolean; pdfBase64?: string; error?: string };
       if (!res.ok || !data.success || !data.pdfBase64) {

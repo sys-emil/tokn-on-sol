@@ -1,6 +1,6 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
+import { getAccessToken, usePrivy } from '@privy-io/react-auth';
 import { useWallets } from '@privy-io/react-auth/solana';
 import { useState } from 'react';
 import { serviceFeePerTicketCents } from '@/lib/fees';
@@ -44,10 +44,14 @@ export default function PassClient({ passId, priceCents, available }: Props) {
     setLoading(true);
     setError(null);
     try {
+      const token = await getAccessToken();
       const res = await fetch('/api/checkout/pass', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ passId, buyerWallet: walletAddress, quantity }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ passId, quantity }),
       });
       const json = (await res.json()) as { success: boolean; url?: string; error?: string };
       if (!json.success || !json.url) {

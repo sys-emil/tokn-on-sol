@@ -69,7 +69,7 @@ export default function AccountPage() {
       const res = await fetch('/api/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
-        body: JSON.stringify({ walletAddress, displayName, bio, isPrivate }),
+        body: JSON.stringify({ displayName, bio, isPrivate }),
       });
       const data = (await res.json()) as { success: boolean };
       if (data.success) {

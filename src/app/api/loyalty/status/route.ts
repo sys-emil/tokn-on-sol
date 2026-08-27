@@ -1,25 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestUser } from "@/lib/sessionUser";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Buyer view of loyalty programs: for every organizer the wallet has attended,
  * report active programs of Pro organizers with progress and claim state.
- * Read-only and keyed by wallet, same access model as /api/my-tickets; the
- * caller must prove ownership of the wallet (it reveals which events the wallet
+ * Read-only, same access model as /api/my-tickets: the wallet comes from the
+ * session and is never named by the caller (it reveals which events the wallet
  * has attended).
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const buyerWallet = new URL(req.url).searchParams.get("buyerWallet");
-  if (!buyerWallet) {
-    return NextResponse.json({ error: "buyerWallet is required" }, { status: 400 });
+  // Die Adresse kommt aus der Sitzung, nicht aus der URL. Sie wird aus der
+  // Nutzer-ID abgeleitet, also kann der Aufrufer sie gar nicht mehr behaupten —
+  // die Besitzpruefung faellt damit weg, statt sie zu wiederholen.
+  const user = await requestUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
   }
-
-  if (!(await requestOwnsWallet(req, buyerWallet))) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const buyerWallet = user.walletAddress;
 
   // Distinct redeemed events per organizer for this wallet.
   const { data: redeemed } = await supabaseAdmin

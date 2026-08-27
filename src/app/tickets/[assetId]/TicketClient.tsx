@@ -1,15 +1,12 @@
 'use client';
 
-import { useSignMessage, useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
-import bs58 from 'bs58';
+import { getAccessToken, usePrivy } from '@privy-io/react-auth';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { track } from '@/lib/track';
 
 export default function TicketClient({ assetId }: { assetId: string }) {
-  const { wallets } = useSolanaWallets();
-  const { signMessage } = useSignMessage();
-  const wallet = wallets[0];
+  const { ready, authenticated } = usePrivy();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'refreshing'>('loading');
   // Bumped on every fresh signature, restarts the drain bar below the QR so
@@ -22,23 +19,20 @@ export default function TicketClient({ assetId }: { assetId: string }) {
   }, [assetId]);
 
   useEffect(() => {
-    if (!wallet) return;
+    if (!ready || !authenticated) return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
 
-    async function sign(): Promise<void> {
+    async function refresh(): Promise<void> {
       if (cancelled) return;
-      const walletObj = wallet;
-      if (!walletObj) return;
 
-      // Keine Signatur fuer einen Code, den gerade niemand sieht.
+      // Kein Code fuer ein Ticket, das gerade niemand ansieht.
       //
-      // Jede Erneuerung kostet eine Wallet-Signatur, und das Kontingent ist
-      // begrenzt. Frueher lief die Schleife auch dann weiter, wenn das Ticket
-      // in einem Hintergrund-Tab lag — bis zu 65 Signaturen pro Stunde fuer
-      // nichts. Aufgebraucht ist das Kontingent ausgerechnet dann, wenn viele
-      // gleichzeitig auf ihr Ticket schauen: am Einlass.
+      // Seit die Signatur serverseitig entsteht, kostet eine Erneuerung kein
+      // Kontingent mehr — aber eine Anfrage pro Minute aus jedem Hintergrund-
+      // Tab bleibt Verschwendung, und zwar ausgerechnet dann am meisten, wenn
+      // viele gleichzeitig auf ihr Ticket schauen: am Einlass.
       //
       // Die Schleife wird trotzdem NICHT angehalten, sondern nur uebersprungen.
       // Wuerde sie sich allein auf das visibilitychange-Event verlassen und das
@@ -46,29 +40,30 @@ export default function TicketClient({ assetId }: { assetId: string }) {
       // veralteten Code vor der Tuer. Ein Tick alle 55 s kostet nichts, das
       // Ticket bleibt aber unter allen Umstaenden selbstheilend.
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        timer = setTimeout(() => { void sign(); }, 55_000);
+        timer = setTimeout(() => { void refresh(); }, 55_000);
         return;
       }
 
       setStatus(hadQr.current ? 'refreshing' : 'loading');
 
       try {
-        const t = Math.floor(Date.now() / 60000);
-        const challenge = `passly:verify:${assetId}:${t}`;
-        const msgBytes = new TextEncoder().encode(challenge);
-        // Every signature is silent, the first one included. Opening your own
-        // ticket IS the intent to see the code, so a confirmation dialog asks
-        // a question that was already answered — and it asked it at the worst
-        // possible moment, with the guest standing at the door. The per-minute
-        // refreshes were silent from the start; a popup every 55 s would have
-        // made the ticket unusable.
-        const output = await signMessage({
-          message: msgBytes,
-          wallet: walletObj,
-          options: { uiOptions: { showWalletUIs: false } },
+        const token = await getAccessToken();
+        if (!token) throw new Error('not signed in');
+
+        // Der Server signiert die Challenge mit dem abgeleiteten Schluessel des
+        // Kontos. Die Nutzlast ist dieselbe wie zuvor, nur der Unterzeichner hat
+        // sich bewegt — /api/tickets/verify merkt davon nichts.
+        const res = await fetch(`/api/tickets/${assetId}/qr`, {
+          headers: { authorization: `Bearer ${token}` },
+          cache: 'no-store',
         });
-        const s = bs58.encode(Uint8Array.from(output.signature));
-        const payload = JSON.stringify({ a: assetId, t, w: walletObj.address, s });
+        if (!res.ok) throw new Error(String(res.status));
+
+        // Die vier Felder ausdruecklich in fester Reihenfolge zusammensetzen,
+        // statt den Antwortkoerper roh in den Code zu schreiben: sonst landet
+        // jedes spaeter ergaenzte Feld ungewollt im QR.
+        const d = (await res.json()) as { a: string; t: number; w: string; s: string };
+        const payload = JSON.stringify({ a: d.a, t: d.t, w: d.w, s: d.s });
 
         if (!cancelled && canvasRef.current) {
           await QRCode.toCanvas(canvasRef.current, payload, {
@@ -86,7 +81,7 @@ export default function TicketClient({ assetId }: { assetId: string }) {
       }
 
       if (!cancelled) {
-        timer = setTimeout(() => { void sign(); }, 55_000);
+        timer = setTimeout(() => { void refresh(); }, 55_000);
       }
     }
 
@@ -96,18 +91,18 @@ export default function TicketClient({ assetId }: { assetId: string }) {
     function onVisibilityChange(): void {
       if (cancelled || document.visibilityState !== 'visible') return;
       clearTimeout(timer);
-      void sign();
+      void refresh();
     }
 
     document.addEventListener('visibilitychange', onVisibilityChange);
-    void sign();
+    void refresh();
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [wallet, assetId]);
+  }, [ready, authenticated, assetId]);
 
   return (
     <div style={{ width: 240 }}>

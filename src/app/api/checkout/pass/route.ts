@@ -6,6 +6,7 @@ import { serviceFeePerTicketCents } from "@/lib/fees";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
 import { getLang } from "@/lib/i18nServer";
+import { requestUser } from "@/lib/sessionUser";
 
 /**
  * Checkout for a season pass (one ticket, many dates).
@@ -23,7 +24,6 @@ import { getLang } from "@/lib/i18nServer";
 
 interface PassCheckoutBody {
   passId: string;
-  buyerWallet: string;
   quantity?: number;
 }
 
@@ -50,14 +50,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { passId, buyerWallet } = body;
+  const { passId } = body;
   const quantity = Math.max(1, Math.min(4, Math.floor(body.quantity ?? 1)));
-  if (!passId || !buyerWallet) {
+  if (!passId) {
     return NextResponse.json(
-      { success: false, error: "passId and buyerWallet are required" },
+      { success: false, error: "passId is required" },
       { status: 400 },
     );
   }
+
+  // Wie bei /api/checkout/create: die Zieladresse kommt aus der Sitzung, nie
+  // aus dem Request. Ein Saisonpass hat keinen Gast-Checkout — er muss im
+  // eigenen Konto liegen, um die ganze Reihe zu ueberdauern.
+  const user = await requestUser(req);
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Bitte melde dich an, um einen Pass zu kaufen." },
+      { status: 401 }
+    );
+  }
+  const buyerWallet = user.walletAddress;
 
   const { data: passRow, error: passError } = await supabaseAdmin
     .from("season_passes")

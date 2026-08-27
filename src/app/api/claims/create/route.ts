@@ -1,15 +1,10 @@
-import { PrivyClient } from "@privy-io/server-auth";
+import { requestUser } from "@/lib/sessionUser";
 import { supabaseAdmin } from "@/lib/supabase";
 import { transferCnft, getOperatorWalletAddress } from "@/lib/transfer";
 import { heliusRpcUrl } from "@/lib/solana";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
 import { NextRequest, NextResponse } from "next/server";
-
-const privy = new PrivyClient(
-  process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
-  process.env.PRIVY_APP_SECRET!,
-);
 
 interface CreateBody {
   assetId: string;
@@ -37,21 +32,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  let sellerWallet: string;
-  try {
-    const verified = await privy.verifyAuthToken(authToken);
-    const privyUser = await privy.getUser(verified.userId);
-    const solanaAccount = privyUser.linkedAccounts.find(
-      (acc): acc is Extract<typeof acc, { type: "wallet" }> =>
-        acc.type === "wallet" && "chainType" in acc && (acc as { chainType: string }).chainType === "solana",
-    );
-    if (!solanaAccount || !("address" in solanaAccount)) {
-      return NextResponse.json({ success: false, error: "No Solana wallet found" }, { status: 403 });
-    }
-    sellerWallet = (solanaAccount as { address: string }).address;
-  } catch {
+  const user = await requestUser(req);
+  if (!user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
+  const sellerWallet = user.walletAddress;
 
   let body: CreateBody;
   try {

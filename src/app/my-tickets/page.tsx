@@ -742,7 +742,12 @@ export default function MyTickets() {
     return () => clearInterval(id);
   }, []);
 
-  const buyerWallet = solanaWallets[0]?.address;
+  // Zwei verschiedene Dinge, die frueher eins waren: `signedIn` beantwortet
+  // „darf ich laden?", `accountWallet` ist die Adresse, auf die Tickets
+  // tatsaechlich lauten. Letztere wird serverseitig aus der Nutzer-ID
+  // abgeleitet und ist nicht mehr die des Wallet-Anbieters.
+  const signedIn = !!solanaWallets[0]?.address;
+  const [accountWallet, setAccountWallet] = useState<string | undefined>(undefined);
 
   // Arrival celebration: the checkout success page drops the freshly minted
   // asset IDs into sessionStorage right before redirecting here.
@@ -768,8 +773,8 @@ export default function MyTickets() {
   // Badge celebration: compare the loaded badges against what this device has
   // already seen. First visit only seeds the store (no stale celebrations).
   useEffect(() => {
-    if (!loaded || !buyerWallet) return;
-    const key = `passly_badges_seen:${buyerWallet}`;
+    if (!loaded || !accountWallet) return;
+    const key = `passly_badges_seen:${accountWallet}`;
     try {
       const raw = localStorage.getItem(key);
       const current = badges.map((b) => b.badgeType);
@@ -791,7 +796,7 @@ export default function MyTickets() {
       }
       localStorage.setItem(key, JSON.stringify(current));
     } catch { /* private mode */ }
-  }, [loaded, buyerWallet, badges]);
+  }, [loaded, accountWallet, badges]);
 
   // Open the login modal at most once for signed-out visitors. Never call
   // login() from re-runs of this effect, or the modal resets mid-flow and the
@@ -805,15 +810,20 @@ export default function MyTickets() {
   }, [ready, authenticated, login]);
 
   useEffect(() => {
-    if (!buyerWallet || loaded) return;
+    if (!signedIn || loaded) return;
     async function load() {
       try {
         const authToken = await getAccessToken();
         const authHeaders = { Authorization: `Bearer ${authToken ?? ''}` };
-        const [res, loyaltyRes] = await Promise.all([
-          fetch(`/api/my-tickets?buyerWallet=${buyerWallet}`, { headers: authHeaders }),
-          fetch(`/api/loyalty/status?buyerWallet=${buyerWallet}`, { headers: authHeaders }),
+        const [res, loyaltyRes, meRes] = await Promise.all([
+          fetch('/api/my-tickets', { headers: authHeaders }),
+          fetch('/api/loyalty/status', { headers: authHeaders }),
+          fetch('/api/me', { headers: authHeaders }),
         ]);
+        if (meRes.ok) {
+          const me = (await meRes.json()) as { walletAddress: string };
+          setAccountWallet(me.walletAddress);
+        }
         if (res.ok) {
           const data = (await res.json()) as { tickets: Ticket[]; passes?: PassView[]; badges: BadgeItem[]; progress?: Progress };
           setTickets(data.tickets);
@@ -830,7 +840,7 @@ export default function MyTickets() {
       }
     }
     void load();
-  }, [buyerWallet, loaded]);
+  }, [signedIn, loaded]);
 
   async function handleShare(assetId: string, existingClaimUrl: string | null) {
     setShareError(null);
@@ -870,7 +880,7 @@ export default function MyTickets() {
       const res = await fetch('/api/resale/offer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
-        body: JSON.stringify({ assetId: t.assetId, sellerWallet: buyerWallet }),
+        body: JSON.stringify({ assetId: t.assetId }),
       });
       const data = (await res.json()) as {
         success: boolean; error?: string;
@@ -900,7 +910,7 @@ export default function MyTickets() {
       const res = await fetch('/api/resale/offer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
-        body: JSON.stringify({ assetId: resaleModal.assetId, sellerWallet: buyerWallet, confirm: true }),
+        body: JSON.stringify({ assetId: resaleModal.assetId, confirm: true }),
       });
       const data = (await res.json()) as { success: boolean; error?: string };
       if (data.success) {
@@ -923,7 +933,7 @@ export default function MyTickets() {
       const res = await fetch('/api/resale/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
-        body: JSON.stringify({ offerId, sellerWallet: buyerWallet }),
+        body: JSON.stringify({ offerId }),
       });
       const data = (await res.json()) as { success: boolean; error?: string };
       if (data.success) {
@@ -937,14 +947,14 @@ export default function MyTickets() {
   }
 
   async function handleClaimBenefit(programId: string) {
-    if (!buyerWallet || claimingProgramId) return;
+    if (!signedIn || claimingProgramId) return;
     setClaimingProgramId(programId);
     try {
       const authToken = await getAccessToken();
       const res = await fetch('/api/loyalty/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken ?? ''}` },
-        body: JSON.stringify({ buyerWallet, programId }),
+        body: JSON.stringify({ programId }),
       });
       const data = (await res.json()) as { success: boolean; code?: string; redeemedAt?: string | null };
       if (data.success && data.code) {
@@ -1080,7 +1090,7 @@ export default function MyTickets() {
   }
 
   const email = user?.email?.address ?? '';
-  const loading = !!buyerWallet && !loaded;
+  const loading = signedIn && !loaded;
   const isAllEmpty = loaded && tickets.length === 0 && badges.length === 0;
 
   /** VIP > Rand-Preset des Veranstalters; identische Rangfolge wie auf /events. */
@@ -1243,7 +1253,7 @@ export default function MyTickets() {
               <Link href="/dashboard">Dashboard</Link>
             </div>
             <div className="topbar-right">
-              <AccountMenu email={email} walletAddress={buyerWallet} onLogout={() => logout()} />
+              <AccountMenu email={email} walletAddress={accountWallet} onLogout={() => logout()} />
             </div>
           </div>
         </div>
@@ -1257,12 +1267,12 @@ export default function MyTickets() {
                 <div className="tk-eyebrow"><span className="pulse" />Deine Brieftasche</div>
                 <h1 className="tk-title">Meine Tickets</h1>
                 <div className="tk-subline">
-                  {buyerWallet && (
-                    <Link href={`/collection/${buyerWallet}`} style={{ fontSize: 13.5, color: 'var(--accent)', fontWeight: 500 }}>
+                  {accountWallet && (
+                    <Link href={`/collection/${accountWallet}`} style={{ fontSize: 13.5, color: 'var(--accent)', fontWeight: 500 }}>
                       Öffentliches Profil ansehen →
                     </Link>
                   )}
-                  {buyerWallet && <span className="sep" />}
+                  {accountWallet && <span className="sep" />}
                   <span style={{ fontSize: 13.5, color: 'var(--ink-3)' }}>
                     {upcoming.length} bevorstehend · {past.length} besucht · {badges.length} Abzeichen
                   </span>
@@ -1783,7 +1793,7 @@ export default function MyTickets() {
         </div>
       </div>
 
-      {!celebration && <ProfileNudge walletAddress={buyerWallet} />}
+      {!celebration && <ProfileNudge walletAddress={accountWallet} />}
 
       {badgeDetail && (() => {
         const meta = badgeDisplay(badgeDetail.type);

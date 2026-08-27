@@ -4,7 +4,7 @@ import { loadGuestOrder } from "@/lib/guestOrders";
 import { getOperatorWalletAddress } from "@/lib/transfer";
 import { mintTicket } from "@/lib/mint";
 import { getAssetOwner } from "@/lib/resaleReturn";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestUser } from "@/lib/sessionUser";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (await isBot()) return botDenied();
 
-  let body: { token?: string; claimerWallet?: string };
+  let body: { token?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -47,17 +47,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const token = (body.token ?? "").trim();
-  const claimerWallet = (body.claimerWallet ?? "").trim();
-  if (!token || !claimerWallet) {
+  if (!token) {
     return NextResponse.json(
-      { success: false, error: "token and claimerWallet are required" },
+      { success: false, error: "token is required" },
       { status: 400 },
     );
   }
 
-  if (!(await requestOwnsWallet(req, claimerWallet))) {
+  // Das Ziel der Einloesung kommt aus der Sitzung, nie aus dem Request. Hier
+  // haengt mehr daran als sonst: dieser Wert entscheidet, auf welches Konto die
+  // Tickets frisch geprägt werden.
+  const user = await requestUser(req);
+  if (!user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
+  const claimerWallet = user.walletAddress;
 
   const order = await loadGuestOrder(token);
   if (!order) {
