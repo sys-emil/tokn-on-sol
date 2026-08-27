@@ -1,6 +1,6 @@
 'use client';
 
-import { useLogin, usePrivy } from '@privy-io/react-auth';
+import { useLogin, useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 
 interface CtaButtonProps {
@@ -11,7 +11,7 @@ interface CtaButtonProps {
 // must be able to browse the landing page (logo links back to "/"). Only an
 // actively completed login (onComplete) navigates to the ticket overview.
 export default function CtaButton({ className }: CtaButtonProps) {
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated } = useAuth();
   const router = useRouter();
   const { login } = useLogin({
     onComplete: () => router.push('/my-tickets'),

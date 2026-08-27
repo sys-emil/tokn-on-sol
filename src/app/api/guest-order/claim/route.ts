@@ -20,7 +20,7 @@ export const maxDuration = 300; // one on-chain mint per ticket
  * the comment at the mint call below.
  *
  * Two credentials are required together: the order token (proves possession of
- * the mail) and a Privy session owning the target wallet (proves where the
+ * the mail) and a signed-in session (proves where the
  * tickets should go). The token alone must not be enough to send tickets to an
  * arbitrary address.
  *

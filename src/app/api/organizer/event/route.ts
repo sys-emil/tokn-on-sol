@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestOwnsWallet } from "@/lib/sessionUser";
 import { passTicketsForEvent } from "@/lib/seasonPass";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 /**
  * Event detail for the organizer dashboard: event data plus the issued
  * tickets (incl. buyer emails from mint_jobs) and redemption stats.
- * Requires a Privy Bearer token proving ownership of the event's
+ * Requires a Bearer token whose session owns the event's
  * organizer wallet; ticket buyer emails are personal data.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {

@@ -1,7 +1,7 @@
 'use client';
 
-import { useLogout, usePrivy, getAccessToken } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useLogout, useAuth, getAccessToken, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AccountMenu } from '@/app/components/AccountMenu';
@@ -671,7 +671,7 @@ const isVipTier = (t: Ticket) => /\bvip\b/i.test(t.tierName ?? '');
 
 export default function MyTickets() {
   const router = useRouter();
-  const { ready, authenticated, user, login } = usePrivy();
+  const { ready, authenticated, user, login } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
 
@@ -1089,7 +1089,7 @@ export default function MyTickets() {
     );
   }
 
-  const email = user?.email?.address ?? '';
+  const email = user?.email ?? '';
   const loading = signedIn && !loaded;
   const isAllEmpty = loaded && tickets.length === 0 && badges.length === 0;
 

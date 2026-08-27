@@ -1,7 +1,7 @@
 'use client';
 
-import { useLogout, usePrivy } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useLogout, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AccountMenu } from '@/app/components/AccountMenu';
@@ -133,7 +133,7 @@ function isUpcoming(iso: string): boolean {
 
 export default function Dashboard() {
   const router = useRouter();
-  const { ready, authenticated, user, getAccessToken } = usePrivy();
+  const { ready, authenticated, user, getAccessToken } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
 
@@ -285,7 +285,7 @@ export default function Dashboard() {
   if (!ready || !authenticated) return null;
 
   const ownerWallet = solanaWalletAddress;
-  const email = user?.email?.address ?? '';
+  const email = user?.email ?? '';
   const loadingEvents = !!ownerWallet && !eventsLoaded;
 
   const totalRevenueCents = events.reduce((a, e) => a + e.tickets_sold * e.price_eur, 0);

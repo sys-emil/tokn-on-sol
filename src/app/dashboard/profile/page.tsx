@@ -1,7 +1,7 @@
 'use client';
 
-import { getAccessToken, useLogout, usePrivy } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { getAccessToken, useLogout, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -122,7 +122,7 @@ function ProfileSkeleton() {
 
 export default function OrganizerProfilePage() {
   const router = useRouter();
-  const { ready, authenticated, user, login } = usePrivy();
+  const { ready, authenticated, user, login } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets } = useSolanaWallets();
   const walletAddress = wallets[0]?.address;
@@ -275,7 +275,7 @@ export default function OrganizerProfilePage() {
   }
 
   if (!ready) return null;
-  const email = user?.email?.address ?? '';
+  const email = user?.email ?? '';
   const avatarInitials = (publicName || 'PA').slice(0, 2).toUpperCase();
 
   return (

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestOwnsWallet } from "@/lib/sessionUser";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

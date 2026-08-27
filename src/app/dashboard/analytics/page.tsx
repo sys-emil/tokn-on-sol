@@ -1,7 +1,7 @@
 'use client';
 
-import { useLogout, usePrivy } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useLogout, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -46,7 +46,7 @@ const SEGMENT_ICON: Record<SegmentId, { glyph: string; tone: 'ok' | 'warn' | 'ac
 
 export default function ProDashboard() {
   const router = useRouter();
-  const { ready, authenticated, user, getAccessToken } = usePrivy();
+  const { ready, authenticated, user, getAccessToken } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
   const wallet = solanaWallets[0]?.address;
@@ -226,7 +226,7 @@ export default function ProDashboard() {
 
   if (!ready || orgStatus === 'loading') return null;
 
-  const email = user?.email?.address ?? '';
+  const email = user?.email ?? '';
   const tierCount = loyalty?.tiers.length ?? 0;
 
   const segmentOptions: { id: SegmentId | 'alle'; label: string; count: number }[] = [

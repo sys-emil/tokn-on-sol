@@ -1,7 +1,7 @@
 'use client';
 
-import { useLogout, usePrivy } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useLogout, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -51,7 +51,7 @@ function statusChip(status: string) {
 
 export default function PayoutsPage() {
   const router = useRouter();
-  const { ready, authenticated, user, getAccessToken } = usePrivy();
+  const { ready, authenticated, user, getAccessToken } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
   const wallet = solanaWallets[0]?.address;
@@ -110,7 +110,7 @@ export default function PayoutsPage() {
 
   if (!ready || !authenticated) return null;
 
-  const email = user?.email?.address ?? '';
+  const email = user?.email ?? '';
   const summary = data?.summary;
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { getAccessToken } from '@privy-io/react-auth';
+import { getAccessToken } from '@/lib/auth';
 import { useState } from 'react';
 
 /**

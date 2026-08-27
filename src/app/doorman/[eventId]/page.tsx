@@ -1,8 +1,8 @@
 'use client';
 
 import jsQR from 'jsqr';
-import { usePrivy } from '@privy-io/react-auth';
-import { useWallets } from '@privy-io/react-auth/solana';
+import { useAuth, useWallets } from '@/lib/auth';
+
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '@/app/components/passlyUi';
@@ -247,7 +247,7 @@ export default function DoormanPage() {
   const params = useParams();
   const eventId = typeof params.eventId === 'string' ? params.eventId : '';
 
-  const { ready, authenticated, login, getAccessToken } = usePrivy();
+  const { ready, authenticated, login, getAccessToken } = useAuth();
   const { wallets: solanaWallets } = useWallets();
   const walletAddress = solanaWallets[0]?.address;
 
@@ -346,7 +346,7 @@ export default function DoormanPage() {
   const hasDoorAccess = isOrganizer || keyStatus === 'granted';
 
   // Auth for the door APIs: the link token when present, the organizer's
-  // Privy session otherwise.
+  // the signed-in session otherwise.
   const doorAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     if (doorKey) return { 'x-door-token': doorKey };
     const token = await getAccessToken();
@@ -472,7 +472,7 @@ export default function DoormanPage() {
 
   // Auth + access check. login() may only fire once; this effect re-runs
   // when the event fetch resolves, and re-invoking login() mid-flow resets
-  // the Privy modal so the e-mail code step never appears. In key mode the
+  // the login modal so the e-mail code step never appears. In key mode the
   // access link replaces the login entirely (validated above).
   useEffect(() => {
     if (doorKey) return;

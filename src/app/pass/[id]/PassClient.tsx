@@ -1,7 +1,7 @@
 'use client';
 
-import { getAccessToken, usePrivy } from '@privy-io/react-auth';
-import { useWallets } from '@privy-io/react-auth/solana';
+import { getAccessToken, useAuth, useWallets } from '@/lib/auth';
+
 import { useState } from 'react';
 import { serviceFeePerTicketCents } from '@/lib/fees';
 import { useT } from '@/app/components/LangProvider';
@@ -26,7 +26,7 @@ const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'c
  */
 export default function PassClient({ passId, priceCents, available }: Props) {
   const t = useT();
-  const { ready, authenticated, login } = usePrivy();
+  const { ready, authenticated, login } = useAuth();
   const { wallets: solanaWallets } = useWallets();
   const walletAddress = solanaWallets[0]?.address;
 

@@ -1,39 +1,15 @@
-import { PrivyClient } from "@privy-io/server-auth";
+import { requestUser } from "@/lib/sessionUser";
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 
-const privy = new PrivyClient(
-  process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
-  process.env.PRIVY_APP_SECRET!,
-);
-
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const authToken = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!authToken) {
+  const user = await requestUser(req);
+  if (!user) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
-
-  let email: string | undefined;
-  try {
-    const verified = await privy.verifyAuthToken(authToken);
-    const privyUser = await privy.getUser(verified.userId);
-    email = privyUser.email?.address ?? undefined;
-  } catch {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
-
-  let body: { walletAddress: string };
-  try {
-    body = (await req.json()) as { walletAddress: string };
-  } catch {
-    return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const { walletAddress } = body;
-  if (!walletAddress) {
-    return NextResponse.json({ success: false, error: "walletAddress is required" }, { status: 400 });
-  }
+  const email: string | undefined = user.email || undefined;
+  const walletAddress = user.walletAddress;
 
   const { data: organizer } = await supabaseAdmin
     .from("organizers")

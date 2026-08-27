@@ -12,7 +12,7 @@ export const metadata: Metadata = {
  * Datenschutzerklärung nach Art. 13/14 DSGVO.
  *
  * Diese Erklärung ist auf den tatsächlichen Stack abgestimmt:
- * Vercel (Hosting), Privy (Login/Konto), Supabase (Datenbank/Storage),
+ * Vercel (Hosting), Supabase (Login/Konto, Datenbank/Storage),
  * Stripe (Zahlungen + Connect-Auszahlungen), Helius/Solana (Ticket-Echtheit),
  * Resend (E-Mail-Versand), eigene einwilligungsbasierte Reichweitenmessung
  * (First-Party-Cookie passly_cid, Speicherung in Supabase). Wird ein Dienst
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
  *
  * VOR GO-LIVE: "PLATZHALTER" ausfüllen und mit allen genannten Anbietern
  * Auftragsverarbeitungsverträge (AVV/DPA) abschließen, bei Vercel, Supabase,
- * Stripe und Resend im Dashboard verfügbar; bei Privy Teil der Terms (prüfen).
+ * Stripe und Resend im Dashboard verfügbar.
  */
 
 export default function DatenschutzPage() {
@@ -74,27 +74,27 @@ export default function DatenschutzPage() {
         EU-Standardvertragsklauseln.
       </p>
 
-      <h2>4. Konto und Anmeldung (Privy)</h2>
+      <h2>4. Konto und Anmeldung</h2>
       <p>
-        Für dein Passly-Konto nutzen wir den Dienst Privy (Horkos, Inc., New York,
-        USA). Die Anmeldung erfolgt ausschließlich per E-Mail-Code, ein Passwort
-        gibt es nicht. Verarbeitet werden dabei deine E-Mail-Adresse sowie
-        technische Sitzungsdaten. Beim ersten Login wird deinem Konto automatisch
-        eine eindeutige technische Kennung zugeordnet (ein kryptografisches
-        Schlüsselpaar, siehe Ziffer 7), über die deine Tickets dir zugeordnet
-        werden.
+        Die Anmeldung erfolgt ausschließlich per E-Mail-Code, ein Passwort gibt es
+        nicht. Verarbeitet werden dabei deine E-Mail-Adresse sowie technische
+        Sitzungsdaten. Für die Konto- und Sitzungsverwaltung nutzen wir Supabase
+        (siehe Ziffer 5); der Versand des Anmeldecodes läuft über Resend (siehe
+        Ziffer 8). Beim ersten Login wird deinem Konto eine eindeutige technische
+        Kennung zugeordnet (ein kryptografisches Schlüsselpaar, siehe Ziffer 7),
+        über die deine Tickets dir zugeordnet werden. Dieses Schlüsselpaar wird
+        von uns aus deiner Konto-Kennung berechnet und nicht gespeichert.
       </p>
       <p>
         Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Bereitstellung des Kontos zur
-        Vertragserfüllung). Die Übermittlung in die USA erfolgt auf Grundlage der
-        EU-Standardvertragsklauseln.
+        Vertragserfüllung).
       </p>
 
       <h2>5. Datenbank und Speicherung (Supabase)</h2>
       <p>
         Konto-, Event-, Ticket- und Kaufdaten speichern wir in einer Datenbank des
-        Anbieters Supabase Inc. (Region des Rechenzentrums:
-        [PLATZHALTER: z. B. Frankfurt, EU, im Supabase-Dashboard nachsehen]).
+        Anbieters Supabase Inc.; dort läuft auch die Anmeldung und Sitzungs&shy;verwaltung
+        aus Ziffer 4. Rechenzentrum: Irland (EU, Region eu-west-1).
         Eventbilder und Ticket-Beschreibungsdaten liegen in einem öffentlich
         abrufbaren Speicher, enthalten aber keine personenbezogenen Daten der
         Käufer.
@@ -176,7 +176,7 @@ export default function DatenschutzPage() {
       <p>
         <strong>Technisch notwendige Cookies:</strong> Passly verwendet Cookies
         und Einträge im lokalen Speicher deines Browsers, um deine Anmeldung
-        aufrechtzuerhalten (Sitzungsdaten unseres Login-Dienstes Privy), den
+        aufrechtzuerhalten (Sitzungsdaten deiner Anmeldung), den
         Bezahlvorgang bei Stripe abzusichern und deine Cookie-Entscheidung zu
         speichern. Diese sind für den Betrieb erforderlich; eine Einwilligung
         ist dafür nicht nötig (§ 25 Abs. 2 Nr. 2 TDDDG).

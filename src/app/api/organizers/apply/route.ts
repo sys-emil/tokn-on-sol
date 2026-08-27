@@ -1,16 +1,9 @@
-// Requires NEXT_PUBLIC_PRIVY_APP_ID and PRIVY_APP_SECRET in environment variables
-// Find them at: https://dashboard.privy.io → your app → Settings → API keys
-import { PrivyClient } from "@privy-io/server-auth";
+import { requestUser } from "@/lib/sessionUser";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { sendAdminAlert } from "@/lib/email";
 import { isBot, botDenied } from "@/lib/botCheck";
 import { NextRequest, NextResponse } from "next/server";
-
-const privy = new PrivyClient(
-  process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
-  process.env.PRIVY_APP_SECRET!,
-);
 
 interface ApplyBody {
   walletAddress: string;
@@ -31,20 +24,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (await isBot()) return botDenied();
 
-  const authToken = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!authToken) {
+  // Die Anmeldung selbst laeuft ueber einen Einmalcode an diese Adresse, die
+  // E-Mail ist also per Konstruktion bestaetigt. Die frueher noetige separate
+  // Verifizierung entfaellt damit.
+  const sessionUser = await requestUser(req);
+  if (!sessionUser) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
-
-  let privyUser: Awaited<ReturnType<typeof privy.getUser>>;
-  try {
-    const verified = await privy.verifyAuthToken(authToken);
-    privyUser = await privy.getUser(verified.userId);
-  } catch {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (!privyUser.email?.address) {
+  if (!sessionUser.email) {
     return NextResponse.json({ success: false, error: "email_required" }, { status: 403 });
   }
 

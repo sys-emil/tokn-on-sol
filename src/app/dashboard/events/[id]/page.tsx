@@ -1,7 +1,7 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
@@ -97,7 +97,7 @@ interface EventApiResponse {
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { ready, authenticated, getAccessToken } = usePrivy();
+  const { ready, authenticated, getAccessToken } = useAuth();
   const { wallets: solanaWallets } = useSolanaWallets();
   const walletAddress = solanaWallets[0]?.address;
 

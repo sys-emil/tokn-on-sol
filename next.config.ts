@@ -25,9 +25,12 @@ import { withBotId } from "botid/next/config";
  *   deliberately never had. The iframe protection that Privy actually cares
  *   about (`frame-src`, `frame-ancestors`) is unaffected by it.
  *
- * WalletConnect and Cloudflare origins are kept from Privy's list even though
- * login is email-only, because a missing origin breaks authentication while a
- * spare one costs nothing.
+ * 3. **The browser now talks to Supabase directly.** Sign-in and token refresh
+ *    are fetches from the page to the Supabase project, so `connect-src` must
+ *    include that origin. Leaving it out does not degrade anything visibly --
+ *    it kills the login outright, and the console is the only place that says
+ *    so. Same class of bug as the wallet-provider subdomain that cost a whole
+ *    commit before.
  */
 const supabaseOrigin = (() => {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -40,20 +43,9 @@ const supabaseOrigin = (() => {
 })();
 
 /**
- * Privy runs on a subdomain of OUR domain (e.g. https://privy.getpassly.de),
- * not on auth.privy.io.
- *
- * That is what verifying the domain for HttpOnly cookies does: so the session
- * cookie is first-party, Privy proxies its API and wallet iframe through a
- * subdomain we point at them. Privy's published sample CSP predates that setup
- * and only lists auth.privy.io, which is why a policy copied straight from
- * their docs blocks the login with
- *   "Fetch API cannot load https://privy.<domain>/api/v1/passwordless/init"
- * — `connect-src 'self'` matches the exact host only, never subdomains.
- *
- * A wildcard over our own apex rather than one hardcoded hostname: we control
- * this DNS zone, and Privy may add further hosts to the custom-domain setup
- * without warning. Every other origin stays explicitly listed.
+ * A wildcard over our own apex domain. `connect-src 'self'` matches the exact
+ * host only, never a subdomain, so anything we run beside the app needs this.
+ * We control this DNS zone; every third-party origin stays explicitly listed.
  */
 const ownDomainWildcard = (() => {
   const raw = process.env.APP_URL;
@@ -77,9 +69,13 @@ const csp = [
   "form-action 'self'",
   // Modern equivalent of X-Frame-Options: DENY. Nothing may embed Passly.
   "frame-ancestors 'none'",
-  `child-src ${ownDomainWildcard} https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org`,
-  `frame-src ${ownDomainWildcard} https://auth.privy.io https://verify.walletconnect.com https://verify.walletconnect.org https://challenges.cloudflare.com`,
-  `connect-src 'self' ${ownDomainWildcard} https://auth.privy.io https://*.rpc.privy.systems wss://relay.walletconnect.com wss://relay.walletconnect.org wss://www.walletlink.org https://explorer-api.walletconnect.com`,
+  // No third-party iframe left: the wallet provider is gone and the login is
+  // our own dialog. Kept narrow rather than removed, so a stray frame is a
+  // blocked frame instead of an allowed one.
+  `child-src ${ownDomainWildcard}`,
+  `frame-src ${ownDomainWildcard} https://challenges.cloudflare.com`,
+  // Supabase carries sign-in, token refresh and storage reads.
+  `connect-src 'self' ${ownDomainWildcard}${supabaseOrigin ? ` ${supabaseOrigin}` : ""}`,
   "worker-src 'self'",
   "manifest-src 'self'",
 ].join("; ");

@@ -83,9 +83,19 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 | `/admin/organizers` | Admin review of organizer applications (`ADMIN_SECRET`) |
 | `/admin/payouts` | Admin payout resolution (`ADMIN_SECRET`) |
 
-### Authentication & wallets (Privy)
+### Authentication & wallets (own, since 2026-08-27)
 
-The root layout is a **server component** (global `metadata`/OG tags); `PrivyProvider` + consent banner live in the client component `src/app/components/Providers.tsx`, which wraps everything. Login method is **email only** (`loginMethods: ['email']`). Email login auto-creates a Solana embedded wallet per user. All auth-gated pages check `usePrivy().authenticated` client-side. Server-side token verification uses `PrivyClient` from `@privy-io/server-auth` (requires `PRIVY_APP_SECRET`).
+Privy is gone. It was replaced because its MAU pricing bills per human (€299/mo from 500 MAU) while Passly earns ~€1.10 per human — and because the property being paid for was already given up: the buyer's key only ever signed the QR and backup challenges, never a transaction, and the operator holds the delegation that lets Passly move any ticket without its owner.
+
+- **Login** is email + one-time code via **Supabase Auth** (`signInWithOtp` / `verifyOtp`), in our own `LoginModal`. No passwords, no separate sign-up: the first sign-in creates the account. Supabase's built-in mailer is capped at 2/hour and unusable — **custom SMTP over Resend is required**, and the auth rate limits must be raised or an on-sale burst hits the default of 30 new users/hour.
+- **Wallets are derived, not stored** (`src/lib/wallet.ts`): keypair = `HKDF(WALLET_MASTER_SEED, "passly-wallet-v<key_version>:<users.id>")`, Ed25519 via `node:crypto`. There is no wallet lifecycle — nothing to create, back up, recover or lose. Losing the seed is an outage, not a data loss (the operator can re-mint), so keep it separate from `OPERATOR_PRIVATE_KEY` and back it up like one.
+- **Derive from `users.id` only.** Never from the auth provider's id (a provider swap would move every address) and never from the e-mail (it is the one identifier that can change, and changing it would cut a guest off from their tickets). `users.auth_subject` holds whoever is currently authenticating and is deliberately *not* the derivation source.
+- **`users.wallet_address` is the authority**, not a fresh call to `deriveAddress()`: a bug in the derivation must never silently repoint someone's tickets.
+- **The client never names a destination address.** Every route resolves it from the session (`requestUser` in `src/lib/sessionUser.ts` — the single place that knows the auth provider). `requestOwnsWallet` kept its name and signature and now compares against the session's derived address.
+- **Client hooks** live in `src/lib/auth.tsx` and deliberately mirror the shapes they replaced: `useAuth()` (was `usePrivy()`), `useLogout({ onSuccess })`, `useLogin({ onComplete })`, `getAccessToken()`, and `useWallets()` returning `{ wallets: [{ address }] }` so ~45 call sites reading `wallets[0]?.address` were untouched. `AuthProvider` wraps everything in `Providers.tsx`; `ready` waits for both the session *and* `/api/me`, or pages briefly see "signed in but no wallet" and bounce to the login.
+- **The QR is signed server-side** (`GET /api/tickets/[assetId]/qr`), same payload as before, so `/api/tickets/verify` never changed. Same for the backup ticket — where the signature used to *be* the authorization and now cannot be, so that route gained a session check plus per-ticket ownership.
+- **Migration**: `getOrCreateUser` adopts a pre-existing row whose `auth_subject` starts with `did:privy:` when the e-mail matches, so a returning user keeps their address and tickets. Bounded to that prefix on purpose — it must never take over an account that already belongs to the current provider. `organizers.wallet_address` had to be repointed by hand; an organizer who never signed in during the Privy era still needs that repoint after their first login.
+- **CSP**: `connect-src` must include the Supabase origin or the login dies silently. See `next.config.ts`.
 
 ### Blockchain
 
@@ -383,7 +393,7 @@ separately indexable; retrofit with a middleware rewrite if EN SEO ever matters.
 ### Environment variables
 
 ```
-NEXT_PUBLIC_PRIVY_APP_ID / PRIVY_APP_SECRET
+WALLET_MASTER_SEED     # 32 zufaellige Bytes als 64 Hex-Zeichen (openssl rand -hex 32). Ableitungsbasis JEDER Nutzer-Wallet; getrennt vom OPERATOR_PRIVATE_KEY halten und wie diesen sichern. Fehlt er, schlagen Checkout und QR-Code fehl.
 NEXT_PUBLIC_HELIUS_RPC_URL / HELIUS_API_KEY
 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY
 OPERATOR_PRIVATE_KEY

@@ -57,6 +57,40 @@ export async function getOrCreateUser(authSubject: string, email: string): Promi
   const existing = await selectBySubject(subject);
   if (existing) return existing;
 
+  // Uebernahme aus der Privy-Zeit: dieselbe Person meldet sich zum ersten Mal
+  // ueber den neuen Anbieter an, also bekommt ihre Zeile nur ein neues
+  // `auth_subject`. Adresse, Tickets und Veranstalter-Verknuepfung bleiben —
+  // genau dafuer ist dieses Feld von der Ableitungsquelle getrennt.
+  //
+  // Bewusst nur fuer `did:privy:`-Zeilen: die E-Mail als Anspruch zuzulassen
+  // ist so stark wie die Anmeldung dahinter (ein Einmalcode an genau diese
+  // Adresse, wie schon zuvor) — aber es darf nur die Migration betreffen und
+  // niemals ein Konto uebernehmen koennen, das bereits dem neuen Anbieter
+  // gehoert.
+  const normalized = email.trim().toLowerCase();
+  if (normalized) {
+    const { data: legacy } = await supabaseAdmin
+      .from("users")
+      .select(COLUMNS)
+      .eq("email", normalized)
+      .like("auth_subject", "did:privy:%")
+      .maybeSingle();
+
+    if (legacy) {
+      const { data: adopted } = await supabaseAdmin
+        .from("users")
+        .update({ auth_subject: subject })
+        .eq("id", (legacy as Row).id)
+        .like("auth_subject", "did:privy:%")
+        .select(COLUMNS)
+        .maybeSingle();
+      if (adopted) return toUser(adopted as Row);
+      // Ein anderer Aufruf war schneller; dessen Ergebnis gilt.
+      const raced = await selectBySubject(subject);
+      if (raced) return raced;
+    }
+  }
+
   const id = randomUUID();
   const { data, error } = await supabaseAdmin
     .from("users")

@@ -1,6 +1,6 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
+import { useAuth } from '@/lib/auth';
 import { useRef, useState } from 'react';
 import { Icon } from '@/app/components/passlyUi';
 
@@ -53,7 +53,7 @@ export function EventImagePicker({
   disabled?: boolean;
   onError: (message: string | null) => void;
 }) {
-  const { getAccessToken } = usePrivy();
+  const { getAccessToken } = useAuth();
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 

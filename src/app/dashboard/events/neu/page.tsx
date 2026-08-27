@@ -1,7 +1,7 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -19,7 +19,7 @@ import { isFeePayer } from '@/lib/fees';
  */
 export default function NewEventPage() {
   const router = useRouter();
-  const { ready, authenticated, getAccessToken } = usePrivy();
+  const { ready, authenticated, getAccessToken } = useAuth();
   const { wallets: solanaWallets } = useSolanaWallets();
   const ownerWallet = solanaWallets[0]?.address ?? '';
 

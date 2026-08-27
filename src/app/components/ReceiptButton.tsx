@@ -1,6 +1,6 @@
 'use client';
 
-import { getAccessToken } from '@privy-io/react-auth';
+import { getAccessToken } from '@/lib/auth';
 import { useState } from 'react';
 import { useT } from '@/app/components/LangProvider';
 
@@ -8,7 +8,7 @@ import { useT } from '@/app/components/LangProvider';
  * "Beleg herunterladen" action. Fetches the receipt PDF for the order this
  * ticket belongs to and hands it to the browser as a download.
  *
- * Two identities, one button: a signed-in buyer authenticates with their Privy
+ * Two identities, one button: a signed-in buyer authenticates with their session
  * token (the route checks wallet ownership), a guest passes the order token
  * from their /order/<token> link. Orders that cost nothing — free tickets, box
  * office cash — have no receipt; the route says so and the message is shown

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestOwnsWallet } from "@/lib/sessionUser";
 import {
   uploadEventMetadata,
   isOwnStorageUrl,
@@ -222,7 +222,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // The caller must prove ownership of organizer_wallet via their Privy auth
+  // The caller must prove ownership of organizer_wallet via their session
   // token; otherwise anyone could create events in another organizer's name.
   if (!(await requestOwnsWallet(req, organizer_wallet))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });

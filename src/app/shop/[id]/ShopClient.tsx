@@ -1,7 +1,7 @@
 'use client';
 
-import { usePrivy, getAccessToken } from '@privy-io/react-auth';
-import { useWallets } from '@privy-io/react-auth/solana';
+import { useAuth, getAccessToken, useWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { splitServiceFee, type FeePayer } from '@/lib/fees';
@@ -47,7 +47,7 @@ function formatCountdown(seconds: number): string {
 }
 
 export default function ShopClient({ eventId, tiers, waitlistEnabled = false, guestAllowed = true, queueEnabled = false, feePayer = 'buyer' }: Props) {
-  const { ready, authenticated, login } = usePrivy();
+  const { ready, authenticated, login } = useAuth();
   const { wallets: solanaWallets } = useWallets();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -1,7 +1,7 @@
 'use client';
 
-import { getAccessToken, usePrivy } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { getAccessToken, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
  * deliberate, see the page component.
  */
 export function ClaimTickets({ token, count }: { token: string; count: number }) {
-  const { ready, authenticated, login } = usePrivy();
+  const { ready, authenticated, login } = useAuth();
   const { wallets } = useSolanaWallets();
   const router = useRouter();
   const [busy, setBusy] = useState(false);

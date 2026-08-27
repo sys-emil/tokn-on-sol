@@ -1,6 +1,6 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
+import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 
 /**
@@ -13,12 +13,12 @@ import Link from 'next/link';
  *
  * Eigene Client-Komponente, weil die Startseite ein Server-Component ist und
  * bleiben soll (globale Metadaten, statisch ausgeliefert). Nur dieser Knopf
- * braucht Privy.
+ * braucht die Anmeldung.
  */
 export function SignInButton() {
-  const { ready, authenticated, login } = usePrivy();
+  const { ready, authenticated, login } = useAuth();
 
-  // Bis Privy geantwortet hat, steht der Knopf schon an seinem Platz — sonst
+  // Bis die Sitzung geladen ist, steht der Knopf schon an seinem Platz — sonst
   // springt die Topbar beim Laden.
   if (!ready) {
     return (

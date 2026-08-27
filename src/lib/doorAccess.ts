@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import type { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestOwnsWallet } from "@/lib/sessionUser";
 
 /**
  * Door access links: a time-limited token per event that lets venue staff run
@@ -49,7 +49,7 @@ export async function doorTokenValidFor(req: NextRequest, eventId: string): Prom
 
 /**
  * The gate for door routes (verify / snapshot / offline sync): the organizer's
- * own Privy session OR a valid door access link for exactly this event. Every
+ * own session OR a valid door access link for exactly this event. Every
  * other organizer route keeps requiring `requestOwnsWallet`; door tokens must
  * never unlock dashboards, payouts, or guest e-mail addresses beyond the
  * snapshot the door needs.
@@ -59,7 +59,7 @@ export async function requestMayWorkTheDoor(
   eventId: string,
   organizerWallet: string,
 ): Promise<boolean> {
-  // Cheap DB lookup first; most doorman devices use the link, and the Privy
+  // Cheap DB lookup first; most doorman devices use the link, and the session
   // check costs two upstream API calls.
   if (await doorTokenValidFor(req, eventId)) return true;
   return requestOwnsWallet(req, organizerWallet);

@@ -15,7 +15,7 @@ import { Icon } from '@/app/components/passlyUi';
  *
  * Liste und Event-Seite kommen aus denselben Komponenten wie die echten
  * Seiten — dort kann die Vorschau gar nicht luegen. Kaufseite und Ticket sind
- * originalgetreue Nachbauten: die echten brauchen Stripe, eine Privy-Wallet
+ * originalgetreue Nachbauten: die echten brauchen Stripe, ein Konto
  * und eine Event-ID, die es beim Anlegen noch nicht gibt. Beide sind als
  * Vorschau gekennzeichnet, damit niemand den Platzhalter fuer einen Fehler
  * haelt.

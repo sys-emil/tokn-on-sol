@@ -1,13 +1,11 @@
 'use client';
 
-import { useLogout, usePrivy, useLinkAccount } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useAuth, useLogout, useWallets as useSolanaWallets } from '@/lib/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
-import { Icon } from '@/app/components/passlyUi';
 
 type OrgType = 'private' | 'business';
 type PageState = 'loading' | 'form' | 'pending' | 'rejected';
@@ -38,9 +36,8 @@ const PAGE_CSS = `
 
 export default function BecomeOrganizer() {
   const router = useRouter();
-  const { ready, authenticated, login, user, getAccessToken } = usePrivy();
+  const { ready, authenticated, login, user, getAccessToken } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
-  const { linkEmail } = useLinkAccount({ onSuccess: () => { setFormError(null); } });
   const { wallets: solanaWallets } = useSolanaWallets();
 
   const [pageState, setPageState] = useState<PageState>('loading');
@@ -53,9 +50,9 @@ export default function BecomeOrganizer() {
 
   const walletAddress = solanaWallets[0]?.address;
 
-  // If not authenticated, trigger login, but at most once. Re-invoking
-  // login() from effect re-runs (Privy re-renders during the modal flow)
-  // resets the modal to the e-mail step, so the code input never shows.
+  // If not authenticated, trigger login, but at most once. Re-invoking login()
+  // from effect re-runs would reset the modal to the e-mail step, so the code
+  // input would never show.
   const loginPrompted = useRef(false);
   useEffect(() => {
     if (!ready) return;
@@ -88,7 +85,7 @@ export default function BecomeOrganizer() {
     void checkStatus();
   }, [walletAddress, router, getAccessToken]);
 
-  const effectiveEmail = email || (user?.email?.address ?? '');
+  const effectiveEmail = email || (user?.email ?? '');
 
   async function handleSubmit(): Promise<void> {
     if (!walletAddress) return;
@@ -262,17 +259,10 @@ export default function BecomeOrganizer() {
                       {formError}
                     </div>
                   )}
-                  {formError === 'email_required' && (
-                    <div style={{ padding: '12px 14px', borderRadius: 8, background: 'var(--warn-wash)', border: '1px solid oklch(0.86 0.09 70)', marginBottom: 14 }}>
-                      <div style={{ fontSize: 12.5, color: 'oklch(0.42 0.13 70)', marginBottom: 10 }}>
-                        Um Events zu veranstalten, bestätige bitte zuerst deine E-Mail-Adresse.
-                      </div>
-                      <button type="button" className="btn ghost sm" onClick={() => linkEmail()}>
-                        <Icon name="mail" size={13} /> E-Mail bestätigen
-                      </button>
-                    </div>
-                  )}
-
+                  {/* Frueher stand hier ein „E-Mail bestaetigen"-Knopf: beim alten
+                      Anbieter konnte ein Konto ohne bestaetigte Adresse existieren.
+                      Die Anmeldung laeuft jetzt ueber einen Einmalcode an genau
+                      diese Adresse, der Fall kann also nicht mehr eintreten. */}
                   <button
                     className="btn primary lg"
                     style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestOwnsWallet } from "@/lib/sessionUser";
 
 /**
  * Dashboard-Pro plan helpers. The `organizers.plan` column is maintained
@@ -22,7 +22,7 @@ type RequireProResult =
   | { ok: false; response: NextResponse };
 
 /**
- * Auth gate for Pro-only organizer routes: Privy token must own the wallet,
+ * Auth gate for Pro-only organizer routes: the session must own the wallet,
  * the organizer must be approved and on the 'pro' plan. The server-side plan
  * check is the authority; client UI gating is cosmetic.
  */

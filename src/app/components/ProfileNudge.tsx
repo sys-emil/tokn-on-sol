@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { getAccessToken } from '@privy-io/react-auth';
+import { getAccessToken } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 
 const SNOOZE_KEY = 'passly_profile_nudge_snoozed';

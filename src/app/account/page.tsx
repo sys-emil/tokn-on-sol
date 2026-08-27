@@ -1,7 +1,7 @@
 'use client';
 
-import { useLogout, usePrivy, getAccessToken } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useLogout, useAuth, getAccessToken, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -18,7 +18,7 @@ interface Profile {
 
 export default function AccountPage() {
   const router = useRouter();
-  const { ready, authenticated, user, login } = usePrivy();
+  const { ready, authenticated, user, login } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
   const walletAddress = solanaWallets[0]?.address;
@@ -87,7 +87,7 @@ export default function AccountPage() {
 
   if (!ready) return null;
 
-  const email = user?.email?.address ?? '';
+  const email = user?.email ?? '';
 
   return (
     <div className="app">

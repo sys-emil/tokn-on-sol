@@ -1,6 +1,6 @@
 'use client';
 
-import { usePrivy } from '@privy-io/react-auth';
+import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Icon, EventStyleFields } from '@/app/components/passlyUi';
@@ -98,7 +98,7 @@ export function EventEditor({
   /** Bearbeiten: die Seite laedt danach neu. Anlegen: ungenutzt, der Editor zeigt den Link. */
   onSaved?: () => void;
 }) {
-  const { getAccessToken } = usePrivy();
+  const { getAccessToken } = useAuth();
   const [draft, setDraft] = useState<EventDraft>(initial ?? INITIAL_DRAFT);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

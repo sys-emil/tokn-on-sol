@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestOwnsWallet } from "@/lib/sessionUser";
 import { supabaseAdmin } from "@/lib/supabase";
 import { isOwnStorageUrl } from "@/lib/eventMetadata";
 import { validateHandle } from "@/lib/organizerHandle";

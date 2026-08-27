@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { SeasonPass } from "@/lib/supabase";
-import { requestOwnsWallet } from "@/lib/privyServer";
+import { requestOwnsWallet } from "@/lib/sessionUser";
 import { uploadPassMetadata } from "@/lib/eventMetadata";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +32,7 @@ interface PassBody {
 
 type Gate = { organizerWallet: string } | NextResponse;
 
-/** Privy token must own the wallet AND that wallet must be an approved organizer. */
+/** The session must own the wallet AND that wallet must be an approved organizer. */
 async function gate(req: NextRequest, walletAddress: string): Promise<Gate> {
   if (!walletAddress) {
     return NextResponse.json({ error: "walletAddress is required" }, { status: 400 });

@@ -1,12 +1,12 @@
 'use client';
 
-import { getAccessToken, usePrivy } from '@privy-io/react-auth';
+import { getAccessToken, useAuth } from '@/lib/auth';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { track } from '@/lib/track';
 
 export default function TicketClient({ assetId }: { assetId: string }) {
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'refreshing'>('loading');
   // Bumped on every fresh signature, restarts the drain bar below the QR so

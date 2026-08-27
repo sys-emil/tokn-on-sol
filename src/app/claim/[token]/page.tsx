@@ -1,7 +1,7 @@
 'use client';
 
-import { usePrivy, getAccessToken } from '@privy-io/react-auth';
-import { useWallets as useSolanaWallets } from '@privy-io/react-auth/solana';
+import { useAuth, getAccessToken, useWallets as useSolanaWallets } from '@/lib/auth';
+
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -87,7 +87,7 @@ export default function ClaimPage() {
   const params = useParams();
   const token = typeof params.token === 'string' ? params.token : '';
 
-  const { ready, authenticated, login } = usePrivy();
+  const { ready, authenticated, login } = useAuth();
   const { wallets: solanaWallets } = useSolanaWallets();
 
   const [phase, setPhase] = useState<Phase>({ tag: 'loading' });
