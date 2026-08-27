@@ -23,7 +23,15 @@ export function authClient(): SupabaseClient {
   }
 
   client = createClient(url, anonKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      // Auch dann anmelden, wenn jemand den Link in der Mail klickt statt den
+      // Code einzutippen. Die Vorlage soll den Code zeigen, aber ein Teil der
+      // Leute klickt trotzdem, und ohne das hier landen sie auf der Startseite
+      // ohne Sitzung — angemeldet bei Supabase, ausgeloggt in der App.
+      detectSessionInUrl: true,
+    },
   });
   return client;
 }
