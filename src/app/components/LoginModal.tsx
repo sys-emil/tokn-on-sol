@@ -6,10 +6,15 @@ import { authClient } from '@/lib/authBrowser';
 type Step = 'email' | 'code';
 
 /**
- * Anmeldung per E-Mail und Einmalcode.
+ * Anmeldung per E-Mail.
  *
  * Es gibt bewusst keine Registrierung: die erste Anmeldung legt das Konto an.
  * Wer ein Ticket kauft, will kein Konto — er will das Ticket.
+ *
+ * Beide Wege aus der Mail funktionieren: den Code hier eintippen, oder den Link
+ * klicken (der Client hat detectSessionInUrl an). Der Text nennt deshalb beide.
+ * An der Tuer ist der Code schneller — er steht auf dem Sperrbildschirm, waehrend
+ * ein Link einen neuen Tab aufmacht.
  */
 export function LoginModal({
   onClose,
@@ -87,7 +92,8 @@ export function LoginModal({
           {step === 'email' ? (
             <>
               <p style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 16 }}>
-                Wir schicken dir einen Code per E-Mail. Ein Passwort brauchst du nicht.
+                Wir schicken dir eine E-Mail mit Anmeldecode und Link. Ein Passwort
+                brauchst du nicht.
               </p>
               <div className="field">
                 <label htmlFor="login-email">E-Mail</label>
@@ -108,7 +114,8 @@ export function LoginModal({
           ) : (
             <>
               <p style={{ fontSize: 14, color: 'var(--ink-2)', marginBottom: 16 }}>
-                Wir haben dir einen Code an <strong>{email.trim().toLowerCase()}</strong> geschickt.
+                Wir haben dir eine E-Mail an <strong>{email.trim().toLowerCase()}</strong> geschickt.
+                Gib den Code ein — oder klick einfach den Link darin.
               </p>
               <div className="field">
                 <label htmlFor="login-code">Code</label>
