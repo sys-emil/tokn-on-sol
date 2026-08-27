@@ -62,18 +62,21 @@ export async function getOrCreateUser(authSubject: string, email: string): Promi
   // `auth_subject`. Adresse, Tickets und Veranstalter-Verknuepfung bleiben —
   // genau dafuer ist dieses Feld von der Ableitungsquelle getrennt.
   //
-  // Bewusst nur fuer `did:privy:`-Zeilen: die E-Mail als Anspruch zuzulassen
-  // ist so stark wie die Anmeldung dahinter (ein Einmalcode an genau diese
-  // Adresse, wie schon zuvor) — aber es darf nur die Migration betreffen und
-  // niemals ein Konto uebernehmen koennen, das bereits dem neuen Anbieter
-  // gehoert.
+  // Uebernommen wird nur, was noch an keinen Anmeldeanbieter gebunden ist:
+  //   `did:privy:…`  — Zeile aus der Privy-Zeit
+  //   `pending:…`    — im Voraus angelegt, bevor sich jemand erstmals anmeldet
+  //                    (etwa ein Veranstalter, dessen wallet_address schon auf
+  //                    die abgeleitete Adresse zeigen soll)
+  // Die E-Mail als Anspruch zuzulassen ist so stark wie die Anmeldung dahinter
+  // (ein Einmalcode an genau diese Adresse) — aber es darf niemals ein Konto
+  // uebernehmen koennen, das bereits dem aktuellen Anbieter gehoert.
   const normalized = email.trim().toLowerCase();
   if (normalized) {
     const { data: legacy } = await supabaseAdmin
       .from("users")
       .select(COLUMNS)
       .eq("email", normalized)
-      .like("auth_subject", "did:privy:%")
+      .or("auth_subject.like.did:privy:%,auth_subject.like.pending:%")
       .maybeSingle();
 
     if (legacy) {
@@ -81,7 +84,7 @@ export async function getOrCreateUser(authSubject: string, email: string): Promi
         .from("users")
         .update({ auth_subject: subject })
         .eq("id", (legacy as Row).id)
-        .like("auth_subject", "did:privy:%")
+        .or("auth_subject.like.did:privy:%,auth_subject.like.pending:%")
         .select(COLUMNS)
         .maybeSingle();
       if (adopted) return toUser(adopted as Row);
