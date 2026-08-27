@@ -4,6 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { authClient } from '@/lib/authBrowser';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 
+/**
+ * Muss mit "Email OTP Length" in den Supabase-Auth-Einstellungen uebereinstimmen
+ * (Authentication -> Providers -> Email). Stand dort urspruenglich auf 8, waehrend
+ * dieser Dialog sechs Kaestchen zeigt — dann laesst sich der Code aus der Mail
+ * nicht mehr vollstaendig eingeben und niemand kommt herein. Es gibt keinen Weg,
+ * die Einstellung von hier aus zu lesen; wer sie aendert, aendert auch das hier.
+ */
 const LENGTH = 6;
 /** Supabase laesst pro Adresse eine Mail je Minute zu. */
 const RESEND_SECONDS = 60;
