@@ -9,6 +9,7 @@ import {
 } from "@/lib/eventMetadata";
 import { DEFAULT_REENTRY_COOLDOWN_SECONDS, MAX_REENTRY_COOLDOWN_SECONDS } from "@/lib/reentry";
 import { isFeePayer, minUnitPriceCentsFor, tooCheapForFeePayer, type FeePayer } from "@/lib/fees";
+import { freeCapacityExceeded } from "@/lib/freeTickets";
 
 interface TierInput {
   name: string;
@@ -247,6 +248,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (border_style && organizer.plan !== "pro") {
     return NextResponse.json({ success: false, error: "pro_required" }, { status: 403 });
+  }
+
+  // Free tickets carry no service fee but still cost a mint and a mail each, so
+  // the giveaway is capped per event and per plan. Checked here rather than at
+  // checkout: the guest must never be the one who runs into it.
+  const freeOverflow = freeCapacityExceeded({ tiers, plan: organizer.plan as string | null });
+  if (freeOverflow) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `free_ticket_cap: at most ${freeOverflow.cap} free tickets per event on this plan `
+          + `(requested ${freeOverflow.requested})`,
+      },
+      { status: 403 }
+    );
   }
 
   try {

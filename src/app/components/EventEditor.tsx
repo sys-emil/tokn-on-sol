@@ -8,6 +8,7 @@ import { EventImagePicker } from '@/app/components/EventImagePicker';
 import { EventPreview } from '@/app/components/eventSurfaces/EventPreview';
 import type { PreviewDraft } from '@/app/components/eventSurfaces/EventPreview';
 import { minUnitPriceCentsFor, splitServiceFee, tooCheapForFeePayer, type FeePayer } from '@/lib/fees';
+import { freeCapacityExceeded, freeCapacityOf } from '@/lib/freeTickets';
 
 /**
  * Event anlegen und bearbeiten mit Live-Vorschau.
@@ -110,9 +111,31 @@ export function EventEditor({
   const setTier = (i: number, patch: Partial<TierDraft>) =>
     setDraft((d) => ({ ...d, tiers: d.tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)) }));
 
+  /**
+   * Gratis-Tickets tragen keine Servicegebuehr, kosten aber je Stueck einen
+   * Mint und eine Bestaetigungsmail. Die Obergrenze steht in `freeTickets.ts`
+   * und wird serverseitig durchgesetzt; hier steht sie nur, damit niemand
+   * vergeblich auf Speichern drueckt.
+   *
+   * Beim Bearbeiten gilt derselbe Bestandsschutz wie in der Route: ein Event,
+   * das schon vorher darueber lag, bleibt speicherbar, solange es nicht waechst.
+   */
+  const asCents = (t: TierDraft) => ({
+    price_eur: Math.round((Number(t.priceEur) || 0) * 100),
+    capacity: Number(t.capacity) || 0,
+  });
+  const freeOverflow = freeCapacityExceeded({
+    tiers: draft.tiers.map(asCents),
+    plan: isPro ? 'pro' : 'free',
+    previousFreeCapacity: mode === 'edit' && initial
+      ? freeCapacityOf(initial.tiers.map(asCents))
+      : undefined,
+  });
+
   const canSave = !!draft.name.trim() && !!draft.date
     && draft.tiers.length > 0
     && draft.tiers.every((t) => t.name.trim() && (Number(t.capacity) || 0) > 0)
+    && !freeOverflow
     && !saving && !createdLink;
 
   const anyPaid = draft.tiers.some((t) => (Number(t.priceEur) || 0) > 0);
@@ -428,6 +451,13 @@ export function EventEditor({
                 )}
               </div>
               <span className="hint">Preis 0 = kostenlos. Eine Kategorie namens „VIP“ bekommt automatisch die goldene Ticketkarte.</span>
+              {freeOverflow && (
+                <span className="hint" style={{ color: 'var(--warn, #a16207)' }}>
+                  {freeOverflow.requested} kostenlose Tickets — mehr als {freeOverflow.cap} gehen pro Event nicht.
+                  {!isPro && ' Mit Pro fällt diese Grenze weg.'}
+                  {' '}Bezahlte Kategorien sind davon nicht betroffen.
+                </span>
+              )}
             </div>
 
             <div className="field">

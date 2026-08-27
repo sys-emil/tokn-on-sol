@@ -13,6 +13,7 @@ import { sendAdminAlert } from "@/lib/email";
 import { MAX_REENTRY_COOLDOWN_SECONDS } from "@/lib/reentry";
 import { isFeePayer, minUnitPriceCentsFor, tooCheapForFeePayer, type FeePayer } from "@/lib/fees";
 import { bookCancellationFee } from "@/lib/platformFees";
+import { FREE_TICKET_CAP_FREE_PLAN, freeCapacityExceeded, freeCapacityOf } from "@/lib/freeTickets";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // cancel refunds many charges sequentially
@@ -268,6 +269,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       },
       { status: 400 },
     );
+  }
+
+  // Free-ticket ceiling, on the EFFECTIVE tiers for the same reason as above:
+  // prices and capacities arrive independently of each other. Only looked up
+  // when the event could possibly be over the lowest ceiling, so the ordinary
+  // edit still costs no extra query.
+  const effectiveTiers = body.tiers !== undefined && Array.isArray(body.tiers)
+    ? body.tiers
+      .filter((t) => typeof t?.price_eur === "number" && typeof t?.capacity === "number")
+      .map((t) => ({ price_eur: t.price_eur, capacity: t.capacity }))
+    : existingTiers.map((t) => ({ price_eur: t.price_eur, capacity: t.capacity }));
+  if (freeCapacityOf(effectiveTiers) > FREE_TICKET_CAP_FREE_PLAN) {
+    const { data: planRow } = await supabaseAdmin
+      .from("organizers")
+      .select("plan")
+      .eq("wallet_address", organizer_wallet)
+      .maybeSingle();
+    // Grandfathered against what the event already holds: an event that was
+    // created before the ceiling existed stays editable while it does not grow.
+    const freeOverflow = freeCapacityExceeded({
+      tiers: effectiveTiers,
+      plan: (planRow?.plan as string | null) ?? null,
+      previousFreeCapacity: freeCapacityOf(existingTiers),
+    });
+    if (freeOverflow) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `free_ticket_cap: at most ${freeOverflow.cap} free tickets per event on this plan `
+            + `(requested ${freeOverflow.requested})`,
+        },
+        { status: 403 },
+      );
+    }
   }
 
   if (body.tiers !== undefined) {
