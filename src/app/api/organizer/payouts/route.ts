@@ -81,6 +81,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       outstandingFees: fees.totalCents,
       outstandingBoxOffice: fees.boxOfficeCents,
       outstandingCancellation: fees.cancellationCents,
+      outstandingChargeback: fees.chargebackCents,
     },
     payouts: payouts.map((p) => ({
       id: p.id,

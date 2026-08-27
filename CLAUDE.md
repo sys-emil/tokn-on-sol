@@ -133,7 +133,7 @@ Tables:
 - `discount_codes`: Pro feature; `id, event_id, code (unique per event, case-insensitive), percent_off (1–100; 100 = guest list), max_uses (soft cap), uses, active`. Validation authority: `findValidDiscount`/`discountedUnitPrice` in `src/lib/discounts.ts`, used by BOTH `/api/checkout/validate-code` (public preview, rate-limited) and `/api/checkout/create` (`discountCode` in body scales the tier price + recomputes the service fee; metadata `discountCodeId`/`discountPercent`). Uses are incremented by the completed webhook via SQL function `increment_discount_uses` (webhook idempotency claim = dedupe). CRUD: `/api/organizer/discount-codes` (Pro-gated); DELETE deactivates.
 - `waitlist_entries`: Pro feature; `id, event_id, email, notified_at, unique(event_id, email)`. Signup: `POST /api/waitlist/join` (public, rate-limited, only when sold out AND organizer plan = pro; shop page shows the form via server-side plan check). Notification (`src/lib/waitlist.ts`): `notifyWaitlistIfSeats` claims entries atomically (notified_at while NULL) and mails "wieder verfügbar"; hooked into `charge.refunded` (full refund), `checkout.session.expired`, and the daily `sweepWaitlists` in the payout cron. One mail per entry, ever; the mail reserves nothing.
 - `door_access_links`: time-limited doorman access; `id, event_id, token (unique plaintext bearer), label, expires_at (event date + 2 days), revoked_at`. Managed via `/api/organizer/door-links` (GET/POST/DELETE, organizer-gated, max 10 active/event; DELETE revokes instead of deleting). Doorman opens `/doorman/[eventId]?key=<token>` without Privy login; the key is validated via the snapshot route.
-- `platform_fees_due`: amounts the organizer owes Passly, settled by deducting them from their next payout; `id, organizer_wallet, event_id, season_pass_id, session_id (unique), source, quantity, fee_cents, currency, status (pending|settled|waived), settled_payout_id, settled_at, created_at`. Two sources: `box_office` (service fee collected in cash, see **Box office** above) and `cancellation` (see below). Consumed by the payout cron; `session_id` being UNIQUE is what makes every writer idempotent. An admin sets `status = 'waived'` by hand to forgive one.
+- `platform_fees_due`: amounts the organizer owes Passly, settled by deducting them from their next payout; `id, organizer_wallet, event_id, season_pass_id, session_id (unique), source, quantity, fee_cents, currency, status (pending|settled|waived), settled_payout_id, settled_at, created_at`. Three sources: `box_office` (service fee collected in cash, see **Box office** above), `cancellation` and `chargeback` (see below). Consumed by the payout cron; `session_id` being UNIQUE is what makes every writer idempotent — the chargeback path has no checkout session of its own and uses `cb_<dispute id>`, which also keeps it from colliding with a cancellation row for the same sale. An admin sets `status = 'waived'` by hand to forgive one.
 - `stripe_webhook_events`: processed Stripe event IDs (`id` = evt_… primary key); the webhook idempotency gate.
 - `resale_offers`: Rückgabe-Angebote ("Rückgabe & Neuverkauf"); `id, purchase_id, asset_id, event_id, tier_id, seller_wallet, origin_session_id, origin_charge_id, origin_payment_intent_id, paid_cents, return_fee_cents, refund_cents, currency, status (active|sold|withdrawn|expired), refund_id, sold_session_id, sold_at, refunded_at, closed_at`. Partial-unique index on `asset_id WHERE status = 'active'`. Claimed via `claim_resale_offer` (FOR UPDATE SKIP LOCKED); seats move via `release_sold_seats` / `reclaim_sold_seat`. See **Ticket return & resale** below.
 
@@ -148,7 +148,7 @@ Tables:
 - **Failure handling**: failed transfers (restricted account etc.) → status `held`, funds stay on the platform balance. `charge.dispute.created` blocks a pending transfer (`disputed`). Admin resolution UI at `/admin/payouts` (gated by `ADMIN_SECRET`, sent as `x-admin-secret`): retry / release / cancel.
 - **Webhook idempotency**: every handled event ID is claimed via PK insert into `stripe_webhook_events` before processing. On payout-row/finalize/enqueue failures the claim is released and a 500 returned so Stripe retries. Mint retries are handled by the `mint_jobs` queue, not by Stripe redelivery.
 - **Refunds** (`charge.refunded`): full refund before transfer → payout `refunded` (terminal), tickets revoked (`purchases.revoked_at`), seats freed via `refund_ticket_sale`; partial refund → organizer share recomputed from the remaining amount; refund after transfer → flagged for manual recovery.
-- The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `checkout.session.expired`, `account.updated`, `charge.dispute.created`, `charge.refunded`, `customer.subscription.created/updated/deleted` and (Connect) `payout.paid`, `payout.failed`.
+- The Stripe webhook endpoint must be subscribed to `checkout.session.completed`, `checkout.session.expired`, `account.updated`, `charge.dispute.created`, `charge.dispute.closed`, `charge.refunded`, `customer.subscription.created/updated/deleted` and (Connect) `payout.paid`, `payout.failed`.
 
 ### Ticket return & resale ("Rückgabe & Neuverkauf", since 2026-08-18)
 
@@ -239,6 +239,38 @@ payout by the same machinery as the box-office dues (`bookCancellationFee` in
   cancellation cost „Servicegebühr Abendkasse" would simply be wrong.
 - Same known v1 gap as the box office: an organizer with no further online sales
   accumulates dues that never settle.
+
+### Chargeback costs (since 2026-08-27)
+
+Stripe charges a flat dispute fee (€15 in EUR) when a guest charges back, and
+keeps it only if the dispute is **lost**. That fee is passed through to the
+organizer as a `platform_fees_due` row with `source = 'chargeback'`, settled by
+the same payout machinery as the box-office and cancellation dues
+(`bookChargebackFee` in `src/lib/platformFees.ts`). AGB § 4 Abs. 4 is what
+covers it — it was written for this and did not exist before; § 12 Abs. 3 only
+ever covered *withholding* a payout, not passing the fee on.
+
+- **Booked on `charge.dispute.closed`, never on `created`.** Stripe refunds the
+  dispute fee when the dispute is won, so booking at the start would bill
+  exactly the organizers who did nothing wrong and then need a manual reversal.
+  Nothing is lost by waiting: `charge.dispute.created` has already blocked the
+  transfer, so the money cannot leave in the meantime. **The platform webhook
+  endpoint must be subscribed to `charge.dispute.closed`** — it is in
+  `handledTypes` but a Stripe endpoint that does not send it makes the whole
+  path dead code.
+- **The amount is read, not estimated**, like the cancellation fee:
+  `disputeFeeCents` (in `src/lib/payouts.ts`, kept there so it stays free of the
+  Supabase client and unit-testable) sums `fee` across the dispute's balance
+  transactions. A lost dispute leaves the flat fee standing; a won one carries a
+  compensating transaction, so the sum is zero and `bookChargebackFee` skips it.
+  That is why the money path never branches on `dispute.status` — only the admin
+  alert does.
+- **The payout status is deliberately not touched on close.** Releasing money is
+  a human decision at `/admin/payouts` in this system; a webhook that quietly
+  un-blocked a transfer would be the single exception, so the handler only
+  alerts. Won disputes are released by hand.
+- Visible to the organizer in the same „Einbehalt nächste Auszahlung" KPI on
+  `/dashboard/payouts`, which now names all three sources separately.
 
 ### Accounting: receipts & export (since 2026-07-29)
 

@@ -3,8 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // LEGACY: organizer-side 3% fee. Only used for checkout sessions created
 // before the buyer-side service fee existed (no serviceFeeCents in the session
-// metadata). New sessions: see src/lib/fees.ts; the buyer pays €1 + 4% per
-// ticket on top and the organizer nets 100% of the face price.
+// metadata). New sessions: see src/lib/fees.ts for the current degressive
+// schedule and `events.fee_payer` for who carries it.
 export const PLATFORM_FEE_BPS = 300;
 
 /*
@@ -196,4 +196,26 @@ export async function claimWebhookEvent(
   // 23505 = unique_violation → already processed.
   if (error.code === "23505") return false;
   throw new Error(`Failed to record webhook event ${event.id}: ${error.message}`);
+}
+
+/**
+ * Stripe's net fee on a dispute, in the dispute's own currency.
+ *
+ * Stripe charges a flat dispute fee the moment a chargeback opens and adds a
+ * second, compensating balance transaction if the dispute is later **won**.
+ * Summing `fee` across all of them therefore answers the only question the
+ * bookkeeping has: what did this dispute actually cost, once decided. A lost
+ * dispute yields the flat fee, a won one yields zero.
+ *
+ * Lives here rather than next to `bookChargebackFee` so it stays free of the
+ * Supabase client and can be unit-tested; same reason as `resolveFeeCents`.
+ */
+export function disputeFeeCents(
+  balanceTransactions: readonly { fee?: number | null }[] | null | undefined,
+): number {
+  if (!balanceTransactions?.length) return 0;
+  const total = balanceTransactions.reduce((sum, bt) => sum + (bt.fee ?? 0), 0);
+  // A negative sum would mean Stripe refunded more than it charged; nothing to
+  // pass on either way, and a negative due would credit the organizer.
+  return Math.max(0, total);
 }

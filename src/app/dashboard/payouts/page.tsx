@@ -26,10 +26,11 @@ interface PayoutData {
     paidCents: number;
     heldCount: number;
     nextAvailableAt: string | null;
-    /** Box-office service fees still to be deducted from a future transfer. */
+    /** Amounts still to be deducted from a future transfer, total and by source. */
     outstandingFees: number;
     outstandingBoxOffice: number;
     outstandingCancellation: number;
+    outstandingChargeback: number;
   };
   payouts: PayoutRow[];
 }
@@ -158,14 +159,17 @@ export default function PayoutsPage() {
                   <div className="label">Einbehalt nächste Auszahlung</div>
                   <div className="value">−{eur(summary?.outstandingFees ?? 0)}</div>
                   <div className="delta" style={{ color: 'var(--ink-3)' }}>
-                    {/* Beide Quellen benennen: „Servicegebühr" allein wäre bei
-                        Absage-Kosten schlicht falsch. */}
+                    {/* Jede Quelle benennen: „Servicegebühr" allein wäre bei
+                        Absage- und Chargeback-Kosten schlicht falsch. */}
                     {[
                       (summary?.outstandingBoxOffice ?? 0) > 0
                         ? `${eur(summary?.outstandingBoxOffice ?? 0)} Servicegebühr Abendkasse (bar kassiert)`
                         : null,
                       (summary?.outstandingCancellation ?? 0) > 0
                         ? `${eur(summary?.outstandingCancellation ?? 0)} Zahlungsgebühren aus abgesagten Events`
+                        : null,
+                      (summary?.outstandingChargeback ?? 0) > 0
+                        ? `${eur(summary?.outstandingChargeback ?? 0)} Stripe-Gebühren aus verlorenen Chargebacks`
                         : null,
                     ].filter(Boolean).join(' · ')}
                   </div>

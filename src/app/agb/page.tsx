@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function AgbPage() {
   return (
-    <LegalPageShell title="Allgemeine Geschäftsbedingungen" stand="Juli 2026">
+    <LegalPageShell title="Allgemeine Geschäftsbedingungen" stand="August 2026">
 
       <h2>§ 1 Geltungsbereich und Rolle von Passly</h2>
       <p>
@@ -104,6 +104,17 @@ export default function AgbPage() {
         angefallenen Fremdkosten weiter, nicht die eigene Servicegebühr, und
         behält sie von der nächsten Auszahlung an den Veranstalter ein. Die
         Höhe ist im Veranstalter-Konto einsehbar.
+      </p>
+      <p>
+        (4) Fordert ein Gast eine Zahlung über seinen Zahlungsdienstleister
+        zurück (Chargeback) und geht der Fall zulasten des Veranstalters aus,
+        erhebt der Zahlungsdienstleister hierfür ein gesondertes Entgelt. Passly
+        reicht dieses Entgelt in der tatsächlich angefallenen Höhe an den
+        Veranstalter weiter und behält es von der nächsten Auszahlung ein.
+        Endet der Fall zugunsten des Veranstalters, entfällt die Weiterbelastung
+        vollständig. Weitergereicht wird ausschließlich das Entgelt des
+        Zahlungsdienstleisters, nicht die Servicegebühr von Passly. Die Höhe ist
+        im Veranstalter-Konto einsehbar.
       </p>
 
       <h2>§ 5 Bezahlung</h2>

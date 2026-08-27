@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import {
   buildPayoutRow,
   claimWebhookEvent,
+  disputeFeeCents,
   computeAvailableAt,
   computeFeeSplit,
   resolveFeeCents,
@@ -308,5 +309,29 @@ describe("claimWebhookEvent (idempotent webhook processing)", () => {
     const { db, insert } = fakeDb({ error: null });
     await claimWebhookEvent(db, { id: "evt_1", type: "payout.paid", account: "acct_1Test" });
     expect(insert).toHaveBeenCalledWith({ id: "evt_1", type: "payout.paid", account: "acct_1Test" });
+  });
+});
+
+describe("disputeFeeCents", () => {
+  it("is the flat fee while a dispute stands", () => {
+    // Ein offener oder verlorener Chargeback: 15 € Stripe-Gebuehr bleiben.
+    expect(disputeFeeCents([{ fee: 1_500 }])).toBe(1_500);
+  });
+
+  it("is zero once a won dispute has been compensated", () => {
+    // Stripe bucht die Gebuehr bei Gewinn mit einer zweiten Zeile zurueck.
+    expect(disputeFeeCents([{ fee: 1_500 }, { fee: -1_500 }])).toBe(0);
+  });
+
+  it("never returns a negative amount", () => {
+    // Eine negative Forderung waere eine Gutschrift an den Veranstalter.
+    expect(disputeFeeCents([{ fee: -1_500 }])).toBe(0);
+  });
+
+  it("treats a missing or empty list as nothing to pass on", () => {
+    expect(disputeFeeCents([])).toBe(0);
+    expect(disputeFeeCents(null)).toBe(0);
+    expect(disputeFeeCents(undefined)).toBe(0);
+    expect(disputeFeeCents([{ fee: null }, {}])).toBe(0);
   });
 });

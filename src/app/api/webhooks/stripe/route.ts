@@ -3,12 +3,13 @@ import { after } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
-import { buildPayoutRow, claimWebhookEvent, computeAvailableAt, computeFeeSplit, resolveFeeCents } from "@/lib/payouts";
+import { buildPayoutRow, claimWebhookEvent, computeAvailableAt, computeFeeSplit, disputeFeeCents, resolveFeeCents } from "@/lib/payouts";
 import { subscriptionPlanFromStatus } from "@/lib/subscription";
 import { processMintJobs } from "@/lib/mintJobs";
 import { sendAdminAlert } from "@/lib/email";
 import { notifyWaitlistIfSeats } from "@/lib/waitlist";
 import { ensureGuestOrder } from "@/lib/guestOrders";
+import { bookChargebackFee } from "@/lib/platformFees";
 
 function appBaseUrl(): string {
   return process.env.APP_URL
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     "payout.paid",
     "payout.failed",
     "charge.dispute.created",
+    "charge.dispute.closed",
     "charge.refunded",
     "customer.subscription.created",
     "customer.subscription.updated",
@@ -434,6 +436,61 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           + `zu der sich keine Zahlung zuordnen liess. Manuell im Stripe-Dashboard prüfen.`,
       );
     }
+    return NextResponse.json({ received: true });
+  }
+
+  // The dispute is decided. Stripe's flat dispute fee is only really gone when
+  // the dispute was lost — a won one carries a compensating balance transaction
+  // — so the outcome, not the opening, is the moment to pass the cost on.
+  if (stripeEvent.type === "charge.dispute.closed") {
+    const dispute = stripeEvent.data.object as Stripe.Dispute;
+    const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id;
+    const feeCents = disputeFeeCents(dispute.balance_transactions);
+
+    const { data: payout } = await supabaseAdmin
+      .from("payouts")
+      .select("id, status, organizer_wallet, event_id, season_pass_id")
+      .eq("charge_id", chargeId)
+      .maybeSingle();
+
+    if (!payout) {
+      console.error(`Closed dispute ${dispute.id} for charge ${chargeId} with no payout row`);
+      alertAdmin(
+        `Chargeback abgeschlossen ohne Payout-Zeile; ${dispute.id}`,
+        `Dispute ${dispute.id} auf Charge ${chargeId} wurde mit Status ${dispute.status} `
+          + `geschlossen, liess sich aber keiner Zahlung zuordnen. Manuell pruefen.`,
+      );
+      return NextResponse.json({ received: true });
+    }
+
+    // Only the amount Stripe actually withheld, mirroring the cancellation
+    // path. `bookChargebackFee` skips a zero, so a won dispute books nothing.
+    const outcome = await bookChargebackFee({
+      organizerWallet: payout.organizer_wallet as string,
+      eventId: (payout.event_id as string | null) ?? null,
+      seasonPassId: (payout.season_pass_id as string | null) ?? null,
+      disputeId: dispute.id,
+      feeCents,
+      currency: dispute.currency ?? "eur",
+    });
+
+    // The payout status is deliberately NOT changed here. Releasing money is a
+    // human decision in this system (/admin/payouts); a webhook that quietly
+    // un-blocks a transfer would be the one place where it isn't.
+    alertAdmin(
+      `Chargeback ${dispute.status}; ${dispute.id}`,
+      `Dispute ${dispute.id} auf Charge ${chargeId} wurde als "${dispute.status}" geschlossen `
+        + `(Payout ${payout.id}, Status ${payout.status}).\n`
+        + (dispute.status === "won"
+          ? `Der Betrag kann im Admin freigegeben werden.`
+          : dispute.status === "lost"
+            ? `Der Betrag ist verloren; der Transfer bleibt blockiert.`
+            // warning_closed u. a.: kein Geld bewegt, aber der Payout haengt
+            // seit charge.dispute.created auf "disputed" und braucht eine Hand.
+            : `Kein Geldfluss, der Payout steht aber weiter auf "disputed".`)
+        + `\nStripe-Gebuehr: ${(feeCents / 100).toFixed(2)} ${(dispute.currency ?? "eur").toUpperCase()} `
+        + `(Weiterbelastung: ${outcome}).`,
+    );
     return NextResponse.json({ received: true });
   }
 
