@@ -107,7 +107,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider value={value}>
-      {children}
+      {/* Der Seiteninhalt tritt hinter den Anmeldedialog zurueck (`.auth-scene`
+          in globals.css). Elemente, die am Viewport haengen muessen und nicht
+          zur Seite gehoeren, stehen bewusst ausserhalb — siehe Providers.tsx. */}
+      <div className="auth-scene" data-dimmed={modalOpen}>{children}</div>
       {modalOpen && <LoginModal
         onClose={() => setModalOpen(false)}
         onSuccess={() => {

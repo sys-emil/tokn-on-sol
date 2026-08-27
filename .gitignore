@@ -54,3 +54,8 @@ ds-bundle/
 *.dc.html
 /passly-hero.html
 /Organizer Pro UI Inspo/
+
+# macOS/iCloud legt beim Ordner-Sync Kopien wie "LoginModal 2.tsx" an. Die sind
+# nie Quellcode, tauchen aber staendig im Status auf und wurden schon einmal
+# versehentlich eingecheckt.
+* [0-9].*
