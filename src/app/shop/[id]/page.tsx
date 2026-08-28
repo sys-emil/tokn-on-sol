@@ -107,6 +107,7 @@ const formatDate = (iso: string) =>
 const PAGE_CSS = `
   .shop-page {
     min-height: 100vh;
+    min-height: 100dvh;
     background: radial-gradient(1000px 500px at 50% -10%, var(--accent-wash), transparent 60%), var(--surface-2);
     display: flex; flex-direction: column; align-items: center;
     padding: 32px 20px 56px;
@@ -136,9 +137,18 @@ const PAGE_CSS = `
     white-space: pre-line;
   }
   .shop-rows { border-top: 1px solid var(--line); padding: 18px 24px; display: flex; flex-direction: column; gap: 12px; }
-  .shop-row { display: flex; align-items: center; justify-content: space-between; font-size: 13.5px; }
-  .shop-row .label { color: var(--ink-3); }
-  .shop-row .value { font-weight: 600; font-variant-numeric: tabular-nums; }
+  /* Umbruch statt Ueberlauf: rechts steht mal ein Preis, mal ein
+     Veranstaltername mit zwei Abzeichen daneben — auf dem Handy passt das
+     nicht immer in eine Zeile neben die Beschriftung. */
+  .shop-row {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 4px 12px; font-size: 13.5px;
+  }
+  .shop-row .label { color: var(--ink-3); min-width: 0; }
+  .shop-row .value {
+    font-weight: 600; font-variant-numeric: tabular-nums;
+    min-width: 0; text-align: right; overflow-wrap: anywhere;
+  }
   .shop-row .value.big { font-size: 19px; letter-spacing: -0.01em; }
   .shop-foot { border-top: 1px solid var(--line); padding: 20px 24px 24px; background: var(--surface-2); }
   .shop-passes { border-top: 1px solid var(--line); padding: 18px 24px; display: grid; gap: 10px; }

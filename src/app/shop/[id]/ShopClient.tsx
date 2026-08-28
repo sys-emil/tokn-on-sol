@@ -368,6 +368,10 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
           box-shadow: 0 0 0 1px var(--accent), var(--shadow-sm);
         }
         .tier-option:disabled { opacity: 0.55; cursor: default; }
+        /* Der Textblock darf schrumpfen, der Preis rechts nicht: ein langer
+           Kategoriename haette die Zeile sonst aus der Karte geschoben. */
+        .tier-option > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+        .tier-option .t-price { flex: none; }
         .tier-option .t-name { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; }
         .tier-option .t-left { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
         .tier-option .t-price {

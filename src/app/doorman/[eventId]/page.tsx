@@ -106,10 +106,20 @@ const PAGE_CSS = `
 
   .door-counters {
     padding: 12px 20px 0;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
     flex-shrink: 0;
   }
+  .door-counters.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* Drei Zaehler nebeneinander lassen auf einem schmalen Telefon je ~60px —
+     weniger, als „Eingelassen" ueberhaupt breit ist. Der letzte rutscht
+     deshalb in eine eigene Zeile, statt seitlich hinauszulaufen. */
+  @media (max-width: 430px) {
+    .door-counters { padding: 12px 14px 0; }
+    .door-counters.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .door-counters.three .door-counter:last-child { grid-column: 1 / -1; }
+  }
   .door-counter {
+    min-width: 0;
     padding: 10px 12px;
     background: var(--surface);
     border-radius: 10px;
@@ -777,7 +787,7 @@ export default function DoormanPage() {
             </div>
           </header>
 
-          <div className="door-counters" style={reentry?.enabled ? { gridTemplateColumns: '1fr 1fr 1fr' } : undefined}>
+          <div className={`door-counters${reentry?.enabled ? ' three' : ''}`}>
             <div className="door-counter">
               <div className="l">Eingelassen</div>
               <div className="v">{scannedToday}</div>

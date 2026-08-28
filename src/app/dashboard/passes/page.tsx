@@ -347,7 +347,7 @@ export default function PassesPage() {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="field-row">
                 <div className="field">
                   <label>Preis (€)</label>
                   <input

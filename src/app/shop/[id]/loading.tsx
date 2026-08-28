@@ -16,6 +16,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 const LOADING_CSS = `
   .shop-skeleton-page {
     min-height: 100vh;
+    min-height: 100dvh;
     background: radial-gradient(1000px 500px at 50% -10%, var(--accent-wash), transparent 60%), var(--surface-2);
     display: flex; flex-direction: column; align-items: center;
     padding: 32px 20px 56px;

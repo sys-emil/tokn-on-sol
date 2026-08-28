@@ -111,7 +111,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 const PAGE_CSS = `
   @keyframes sc-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
-  .sc-page { background: var(--surface-2); min-height: 100vh; display: flex; flex-direction: column; }
+  .sc-page { background: var(--surface-2); min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
   .sc-page .topbar-inner { height: 64px; padding: 0 32px; gap: 28px; }
   .sc-shell { max-width: 1100px; margin: 0 auto; padding: 0 32px; width: 100%; }
 

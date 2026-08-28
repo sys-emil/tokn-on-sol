@@ -9,7 +9,10 @@
  */
 export const TICKET_SHELL_CSS = `
   .ticket-canvas {
+    /* dvh, damit die Leiste des mobilen Browsers keine Seite erzeugt, die
+       hoeher ist als das, was tatsaechlich zu sehen ist. */
     min-height: 100vh;
+    min-height: 100dvh;
     display: grid; place-items: center;
     padding: 40px 20px;
     background:
@@ -38,5 +41,13 @@ export const TICKET_SHELL_CSS = `
     width: 18px; height: 18px; border-radius: 50%;
     background: var(--surface); border: 1px solid var(--accent-line);
     top: 50%; transform: translateY(-50%);
+  }
+
+  /* Auf schmalen Geraeten zaehlt jeder Millimeter Innenraum: der QR-Code
+     richtet sich nach ihm, und ein kleinerer Code ist ein schlechter
+     gescannter Code. */
+  @media (max-width: 400px) {
+    .ticket-canvas { padding: 24px 12px 32px; }
+    .ticket-body { margin: 0 12px; padding: 16px 14px; }
   }
 `;

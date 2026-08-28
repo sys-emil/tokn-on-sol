@@ -262,6 +262,15 @@ const PAGE_CSS = `
   }
   .tk-timeline-item:active { transform: scale(0.985); box-shadow: none; }
 
+  /* Zwei Knoepfe nebeneinander. Ein .btn bricht nie um, also braucht das Paar
+     zusammen gut 300px — mehr, als die Karte auf einem 360px-Geraet innen
+     hergibt. Darunter stehen sie deshalb untereinander. Gemessen wird die
+     Karte, nicht das Fenster: dieselbe Karte steht mobil ueber die volle
+     Breite und am Rechner in der schmalen rechten Spalte. */
+  .tk-front { container-type: inline-size; }
+  .tk-actions-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+  @container (max-width: 320px) { .tk-actions-2 { grid-template-columns: minmax(0, 1fr); } }
+
   /* ── Vorteile + Abzeichen ────────────────────────────────── */
   /* Mobil-zuerst eine Spalte. Nebeneinander lohnt sich erst, wenn beide
      Karten mindestens ~430px breit werden — darunter quetscht die
@@ -548,7 +557,7 @@ function TicketsSkeleton() {
         <div className="sk block" style={{ width: '92%', height: 34, borderRadius: 14, margin: '8px auto 0', opacity: 0.45 }} />
       </div>
 
-      <div className="card" style={{ padding: 22 }}>
+      <div className="card tk-front" style={{ padding: 22 }}>
         <div className="tk-lane-label">Dein nächstes Ticket</div>
         <div className="sk" style={{ width: '84%', height: 22, marginTop: 14 }} />
         <div style={{ display: 'grid', gap: 11, marginTop: 18 }}>
@@ -565,7 +574,7 @@ function TicketsSkeleton() {
         </div>
         <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
           <div className="sk block" style={{ width: '100%', height: 46 }} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div className="tk-actions-2">
             <div className="sk block" style={{ width: '100%', height: 38 }} />
             <div className="sk block" style={{ width: '100%', height: 38 }} />
           </div>
@@ -1440,7 +1449,7 @@ export default function MyTickets() {
                         <Link href={`/tickets/${frontTicket.assetId}`} className="btn primary lg" style={{ justifyContent: 'center' }}>
                           <Icon name="qr" size={17} /> QR am Einlass vorzeigen
                         </Link>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <div className="tk-actions-2">
                           <button
                             className="btn ghost"
                             style={{ justifyContent: 'center' }}

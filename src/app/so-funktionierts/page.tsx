@@ -139,6 +139,9 @@ const PAGE_CSS = `
   @media (max-width: 640px) {
     /* "Für Veranstalter" bleibt über Inhalt und Footer erreichbar */
     .topbar .btn.subtle { display: none; }
+    .info-hero { padding: 36px 0 32px; }
+    .info-cta { padding: 24px 20px; gap: 16px; }
+    .flow-step { gap: 14px; padding-bottom: 32px; }
   }
 
   @media (prefers-reduced-motion: reduce) {

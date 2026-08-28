@@ -519,11 +519,15 @@ section + section { margin-top: 36px; }
 .close-btn:hover { background: var(--surface-2); color: var(--ink); }
 
 /* Form */
-.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+/* `min-width: 0` ist hier tragend: als Raster- oder Flex-Kind erbt ein Feld
+   sonst die Mindestbreite seines Eingabefeldes (bei <input type="date"> gut
+   160 px), und zwei davon nebeneinander sprengen auf dem Handy die Karte. */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; min-width: 0; }
 .field label { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
 .field .hint { font-size: 11.5px; color: var(--ink-3); }
 .input, .textarea, .select {
   width: 100%;
+  min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--line-2);
   border-radius: 8px;
@@ -538,7 +542,11 @@ section + section { margin-top: 36px; }
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent);
 }
 .textarea { resize: vertical; min-height: 72px; }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+/* Untereinander statt gequetscht: zwei Datums-/Zahlenfelder nebeneinander
+   lassen auf einem 320-360px-Geraet je ~130px, weniger als ein natives
+   Datumsfeld ueberhaupt darstellen kann. */
+@media (max-width: 480px) { .field-row { grid-template-columns: minmax(0, 1fr); } }
 
 /* Date field; calendar icon prefix + weekday preview under a native
    <input type="date">, so it reads clearer without a custom picker. */
@@ -615,6 +623,10 @@ section + section { margin-top: 36px; }
 .seg {
   display: inline-flex; background: var(--surface-2);
   border: 1px solid var(--line); border-radius: 8px; padding: 2px;
+  /* Umbruch statt Ueberlauf: drei beschriftete Schalter („Gast zahlt“ /
+     „Halbe/Halbe“ / „Ich übernehme“) brauchen nebeneinander mehr Breite, als
+     ein Telefon dem Formular innen laesst. */
+  max-width: 100%; flex-wrap: wrap;
 }
 .seg button {
   padding: 5px 11px; font-size: 12.5px; color: var(--ink-3); font-weight: 500;
@@ -895,9 +907,14 @@ section + section { margin-top: 36px; }
   /* iOS Safari zooms into focused inputs below 16px; prevent the jump. */
   .input, .textarea, .select { font-size: 16px; }
   .section-head { flex-wrap: wrap; }
+  /* Karten- und Dialogkopf: Titel links, Aktion rechts. Nebeneinander passt
+     das auf dem Handy nicht immer in eine Zeile. */
+  .card-header, .modal-head { flex-wrap: wrap; }
   /* The create/edit drawer becomes a full-screen sheet; footer actions
      stretch so the primary action is an easy thumb target. */
   .drawer { width: 100%; border-left: none; }
+  .drawer-body { padding: 20px 16px; }
+  .drawer-foot { padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   .drawer-foot .btn { flex: 1; justify-content: center; }
 }
 

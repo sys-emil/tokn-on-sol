@@ -67,7 +67,12 @@ export default function TicketClient({ assetId }: { assetId: string }) {
 
         if (!cancelled && canvasRef.current) {
           await QRCode.toCanvas(canvasRef.current, payload, {
-            width: 240,
+            // Doppelte Aufloesung der groessten Darstellung (240 px): die
+            // Karte zeigt den Code je nach Geraet zwischen ~180 und 240 px
+            // breit, und ein herunterskaliertes Bild ist nur so scharf wie
+            // seine Vorlage. Unscharfe Module sind an der Tuer ein Scan, der
+            // nicht faellt.
+            width: 480,
             margin: 2,
             errorCorrectionLevel: 'M',
             color: { dark: '#23263c', light: '#ffffff' },
@@ -105,20 +110,30 @@ export default function TicketClient({ assetId }: { assetId: string }) {
   }, [ready, authenticated, assetId]);
 
   return (
-    <div style={{ width: 240 }}>
+    // Die Darstellung schrumpft mit der Karte statt fest bei 240 px zu
+    // stehen: auf einem 360-px-Geraet bleiben innerhalb der Ticketkarte nur
+    // gut 220 px, und ein starres Quadrat waere dort seitlich aus dem
+    // Bildschirm gelaufen. Gezeichnet wird trotzdem in voller Aufloesung.
+    <div className="qr-wrap">
       <style>{`
         @keyframes qrDrain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
         .qr-drain { transform-origin: left; animation: qrDrain 55s linear forwards; }
         @media (prefers-reduced-motion: reduce) { .qr-drain { animation: none; } }
+        .qr-wrap { width: 240px; max-width: 100%; }
+        .qr-stage { position: relative; width: 100%; aspect-ratio: 1 / 1; }
+        /* !important, weil qrcode.toCanvas dem Element nach dem Zeichnen
+           style.width/height in Pixeln direkt ins Attribut schreibt — eine
+           gewoehnliche Regel verliert dagegen. */
+        .qr-stage canvas { display: block; width: 100% !important; height: 100% !important; }
       `}</style>
-      <div style={{ position: 'relative', width: 240, height: 240 }}>
+      <div className="qr-stage">
         <canvas
           ref={canvasRef}
-          width={240}
-          height={240}
+          width={480}
+          height={480}
           role="img"
           aria-label="Dein persönlicher Einlass-Code, beim Einlass einscannen lassen"
-          style={{ display: 'block', opacity: status === 'loading' ? 0 : 1 }}
+          style={{ opacity: status === 'loading' ? 0 : 1 }}
         />
         {status !== 'ready' && (
           <div style={{
