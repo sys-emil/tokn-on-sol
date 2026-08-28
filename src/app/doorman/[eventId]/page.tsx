@@ -194,6 +194,43 @@ const PAGE_CSS = `
     margin: 0 auto 10px;
   }
 
+  /* Der Moment, fuer den die Tuersteher das Ding ueberhaupt benutzen. Er war
+     ein 0,2-Sekunden-Fade und damit das Unauffaelligste am ganzen Abend.
+     Jetzt waescht die Flaeche von der Mitte ein, der Kreis setzt sich mit
+     einem Hauch Ueberschwingen, und beim Einlass zeichnet sich der Haken.
+     Choreografiert ist nur die *Ankunft*: Farbe, Groessen und Texte sind
+     unveraendert — dieselbe Bewegung zeigt die Startseite.
+     Anders als dort laeuft es hier schnell. An der Tuer steht jemand mit
+     einer Schlange im Ruecken: die Aussage muss nach 200 ms stehen und darf
+     danach nur noch fertigschwingen. Der Ladezustand ("Wird geprueft") ist
+     ausgenommen, sein backdrop-filter vertraegt sich schlecht mit clip-path. */
+  .result-overlay.is-outcome {
+    animation: resultWash 0.2s cubic-bezier(.16, 1, .3, 1);
+  }
+  @keyframes resultWash {
+    from { clip-path: circle(0% at 50% 42%); }
+    to   { clip-path: circle(150% at 50% 42%); }
+  }
+  .is-outcome .result-circle {
+    animation: resultPop 0.24s cubic-bezier(.2, 1.5, .4, 1) 0.04s both;
+  }
+  @keyframes resultPop {
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+  .result-check path { stroke-dasharray: 1; stroke-dashoffset: 1; }
+  .is-outcome .result-check path {
+    animation: resultDraw 0.24s cubic-bezier(.16, 1, .3, 1) 0.11s forwards;
+  }
+  @keyframes resultDraw { to { stroke-dashoffset: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .result-overlay.is-outcome { animation: fadeIn 0.2s; }
+    .is-outcome .result-circle { animation: none; }
+    .result-check path { stroke-dashoffset: 0; }
+    .is-outcome .result-check path { animation: none; }
+  }
+
   .id-card {
     margin: 14px 0 4px;
     padding: 18px 16px;
@@ -845,7 +882,7 @@ export default function DoormanPage() {
             )}
 
             {phase.tag === 'result-valid' && phase.awaitConfirm && (
-              <div className="result-overlay" style={{ background: 'oklch(0.40 0.14 150)', placeItems: 'stretch', padding: 20 }}>
+              <div className="result-overlay is-outcome" style={{ background: 'oklch(0.40 0.14 150)', placeItems: 'stretch', padding: 20 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 360, margin: 'auto', textAlign: 'center' }}>
                   <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.85 }}>
                     Backup-Ticket · Ausweis abgleichen
@@ -877,10 +914,17 @@ export default function DoormanPage() {
             )}
 
             {phase.tag === 'result-valid' && !phase.awaitConfirm && (
-              <div className="result-overlay" style={{ background: phase.direction === 'out' ? 'oklch(0.42 0.11 250)' : 'oklch(0.40 0.14 150)' }}>
+              <div className="result-overlay is-outcome" style={{ background: phase.direction === 'out' ? 'oklch(0.42 0.11 250)' : 'oklch(0.40 0.14 150)' }}>
                 <div>
                   <div className="result-circle" style={{ color: phase.direction === 'out' ? 'oklch(0.52 0.14 250)' : 'var(--ok)' }}>
-                    <Icon name={phase.direction === 'out' ? 'arrow' : 'check'} size={40} strokeWidth={3} />
+                    {phase.direction === 'out' ? (
+                      <Icon name="arrow" size={40} strokeWidth={3} />
+                    ) : (
+                      <svg className="result-check" width={40} height={40} viewBox="0 0 24 24" fill="none"
+                           stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M5 12.5 L10 17.5 L19 6.5" pathLength={1} />
+                      </svg>
+                    )}
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em' }}>
                     {phase.direction === 'out' ? 'Ausgecheckt' : 'Willkommen!'}
@@ -907,7 +951,7 @@ export default function DoormanPage() {
             )}
 
             {phase.tag === 'result-used' && (
-              <div className="result-overlay" style={{ background: 'oklch(0.48 0.14 70)' }}>
+              <div className="result-overlay is-outcome" style={{ background: 'oklch(0.48 0.14 70)' }}>
                 <div>
                   <div className="result-circle" style={{ color: 'var(--warn)' }}>
                     <Icon name="clock" size={36} strokeWidth={2.5} />
@@ -921,7 +965,7 @@ export default function DoormanPage() {
             )}
 
             {phase.tag === 'result-cooldown' && (
-              <div className="result-overlay" style={{ background: 'oklch(0.48 0.14 70)' }}>
+              <div className="result-overlay is-outcome" style={{ background: 'oklch(0.48 0.14 70)' }}>
                 <div>
                   <div className="result-circle" style={{ color: 'var(--warn)' }}>
                     <Icon name="clock" size={36} strokeWidth={2.5} />
@@ -938,7 +982,7 @@ export default function DoormanPage() {
             )}
 
             {phase.tag === 'result-invalid' && (
-              <div className="result-overlay" style={{ background: 'oklch(0.42 0.18 25)' }}>
+              <div className="result-overlay is-outcome" style={{ background: 'oklch(0.42 0.18 25)' }}>
                 <div>
                   <div className="result-circle" style={{ color: 'var(--bad)' }}>
                     <Icon name="x" size={40} strokeWidth={3} />
