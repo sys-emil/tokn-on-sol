@@ -3,106 +3,78 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Die Tür-Szene auf der Startseite: zwei Geräte, scrollgesteuert.
+ * Die Tür-Szene auf der Startseite: zwei Geräte, in zwei Schritten.
  *
- * Das Tragende ist eine Zuordnung, die sich nicht durch Easing nachrüsten
- * lässt: **die Scrollgeste wird zur Handbewegung des Türstehers.** Man wischt
- * nach unten, das Tür-Handy senkt sich nach unten auf das Ticket. Deshalb
- * liegt das Ticket still und der Türsteher kommt zu ihm — der Gast hält sein
- * Handy hin, der Einlasser bewegt sich.
+ * **Zwei Schritte statt einer scrollgebundenen Bewegung.** Vorher hing jede
+ * Position am Scrollbalken — das JS schrieb eine Zahl pro Frame, und der
+ * Browser musste die Ebenen dabei laufend neu rastern. Das ruckelte auf
+ * beiden Seiten. Jetzt löst der Scroll nur noch *aus*:
  *
- * Zwei Steuerungen, bewusst gemischt:
- *  - **Am Scrollbalken** hängt der Anflug. Man schiebt die Geräte zusammen,
- *    das fühlt sich reaktiv an.
- *  - **Ausgelöst** ist der Erfolgsmoment. Er darf nicht davon abhängen, wie
- *    schnell jemand wischt: wer auf dem Handy einmal durchzieht, würde sonst
- *    in drei Frames durch die Pointe rasen.
+ *  1. Der erste Auslöser führt die Geräte übereinander.
+ *  2. Der zweite scannt.
  *
- * Zwei Regeln, ohne die es kippt:
- *  - **Das Einrasten friert auch den Anflug ein.** Sonst scrollt man hoch,
- *    die Geräte fahren auseinander und das Grün schwebt im Nichts.
- *  - **Einmal pro Seitenaufruf.** Kein Neuabspielen bei jedem Vorbeiscrollen;
- *    das ist der Unterschied zwischen einer Szene und einem Spielzeug.
+ * Beides sind CSS-Übergänge, die in ihrem eigenen Takt ablaufen. Damit gibt
+ * es während des Scrollens überhaupt keine Arbeit mehr zu tun, und die
+ * Bewegung ist so flüssig, wie der Compositor sie zeichnen kann.
  *
- * Die Türfläche ist ein Nachbau der echten: **hell**, mit Kopfzeile, den zwei
- * Zählern und nur dem Sucherfeld dunkel — genau wie /doorman/[eventId]. Ein
- * durchgehend dunkles Telefon sah nach Kamera-App aus und nach nichts, was
- * Passly baut. Die Ecken sitzen wie dort bei 14 %, und der Strahl ist der
- * violette aus `sweep`, kein weißer Einmal-Blitz.
+ * Ausgelöst wird über zwei unsichtbare Marken im hohen Abschnitt, beobachtet
+ * mit einem `IntersectionObserver`. Kein Scroll-Listener, kein
+ * `requestAnimationFrame`, keine Bibliothek.
  *
- * Beide Geräte stehen von Anfang an da. Nacheinander eingeblendet lasen sie
- * sich wie ein Ladevorgang statt wie eine Szene.
+ * **Die Schritte gehen nur vorwärts.** Wer hochscrollt, sieht das Ergebnis
+ * stehen bleiben — eine Szene, die zurückspult, ist ein Spielzeug.
  *
- * Technisch schreibt das JS **eine einzige Zahl pro Frame** (`--p`, 0→1) und
- * sonst nichts. Alle Wege, Maßstäbe und Blenden stehen als `calc()` in CSS.
- * Eine Scroll-Bibliothek für eine einzige Szene wäre 40 KB für das, was hier
- * zwölf Zeilen sind.
+ * Die Texte stehen dauerhaft. Sie ein- und wieder auszublenden erzeugte ein
+ * Fenster, in dem die Bühne leer war, und sie sind ohnehin die Erklärung zu
+ * dem, was daneben passiert.
+ *
+ * Die Türfläche ist ein Nachbau der echten: hell, mit Kopfzeile, den zwei
+ * Zählern und nur dem Sucherfeld dunkel — genau wie /doorman/[eventId].
+ * Die Ecken sitzen wie dort bei 14 %, der Strahl ist der violette aus `sweep`.
  */
 export function DoorScene() {
-  const sectionRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const cue1Ref = useRef<HTMLDivElement | null>(null);
+  const cue2Ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const section = sectionRef.current;
     const stage = stageRef.current;
-    if (!section || !stage) return;
+    const cues = [cue1Ref.current, cue2Ref.current];
+    if (!stage || !cues[0] || !cues[1]) return;
 
-    // Wer Bewegung abbestellt hat, bekommt den Endzustand: Geräte beieinander,
-    // grün, Haken. Die Geschichte liest sich auch als Standbild.
+    // Wer Bewegung abbestellt hat, bekommt den Endzustand als Standbild.
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      stage.style.setProperty('--p', '1');
-      stage.dataset.state = 'scanned';
+      stage.dataset.step = '2';
       return;
     }
 
-    let frame = 0;
-    let latched = false;
-
-    const measure = (): void => {
-      frame = 0;
-      const travel = section.offsetHeight - window.innerHeight;
-      // Ohne Reisestrecke gibt es nichts zu steuern — dann sofort der
-      // Endzustand, statt bei --p: 0 mit leerer Buehne stehenzubleiben.
-      const p = travel <= 0
-        ? 1
-        : Math.min(1, Math.max(0, -section.getBoundingClientRect().top / travel));
-
-      if (latched) return;
-      stage.style.setProperty('--p', p.toFixed(4));
-
-      // Ab hier läuft alles im eigenen Takt weiter, auch wenn der Finger
-      // stehen bleibt oder zurückwischt. `--p: 1` schiebt den Rest des
-      // Anflugs zu Ende; die Übergangszeit dafür setzt das CSS.
-      //
-      // Der Auslöser sitzt bewusst früh: hinter ihm liegen noch knapp 40 %
-      // der Scrollstrecke, in denen das fertige, eingelöste Ticket einfach
-      // stehen bleibt. Das ist der Moment, den man sich ansehen soll.
-      if (p >= 0.62) {
-        latched = true;
-        stage.dataset.state = 'scanned';
-        stage.style.setProperty('--p', '1');
-      }
+    let step = 0;
+    const advance = (to: number): void => {
+      if (to <= step) return;
+      step = to;
+      stage.dataset.step = String(to);
     };
 
-    const onScroll = (): void => {
-      if (!frame) frame = requestAnimationFrame(measure);
-    };
+    // Die obere Bildschirmhälfte ist der Beobachtungsbereich: eine Marke
+    // löst aus, sobald sie beim Herunterscrollen die Mitte erreicht.
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) advance(Number((e.target as HTMLElement).dataset.cue));
+        }
+      },
+      { rootMargin: '0px 0px -50% 0px' },
+    );
+    cues.forEach((c) => c && io.observe(c));
 
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    measure();
-
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      if (frame) cancelAnimationFrame(frame);
-    };
+    return () => io.disconnect();
   }, []);
 
   return (
-    <div className="scn" ref={sectionRef}>
+    <div className="scn">
       <style>{DOOR_SCENE_CSS}</style>
-      <div className="scn-stage" ref={stageRef}>
+
+      <div className="scn-stage" ref={stageRef} data-step="0">
 
         <div className="scn-text scn-text-door">
           <span className="sc-eyebrow">Deine Tür</span>
@@ -123,7 +95,7 @@ export function DoorScene() {
         </div>
 
         <div className="scn-phones">
-          {/* Ticket des Gastes — liegt ab dem Einrasten still. */}
+          {/* Ticket des Gastes — liegt ab Schritt 1 still. */}
           <div className="scn-phone scn-ticket">
             <div className="scn-screen">
               <div className="scn-tk-top">
@@ -201,12 +173,12 @@ export function DoorScene() {
             </div>
           </div>
         </div>
-
-        {/* Ohne diese Zeile steht die Bühne im Scan-Moment fast leer da: die
-            beiden Texte sind ausgeblendet, und die Geräte liegen übereinander. */}
-        <div className="scn-caption">Mehr passiert an der Tür nicht.</div>
-
       </div>
+
+      {/* Unsichtbare Auslöser. Sie liegen im hohen Abschnitt, nicht in der
+          klebenden Bühne — sonst wanderten sie beim Scrollen mit. */}
+      <div className="scn-cue" data-cue="1" ref={cue1Ref} style={{ top: '40%' }} />
+      <div className="scn-cue" data-cue="2" ref={cue2Ref} style={{ top: '57%' }} />
     </div>
   );
 }
@@ -256,40 +228,32 @@ function QrMark({ variant }: { variant: 0 | 1 | 2 }) {
 }
 
 const DOOR_SCENE_CSS = `
-  /* ── Bühne ───────────────────────────────────────────────────────────
-     Der Abschnitt ist hoch, die Bühne klebt darin. Die Reisestrecke ist
-     seine Höhe minus einem Bildschirm — daraus rechnet das JS die eine Zahl. */
-  .scn { height: 260vh; position: relative; }
+  /* ── Bühne ─────────────────────────────────────────────────────────── */
+  .scn { height: 240vh; position: relative; }
   .scn-stage {
     position: sticky; top: 0; height: 100vh; height: 100dvh;
     display: grid; place-items: center;
-    --p: 0;
 
-    /* Abschnittsweiser Fortschritt, jeweils 0→1 im eigenen Fenster. Danach
-       durch Smoothstep (t²·(3−2t)): eine lineare Zuordnung von Scroll zu Weg
-       ist die auffälligste Verräterin einer schnell gebauten Szene. */
-    --t-doortext: clamp(0, calc(var(--p) / 0.05), 1);
-    --t-tktext:   clamp(0, calc((var(--p) - 0.07) / 0.07), 1);
-    --t-out:      clamp(0, calc((var(--p) - 0.30) / 0.08), 1);
-    --t-lock:     clamp(0, calc((var(--p) - 0.32) / 0.14), 1);
-    --t-door:     clamp(0, calc((var(--p) - 0.46) / 0.16), 1);
-
-    --e-lock: calc(var(--t-lock) * var(--t-lock) * (3 - 2 * var(--t-lock)));
-    --e-door: calc(var(--t-door) * var(--t-door) * (3 - 2 * var(--t-door)));
-
-    /* Ruhelagen im Textabschnitt, danach Weg auf null. */
-    --rest-tx:  210px;   --rest-ty:  0px;
-    --rest-dx: -210px;   --rest-dy: -34px;
-    --scale: 1;
+    /* Ruhe- und Endlage je Gerät. Sie stehen als ganze Transformationen da,
+       nicht als Einzelwerte: zwischen zwei fertigen Transformationen kann der
+       Browser sauber überblenden, und mehr braucht es nicht mehr. */
+    --tk-rest: translate(calc(-50% + 16px + 180px), calc(-50% + 34px)) rotate(-3deg);
+    --tk-end:  translate(calc(-50% + 16px),         calc(-50% + 34px)) rotate(-3deg);
+    --dr-rest: translate(calc(-50% - 4px - 180px),  calc(-50% - 102px)) rotate(2.5deg);
+    --dr-end:  translate(calc(-50% - 4px),          calc(-50% - 77px))  rotate(2.5deg);
   }
+  .scn-cue { position: absolute; left: 0; right: 0; height: 1px; pointer-events: none; }
 
   .scn-phones { position: relative; width: 100%; height: 100%; }
 
   .scn-phone {
-    position: absolute; left: 50%; top: calc(50% + 40px); width: 240px;
+    position: absolute; left: 50%; top: calc(50% + 55px); width: 240px;
     border-radius: 30px; padding: 8px;
     background: linear-gradient(160deg, oklch(0.32 0.03 285), oklch(0.20 0.02 285));
     box-shadow: 0 26px 60px -16px rgba(17, 20, 45, 0.44), 0 5px 14px rgba(17, 20, 45, 0.15);
+    /* Nur die Transformation wechselt, und nur zweimal. Kein Wert wird pro
+       Frame geschrieben — das ist der ganze Unterschied zur alten Fassung. */
+    transition: transform 0.78s cubic-bezier(.16, 1, .3, 1);
     will-change: transform;
   }
   .scn-screen {
@@ -301,17 +265,10 @@ const DOOR_SCENE_CSS = `
     aspect-ratio: 9 / 19.5; display: flex; flex-direction: column;
   }
 
-  .scn-ticket {
-    transform:
-      translate(
-        calc(-50% + 16px + var(--rest-tx) * (1 - var(--e-lock))),
-        calc(-50% + 34px + var(--rest-ty) * (1 - var(--e-lock)))
-      )
-      rotate(-3deg) scale(var(--scale));
-  }
-  /* Türsteher: sitzt von Anfang an da und kommt zum Ticket. Sein Rahmen ist
-     bewusst ungefuellt und wird als innerer Ring gezeichnet — sonst liegt
-     hinter dem Sucherloch sein eigenes Gehaeuse statt des Tickets. */
+  .scn-ticket { transform: var(--tk-rest); }
+  /* Türsteher: kommt zum Ticket, mit einem Hauch Verzug. Der Versatz ist
+     Kausalität, nicht Zierrat — er reagiert auf das hingehaltene Ticket, und
+     das liest das Auge als Geschichte statt als zwei bewegte Objekte. */
   .scn-door {
     z-index: 2;
     background: none;
@@ -319,47 +276,22 @@ const DOOR_SCENE_CSS = `
       inset 0 0 0 8px oklch(0.24 0.025 285),
       0 26px 60px -16px rgba(17, 20, 45, 0.44),
       0 5px 14px rgba(17, 20, 45, 0.15);
-    transform:
-      translate(
-        calc(-50% - 4px + var(--rest-dx) * (1 - var(--e-door))),
-        calc(-50% - 77px + var(--rest-dy) * (1 - var(--e-door)))
-      )
-      rotate(2.5deg) scale(var(--scale));
+    transform: var(--dr-rest);
+    transition-delay: 0.16s;
   }
   .scn-door-screen { background: none; }
 
-  /* Nach dem Einrasten schiebt --p: 1 den Rest des Anflugs zu Ende — dieser
-     letzte Zentimeter gehört zum Moment und nicht mehr zum Finger. */
-  .scn-stage[data-state="scanned"] .scn-phone {
-    transition: transform 0.55s cubic-bezier(.16, 1, .3, 1);
-  }
+  .scn-stage[data-step="1"] .scn-ticket,
+  .scn-stage[data-step="2"] .scn-ticket { transform: var(--tk-end); }
+  .scn-stage[data-step="1"] .scn-door,
+  .scn-stage[data-step="2"] .scn-door { transform: var(--dr-end); }
 
-  /* ── Texte ───────────────────────────────────────────────────────── */
-  .scn-text {
-    position: absolute; width: clamp(210px, 17vw, 260px);
-    will-change: transform, opacity;
-  }
+  /* ── Texte — dauerhaft sichtbar ──────────────────────────────────── */
+  .scn-text { position: absolute; width: clamp(200px, 15vw, 240px); }
   .scn-text h3 { font-size: 21px; font-weight: 620; letter-spacing: -0.03em; line-height: 1.2; }
   .scn-text p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: 10px; }
-  .scn-text-door {
-    left: 0; top: 32%;
-    opacity: calc(var(--t-doortext) * (1 - var(--t-out)));
-    transform: translateY(calc(-50% + (1 - var(--t-doortext)) * 14px - var(--t-out) * 12px));
-  }
-  .scn-text-ticket {
-    right: 0; top: 64%; text-align: right;
-    opacity: calc(var(--t-tktext) * (1 - var(--t-out)));
-    transform: translateY(calc(-50% + (1 - var(--t-tktext)) * 14px - var(--t-out) * 12px));
-  }
-
-  /* Trägt den Scan-Moment, in dem die beiden Texte schon weg sind. */
-  .scn-caption {
-    position: absolute; bottom: 4%; left: 50%;
-    font-size: 14px; font-weight: 500; color: var(--ink-3);
-    white-space: nowrap;
-    opacity: var(--e-door);
-    transform: translateX(-50%) translateY(calc((1 - var(--e-door)) * 8px));
-  }
+  .scn-text-door   { left: 0;  top: 32%; transform: translateY(-50%); }
+  .scn-text-ticket { right: 0; top: 64%; transform: translateY(-50%); text-align: right; }
 
   /* ── Ticketfläche ────────────────────────────────────────────────── */
   .scn-tk-top { padding: 18px 16px 12px; }
@@ -384,13 +316,10 @@ const DOOR_SCENE_CSS = `
     position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0;
     animation: scnQrShow 12s step-end infinite;
   }
-  /* Drei Muster teilen sich einen 12-Sekunden-Takt, jedes vier Sekunden.
-     Negative Verzögerungen setzen sie versetzt in denselben Takt. */
+  /* Drei Muster teilen sich einen 12-Sekunden-Takt, jedes vier Sekunden. */
   .scn-qr-mark[data-variant="1"] { animation-delay: -8s; }
   .scn-qr-mark[data-variant="2"] { animation-delay: -4s; }
   @keyframes scnQrShow { 0% { opacity: 1; } 33.34%, 100% { opacity: 0; } }
-  /* Ein Schlag beim Wechsel: harter Austausch sieht nach Fehler aus,
-     Überblendung nach Matsch. */
   @keyframes scnQrTick { 0% { transform: scale(0.98); } 7%, 100% { transform: scale(1); } }
 
   .scn-tk-drain {
@@ -412,8 +341,6 @@ const DOOR_SCENE_CSS = `
   .scn-tk-rows > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .scn-tk-rows b { font-weight: 600; color: var(--ink-2); }
   .scn-tk-rows .mono { font-family: var(--mono); }
-  /* Die zwei Knoepfe stehen so auch auf der echten Ticketseite und schliessen
-     die Flaeche, die sonst unter den Zeilen leer blieb. */
   .scn-tk-actions {
     margin-top: auto; padding: 0 16px 16px;
     display: grid; gap: 6px; font-size: 9.5px; font-weight: 500;
@@ -497,7 +424,7 @@ const DOOR_SCENE_CSS = `
     font-size: 9px; color: var(--ink-3);
   }
 
-  /* ── Der Moment ──────────────────────────────────────────────────── */
+  /* ── Schritt 2: der Moment ───────────────────────────────────────── */
   .scn-result {
     position: absolute; inset: 0; z-index: 4;
     border-radius: 18px;
@@ -506,8 +433,8 @@ const DOOR_SCENE_CSS = `
     color: #fff; text-align: center; padding: 14px;
     clip-path: circle(0% at 50% 45%);
   }
-  .scn-stage[data-state="scanned"] .scn-result {
-    animation: scnWash 0.28s cubic-bezier(.16, 1, .3, 1) 0.9s forwards;
+  .scn-stage[data-step="2"] .scn-result {
+    animation: scnWash 0.28s cubic-bezier(.16, 1, .3, 1) 0.62s forwards;
   }
   @keyframes scnWash { to { clip-path: circle(140% at 50% 45%); } }
 
@@ -518,13 +445,12 @@ const DOOR_SCENE_CSS = `
     transform: scale(0.4); opacity: 0;
   }
   .scn-check svg { width: 28px; height: 28px; }
-  /* Der Haken zeichnet sich, statt einfach dazustehen. */
   .scn-check path { stroke-dasharray: 1; stroke-dashoffset: 1; }
-  .scn-stage[data-state="scanned"] .scn-check {
-    animation: scnCheckIn 0.42s cubic-bezier(.2, 1.5, .4, 1) 1.02s forwards;
+  .scn-stage[data-step="2"] .scn-check {
+    animation: scnCheckIn 0.42s cubic-bezier(.2, 1.5, .4, 1) 0.74s forwards;
   }
-  .scn-stage[data-state="scanned"] .scn-check path {
-    animation: scnDraw 0.4s cubic-bezier(.16, 1, .3, 1) 1.2s forwards;
+  .scn-stage[data-step="2"] .scn-check path {
+    animation: scnDraw 0.4s cubic-bezier(.16, 1, .3, 1) 0.92s forwards;
   }
   @keyframes scnCheckIn { to { transform: scale(1); opacity: 1; } }
   @keyframes scnDraw { to { stroke-dashoffset: 0; } }
@@ -534,63 +460,50 @@ const DOOR_SCENE_CSS = `
     font-size: 9.5px; margin-top: 4px; font-weight: 600;
     letter-spacing: 0.08em; text-transform: uppercase; opacity: 0;
   }
-  .scn-stage[data-state="scanned"] .scn-welcome { animation: scnRise 0.34s cubic-bezier(.16, 1, .3, 1) 1.5s forwards; }
-  .scn-stage[data-state="scanned"] .scn-admit   { animation: scnRise 0.34s cubic-bezier(.16, 1, .3, 1) 1.6s forwards; }
+  .scn-stage[data-step="2"] .scn-welcome { animation: scnRise 0.34s cubic-bezier(.16, 1, .3, 1) 1.2s forwards; }
+  .scn-stage[data-step="2"] .scn-admit   { animation: scnRise 0.34s cubic-bezier(.16, 1, .3, 1) 1.3s forwards; }
   @keyframes scnRise { from { opacity: 0; transform: translateY(5px); } to { opacity: 0.9; transform: none; } }
 
-  /* ── Mobil: hochkant untereinander ───────────────────────────────────
-     Zwei hochkante Geräte in voller Größe passen vertikal nicht. Während der
-     Textphase stehen sie deshalb kleiner und wachsen beim Einrasten auf volle
-     Größe — genau dann, wenn das Ticket zum Hauptdarsteller wird. */
+  /* ── Gestapelt: Tablet und Handy ─────────────────────────────────────
+     Die dreispaltige Anordnung (Text | Geräte | Text) braucht rund 1180px.
+     Darunter stehen beide Texte oben und die Geräte darunter — mittig, damit
+     das fertige Bild aus zwei übereinanderliegenden Geräten auch wirklich in
+     der Mitte steht und nicht an den Rand gedrückt wird. */
   @media (max-width: 1180px) {
-    .scn { height: 340vh; }
+    .scn { height: 260vh; }
     .scn-stage {
-      /* 0,80 statt 0,52: die Geraete waren auf dem Handy verloren. Damit sie
-         in dieser Groesse untereinander passen, laeuft das Ticket in der
-         Textphase unten aus dem Bild — sein Kopf mit Name und Code ist das,
-         worauf es ankommt, die Knoepfe darunter sind Beiwerk. Ein
-         angeschnittenes Geraet wirkt ohnehin groesser als ein vollstaendiges
-         in Briefmarkengroesse. */
-      --rest-tx: 0px;    --rest-ty: 200px;
-      --rest-dx: 0px;    --rest-dy: -85px;
-      --scale: calc(0.80 + 0.20 * var(--e-lock));
+      --tk-rest: translate(calc(-50% + 16px), calc(-50% + 34px + 240px)) rotate(-3deg) scale(0.8);
+      --tk-end:  translate(calc(-50% + 16px), calc(-50% + 34px))         rotate(-3deg) scale(1);
+      --dr-rest: translate(calc(-50% - 4px),  calc(-50% - 77px - 60px))  rotate(2.5deg) scale(0.8);
+      --dr-end:  translate(calc(-50% - 4px),  calc(-50% - 77px))         rotate(2.5deg) scale(1);
     }
-    .scn-text { width: 170px; max-width: 46vw; left: 0; right: auto; text-align: left; }
-    .scn-text h3 { font-size: 16px; letter-spacing: -0.02em; }
-    /* Auf dem kleinen Schirm trägt das Bild, nicht der Satz. */
-    .scn-text p { display: none; }
-    .scn-text-door   { top: 26%; transform: translateY(calc((1 - var(--t-doortext)) * 12px - var(--t-out) * 10px)); }
-    .scn-text-ticket { top: 68%; transform: translateY(calc((1 - var(--t-tktext)) * 12px - var(--t-out) * 10px)); }
-    .scn-phones { margin-left: 26%; width: 74%; }
-    /* Weichere Schatten auf dem Handy: die Geraete werden waehrend des
-       Einrastens skaliert, und jede Skalierung zwingt den Browser, ihre Ebene
-       neu zu rastern — ein 60px-Schatten macht das spuerbar teurer. */
-    .scn-phone {
-      box-shadow: 0 14px 30px -12px rgba(17, 20, 45, 0.38), 0 3px 8px rgba(17, 20, 45, 0.12);
+    /* Beide Texte stehen oben und mittig, die Geräte darunter — nur so steht
+       das fertige Bild aus zwei übereinanderliegenden Geräten wirklich in der
+       Mitte und wird nicht von einer Textspalte an den Rand gedrückt.
+       Eyebrow und Fliesstext entfallen: das vertikale Budget einer 800px-Bühne
+       ist nach Kopfleiste (60) und Endbild (583) fast aufgebraucht, und auf
+       dem kleinen Schirm traegt ohnehin das Bild. */
+    .scn-text {
+      width: min(420px, 88vw); left: 50%; right: auto;
+      transform: translateX(-50%); text-align: center;
     }
-    .scn-door {
-      box-shadow:
-        inset 0 0 0 8px oklch(0.24 0.025 285),
-        0 14px 30px -12px rgba(17, 20, 45, 0.38),
-        0 3px 8px rgba(17, 20, 45, 0.12);
-    }
-    .scn-caption { font-size: 12.5px; bottom: 4%; white-space: normal; text-align: center; width: 78%; }
+    .scn-text h3 { font-size: 17px; }
+    .scn-text p, .scn-text .sc-eyebrow { display: none; }
+    .scn-text-door   { top: 74px; transform: translateX(-50%); }
+    .scn-text-ticket { top: 104px; transform: translateX(-50%); }
+    /* Die Geräte rücken unter die Texte, bleiben aber waagerecht mittig. */
+    .scn-phone { top: calc(50% + 109px); }
   }
-
-  /* Echte Telefone: bei 402px Breite stehen sich Textspalte und Geraet sonst
-     auf den Fuessen. Der Text wird schmaler, die Geraetespalte rueckt weiter
-     nach rechts — die Groesse bleibt, weil genau die gefehlt hat. */
   @media (max-width: 480px) {
-    .scn-text { width: 140px; max-width: 38vw; }
-    .scn-text h3 { font-size: 15px; }
-    .scn-phones { margin-left: 34%; width: 66%; }
-    .scn-caption { width: 86%; font-size: 12px; }
+    .scn-text h3 { font-size: 15.5px; }
+    .scn-text-ticket { top: 102px; }
   }
 
   /* Ohne Bewegung: Endzustand. Die Geschichte liest sich auch als Standbild. */
   @media (prefers-reduced-motion: reduce) {
     .scn { height: auto; }
-    .scn-stage { position: static; height: 620px; }
+    .scn-stage { position: static; height: 660px; }
+    .scn-phone { transition: none; }
     .scn-qr, .scn-qr-mark, .scn-tk-drain > span, .scn-beam::after,
     .scn-result, .scn-check, .scn-check path,
     .scn-welcome, .scn-admit { animation: none !important; }
@@ -599,6 +512,5 @@ const DOOR_SCENE_CSS = `
     .scn-check { transform: none; opacity: 1; }
     .scn-check path { stroke-dashoffset: 0; }
     .scn-welcome, .scn-admit { opacity: 0.9; }
-    .scn-phone { transition: none !important; }
   }
 `;
