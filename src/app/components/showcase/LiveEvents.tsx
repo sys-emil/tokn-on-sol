@@ -92,7 +92,7 @@ export async function LiveEvents() {
         <div>
           <h2>Diese Abende laufen gerade über Passly</h2>
           <div className="sub">
-            Öffentlich gestellte Events landen zusätzlich hier — du entscheidest je Event,
+            Öffentlich gestellte Events landen zusätzlich hier. Du entscheidest je Event,
             ob deins dabei ist.
           </div>
         </div>

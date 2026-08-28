@@ -403,7 +403,7 @@ export default function Home() {
                   <ul className="sc-points">
                     <li><Icon name="check" size={14} /> Karte, PayPal, Apple&nbsp;Pay und Google&nbsp;Pay</li>
                     <li><Icon name="check" size={14} /> Preiskategorien, Kontingente, Rabattcodes</li>
-                    <li><Icon name="check" size={14} /> Kaufen ohne Konto — das legt dein Gast später an</li>
+                    <li><Icon name="check" size={14} /> Kaufen ohne Konto, das legt dein Gast später an</li>
                     <li><Icon name="check" size={14} /> Für dich kostenlos, ohne Grundgebühr und Vertrag</li>
                   </ul>
                 </div>
@@ -443,7 +443,7 @@ export default function Home() {
                   <span className="sc-eyebrow">Deine Zahlen</span>
                   <h3>Und du siehst, wie der Abend steht.</h3>
                   <p>
-                    Zum ersten Mal weißt du vorher, wie voll es wird — und hinterher, wer
+                    Zum ersten Mal weißt du vorher, wie voll es wird. Und hinterher, wer
                     wirklich da war. Die Zahlen entstehen nebenbei, du machst nichts anders.
                   </p>
                   <ul className="sc-points">
@@ -492,7 +492,7 @@ export default function Home() {
                   <h2>Wenn du deine Gäste wiedersehen willst</h2>
                   <div className="sub">
                     Deine Zahlen oben beantworten „wer kommt?“ und bleiben kostenlos.
-                    Pro beantwortet „wer kommt wieder?“ — wenn aus einzelnen Abenden ein
+                    Pro beantwortet „wer kommt wieder?“, sobald aus einzelnen Abenden ein
                     Publikum wird.
                   </div>
                   <div className="pro-price">

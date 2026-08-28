@@ -85,14 +85,18 @@ export const SHOWCASE_CSS = `
   .scn-facts + .sc-chapter { margin-top: 104px; padding-top: 104px; border-top: 1px solid var(--line); }
   .sc-chapter + .scn { margin-top: 96px; }
   .sc-chapter.flip .sc-media { order: -1; }
+  /* Die drei Kapitelnamen sind Unterueberschriften, keine Eyebrows: sie
+     wiederholen die drei Teile der Kopfzeile und gliedern damit die Seite.
+     Als 11,5px-Versalzeile waren sie zu leise, um als Abschnittsmarke gelesen
+     zu werden, und der Aufbau wirkte unuebersichtlich. */
   .sc-eyebrow {
-    display: block; font-size: 11.5px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-ink);
-    margin-bottom: 12px;
+    display: block; font-size: clamp(22px, 2.4vw, 27px); font-weight: 650;
+    letter-spacing: -0.025em; line-height: 1.2; color: var(--accent-ink);
+    margin-bottom: 8px;
   }
   .sc-copy h3 {
-    font-size: clamp(22px, 2.6vw, 28px); font-weight: 620;
-    letter-spacing: -0.03em; line-height: 1.15;
+    font-size: clamp(16.5px, 1.7vw, 19px); font-weight: 560;
+    letter-spacing: -0.02em; line-height: 1.3; color: var(--ink);
   }
   .sc-copy > p { font-size: 14.5px; color: var(--ink-3); line-height: 1.65; margin-top: 12px; max-width: 46ch; }
   .sc-points { list-style: none; display: flex; flex-direction: column; gap: 9px; margin-top: 20px; }

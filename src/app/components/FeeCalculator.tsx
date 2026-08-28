@@ -138,7 +138,7 @@ export function FeeCalculator({ quantity = 100 }: { quantity?: number }) {
                   : `${euro(buyerCents)} Gast · ${euro(organizerCents)} du`}
               </span>
             </span>
-            <span className="val">{unitCents === 0 ? '—' : euro(feeCents)}</span>
+            <span className="val">{unitCents === 0 ? 'keine' : euro(feeCents)}</span>
           </div>
           <div className="fee-row">
             <span>Dein Gast zahlt</span>

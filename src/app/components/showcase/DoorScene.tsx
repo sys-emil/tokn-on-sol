@@ -288,7 +288,7 @@ const DOOR_SCENE_CSS = `
 
   /* ── Texte — dauerhaft sichtbar ──────────────────────────────────── */
   .scn-text { position: absolute; width: clamp(200px, 15vw, 240px); }
-  .scn-text h3 { font-size: 21px; font-weight: 620; letter-spacing: -0.03em; line-height: 1.2; }
+  .scn-text h3 { font-size: 18px; font-weight: 560; letter-spacing: -0.02em; line-height: 1.3; }
   .scn-text p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: 10px; }
   .scn-text-door   { left: 0;  top: 32%; transform: translateY(-50%); }
   .scn-text-ticket { right: 0; top: 64%; transform: translateY(-50%); text-align: right; }
@@ -487,7 +487,7 @@ const DOOR_SCENE_CSS = `
       width: min(420px, 88vw); left: 50%; right: auto;
       transform: translateX(-50%); text-align: center;
     }
-    .scn-text h3 { font-size: 17px; }
+    .scn-text h3 { font-size: 16px; font-weight: 600; }
     .scn-text p, .scn-text .sc-eyebrow { display: none; }
     .scn-text-door   { top: 74px; transform: translateX(-50%); }
     .scn-text-ticket { top: 104px; transform: translateX(-50%); }
@@ -495,7 +495,7 @@ const DOOR_SCENE_CSS = `
     .scn-phone { top: calc(50% + 109px); }
   }
   @media (max-width: 480px) {
-    .scn-text h3 { font-size: 15.5px; }
+    .scn-text h3 { font-size: 15px; font-weight: 600; }
     .scn-text-ticket { top: 102px; }
   }
 
