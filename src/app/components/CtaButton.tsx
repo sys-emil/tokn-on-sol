@@ -2,6 +2,7 @@
 
 import { useLogin, useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { postLoginDestination } from '@/lib/postLogin';
 
 interface CtaButtonProps {
   className?: string;
@@ -9,17 +10,17 @@ interface CtaButtonProps {
 
 // Deliberately no auto-redirect for authenticated visitors; logged-in users
 // must be able to browse the landing page (logo links back to "/"). Only an
-// actively completed login (onComplete) navigates to the ticket overview.
+// actively completed login (onComplete) navigates onwards — ins Dashboard bei
+// freigeschalteten Veranstaltern, sonst zur Ticketuebersicht.
 export default function CtaButton({ className }: CtaButtonProps) {
   const { ready, authenticated } = useAuth();
   const router = useRouter();
-  const { login } = useLogin({
-    onComplete: () => router.push('/my-tickets'),
-  });
+  const go = () => { void postLoginDestination().then((to) => router.push(to)); };
+  const { login } = useLogin({ onComplete: go });
 
   function handleClick() {
     if (authenticated) {
-      router.push('/my-tickets');
+      go();
       return;
     }
     login();
