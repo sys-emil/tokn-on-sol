@@ -197,6 +197,15 @@ const PAGE_CSS = `
   }
   .trust-item .label { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
 
+  /* Die Startseite ist lang; die 36px aus globals.css liessen ihre Abschnitte
+     ineinanderlaufen. Hier bekommt jeder Abschnitt Luft und eine Haarlinie. */
+  .container > section + section {
+    margin-top: 88px; padding-top: 88px; border-top: 1px solid var(--line);
+  }
+  @media (max-width: 700px) {
+    .container > section + section { margin-top: 56px; padding-top: 56px; }
+  }
+
   /* ── Showcase: die drei Kapitel ──────────────────────────── */
   ${SHOP_CARD_CSS}
   ${SHOWCASE_CSS}

@@ -79,7 +79,11 @@ export const SHOWCASE_CSS = `
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 56px; align-items: center;
   }
-  .sc-chapter + .sc-chapter { margin-top: 72px; }
+  /* Sichtbare Zaesur zwischen den Kapiteln: ohne sie liefen Bild, Belege und
+     naechste Ueberschrift zu einem Block zusammen. */
+  .sc-chapter + .sc-chapter,
+  .scn-facts + .sc-chapter { margin-top: 104px; padding-top: 104px; border-top: 1px solid var(--line); }
+  .sc-chapter + .scn { margin-top: 96px; }
   .sc-chapter.flip .sc-media { order: -1; }
   .sc-eyebrow {
     display: block; font-size: 11.5px; font-weight: 600;
@@ -100,7 +104,9 @@ export const SHOWCASE_CSS = `
   .sc-media { min-width: 0; }
   @media (max-width: 900px) {
     .sc-chapter { grid-template-columns: minmax(0, 1fr); gap: 30px; }
-    .sc-chapter + .sc-chapter { margin-top: 56px; }
+    .sc-chapter + .sc-chapter,
+    .scn-facts + .sc-chapter { margin-top: 64px; padding-top: 64px; }
+    .sc-chapter + .scn { margin-top: 56px; }
     /* Gestapelt steht der Text immer zuerst; die Reihenfolge von der
        Breitansicht wuerde hier nur die Lesefolge zerreissen. */
     .sc-chapter.flip .sc-media { order: 0; }
@@ -108,18 +114,31 @@ export const SHOWCASE_CSS = `
 
   /* ── Belege unter der Tuer-Szene ─────────────────────────────
      Vier Zeilen statt vier Stichpunkte neben einem Bild: die Szene hat den
-     Platz daneben schon verbraucht. */
+     Platz daneben schon verbraucht. Als abgesetzte Karte, weil sie sonst
+     ohne Halt zwischen Szene und naechstem Kapitel schwebten. */
   .scn-facts {
-    list-style: none; display: grid; gap: 10px 26px;
+    list-style: none; display: grid; gap: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin: 30px auto 0; max-width: 780px;
+    margin: 44px auto 0; max-width: 820px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow);
+    overflow: hidden;
   }
   .scn-facts li {
-    display: flex; gap: 10px; align-items: flex-start;
-    font-size: 13.5px; color: var(--ink-2); line-height: 1.55;
+    display: flex; gap: 11px; align-items: flex-start;
+    padding: 16px 20px;
+    font-size: 13.5px; color: var(--ink-2); line-height: 1.5;
+    border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
   }
-  .scn-facts svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
-  @media (max-width: 700px) { .scn-facts { grid-template-columns: minmax(0, 1fr); margin-top: 22px; } }
+  .scn-facts li:nth-child(2n) { border-right: none; }
+  .scn-facts li:nth-last-child(-n+2) { border-bottom: none; }
+  .scn-facts svg { color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+  @media (max-width: 700px) {
+    .scn-facts { grid-template-columns: minmax(0, 1fr); }
+    .scn-facts li { border-right: none; }
+    .scn-facts li:nth-last-child(-n+2) { border-bottom: 1px solid var(--line); }
+    .scn-facts li:last-child { border-bottom: none; }
+  }
 
   /* ── Zahlen: Dashboard ───────────────────────────────────── */
   .dbm {
