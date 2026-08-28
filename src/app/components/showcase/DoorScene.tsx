@@ -88,6 +88,7 @@ export function DoorScene() {
 
   return (
     <div className="scn" ref={sectionRef}>
+      <style>{DOOR_SCENE_CSS}</style>
       <div className="scn-stage" ref={stageRef}>
 
         <div className="scn-text scn-text-door">
@@ -126,6 +127,11 @@ export function DoorScene() {
                     den Zeitraffer ehrlich: der Betrachter sieht den
                     Mechanismus, der Text daneben nennt die echte Minute. */}
                 <div className="scn-tk-drain"><span /></div>
+              </div>
+              <div className="scn-tk-hint">Zeig den Code am Einlass</div>
+              <div className="scn-tk-rows">
+                <div><span>Kategorie</span><b>Frühbucher</b></div>
+                <div><span>Ort</span><b>Halle 7</b></div>
               </div>
               <div className="scn-tk-foot">
                 <span>Einlass 20:00</span>
@@ -215,7 +221,7 @@ function QrMark({ variant }: { variant: 0 | 1 | 2 }) {
   );
 }
 
-export const DOOR_SCENE_CSS = `
+const DOOR_SCENE_CSS = `
   /* ── Bühne ───────────────────────────────────────────────────────────
      Der Abschnitt ist hoch, die Bühne klebt darin. Die Reisestrecke ist
      seine Höhe minus einem Bildschirm — daraus rechnet das JS \`--p\`. */
@@ -241,22 +247,27 @@ export const DOOR_SCENE_CSS = `
 
     /* Ruhelagen im Textabschnitt, danach Weg auf null. Desktop: das Ticket
        kommt von rechts, der Türsteher von links oben. */
-    --rest-tx:  300px;   --rest-ty:  0px;
-    --enter-tx: 220px;   --enter-ty: 0px;
-    --rest-dx: -300px;   --rest-dy: -130px;
+    --rest-tx:  170px;   --rest-ty:  0px;
+    --enter-tx: 260px;   --enter-ty: 0px;
+    --rest-dx: -170px;   --rest-dy: -60px;
     --scale: 1;
   }
 
   .scn-phones { position: relative; width: 100%; height: 100%; }
 
   .scn-phone {
-    position: absolute; left: 50%; top: 50%; width: 195px;
+    position: absolute; left: 50%; top: calc(50% + 22px); width: 195px;
     border-radius: 26px; padding: 7px;
     background: linear-gradient(160deg, oklch(0.32 0.03 285), oklch(0.20 0.02 285));
     box-shadow: 0 22px 50px -14px rgba(17, 20, 45, 0.42), 0 4px 12px rgba(17, 20, 45, 0.14);
     will-change: transform;
   }
   .scn-screen {
+    /* position: relative ist tragend. Ohne es beziehen sich die absolut
+       gesetzten Kinder (Sucher, Ergebnis) auf das ganze Geraet statt auf den
+       Bildschirm — das gruene Feld lief dann ueber den Rahmen hinaus und
+       bekam eckige Ecken, weil overflow: hidden es gar nicht erfasste. */
+    position: relative;
     border-radius: 20px; overflow: hidden; background: var(--surface);
     aspect-ratio: 9 / 19.5; display: flex; flex-direction: column;
   }
@@ -272,9 +283,17 @@ export const DOOR_SCENE_CSS = `
       rotate(-3deg) scale(var(--scale));
     opacity: var(--t-in);
   }
-  /* Türsteher: sitzt von Anfang an da und kommt zum Ticket. */
+  /* Türsteher: sitzt von Anfang an da und kommt zum Ticket.
+     Sein Rahmen ist bewusst ungefuellt und wird als innerer Ring gezeichnet —
+     sonst liegt hinter dem Sucherloch sein eigenes Gehaeuse statt des
+     Tickets, und der ganze Durchblick ist keiner. */
   .scn-door {
     z-index: 2;
+    background: none;
+    box-shadow:
+      inset 0 0 0 7px oklch(0.24 0.025 285),
+      0 22px 50px -14px rgba(17, 20, 45, 0.42),
+      0 4px 12px rgba(17, 20, 45, 0.14);
     transform:
       translate(
         calc(-50% - 6px + var(--rest-dx) * (1 - var(--e-door))),
@@ -291,18 +310,18 @@ export const DOOR_SCENE_CSS = `
 
   /* ── Texte ───────────────────────────────────────────────────────── */
   .scn-text {
-    position: absolute; width: 300px; max-width: 40vw;
+    position: absolute; width: 264px; max-width: 34vw;
     will-change: transform, opacity;
   }
   .scn-text h3 { font-size: 21px; font-weight: 620; letter-spacing: -0.03em; line-height: 1.2; }
   .scn-text p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: 10px; }
   .scn-text-door {
-    left: 0; top: 50%;
+    left: 0; top: 34%;
     opacity: calc(var(--t-doortext) * (1 - var(--t-out)));
     transform: translateY(calc(-50% + (1 - var(--t-doortext)) * 16px - var(--t-out) * 14px));
   }
   .scn-text-ticket {
-    right: 0; top: 50%; text-align: right;
+    right: 0; top: 62%; text-align: right;
     opacity: calc(var(--t-in) * (1 - var(--t-out)));
     transform: translateY(calc(-50% + (1 - var(--t-in)) * 16px - var(--t-out) * 14px));
   }
@@ -345,6 +364,18 @@ export const DOOR_SCENE_CSS = `
   }
   @keyframes scnDrain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
+  /* Ohne diese zwei Bloecke klaffte unter dem Code eine leere weisse Flaeche;
+     beides steht so auch auf der echten Ticketseite. */
+  .scn-tk-hint {
+    text-align: center; margin-top: 10px;
+    font-size: 8.5px; font-weight: 500; color: var(--accent-ink);
+  }
+  .scn-tk-rows {
+    padding: 12px 14px 0; display: flex; flex-direction: column; gap: 6px;
+    font-size: 8.5px; color: var(--ink-3);
+  }
+  .scn-tk-rows > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .scn-tk-rows b { font-weight: 600; color: var(--ink-2); }
   .scn-tk-foot {
     margin-top: auto; padding: 12px 14px 16px;
     display: flex; align-items: center; justify-content: space-between;
@@ -442,10 +473,10 @@ export const DOOR_SCENE_CSS = `
   @media (max-width: 900px) {
     .scn { height: 300vh; }
     .scn-stage {
-      --rest-tx: 0px;    --rest-ty: 150px;
+      --rest-tx: 0px;    --rest-ty: 140px;
       --enter-tx: 0px;   --enter-ty: 120px;
-      --rest-dx: 0px;    --rest-dy: -168px;
-      --scale: calc(0.72 + 0.28 * var(--e-lock));
+      --rest-dx: 0px;    --rest-dy: -120px;
+      --scale: calc(0.66 + 0.34 * var(--e-lock));
     }
     .scn-text { width: 172px; max-width: 48vw; left: 0; right: auto; text-align: left; }
     .scn-text h3 { font-size: 16px; letter-spacing: -0.02em; }

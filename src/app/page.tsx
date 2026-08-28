@@ -9,7 +9,7 @@ import { ProPrice } from '@/app/components/ProPrice';
 import { SiteNav } from '@/app/components/SiteNav';
 import { ShopCard, SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard';
 import { DashboardMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
-import { DoorScene, DOOR_SCENE_CSS } from '@/app/components/showcase/DoorScene';
+import { DoorScene } from '@/app/components/showcase/DoorScene';
 
 /*
  * Startseite — richtet sich an Veranstalter, die noch nie online verkauft
@@ -200,7 +200,6 @@ const PAGE_CSS = `
   /* ── Showcase: die drei Kapitel ──────────────────────────── */
   ${SHOP_CARD_CSS}
   ${SHOWCASE_CSS}
-  ${DOOR_SCENE_CSS}
 
   /* ── Gebühren-Abschnitt ──────────────────────────────────── */
   .fee-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: center; }

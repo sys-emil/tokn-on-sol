@@ -89,6 +89,19 @@ const cspHeaderName = process.env.CSP_REPORT_ONLY === "1"
   : "Content-Security-Policy";
 
 const nextConfig: NextConfig = {
+  /**
+   * Projektwurzel festnageln.
+   *
+   * Ohne das sucht Turbopack die Wurzel selbst und faellt auf das oberste
+   * Verzeichnis mit einer Sperrdatei zurueck. Auf einem Rechner, auf dem eine
+   * verirrte package.json im Benutzerverzeichnis liegt, ist das ~ selbst — und
+   * dann ueberwacht der Dateiwaechter des Dev-Servers Library, Documents,
+   * Downloads und Pictures gleich mit. Das kostet je nach Rechner sehr viel
+   * Speicher und hat hier vermutlich schon einmal die Maschine in den Swap
+   * getrieben. `next dev` warnt davor, aber nur als Zeile im Log.
+   */
+  turbopack: { root: __dirname },
+
   async headers() {
     return [
       {
