@@ -10,6 +10,7 @@ import { SiteNav } from '@/app/components/SiteNav';
 import { ShopCard, SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard';
 import { DashboardMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
 import { DoorScene } from '@/app/components/showcase/DoorScene';
+import { LiveEvents } from '@/app/components/showcase/LiveEvents';
 
 /*
  * Startseite — richtet sich an Veranstalter, die noch nie online verkauft
@@ -478,6 +479,10 @@ export default function Home() {
                 <FeeCalculator />
               </div>
             </section>
+
+            {/* Echte Events als Beleg — rendert erst ab sechs oeffentlichen
+                kommenden Events, siehe LiveEvents. */}
+            <LiveEvents />
 
             {/* Pro */}
             <section>
