@@ -137,6 +137,9 @@ a { color: inherit; text-decoration: none; }
 }
 .nav a:hover, .nav button:hover { color: var(--ink); background: var(--surface-2); }
 .nav a.active, .nav button.active { color: var(--ink); background: var(--surface-2); }
+/* Trennt im Dashboard die eigenen Abschnitte von den zwei Wegen hinaus auf
+   die Gastseite; ohne ihn liest sich „Events" wie ein weiterer Abschnitt. */
+.nav-sep { width: 1px; height: 18px; margin: 0 8px; background: var(--line-2); flex: none; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .avatar {
   width: 28px; height: 28px; border-radius: 50%;
@@ -786,14 +789,6 @@ section + section { margin-top: 36px; }
   box-shadow: 0 1px 6px oklch(0.50 0.20 var(--hue) / 0.40);
 }
 .chip.pro .d { background: white; }
-
-/* Persistent nav "Pro" link, once the plan is active. */
-.nav a.nav-pro {
-  color: var(--accent-ink);
-  background: var(--accent-wash);
-  display: inline-flex; align-items: center; gap: 5px;
-}
-.nav a.nav-pro:hover { background: var(--accent-line); color: var(--accent-ink); }
 
 /* Pro card in its *active* state (as opposed to .pro-outline, the free-plan
    upsell rail); a quieter, permanent "you're in" treatment: fixed gradient

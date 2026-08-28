@@ -6,6 +6,7 @@ import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { HeroTicket } from '@/app/components/HeroTicket';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
+import { SiteNav } from '@/app/components/SiteNav';
 
 /*
  * Landing page — addressed at ORGANIZERS, deliberately (since 2026-07-30).
@@ -86,7 +87,6 @@ const PAGE_CSS = `
     to   { transform: translate3d(36px, -24px, 0) scale(1.06); }
   }
   @media (max-width: 640px) {
-    .topbar .btn.subtle { display: none; }
     .glow { filter: blur(64px); }
     .glow-violet { width: 340px; height: 340px; left: -120px; }
     .glow-violet-2 { width: 300px; height: 300px; }
@@ -327,13 +327,8 @@ export default function Home() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/fuer-veranstalter">Für Veranstalter</Link>
-              <Link href="/preise">Preise</Link>
-              <Link href="/events">Events</Link>
-            </div>
+            <SiteNav />
             <div className="topbar-right">
-              <Link href="/my-tickets" className="btn subtle sm">Meine Tickets</Link>
               <SignInButton />
             </div>
           </div>

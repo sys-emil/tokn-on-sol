@@ -12,6 +12,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, Spark, VerifiedCheck } from '@/app/components/passlyUi';
 import { LoyaltyRedeem } from '@/app/components/LoyaltyRedeem';
 import { useEffect, useState } from 'react';
+import { DashboardNav } from '@/app/components/DashboardNav';
 
 interface EventRow {
   id: string;
@@ -368,17 +369,7 @@ export default function Dashboard() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/dashboard" className="active">Übersicht</Link>
-              <Link href="/dashboard/profile">Profil</Link>
-              <Link href="/dashboard/passes">Saisonpässe</Link>
-              <Link href="/dashboard/payouts">Auszahlungen</Link>
-              <Link href="/dashboard/analytics" className={plan === 'pro' ? 'nav-pro' : undefined}>
-                {plan === 'pro' && <Icon name="sparkle" size={12} strokeWidth={2} />} Pro
-              </Link>
-              <Link href="/events">Events</Link>
-              <Link href="/my-tickets">Meine Tickets</Link>
-            </div>
+            <DashboardNav active="overview" />
             <div className="topbar-right">
               <AccountMenu email={email} walletAddress={ownerWallet} onLogout={() => logout()} />
             </div>

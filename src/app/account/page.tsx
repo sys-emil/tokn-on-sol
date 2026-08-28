@@ -9,6 +9,7 @@ import { AccountMenu } from '@/app/components/AccountMenu';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
+import { SiteNav } from '@/app/components/SiteNav';
 
 interface Profile {
   display_name: string | null;
@@ -94,10 +95,7 @@ export default function AccountPage() {
       <div className="topbar">
         <div className="topbar-inner">
           <PasslyLogo height={24} />
-          <div className="nav">
-            <Link href="/events">Events</Link>
-            <Link href="/my-tickets">Meine Tickets</Link>
-          </div>
+          <SiteNav />
           <div className="topbar-right">
             <AccountMenu email={email} walletAddress={walletAddress} onLogout={() => logout()} />
           </div>

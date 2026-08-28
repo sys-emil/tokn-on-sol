@@ -10,6 +10,7 @@ import { Icon } from '@/app/components/passlyUi';
 import { EventEditor, EventEditorSkeleton, INITIAL_DRAFT } from '@/app/components/EventEditor';
 import type { EventDraft } from '@/app/components/EventEditor';
 import { isFeePayer } from '@/lib/fees';
+import { DashboardNav } from '@/app/components/DashboardNav';
 
 /**
  * Veranstaltung anlegen — mit Live-Vorschau statt Blindflug.
@@ -90,9 +91,7 @@ export default function NewEventPage() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/dashboard">Übersicht</Link>
-            </div>
+            <DashboardNav active="overview" />
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
+import { SiteNav } from '@/app/components/SiteNav';
 
 export const metadata: Metadata = {
   title: 'Für Veranstalter · Passly',
@@ -269,11 +270,7 @@ export default function FuerVeranstalterPage() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/preise">Preise</Link>
-              <Link href="/events">Events</Link>
-              <Link href="/so-funktionierts">Für Gäste</Link>
-            </div>
+            <SiteNav active="organizers" />
             <div className="topbar-right">
               <Link href="/become-organizer" className="btn primary sm">
                 Event anlegen <Icon name="arrow" size={13} />

@@ -13,6 +13,7 @@ import { isFeePayer, splitServiceFee, type FeePayer } from '@/lib/fees';
 import type { Lang } from '@/lib/i18n';
 import EventTabs, { Gallery } from './EventTabs';
 import type { TabPanel } from './EventTabs';
+import { SiteNav } from '@/app/components/SiteNav';
 
 export const dynamic = 'force-dynamic';
 
@@ -456,10 +457,7 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/events" className="active">{t('common.events')}</Link>
-              <Link href="/my-tickets">{t('common.myTickets')}</Link>
-            </div>
+            <SiteNav active="events" />
           </div>
         </div>
 

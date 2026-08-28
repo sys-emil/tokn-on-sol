@@ -6,6 +6,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { supabaseAdmin } from '@/lib/supabase';
 import { badgeDisplay } from '@/lib/badgeMeta';
+import { SiteNav } from '@/app/components/SiteNav';
 
 function eventHue(name: string): number {
   let h = 0;
@@ -98,12 +99,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="topbar">
         <div className="topbar-inner">
           <PasslyLogo height={24} />
-          <div className="nav">
-            <Link href="/events">Events</Link>
-          </div>
-          <div className="topbar-right">
-            <Link href="/events" className="btn ghost sm">Events entdecken</Link>
-          </div>
+          <SiteNav />
         </div>
       </div>
       <div className="main">

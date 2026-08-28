@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
+import { SiteNav } from '@/app/components/SiteNav';
 
 /*
  * Shared shell for legal pages (/impressum, /datenschutz, /agb).
@@ -87,13 +88,7 @@ export function LegalPageShell({
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/events">Events</Link>
-              <Link href="/my-tickets">Meine Tickets</Link>
-            </div>
-            <div className="topbar-right">
-              <Link href="/fuer-veranstalter" className="btn subtle sm">Für Veranstalter</Link>
-            </div>
+            <SiteNav />
           </div>
         </div>
 

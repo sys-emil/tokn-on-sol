@@ -6,6 +6,7 @@ import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
 import { MIN_SERVICE_FEE_CENTS, SERVICE_FEE_BANDS } from '@/lib/fees';
+import { SiteNav } from '@/app/components/SiteNav';
 
 /*
  * Canonical pricing page (since 2026-07-30). /fuer-veranstalter links here
@@ -268,11 +269,7 @@ export default function PreisePage() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/fuer-veranstalter">Für Veranstalter</Link>
-              <Link href="/preise">Preise</Link>
-              <Link href="/events">Events</Link>
-            </div>
+            <SiteNav active="pricing" />
             <div className="topbar-right">
               <Link href="/become-organizer" className="btn primary sm">Event anlegen</Link>
             </div>

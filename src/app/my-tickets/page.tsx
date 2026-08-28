@@ -12,6 +12,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { badgeDisplay, BADGE_META, type BadgeType } from '@/lib/badgeMeta';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { SiteNav } from '@/app/components/SiteNav';
 
 const PAGE_CSS = `
   /* ── Kopfbereich ─────────────────────────────────────────── */
@@ -1073,9 +1074,7 @@ export default function MyTickets() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/events">Events</Link>
-            </div>
+            <SiteNav active="tickets" />
           </div>
         </div>
         <div className="main">
@@ -1256,12 +1255,9 @@ export default function MyTickets() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/events">Events</Link>
-              <Link href="/my-tickets" className="active">Meine Tickets</Link>
-              <Link href="/dashboard">Dashboard</Link>
-            </div>
+            <SiteNav active="tickets" />
             <div className="topbar-right">
+              <Link href="/dashboard" className="btn subtle sm">Dashboard</Link>
               <AccountMenu email={email} walletAddress={accountWallet} onLogout={() => logout()} />
             </div>
           </div>

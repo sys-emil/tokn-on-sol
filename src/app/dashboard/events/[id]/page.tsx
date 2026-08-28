@@ -8,6 +8,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { useEffect, useMemo, useState } from 'react';
 import type { FeePayer } from '@/lib/fees';
+import { DashboardNav } from '@/app/components/DashboardNav';
 
 interface TicketRow {
   assetId: string;
@@ -496,11 +497,7 @@ export default function EventDetailPage() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/dashboard" className="active">Übersicht</Link>
-              <Link href="/events">Events</Link>
-              <Link href="/my-tickets">Meine Tickets</Link>
-            </div>
+            <DashboardNav active="overview" />
           </div>
         </div>
 

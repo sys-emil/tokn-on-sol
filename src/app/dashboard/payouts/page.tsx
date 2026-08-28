@@ -2,12 +2,12 @@
 
 import { useLogout, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AccountMenu } from '@/app/components/AccountMenu';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
+import { DashboardNav } from '@/app/components/DashboardNav';
 
 interface PayoutRow {
   id: string;
@@ -118,13 +118,7 @@ export default function PayoutsPage() {
       <div className="topbar">
         <div className="topbar-inner">
           <PasslyLogo height={24} />
-          <div className="nav">
-            <Link href="/dashboard">Übersicht</Link>
-            <Link href="/dashboard/passes">Saisonpässe</Link>
-            <Link href="/dashboard/payouts" className="active">Auszahlungen</Link>
-            <Link href="/dashboard/analytics">Pro</Link>
-            <Link href="/events">Events</Link>
-          </div>
+          <DashboardNav active="payouts" />
           <div className="topbar-right">
             <AccountMenu email={email} walletAddress={wallet} onLogout={() => logout()} />
           </div>

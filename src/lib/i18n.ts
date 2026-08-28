@@ -50,6 +50,8 @@ const de = {
   "common.free": "Kostenlos",
   "common.language": "Sprache",
   "common.howItWorks": "So funktioniert’s",
+  "common.forOrganizers": "Für Veranstalter",
+  "common.pricing": "Preise",
   "common.tagline": "Digitale Tickets",
 
   // ── /events ──────────────────────────────────────────────────────────
@@ -334,6 +336,8 @@ const en: Record<TranslationKey, string> = {
   "common.free": "Free",
   "common.language": "Language",
   "common.howItWorks": "How it works",
+  "common.forOrganizers": "For organisers",
+  "common.pricing": "Pricing",
   "common.tagline": "Digital tickets",
 
   "events.eyebrow": "Discover",

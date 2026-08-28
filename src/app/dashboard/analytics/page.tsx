@@ -20,6 +20,7 @@ import {
 import type {
   AnalyticsData, CustomerRow, CustomersData, LoyaltyData, LoyaltyTier, SegmentId,
 } from './proTypes';
+import { DashboardNav } from '@/app/components/DashboardNav';
 
 type Tab = 'overview' | 'customers' | 'loyalty';
 type Metric = 'revenue' | 'tickets' | 'buyers';
@@ -240,13 +241,7 @@ export default function ProDashboard() {
       <div className="topbar">
         <div className="topbar-inner">
           <PasslyLogo height={24} variant="on-accent" />
-          <div className="nav">
-            <Link href="/dashboard">Übersicht</Link>
-            <Link href="/dashboard/payouts">Auszahlungen</Link>
-            <Link href="/dashboard/analytics" className="active">Pro</Link>
-            <Link href="/events">Events</Link>
-            <Link href="/my-tickets">Meine Tickets</Link>
-          </div>
+          <DashboardNav active="pro" />
           <div className="topbar-right">
             <AccountMenu email={email} walletAddress={wallet} onLogout={() => logout()} />
           </div>

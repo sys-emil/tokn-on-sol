@@ -4,6 +4,7 @@ import CtaButton from '@/app/components/CtaButton';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
+import { SiteNav } from '@/app/components/SiteNav';
 
 export const metadata: Metadata = {
   title: 'So funktioniert’s · Passly',
@@ -137,8 +138,6 @@ const PAGE_CSS = `
   .footer a:hover { color: var(--ink); }
 
   @media (max-width: 640px) {
-    /* "Für Veranstalter" bleibt über Inhalt und Footer erreichbar */
-    .topbar .btn.subtle { display: none; }
     .info-hero { padding: 36px 0 32px; }
     .info-cta { padding: 24px 20px; gap: 16px; }
     .flow-step { gap: 14px; padding-bottom: 32px; }
@@ -158,12 +157,8 @@ export default function SoFunktioniertsPage() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/events">Events</Link>
-              <Link href="/my-tickets">Meine Tickets</Link>
-            </div>
+            <SiteNav active="how" />
             <div className="topbar-right">
-              <Link href="/fuer-veranstalter" className="btn subtle sm">Für Veranstalter</Link>
               <CtaButton className="btn primary sm" />
             </div>
           </div>

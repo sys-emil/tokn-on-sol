@@ -10,6 +10,7 @@ import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { ACCENT_HUES, Icon, VerifiedCheck } from '@/app/components/passlyUi';
 import { validateHandle } from '@/lib/organizerHandle';
+import { DashboardNav } from '@/app/components/DashboardNav';
 
 interface OrganizerLink { label: string; url: string }
 
@@ -284,14 +285,7 @@ export default function OrganizerProfilePage() {
       <div className="topbar">
         <div className="topbar-inner">
           <PasslyLogo height={24} />
-          <div className="nav">
-            <Link href="/dashboard">Übersicht</Link>
-            <Link href="/dashboard/passes">Saisonpässe</Link>
-            <Link href="/dashboard/payouts">Auszahlungen</Link>
-            <Link href="/dashboard/profile" className="active">Profil</Link>
-            <Link href="/dashboard/analytics">Pro</Link>
-            <Link href="/events">Events</Link>
-          </div>
+          <DashboardNav active="profile" />
           <div className="topbar-right">
             <AccountMenu email={email} walletAddress={walletAddress} onLogout={() => logout()} />
           </div>

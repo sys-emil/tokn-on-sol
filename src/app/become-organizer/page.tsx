@@ -1,11 +1,11 @@
 'use client';
 
 import { useAuth, useLogout, useWallets as useSolanaWallets } from '@/lib/auth';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
+import { SiteNav } from '@/app/components/SiteNav';
 
 type OrgType = 'private' | 'business';
 type PageState = 'loading' | 'form' | 'pending' | 'rejected';
@@ -142,10 +142,7 @@ export default function BecomeOrganizer() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/events">Events</Link>
-              <Link href="/my-tickets">Meine Tickets</Link>
-            </div>
+            <SiteNav />
             <div className="topbar-right">
               <button className="btn subtle sm" onClick={() => logout()}>Abmelden</button>
             </div>

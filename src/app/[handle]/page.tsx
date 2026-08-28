@@ -8,6 +8,7 @@ import { ShareButton } from '@/app/components/ShareButton';
 import { supabaseAdmin } from '@/lib/supabase';
 import { normalizeHandle } from '@/lib/organizerHandle';
 import { countSellablePassDates } from '@/lib/seasonPass';
+import { SiteNav } from '@/app/components/SiteNav';
 
 /**
  * Public organizer page at getpassly.de/@handle. YouTube-channel style: banner,
@@ -147,10 +148,7 @@ function Shell({ hue, shareTitle, children }: { hue: number | null; shareTitle: 
       <div className="topbar">
         <div className="topbar-inner">
           <PasslyLogo height={24} />
-          <div className="nav">
-            <Link href="/events">Events</Link>
-            <Link href="/so-funktionierts">So funktioniert&apos;s</Link>
-          </div>
+          <SiteNav />
           <div className="topbar-right">
             {/* Was a second link to /events, identical to the nav entry next
                 to it. A page that exists to be shared should offer that

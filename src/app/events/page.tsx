@@ -11,6 +11,7 @@ import { EventCard, EventArt, EVENT_CARD_CSS } from '@/app/components/eventSurfa
 import { eventCardView } from '@/lib/eventCardView';
 import type { CardLabel } from '@/lib/eventCardView';
 import type { Lang } from '@/lib/i18n';
+import { SiteNav } from '@/app/components/SiteNav';
 
 export const dynamic = 'force-dynamic';
 
@@ -274,8 +275,6 @@ const PAGE_CSS = `
   /* ── Mobil ────────────────────────────────────────────────────── */
   @media (max-width: 780px) {
     .ev-page .topbar-inner { padding: 0 16px; }
-    /* Auf dem Handy bleibt nur der Primaer-Button rechts stehen. */
-    .ev-topbar-link { display: none; }
     .ev-shell { padding: 0 16px; }
     .ev-main { padding: 28px 16px 72px; }
     .ev-footer-inner { padding: 24px 16px; }
@@ -497,12 +496,8 @@ export default async function EventsPage({ searchParams }: {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <div className="nav">
-              <Link href="/events" className="active">{t('common.events')}</Link>
-              <Link href="/my-tickets">{t('common.myTickets')}</Link>
-            </div>
+            <SiteNav active="events" />
             <div className="topbar-right">
-              <Link href="/so-funktionierts" className="btn subtle sm ev-topbar-link">{t('common.howItWorks')}</Link>
               <Link href="/become-organizer" className="btn primary sm">{t('events.createEvent')}</Link>
             </div>
           </div>
