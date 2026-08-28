@@ -73,7 +73,11 @@ export function DoorScene() {
       // Ab hier läuft alles im eigenen Takt weiter, auch wenn der Finger
       // stehen bleibt oder zurückwischt. `--p: 1` schiebt den Rest des
       // Anflugs zu Ende; die Übergangszeit dafür setzt das CSS.
-      if (p >= 0.8) {
+      //
+      // Der Auslöser sitzt bewusst früh: hinter ihm liegen noch knapp 40 %
+      // der Scrollstrecke, in denen das fertige, eingelöste Ticket einfach
+      // stehen bleibt. Das ist der Moment, den man sich ansehen soll.
+      if (p >= 0.62) {
         latched = true;
         stage.dataset.state = 'scanned';
         stage.style.setProperty('--p', '1');
@@ -255,7 +259,7 @@ const DOOR_SCENE_CSS = `
   /* ── Bühne ───────────────────────────────────────────────────────────
      Der Abschnitt ist hoch, die Bühne klebt darin. Die Reisestrecke ist
      seine Höhe minus einem Bildschirm — daraus rechnet das JS die eine Zahl. */
-  .scn { height: 240vh; position: relative; }
+  .scn { height: 260vh; position: relative; }
   .scn-stage {
     position: sticky; top: 0; height: 100vh; height: 100dvh;
     display: grid; place-items: center;
@@ -264,11 +268,11 @@ const DOOR_SCENE_CSS = `
     /* Abschnittsweiser Fortschritt, jeweils 0→1 im eigenen Fenster. Danach
        durch Smoothstep (t²·(3−2t)): eine lineare Zuordnung von Scroll zu Weg
        ist die auffälligste Verräterin einer schnell gebauten Szene. */
-    --t-doortext: clamp(0, calc(var(--p) / 0.06), 1);
-    --t-tktext:   clamp(0, calc((var(--p) - 0.09) / 0.07), 1);
-    --t-out:      clamp(0, calc((var(--p) - 0.42) / 0.08), 1);
-    --t-lock:     clamp(0, calc((var(--p) - 0.46) / 0.14), 1);
-    --t-door:     clamp(0, calc((var(--p) - 0.60) / 0.24), 1);
+    --t-doortext: clamp(0, calc(var(--p) / 0.05), 1);
+    --t-tktext:   clamp(0, calc((var(--p) - 0.07) / 0.07), 1);
+    --t-out:      clamp(0, calc((var(--p) - 0.30) / 0.08), 1);
+    --t-lock:     clamp(0, calc((var(--p) - 0.32) / 0.14), 1);
+    --t-door:     clamp(0, calc((var(--p) - 0.46) / 0.16), 1);
 
     --e-lock: calc(var(--t-lock) * var(--t-lock) * (3 - 2 * var(--t-lock)));
     --e-door: calc(var(--t-door) * var(--t-door) * (3 - 2 * var(--t-door)));
@@ -332,7 +336,7 @@ const DOOR_SCENE_CSS = `
 
   /* ── Texte ───────────────────────────────────────────────────────── */
   .scn-text {
-    position: absolute; width: 240px; max-width: 32vw;
+    position: absolute; width: clamp(210px, 17vw, 260px);
     will-change: transform, opacity;
   }
   .scn-text h3 { font-size: 21px; font-weight: 620; letter-spacing: -0.03em; line-height: 1.2; }
@@ -463,7 +467,7 @@ const DOOR_SCENE_CSS = `
     position: relative; flex: 1; margin: 12px 14px; min-height: 0;
     border-radius: 18px;
     background: oklch(0.22 0.02 275 / 0.68);
-    box-shadow: 0 0 0 999px var(--surface);
+    box-shadow: 0 0 0 520px var(--surface);
   }
   .scn-corner {
     position: absolute; z-index: 3; width: 22px; height: 22px;
@@ -538,12 +542,18 @@ const DOOR_SCENE_CSS = `
      Zwei hochkante Geräte in voller Größe passen vertikal nicht. Während der
      Textphase stehen sie deshalb kleiner und wachsen beim Einrasten auf volle
      Größe — genau dann, wenn das Ticket zum Hauptdarsteller wird. */
-  @media (max-width: 900px) {
-    .scn { height: 300vh; }
+  @media (max-width: 1180px) {
+    .scn { height: 340vh; }
     .scn-stage {
-      --rest-tx: 0px;    --rest-ty: 150px;
-      --rest-dx: 0px;    --rest-dy: -130px;
-      --scale: calc(0.52 + 0.48 * var(--e-lock));
+      /* 0,80 statt 0,52: die Geraete waren auf dem Handy verloren. Damit sie
+         in dieser Groesse untereinander passen, laeuft das Ticket in der
+         Textphase unten aus dem Bild — sein Kopf mit Name und Code ist das,
+         worauf es ankommt, die Knoepfe darunter sind Beiwerk. Ein
+         angeschnittenes Geraet wirkt ohnehin groesser als ein vollstaendiges
+         in Briefmarkengroesse. */
+      --rest-tx: 0px;    --rest-ty: 200px;
+      --rest-dx: 0px;    --rest-dy: -85px;
+      --scale: calc(0.80 + 0.20 * var(--e-lock));
     }
     .scn-text { width: 170px; max-width: 46vw; left: 0; right: auto; text-align: left; }
     .scn-text h3 { font-size: 16px; letter-spacing: -0.02em; }
@@ -552,7 +562,29 @@ const DOOR_SCENE_CSS = `
     .scn-text-door   { top: 26%; transform: translateY(calc((1 - var(--t-doortext)) * 12px - var(--t-out) * 10px)); }
     .scn-text-ticket { top: 68%; transform: translateY(calc((1 - var(--t-tktext)) * 12px - var(--t-out) * 10px)); }
     .scn-phones { margin-left: 26%; width: 74%; }
+    /* Weichere Schatten auf dem Handy: die Geraete werden waehrend des
+       Einrastens skaliert, und jede Skalierung zwingt den Browser, ihre Ebene
+       neu zu rastern — ein 60px-Schatten macht das spuerbar teurer. */
+    .scn-phone {
+      box-shadow: 0 14px 30px -12px rgba(17, 20, 45, 0.38), 0 3px 8px rgba(17, 20, 45, 0.12);
+    }
+    .scn-door {
+      box-shadow:
+        inset 0 0 0 8px oklch(0.24 0.025 285),
+        0 14px 30px -12px rgba(17, 20, 45, 0.38),
+        0 3px 8px rgba(17, 20, 45, 0.12);
+    }
     .scn-caption { font-size: 12.5px; bottom: 4%; white-space: normal; text-align: center; width: 78%; }
+  }
+
+  /* Echte Telefone: bei 402px Breite stehen sich Textspalte und Geraet sonst
+     auf den Fuessen. Der Text wird schmaler, die Geraetespalte rueckt weiter
+     nach rechts — die Groesse bleibt, weil genau die gefehlt hat. */
+  @media (max-width: 480px) {
+    .scn-text { width: 140px; max-width: 38vw; }
+    .scn-text h3 { font-size: 15px; }
+    .scn-phones { margin-left: 34%; width: 66%; }
+    .scn-caption { width: 86%; font-size: 12px; }
   }
 
   /* Ohne Bewegung: Endzustand. Die Geschichte liest sich auch als Standbild. */
