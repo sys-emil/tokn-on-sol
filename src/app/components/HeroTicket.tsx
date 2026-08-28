@@ -178,8 +178,8 @@ export function HeroTicket() {
               <div style={{ marginTop: 3, font: '500 12.5px var(--mono)', color: 'var(--ink)' }}>#PSL-K4X2</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ font: '500 9.5px var(--font)', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>Block · Reihe · Platz</div>
-              <div style={{ marginTop: 3, font: '500 12.5px var(--mono)', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>A · 12 · 08</div>
+              <div style={{ font: '500 9.5px var(--font)', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>Kategorie</div>
+              <div style={{ marginTop: 3, font: '500 12.5px var(--font)', color: 'var(--ink)' }}>Frühbucher</div>
             </div>
           </div>
         </div>

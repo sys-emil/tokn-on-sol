@@ -139,9 +139,7 @@ const PAGE_CSS = `
     font: 400 17px/1.65 var(--font); color: var(--ink-3);
   }
   .hero-v2-ctas { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
-  .hero-v2-guest { margin: 20px 0 0; font: 400 13.5px var(--font); color: var(--ink-3); }
-  .hero-v2-guest a { font-weight: 500; color: var(--accent); }
-  .hero-v2-guest a:hover { color: var(--accent-2); }
+  .hero-v2-note { margin: 18px 0 0; font: 400 13px var(--font); color: var(--ink-3); }
   .hero-v2-mock {
     position: relative;
     display: flex; align-items: center; justify-content: center;
@@ -249,19 +247,6 @@ const PAGE_CSS = `
   }
   .pro-feats svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
 
-  /* ── Gäste-Streifen ──────────────────────────────────────── */
-  .guest-strip {
-    border: 1px solid var(--line);
-    background: var(--surface);
-    border-radius: var(--radius);
-    padding: 20px 24px;
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 16px; flex-wrap: wrap;
-  }
-  .guest-strip .t { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
-  .guest-strip .s { font-size: 13px; color: var(--ink-3); margin-top: 3px; }
-  .guest-strip .acts { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-
   /* ── CTA banner ──────────────────────────────────────────── */
   .cta-banner {
     background: linear-gradient(135deg, var(--accent), oklch(0.48 0.22 calc(var(--hue) + 30)));
@@ -346,20 +331,21 @@ export default function Home() {
             <div className="hero-v2-inner">
               <div>
                 <h1>
-                  Deine Gäste kaufen bei dir.<br />
-                  <span className="grad">Nicht bei uns.</span>
+                  Dein Vorverkauf. Deine Tür.<br />
+                  <span className="grad">Deine Zahlen.</span>
                 </h1>
                 <p className="lead">
-                  Passly ist Ticketing, das deinen Namen trägt: eigene Verkaufsseite,
-                  100&nbsp;% des Ticketpreises und deine Regeln beim Einlass und beim
-                  Weiterverkauf.
+                  Verkauf deine Tickets online, scann sie an der Tür, und sieh jederzeit,
+                  wie der Abend steht. Für dich kostenlos.
                 </p>
                 <div className="hero-v2-ctas">
-                  <Link href="/become-organizer" className="btn primary lg">Event anlegen →</Link>
-                  <Link href="/preise" className="btn ghost lg">Was es kostet</Link>
+                  <Link href="/become-organizer" className="btn primary lg">Kostenlos anfangen →</Link>
                 </div>
-                <p className="hero-v2-guest">
-                  Du willst nur ein Ticket kaufen? <Link href="/events">Events entdecken →</Link>
+                {/* Die Pruefung wird ausgesprochen statt verschwiegen: der Knopf fuehrt
+                    auf ein Bewerbungsformular, und wer „anlegen“ liest, erwartet anlegen.
+                    Faellt die manuelle Freischaltung, wird hier „Sofort loslegen“ daraus. */}
+                <p className="hero-v2-note">
+                  In der Regel innerhalb eines Werktags freigeschaltet.
                 </p>
               </div>
 
@@ -374,7 +360,7 @@ export default function Home() {
               <div className="trust-bar" data-reveal>
                 <div className="trust-item">
                   <div className="ic"><Icon name="euro" size={15} /></div>
-                  <div className="label">100&nbsp;% des Ticketpreises an dich</div>
+                  <div className="label">Für dich kostenlos, ohne Grundgebühr</div>
                 </div>
                 <div className="trust-item">
                   <div className="ic"><Icon name="lock" size={15} /></div>
@@ -391,58 +377,58 @@ export default function Home() {
               </div>
             </section>
 
-            {/* Die drei Säulen */}
+            {/* Die drei Teile der Kopfzeile, in derselben Reihenfolge. Ersetzt spaeter
+                der Showcase mit echten Produktbildern — die Ueberschriften bleiben. */}
             <section>
               <div className="section-head" data-reveal>
                 <div>
-                  <h2>Warum Veranstalter zu Passly wechseln</h2>
-                  <div className="sub">Drei Dinge, die anderswo dem Marktplatz gehören</div>
+                  <h2>Was sich an deinem Abend ändert</h2>
+                  <div className="sub">Die drei Teile der Überschrift, der Reihe nach</div>
                 </div>
               </div>
               <div className="pillar-grid">
                 <div className="card pillar-card" data-reveal>
-                  <div className="pillar-icon"><Icon name="sparkle" size={18} /></div>
-                  <h3>Dein Name steht drauf</h3>
+                  <div className="pillar-icon"><Icon name="ticket" size={18} /></div>
+                  <h3>Dein Vorverkauf</h3>
                   <p>
-                    Deine Gäste landen auf deiner Seite, nicht in einem fremden Regal
-                    zwischen vierhundert anderen Veranstaltungen.
+                    Statt Namensliste, DMs und Überweisungen: ein Link, den du teilst, und
+                    ein Ticket, das sofort auf dem Handy deines Gastes liegt.
                   </p>
                   <ul className="pillar-points">
-                    <li><Icon name="check" size={14} /> Öffentliche Markenseite unter getpassly.de/@deinname</li>
-                    <li><Icon name="check" size={14} /> Banner, Logo, Text und Links, die du selbst pflegst</li>
-                    <li><Icon name="check" size={14} /> Eigene Akzentfarbe auf jeder Eventkarte</li>
-                    <li><Icon name="check" size={14} /> Geprüft-Kennzeichnung, damit Gäste dich erkennen</li>
+                    <li><Icon name="check" size={14} /> Eigene Verkaufsseite, in Minuten angelegt</li>
+                    <li><Icon name="check" size={14} /> Karte, PayPal, Apple&nbsp;Pay und Google&nbsp;Pay</li>
+                    <li><Icon name="check" size={14} /> Preiskategorien, Kontingente, Rabattcodes</li>
+                    <li><Icon name="check" size={14} /> Für dich kostenlos, ohne Grundgebühr und Vertrag</li>
                   </ul>
                 </div>
 
                 <div className="card pillar-card" data-reveal style={{ '--reveal-delay': '90ms' } as React.CSSProperties}>
-                  <div className="pillar-icon"><Icon name="euro" size={18} /></div>
-                  <h3>Der Ticketpreis gehört dir</h3>
+                  <div className="pillar-icon"><Icon name="scan" size={18} /></div>
+                  <h3>Deine Tür</h3>
                   <p>
-                    Kein prozentualer Abzug vom Nennwert. Die Servicegebühr zahlt
-                    standardmäßig der Gast sichtbar obendrauf; ob du sie lieber teilst
-                    oder selbst trägst, entscheidest du je Event.
+                    Kein Scanner, keine Hardware, keine Schulung. Dein Personal öffnet einen
+                    Link und scannt mit dem eigenen Handy.
                   </p>
                   <ul className="pillar-points">
-                    <li><Icon name="check" size={14} /> Ohne Grundgebühr, du bestimmst wer die Gebühr zahlt</li>
-                    <li><Icon name="check" size={14} /> Auszahlung aufs Bankkonto, Puffer selbst gewählt</li>
-                    <li><Icon name="check" size={14} /> Jede Auszahlung einzeln nachvollziehbar</li>
-                    <li><Icon name="check" size={14} /> Kostenlose Events kosten auch dich nichts</li>
+                    <li><Icon name="check" size={14} /> Der Code erneuert sich jede Minute, Screenshots sind wertlos</li>
+                    <li><Icon name="check" size={14} /> Läuft weiter, wenn im Keller das Netz wegbricht</li>
+                    <li><Icon name="check" size={14} /> Türlinks fürs Personal, ohne deinen Zugang</li>
+                    <li><Icon name="check" size={14} /> Abendkasse für Laufkundschaft, zum selben Preis</li>
                   </ul>
                 </div>
 
                 <div className="card pillar-card" data-reveal style={{ '--reveal-delay': '180ms' } as React.CSSProperties}>
-                  <div className="pillar-icon"><Icon name="scan" size={18} /></div>
-                  <h3>Der Abend läuft</h3>
+                  <div className="pillar-icon"><Icon name="doublecheck" size={18} /></div>
+                  <h3>Deine Zahlen</h3>
                   <p>
-                    Einlass, Abendkasse und Weiterverkauf laufen nach deinen Regeln,
-                    auch wenn im Keller das Netz wegbricht.
+                    Zum ersten Mal weißt du vorher, wie voll es wird — und hinterher, wer
+                    wirklich da war. Die Zahlen entstehen nebenbei.
                   </p>
                   <ul className="pillar-points">
-                    <li><Icon name="check" size={14} /> QR-Code erneuert sich jede Minute, Screenshots sind wertlos</li>
-                    <li><Icon name="check" size={14} /> Scanner läuft im Browser und weiter ohne Empfang</li>
-                    <li><Icon name="check" size={14} /> Türlinks fürs Personal, Abendkasse für Laufkundschaft</li>
-                    <li><Icon name="check" size={14} /> Weiterverkauf nur bis zu deiner Preisobergrenze</li>
+                    <li><Icon name="check" size={14} /> Verkauft, eingelöst und Einnahmen je Abend</li>
+                    <li><Icon name="check" size={14} /> Gästeliste mit Einlassstatus, auch offline geführt</li>
+                    <li><Icon name="check" size={14} /> Jede Auszahlung einzeln nachvollziehbar</li>
+                    <li><Icon name="check" size={14} /> Export für die Buchhaltung, als CSV</li>
                   </ul>
                 </div>
               </div>
@@ -476,8 +462,9 @@ export default function Home() {
                   <span className="tag"><Icon name="sparkle" size={12} /> Passly Pro</span>
                   <h2>Wenn du deine Gäste wiedersehen willst</h2>
                   <div className="sub">
-                    Alles oben ist kostenlos und bleibt es. Pro kommt dazu, wenn aus
-                    einzelnen Abenden ein Publikum wird.
+                    Deine Zahlen oben beantworten „wer kommt?“ und bleiben kostenlos.
+                    Pro beantwortet „wer kommt wieder?“ — wenn aus einzelnen Abenden ein
+                    Publikum wird.
                   </div>
                   <div className="pro-price">
                     <ProPrice />
@@ -497,26 +484,11 @@ export default function Home() {
               </div>
             </section>
 
-            {/* Gäste sollen sich nicht verlaufen */}
-            <section>
-              <div className="guest-strip" data-reveal>
-                <div>
-                  <div className="t">Du bist als Gast hier?</div>
-                  <div className="s">Dein Ticket liegt in deinem Konto, auf jedem Gerät abrufbar.</div>
-                </div>
-                <div className="acts">
-                  <Link href="/so-funktionierts" className="btn ghost sm">So funktioniert&rsquo;s</Link>
-                  <Link href="/events" className="btn subtle sm">Events entdecken</Link>
-                  <Link href="/my-tickets" className="btn subtle sm">Meine Tickets</Link>
-                </div>
-              </div>
-            </section>
-
             {/* CTA banner */}
             <section>
               <div className="cta-banner" data-reveal>
                 <h2>Leg dein erstes Event an.</h2>
-                <p>Kostenlos, in wenigen Minuten, ohne Vertrag und ohne Grundgebühr.</p>
+                <p>Kostenlos, ohne Vertrag und ohne Grundgebühr. Wir schalten dich in der Regel innerhalb eines Werktags frei.</p>
                 <Link href="/become-organizer" className="btn lg btn-shine">
                   Jetzt starten <Icon name="arrow" size={14} />
                 </Link>
