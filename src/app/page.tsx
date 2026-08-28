@@ -7,20 +7,30 @@ import { HeroTicket } from '@/app/components/HeroTicket';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
 import { SiteNav } from '@/app/components/SiteNav';
+import { ShopCard, SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard';
+import { DoorPhones, DashboardMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
 
 /*
- * Landing page — addressed at ORGANIZERS, deliberately (since 2026-07-30).
+ * Startseite — richtet sich an Veranstalter, die noch nie online verkauft
+ * haben (seit 28.08.2026; ersetzt die Marktplatz-Positionierung vom
+ * 30.07.2026).
  *
- * Guests never pick a ticketing provider; they arrive on /shop/[id] from the
- * organizer's own link and never see this page. The people who make a decision
- * here are organizers, so the hero sells to them. Guest discovery lives on
- * /events and the public @handle profiles, reachable from the nav, the guest
- * strip below and the footer. Don't turn the hero back into "Events entdecken".
+ * Der Zielkunde kuendigt auf Instagram an, kassiert per PayPal und fuehrt an
+ * der Tuer eine Namensliste. Er muss vor keinem Marktplatz gerettet werden —
+ * er hat keine Reichweite und eine Schlange, die nicht vorangeht. Deshalb
+ * benennt die Kopfzeile den Ablauf statt einen Gegner: "Dein Vorverkauf.
+ * Deine Tuer. Deine Zahlen." Ihre drei Teile sind zugleich die drei Kapitel
+ * des Showcase darunter, in derselben Reihenfolge.
  *
- * "Fälschungssicher" is a proof point under pillar 3, not the headline: it is
- * a feature every competitor claims, and it is not what makes an organizer
- * switch. The positioning is that the organizer keeps their brand, their money
- * and their rules.
+ * "Fuer dich kostenlos" statt "100 % des Ticketpreises": der Zielkunde
+ * bekommt heute 100 %, per PayPal, fuer null. Jede Gebuehr ist fuer ihn eine
+ * *neue* Ausgabe, also muss der Satz entwaffnen statt zu prahlen. Die
+ * Rechnung dahinter steht im Gebuehrenabschnitt.
+ *
+ * Gaeste kommen fast nie hierher, um Events zu suchen — sie kommen ueber den
+ * Link des Veranstalters direkt auf /shop/[id]. Wer doch hier landet, sucht
+ * meist sein Ticket; das traegt die Kopfleiste ("Events", "Meine Tickets" an
+ * Position 1 und 2 auf jeder Seite), nicht der Hero.
  */
 
 const PAGE_CSS = `
@@ -92,7 +102,6 @@ const PAGE_CSS = `
     .glow-violet-2 { width: 300px; height: 300px; }
     .landing-hero { padding: 32px 0 40px; }
     .cta-banner { padding: 40px 22px; }
-    .pillar-card { padding: 22px 18px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .aurora::before, .aurora::after, .glow { animation: none; }
@@ -187,25 +196,9 @@ const PAGE_CSS = `
   }
   .trust-item .label { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
 
-  /* ── Die drei Säulen ─────────────────────────────────────── */
-  .pillar-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-  @media (max-width: 940px) { .pillar-grid { grid-template-columns: 1fr; } }
-  .pillar-card { padding: 26px; display: flex; flex-direction: column; gap: 14px; }
-  .pillar-icon {
-    width: 40px; height: 40px; border-radius: 11px;
-    display: grid; place-items: center;
-    background: var(--accent-wash);
-    border: 1px solid var(--accent-line);
-    color: var(--accent);
-  }
-  .pillar-card h3 { font-size: 18px; font-weight: 600; letter-spacing: -0.025em; }
-  .pillar-card > p { font-size: 13.5px; color: var(--ink-3); line-height: 1.6; margin-top: -6px; }
-  .pillar-points { list-style: none; display: flex; flex-direction: column; gap: 9px; margin-top: 2px; }
-  .pillar-points li {
-    display: flex; gap: 10px; align-items: flex-start;
-    font-size: 13.5px; color: var(--ink-2); line-height: 1.55;
-  }
-  .pillar-points svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
+  /* ── Showcase: die drei Kapitel ──────────────────────────── */
+  ${SHOP_CARD_CSS}
+  ${SHOWCASE_CSS}
 
   /* ── Gebühren-Abschnitt ──────────────────────────────────── */
   .fee-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: center; }
@@ -386,50 +379,80 @@ export default function Home() {
                   <div className="sub">Die drei Teile der Überschrift, der Reihe nach</div>
                 </div>
               </div>
-              <div className="pillar-grid">
-                <div className="card pillar-card" data-reveal>
-                  <div className="pillar-icon"><Icon name="ticket" size={18} /></div>
-                  <h3>Dein Vorverkauf</h3>
+
+              {/* Kapitel 1 — Vorverkauf */}
+              <div className="sc-chapter" data-reveal>
+                <div className="sc-copy">
+                  <span className="sc-eyebrow">Dein Vorverkauf</span>
+                  <h3>Ein Link, den du teilst.</h3>
                   <p>
-                    Statt Namensliste, DMs und Überweisungen: ein Link, den du teilst, und
-                    ein Ticket, das sofort auf dem Handy deines Gastes liegt.
+                    Statt Namensliste, DMs und Überweisungen: eine eigene Verkaufsseite,
+                    in Minuten angelegt. Das Ticket liegt sofort auf dem Handy deines Gastes.
                   </p>
-                  <ul className="pillar-points">
-                    <li><Icon name="check" size={14} /> Eigene Verkaufsseite, in Minuten angelegt</li>
+                  <ul className="sc-points">
                     <li><Icon name="check" size={14} /> Karte, PayPal, Apple&nbsp;Pay und Google&nbsp;Pay</li>
                     <li><Icon name="check" size={14} /> Preiskategorien, Kontingente, Rabattcodes</li>
+                    <li><Icon name="check" size={14} /> Kaufen ohne Konto — das legt dein Gast später an</li>
                     <li><Icon name="check" size={14} /> Für dich kostenlos, ohne Grundgebühr und Vertrag</li>
                   </ul>
                 </div>
+                <div className="sc-media">
+                  <ShopCard
+                    name="Die beste Nacht des Jahres"
+                    dateChip={{ month: 'Sep', day: '5' }}
+                    whenLabel="Freitag, 5. September · 20:00 Uhr"
+                    venue="Halle 7, Leipzig"
+                    priceLabel="ab 12,00 €"
+                    feeNote="zzgl. Servicegebühr"
+                    tiers={[
+                      { name: 'Frühbucher', priceLabel: '12,00 €' },
+                      { name: 'Abendkasse', priceLabel: '15,00 €' },
+                    ]}
+                    ctaLabel="Jetzt kaufen"
+                  />
+                </div>
+              </div>
 
-                <div className="card pillar-card" data-reveal style={{ '--reveal-delay': '90ms' } as React.CSSProperties}>
-                  <div className="pillar-icon"><Icon name="scan" size={18} /></div>
-                  <h3>Deine Tür</h3>
+              {/* Kapitel 2 — Tür. Das Standbild wird spaeter zur Scroll-Szene;
+                  es bleibt dann als Fassung fuer prefers-reduced-motion stehen. */}
+              <div className="sc-chapter flip" data-reveal>
+                <div className="sc-copy">
+                  <span className="sc-eyebrow">Deine Tür</span>
+                  <h3>Grün heißt rein.</h3>
                   <p>
-                    Kein Scanner, keine Hardware, keine Schulung. Dein Personal öffnet einen
-                    Link und scannt mit dem eigenen Handy.
+                    Kein Scanner, keine Hardware, keine Schulung. Dein Personal öffnet
+                    einen Link und scannt mit dem eigenen Handy.
                   </p>
-                  <ul className="pillar-points">
+                  <ul className="sc-points">
                     <li><Icon name="check" size={14} /> Der Code erneuert sich jede Minute, Screenshots sind wertlos</li>
                     <li><Icon name="check" size={14} /> Läuft weiter, wenn im Keller das Netz wegbricht</li>
                     <li><Icon name="check" size={14} /> Türlinks fürs Personal, ohne deinen Zugang</li>
                     <li><Icon name="check" size={14} /> Abendkasse für Laufkundschaft, zum selben Preis</li>
                   </ul>
                 </div>
+                <div className="sc-media">
+                  <DoorPhones />
+                </div>
+              </div>
 
-                <div className="card pillar-card" data-reveal style={{ '--reveal-delay': '180ms' } as React.CSSProperties}>
-                  <div className="pillar-icon"><Icon name="doublecheck" size={18} /></div>
-                  <h3>Deine Zahlen</h3>
+              {/* Kapitel 3 — Zahlen */}
+              <div className="sc-chapter" data-reveal>
+                <div className="sc-copy">
+                  <span className="sc-eyebrow">Deine Zahlen</span>
+                  <h3>Und du siehst, wie der Abend steht.</h3>
                   <p>
                     Zum ersten Mal weißt du vorher, wie voll es wird — und hinterher, wer
-                    wirklich da war. Die Zahlen entstehen nebenbei.
+                    wirklich da war. Die Zahlen entstehen nebenbei, du machst nichts anders.
                   </p>
-                  <ul className="pillar-points">
+                  <ul className="sc-points">
                     <li><Icon name="check" size={14} /> Verkauft, eingelöst und Einnahmen je Abend</li>
                     <li><Icon name="check" size={14} /> Gästeliste mit Einlassstatus, auch offline geführt</li>
                     <li><Icon name="check" size={14} /> Jede Auszahlung einzeln nachvollziehbar</li>
                     <li><Icon name="check" size={14} /> Export für die Buchhaltung, als CSV</li>
                   </ul>
+                </div>
+                <div className="sc-media">
+                  <DashboardMock />
                 </div>
               </div>
             </section>

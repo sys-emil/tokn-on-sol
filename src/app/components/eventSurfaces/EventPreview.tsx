@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { EventCard, EventArt, eventHue, EVENT_CARD_CSS } from './EventCard';
 import { ShowcaseHero, ShowcaseArt, SHOWCASE_HERO_CSS } from './ShowcaseHero';
+import { ShopCard, SHOP_CARD_CSS } from './ShopCard';
 import { eventCardView } from '@/lib/eventCardView';
 import type { CardLabel } from '@/lib/eventCardView';
 import { isVipTier } from '@/lib/tier';
@@ -193,52 +194,25 @@ export function EventPreview({ draft }: { draft: PreviewDraft }) {
 
       {surface === 'shop' && (
         <div className="epv-stage light">
-          <div className="epv-shopcard">
-            {draft.imageUrl && (
-              <div className="epv-shopart">
-                {/* eslint-disable-next-line @next/next/no-img-element -- storage host is env-dependent */}
-                <img src={draft.imageUrl} alt="" />
-              </div>
-            )}
-            <div className="epv-shophead">
-              <div className="epv-datechip">
-                <div className="m">{monthShort(date)}</div>
-                <div className="d">{dayNum(date)}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h3>{name}</h3>
-                <div className="when">
-                  <span><Icon name="calendar" size={13} /> {longDate(date)}{draft.startTime ? ` · ${draft.startTime} Uhr` : ''}</span>
-                  {venue && <span><Icon name="location" size={13} /> {venue}</span>}
-                </div>
-              </div>
-            </div>
-            {draft.description.trim() && <div className="epv-shopdesc">{draft.description.trim()}</div>}
-            <div className="epv-shoprows">
-              <div className="epv-shoprow">
-                <span className="k">
-                  Ticketpreis
-                  {minPrice > 0 && <span className="sub">{buyerFeeCents > 0 ? 'zzgl. Servicegebühr' : 'inkl. aller Gebühren'}</span>}
-                </span>
-                <span className="v big">{priceLabel}</span>
-              </div>
-              <div className="epv-shoprow">
-                <span className="k">Verfügbarkeit</span>
-                {view.soldOut
-                  ? <span className="chip bad"><span className="d" />Ausverkauft</span>
-                  : <span className="chip ok"><span className="d" />Verfügbar</span>}
-              </div>
-            </div>
-            <div className="epv-shopfoot">
-              {draft.tiers.map((tier, i) => (
-                <div key={i} className="epv-tierrow">
-                  <span>{tier.name.trim() || `Kategorie ${i + 1}`}</span>
-                  <b>{priceCents(tier) === 0 ? 'Kostenlos' : eur(priceCents(tier))}</b>
-                </div>
-              ))}
-              <div className="epv-fakebtn">Jetzt kaufen</div>
-            </div>
-          </div>
+          <ShopCard
+            name={name}
+            art={draft.imageUrl
+              // eslint-disable-next-line @next/next/no-img-element -- storage host is env-dependent
+              ? <img src={draft.imageUrl} alt="" />
+              : undefined}
+            dateChip={{ month: monthShort(date), day: String(dayNum(date)) }}
+            whenLabel={`${longDate(date)}${draft.startTime ? ` · ${draft.startTime} Uhr` : ''}`}
+            venue={venue}
+            description={draft.description.trim() || null}
+            priceLabel={priceLabel}
+            feeNote={minPrice > 0 ? (buyerFeeCents > 0 ? 'zzgl. Servicegebühr' : 'inkl. aller Gebühren') : null}
+            soldOut={view.soldOut}
+            tiers={draft.tiers.map((tier, i) => ({
+              name: tier.name.trim() || `Kategorie ${i + 1}`,
+              priceLabel: priceCents(tier) === 0 ? 'Kostenlos' : eur(priceCents(tier)),
+            }))}
+            ctaLabel="Jetzt kaufen"
+          />
           <p className="epv-note">Nachbau — die echte Kaufbox entsteht erst mit dem Event.</p>
         </div>
       )}
@@ -278,6 +252,8 @@ export function EventPreview({ draft }: { draft: PreviewDraft }) {
 }
 
 const PREVIEW_CSS = `
+  ${SHOP_CARD_CSS}
+
   ${EVENT_CARD_CSS}
   ${SHOWCASE_HERO_CSS}
 
@@ -332,42 +308,6 @@ const PREVIEW_CSS = `
   @media (max-width: 900px) { .epv-overview { grid-template-columns: 1fr; } }
 
   /* ── Kaufseite ─────────────────────────────────────────────────── */
-  .epv-shopcard {
-    width: 100%; max-width: 420px; margin: 0 auto;
-    background: var(--surface); border: 1px solid var(--line);
-    border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden;
-  }
-  .epv-shopart { aspect-ratio: 2 / 1; position: relative; overflow: hidden; border-bottom: 1px solid var(--line); background: var(--surface-3); }
-  .epv-shopart img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .epv-shophead { padding: 20px 22px 18px; display: flex; gap: 14px; align-items: flex-start; }
-  .epv-shophead h3 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
-  .epv-shophead .when { font-size: 12.5px; color: var(--ink-3); margin-top: 5px; display: flex; flex-direction: column; gap: 3px; }
-  .epv-shophead .when span { display: inline-flex; align-items: center; gap: 6px; }
-  .epv-datechip {
-    width: 52px; flex-shrink: 0; border: 1px solid var(--line);
-    border-radius: 9px; overflow: hidden; text-align: center; background: var(--surface);
-  }
-  .epv-datechip .m {
-    font-size: 9.5px; letter-spacing: 0.1em; color: #fff; text-transform: uppercase;
-    font-weight: 600; background: var(--accent); padding: 3px 0;
-  }
-  .epv-datechip .d { font-size: 20px; font-weight: 600; padding: 4px 0 5px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .epv-shopdesc { padding: 0 22px 18px; font-size: 13px; color: var(--ink-2); line-height: 1.6; white-space: pre-line; }
-  .epv-shoprows { border-top: 1px solid var(--line); padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; }
-  .epv-shoprow { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13.5px; }
-  .epv-shoprow .k { color: var(--ink-3); }
-  .epv-shoprow .k .sub { display: block; font-size: 11px; color: var(--ink-4); margin-top: 2px; }
-  .epv-shoprow .v { font-weight: 600; font-variant-numeric: tabular-nums; }
-  .epv-shoprow .v.big { font-size: 19px; letter-spacing: -0.01em; }
-  .epv-shopfoot { border-top: 1px solid var(--line); padding: 18px 22px 20px; background: var(--surface-2); display: flex; flex-direction: column; gap: 8px; }
-  .epv-tierrow { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--ink-2); }
-  .epv-tierrow b { font-variant-numeric: tabular-nums; }
-  .epv-fakebtn {
-    margin-top: 8px; height: 42px; border-radius: 10px;
-    background: var(--accent); color: #fff; display: grid; place-items: center;
-    font-size: 14px; font-weight: 600; opacity: 0.75;
-  }
-
   /* ── Ticket ────────────────────────────────────────────────────── */
   .epv-ticket {
     width: 340px; max-width: 100%;
