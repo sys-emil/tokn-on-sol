@@ -384,13 +384,6 @@ export default function Home() {
             {/* Die drei Teile der Kopfzeile, in derselben Reihenfolge. Ersetzt spaeter
                 der Showcase mit echten Produktbildern — die Ueberschriften bleiben. */}
             <section>
-              <div className="section-head" data-reveal>
-                <div>
-                  <h2>Was sich an deinem Abend ändert</h2>
-                  <div className="sub">Die drei Teile der Überschrift, der Reihe nach</div>
-                </div>
-              </div>
-
               {/* Kapitel 1 — Vorverkauf */}
               <div className="sc-chapter" data-reveal>
                 <div className="sc-copy">
