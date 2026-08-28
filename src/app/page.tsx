@@ -8,7 +8,8 @@ import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
 import { SiteNav } from '@/app/components/SiteNav';
 import { ShopCard, SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard';
-import { DoorPhones, DashboardMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
+import { DashboardMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
+import { DoorScene, DOOR_SCENE_CSS } from '@/app/components/showcase/DoorScene';
 
 /*
  * Startseite — richtet sich an Veranstalter, die noch nie online verkauft
@@ -199,6 +200,7 @@ const PAGE_CSS = `
   /* ── Showcase: die drei Kapitel ──────────────────────────── */
   ${SHOP_CARD_CSS}
   ${SHOWCASE_CSS}
+  ${DOOR_SCENE_CSS}
 
   /* ── Gebühren-Abschnitt ──────────────────────────────────── */
   .fee-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: center; }
@@ -413,27 +415,18 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Kapitel 2 — Tür. Das Standbild wird spaeter zur Scroll-Szene;
-                  es bleibt dann als Fassung fuer prefers-reduced-motion stehen. */}
-              <div className="sc-chapter flip" data-reveal>
-                <div className="sc-copy">
-                  <span className="sc-eyebrow">Deine Tür</span>
-                  <h3>Grün heißt rein.</h3>
-                  <p>
-                    Kein Scanner, keine Hardware, keine Schulung. Dein Personal öffnet
-                    einen Link und scannt mit dem eigenen Handy.
-                  </p>
-                  <ul className="sc-points">
-                    <li><Icon name="check" size={14} /> Der Code erneuert sich jede Minute, Screenshots sind wertlos</li>
-                    <li><Icon name="check" size={14} /> Läuft weiter, wenn im Keller das Netz wegbricht</li>
-                    <li><Icon name="check" size={14} /> Türlinks fürs Personal, ohne deinen Zugang</li>
-                    <li><Icon name="check" size={14} /> Abendkasse für Laufkundschaft, zum selben Preis</li>
-                  </ul>
-                </div>
-                <div className="sc-media">
-                  <DoorPhones />
-                </div>
-              </div>
+              {/* Kapitel 2 — Tür. Eigener Abschnitt statt Zweispalter: die
+                  Szene braucht die ganze Buehne, und ihre beiden Texte
+                  treten darin selbst auf. Die vier Belege, die vorher als
+                  Stichpunkte danebenstanden, folgen als Leiste darunter. */}
+              <DoorScene />
+
+              <ul className="scn-facts" data-reveal>
+                <li><Icon name="check" size={14} /> Der Code erneuert sich jede Minute, Screenshots sind wertlos</li>
+                <li><Icon name="check" size={14} /> Läuft weiter, wenn im Keller das Netz wegbricht</li>
+                <li><Icon name="check" size={14} /> Türlinks fürs Personal, ohne deinen Zugang</li>
+                <li><Icon name="check" size={14} /> Abendkasse für Laufkundschaft, zum selben Preis</li>
+              </ul>
 
               {/* Kapitel 3 — Zahlen */}
               <div className="sc-chapter" data-reveal>
