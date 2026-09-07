@@ -146,13 +146,21 @@ export default function DatenschutzPage() {
         Die Fälschungssicherheit der Tickets beruht darauf, dass jedes Ticket als
         einzigartiger Eintrag in einer öffentlichen, dezentralen Datenbank (der
         Solana-Blockchain) ausgestellt wird. Dasselbe gilt für die Abzeichen, die
-        du für besuchte Veranstaltungen erhältst. Dort gespeichert werden: eine
-        pseudonyme technische Kennung deines Kontos (die automatisch erzeugte
-        Kennung aus Ziffer 4), die Kennung des Tickets oder Abzeichens, der
-        Zeitpunkt der Ausstellung sowie allgemeine Angaben zur Veranstaltung
-        (Name, Datum, Veranstaltungsort, Beschreibung und Bild).
+        du für besuchte Veranstaltungen erhältst. In der dezentralen Datenbank
+        selbst werden gespeichert: eine pseudonyme technische Kennung deines
+        Kontos (die automatisch erzeugte Kennung aus Ziffer 4), die Kennung des
+        Tickets oder Abzeichens, der Zeitpunkt der Ausstellung, der Name der
+        Veranstaltung sowie ein Verweis (Link) auf eine Beschreibungsdatei.
         <strong>Nicht</strong> gespeichert werden dein Name, deine E-Mail-Adresse,
         Zahlungsdaten, der gezahlte Preis oder ob und wann du eingelassen wurdest.
+      </p>
+      <p>
+        Die verlinkte Beschreibungsdatei enthält weitere Angaben zur Veranstaltung
+        (Datum, Veranstaltungsort, Beschreibung und Bild). Sie liegt nicht in der
+        dezentralen Datenbank, sondern in unserem öffentlich abrufbaren Speicher
+        (Ziffer 5) und ist von uns jederzeit änderbar und löschbar. Sie bezieht
+        sich auf die Veranstaltung, nicht auf dich, und ist für alle Tickets
+        derselben Veranstaltung identisch.
       </p>
       <p>
         <strong>Verknüpfbarkeit:</strong> Alle deine Tickets und Abzeichen tragen
@@ -168,7 +176,10 @@ export default function DatenschutzPage() {
         Wichtig zu wissen: Einträge in dieser dezentralen Datenbank sind
         systembedingt öffentlich einsehbar und können nachträglich nicht verändert
         oder gelöscht werden — auch dann nicht, wenn du dein Passly-Konto löschen
-        lässt oder ein Ticket erstattet, zurückgegeben oder storniert wird. Ein
+        lässt oder ein Ticket erstattet, zurückgegeben oder storniert wird. Diese
+        Einschränkung betrifft nur die im vorletzten Absatz genannten Angaben; die
+        verlinkte Beschreibungsdatei und alle Daten in unserer eigenen Datenbank
+        können wir sehr wohl löschen. Ein
         zurückgegebenes oder storniertes Ticket verliert seine Gültigkeit
         ausschließlich in unserer Datenbank; sein Eintrag in der dezentralen
         Datenbank bleibt bestehen. Zur technischen Anbindung nutzen wir den Dienst
