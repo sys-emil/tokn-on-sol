@@ -6,76 +6,74 @@ import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { SiteNav } from '@/app/components/SiteNav';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ShopCard, SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard';
-import { DashboardMock, SeasonPassMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
+import { DashboardMock, ReturnMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
 import { DoorScene } from '@/app/components/showcase/DoorScene';
-import { NICHE_SPORT } from '@/app/components/showcase/niches';
+import { NICHE_CLUB } from '@/app/components/showcase/niches';
 
 /*
- * Nischenseite Sportverein — die erste der drei Türen (Sport · Clubs ·
- * Kultur) in dieselbe Marke Passly.
+ * Nischenseite Club — die zweite der drei Türen (Sport · Clubs · Kultur) in
+ * dieselbe Marke Passly. Aufbau und Regeln wie /sportvereine, siehe dort.
  *
- * **Sie ist ein eigener Eingang, keine Unterseite.** Wer hier landet, kommt
- * aus der Suche („Ticketsystem Sportverein", „Dauerkarten online verkaufen"),
- * aus einer Kaltakquise-Mail oder aus einem Bio-Link — fast nie von der
- * Startseite. Deshalb trägt sie den ganzen Weg allein: Hero, Beweise,
- * Gebühren, Fragen, Abschluss.
+ * **Was sie vom Verein unterscheidet, ist nicht der Ton, sondern das
+ * Produkt.** Ein Club braucht keine Dauerkarte; er braucht einen Vorverkauf,
+ * der den Ansturm zum Verkaufsstart aushält (Warteschlange), eine Tür, die
+ * im Keller ohne Empfang weiterläuft, einen Wiedereinlass für den Hof — und
+ * die Rückgabe, weil sonst der Weiterverkauf auf Instagram stattfindet, wo
+ * niemand ihn kontrolliert. Deshalb hat diese Seite ein eigenes
+ * Rückgabe-Kapitel an der Stelle, an der die Vereinsseite die Dauerkarte
+ * hat.
  *
- * **Warum sie nicht die Startseite mit ausgetauschten Substantiven ist:**
- * genau das wäre eine Doorway-Page, und der Leser merkt es in zehn Sekunden.
- * Der Verein benutzt tatsächlich andere Teile des Produkts als ein Club —
- * vor allem die **Dauerkarte**, die hier ein eigenes Kapitel bekommt. Sie ist
- * das Argument, das Sport von Clubs unterscheidet, und der Grund, mit dieser
- * Nische anzufangen.
+ * **Kein Kunde auf dieser Seite**, kein Clubname, kein Logo, kein Zitat.
+ * Alle Namen in den Mockups sind erfunden, alle Werte plausibel für einen
+ * einzelnen Abend.
  *
- * **Kein Kunde auf dieser Seite**, auch nicht anonym: kein Vereinsname, kein
- * Logo, kein Zitat, keine Zuschauerzahl aus einer echten Halle. Solange es
- * keine Referenz gibt, wird auch keine behauptet — dieselbe Regel wie auf der
- * Startseite. Alle Namen in den Mockups sind erfunden.
- *
- * **Marken-Violett bleibt.** Die Nische unterscheidet sich über Inhalt,
- * Beispiele und Sprache, nicht über die Farbe: drei Farben wären drei Marken.
+ * Die Voreinstellungen von `DoorScene` und `DashboardMock` sind bereits die
+ * Clubnacht der Startseite — deshalb stehen sie hier ohne Beschriftungen da.
  */
 
 export const metadata: Metadata = {
-  title: 'Ticketsystem für Sportvereine · Passly',
+  title: 'Ticketsystem für Clubs · Passly',
   description:
-    'Vorverkauf für jedes Heimspiel, Dauerkarten für die ganze Saison, Einlass mit dem Handy deiner Helfer. Ohne Grundgebühr, ohne Vertrag, ohne Technik im Verein.',
-  alternates: { canonical: '/sportvereine' },
+    'Vorverkauf, der den Verkaufsstart aushält, ein Einlass, der auch ohne Empfang im Keller läuft, und am Sonntag die Zahlen. Ohne Grundgebühr, ohne Vertrag.',
+  alternates: { canonical: '/clubs' },
   openGraph: {
     type: 'website',
-    title: 'Ticketsystem für Sportvereine · Passly',
+    title: 'Ticketsystem für Clubs · Passly',
     description:
-      'Vorverkauf für jedes Heimspiel, Dauerkarten für die ganze Saison, Einlass mit dem Handy deiner Helfer. Ohne Grundgebühr, ohne Vertrag.',
+      'Vorverkauf, der den Verkaufsstart aushält, ein Einlass, der auch ohne Empfang im Keller läuft, und am Sonntag die Zahlen.',
   },
 };
 
-/* Die Fragen stehen als Daten da, weil sie zweimal gebraucht werden: einmal
-   sichtbar als Aufklappliste und einmal als FAQPage-Auszeichnung für die
-   Suche. Zwei getippte Fassungen derselben Antwort würden auseinanderlaufen. */
+/* Wie auf der Vereinsseite: einmal getippt, zweimal benutzt — sichtbar und
+   als FAQPage-Auszeichnung. */
 const FAQ: { q: string; a: string }[] = [
   {
-    q: 'Wann ist das Geld auf dem Vereinskonto?',
-    a: 'Frühestens am Tag nach dem Heimspiel — nicht schon beim Verkauf. Das schützt uns beide vor Rückbuchungen, wenn ein Spiel doch noch abgesagt wird. Beim allerersten Mal warten wir drei Tage nach dem Spiel, danach ist es immer der Tag danach. Ausgezahlt wird über unseren Zahlungspartner Stripe direkt auf euer Vereinskonto; dafür verifiziert ihr es einmalig.',
+    q: 'Was passiert, wenn beim Verkaufsstart alle gleichzeitig draufgehen?',
+    a: 'Dann schaltest du für dieses Event die Warteschlange ein. Wer zuerst da ist, steht vorn und bekommt der Reihe nach einen Platz im Kauf; alle anderen sehen, dass sie warten, statt einer Fehlermeldung. Doppelt verkauft wird dabei nichts: jedes Kontingent wird beim Klick auf „Kaufen" verbindlich reserviert, nicht erst nach der Zahlung. Die Warteschlange kostet nichts extra.',
   },
   {
-    q: 'Brauchen unsere Helfer am Eingang einen Zugang?',
-    a: 'Nein. Du erzeugst pro Spiel einen Türlink und schickst ihn in die Helfergruppe. Wer ihn öffnet, kann Tickets scannen und die Abendkasse bedienen — sonst nichts. Kein Vereinszugang, kein Passwort, keine App. Der Link läuft nach dem Spiel von allein ab, und du kannst ihn jederzeit widerrufen.',
+    q: 'Kommt jemand mit einem weitergeschickten Screenshot rein?',
+    a: 'Nein. Der QR-Code auf dem Handy deines Gastes wird jede Minute neu erzeugt, ein Screenshot ist am nächsten Morgen also wertlos. Jedes Ticket lässt sich außerdem nur einmal einlösen — auch wenn zwei Leute mit demselben Code an zwei Türen stehen.',
   },
   {
-    q: 'Was ist mit Zuschauern, die bar an der Kasse zahlen?',
-    a: 'Die verkaufst du direkt auf der Türseite über die Abendkasse: Kategorie wählen, kassieren, fertig. Das Bargeld bleibt bei euch, es läuft kein Geld über Passly. Der Preis an der Kasse ist derselbe wie online — sonst gewöhnt ihr eure Zuschauer daran, den Vorverkauf zu überspringen. Die Servicegebühr dieser Barverkäufe wird einfach mit eurer nächsten Online-Auszahlung verrechnet.',
+    q: 'Funktioniert der Einlass im Keller ohne Empfang?',
+    a: 'Ja. Die Türseite lädt die Ticketliste vor und prüft danach auf dem Gerät weiter, mit derselben Signatur- und Einmal-Prüfung wie online. Sobald das Handy wieder Netz hat, werden die Scans nachgetragen. Das Einzige, was offline nicht geht: zwei Geräte sehen die Scans des jeweils anderen nicht — an einer Tür mit zwei Handys also besser eins scannen lassen.',
   },
   {
-    q: 'Können Mitglieder, Schüler oder Rentner günstiger rein?',
-    a: 'Ja, über Kategorien: bis zu fünf Preisstufen pro Spiel, jede mit eigenem Kontingent, zum Beispiel Erwachsene, Ermäßigt und Kinder frei. Wer bei euch was zahlt, entscheidet ihr. Rabattcodes für einzelne Gruppen gibt es zusätzlich im Pro-Tarif.',
+    q: 'Können Gäste zwischendurch raus und wieder rein?',
+    a: 'Wenn du den Wiedereinlass einschaltest, ja: derselbe Code checkt beim nächsten Scan aus und beim übernächsten wieder ein. Damit niemand ein Handy an der Schlange entlangreicht, gibt es eine Sperrzeit zwischen zwei Scans, die du selbst festlegst (voreingestellt zwei Minuten). Ist der Wiedereinlass aus, bleibt ein zweiter Scan wie bisher eine abgelehnte Doppelnutzung.',
   },
   {
-    q: 'Funktioniert der Einlass, wenn in der Halle kein Netz ist?',
-    a: 'Ja. Die Türseite lädt die Ticketliste vor und prüft danach auf dem Gerät weiter — auch ohne Empfang, und auch dann nur einmal je Ticket. Sobald das Handy wieder online ist, werden die Scans nachgetragen. Genau dafür ist es gebaut: Hallen und Sportplätze sind selten Funklöcher-frei.',
+    q: 'Was ist, wenn jemand doch nicht kann?',
+    a: 'Gibst du die Rückgabe für ein Event frei, kann der Gast sein Ticket selbst zurückgeben: sein Platz geht zurück in den Verkauf, und sobald ihn jemand kauft, bekommt er sein Geld auf demselben Weg zurück, auf dem er bezahlt hat — abzüglich 10 %, mindestens 1 €. Zu einem höheren Preis kann dabei niemand weiterverkaufen: erstattet wird immer nur die ursprüngliche Zahlung. Damit findet die Weitergabe bei dir statt und nicht in einer Instagram-Story.',
   },
   {
-    q: 'Was passiert, wenn ein Spiel ausfällt?',
-    a: 'Du sagst das Spiel im Dashboard ab, dann wird jedes verkaufte Ticket automatisch und vollständig erstattet, inklusive Servicegebühr — ihr müsst niemandem hinterhertelefonieren. Was der Zahlungsdienstleister bei einer Erstattung einbehält, tragen wir nicht; dieser Betrag wird mit eurer nächsten Auszahlung verrechnet und im Dashboard ausgewiesen.',
+    q: 'Brauchen meine Türsteher einen Zugang?',
+    a: 'Nein. Du erzeugst pro Abend einen Türlink und schickst ihn ans Personal. Wer ihn öffnet, kann scannen und die Abendkasse bedienen — sonst nichts, kein Zugang zu deinen Zahlen oder deinen Events. Der Link läuft nach dem Abend von allein ab, und du kannst ihn jederzeit widerrufen.',
+  },
+  {
+    q: 'Gibt es eine Gästeliste?',
+    a: 'Wer verkauft ist und wer schon drin ist, siehst du kostenlos — live an der Tür und danach im Dashboard. Freien Eintritt für einzelne Namen oder Gruppen vergibst du über Rabattcodes bis 100 %; die gehören zum Pro-Tarif.',
   },
 ];
 
@@ -119,7 +117,6 @@ const PAGE_CSS = `
   }
   .trust-item .label { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
 
-  /* Abstand zwischen den Abschnitten wie auf der Startseite. */
   .container > section + section { margin-top: 88px; }
   @media (max-width: 700px) { .container > section + section { margin-top: 56px; } }
 
@@ -181,7 +178,7 @@ const PAGE_CSS = `
   }
 `;
 
-export default function SportvereinePage() {
+export default function ClubsPage() {
   const faqLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -220,18 +217,18 @@ export default function SportvereinePage() {
 
             <section className="info-hero" data-reveal>
               <div className="info-eyebrow">
-                <Icon name="ticket" size={13} /> Für Sportvereine
+                <Icon name="sparkle" size={13} /> Für Clubs
               </div>
               <h1>
-                Deine Heimspiele.<br />
-                Deine Dauerkarten.<br />
-                <span className="accent">Deine Kasse.</span>
+                Deine Nacht.<br />
+                Deine Tür.<br />
+                <span className="accent">Deine Abrechnung.</span>
               </h1>
               <p className="lead">
-                Vorverkauf für jedes Heimspiel, Dauerkarten für die ganze Saison,
-                Einlass mit dem Handy eurer Helfer. Statt Namensliste, Geldkassette
-                und der Frage, wer schon bezahlt hat. Ohne Grundgebühr, ohne
-                Vertrag, ohne Technik im Verein.
+                Ein Vorverkauf, der den Verkaufsstart aushält. Ein Einlass, der auch
+                im Keller ohne Empfang weiterläuft. Und am Sonntag steht da, wie viele
+                wirklich drin waren. Statt DMs, PayPal an Freunde und einer Liste auf
+                Papier.
               </p>
               <div className="hero-ctas">
                 <Link href="/become-organizer" className="btn primary lg">
@@ -242,7 +239,6 @@ export default function SportvereinePage() {
               <p className="hero-note">Sofort loslegen, ohne Freischaltung.</p>
             </section>
 
-            {/* Nachprüfbare Zusagen statt Vereinsstimmen: es gibt noch keine. */}
             <section>
               <div className="trust-bar" data-reveal>
                 <div className="trust-item">
@@ -251,146 +247,128 @@ export default function SportvereinePage() {
                 </div>
                 <div className="trust-item">
                   <div className="ic"><Icon name="users" size={15} /></div>
-                  <div className="label">Türlinks für Helfer, ohne Vereinszugang</div>
+                  <div className="label">Türlinks fürs Personal, ohne Zugang zu deinen Zahlen</div>
                 </div>
                 <div className="trust-item">
                   <div className="ic"><Icon name="wifi" size={15} /></div>
-                  <div className="label">Einlass funktioniert auch ohne Netz in der Halle</div>
+                  <div className="label">Einlass läuft weiter, wenn das Netz wegbricht</div>
                 </div>
                 <div className="trust-item">
-                  <div className="ic"><Icon name="refresh" size={15} /></div>
-                  <div className="label">Fällt ein Spiel aus, wird automatisch erstattet</div>
+                  <div className="ic"><Icon name="shield" size={15} /></div>
+                  <div className="label">Code erneuert sich jede Minute, einmal einlösbar</div>
                 </div>
               </div>
             </section>
 
             <section>
-              {/* Kapitel 1 — Vorverkauf */}
+              {/* Kapitel 1 — Vorverkauf. Der Club-Unterschied steckt im
+                  Verkaufsstart, nicht im Verkaufen an sich. */}
               <div className="sc-chapter" data-reveal>
                 <div className="sc-copy">
                   <span className="sc-eyebrow">Dein Vorverkauf</span>
-                  <h3>Ein Link für jedes Heimspiel.</h3>
+                  <h3>Auch wenn alle gleichzeitig kommen.</h3>
                   <p>
-                    Du legst das Spiel an und teilst einen Link — in der WhatsApp-Gruppe,
-                    auf Instagram, auf der Vereinsseite. Wer draufklickt, kauft in einer
-                    Minute und hat sein Ticket sofort auf dem Handy.
+                    Du teilst einen Link, und der hält auch, wenn um 20:00 Uhr
+                    dreihundert Leute gleichzeitig draufgehen. Wer wartet, sieht seinen
+                    Platz in der Schlange statt einer Fehlermeldung — und was verkauft
+                    ist, ist verkauft.
                   </p>
                   <ul className="sc-points">
-                    <li><Icon name="check" size={14} /> Bis zu fünf Preisstufen: Erwachsene, Ermäßigt, Mitglieder, Kinder frei</li>
+                    <li><Icon name="check" size={14} /> Warteschlange beim Verkaufsstart, der Reihe nach</li>
+                    <li><Icon name="check" size={14} /> Frühbucher, Abendkasse, Kontingente je Kategorie</li>
                     <li><Icon name="check" size={14} /> Karte, PayPal, Apple&nbsp;Pay und Google&nbsp;Pay</li>
-                    <li><Icon name="check" size={14} /> Kaufen ohne Konto, das legt der Zuschauer später an</li>
-                    <li><Icon name="check" size={14} /> Jedes Kontingent zählt sich selbst herunter, nichts wird doppelt verkauft</li>
+                    <li><Icon name="check" size={14} /> Kaufen ohne Konto, das legt dein Gast später an</li>
                   </ul>
                 </div>
                 <div className="sc-media">
-                  <ShopCard {...NICHE_SPORT.shopCard} />
+                  <ShopCard {...NICHE_CLUB.shopCard} />
                 </div>
               </div>
 
-              {/* Kapitel 2 — Dauerkarte. Das Kapitel, das diese Seite von der
-                  Startseite und von einer Club-Seite unterscheidet. */}
-              <div className="sc-chapter flip" data-reveal>
-                <div className="sc-copy">
-                  <span className="sc-eyebrow">Deine Dauerkarte</span>
-                  <h3>Die ganze Saison auf einem Ticket.</h3>
-                  <p>
-                    Du legst die Heimspiele einer Saison zu einer Dauerkarte zusammen und
-                    verkaufst sie wie ein normales Ticket. Am Eingang zählt dasselbe Handy,
-                    dasselbe Scannen — nur eben an elf Spieltagen statt an einem.
-                  </p>
-                  <ul className="sc-points">
-                    <li><Icon name="check" size={14} /> Ein Ticket für alle Termine der Serie</li>
-                    <li><Icon name="check" size={14} /> Je Spieltag genau einmal Einlass, automatisch mitgezählt</li>
-                    <li><Icon name="check" size={14} /> Eigenes Kontingent, unabhängig von den Tageskarten</li>
-                    <li><Icon name="check" size={14} /> Im kostenlosen Tarif enthalten</li>
-                  </ul>
-                </div>
-                <div className="sc-media">
-                  <SeasonPassMock />
-                </div>
-              </div>
-
-              {/* Kapitel 3 — Tür */}
-              <DoorScene
-                eventName="Heimspiel gegen SV Nordstadt"
-                ticketWhen="Samstag, 11. Oktober · 19:30 Uhr"
-                doorWhen="Samstag, 11. Oktober"
-                tierLabel="Erwachsene"
-                venue="Sporthalle am Ring"
-                admittedCount="164"
-                lastScanAt="19:22"
-                doorHeading="Der Eingang ist ein Handy."
-                doorText="Kein Scanner, keine Hardware, keine Schulung: dein Helfer öffnet einen Link und scannt mit dem eigenen Handy. Zwei Eingänge? Zwei Links."
-                ticketHeading="Der Code steht nie still."
-                ticketText="Der Code auf dem Handy des Zuschauers erneuert sich jede Minute. Ein weitergeschickter Screenshot ist am Eingang wertlos."
-              />
+              {/* Kapitel 2 — Tür. Die Voreinstellungen der Szene sind bereits
+                  die Clubnacht, deshalb ohne Beschriftungen. */}
+              <DoorScene />
 
               <ul className="scn-facts" data-reveal>
-                <li><Icon name="check" size={14} /> Türlinks für Helfer, ohne Zugang zum Vereinskonto</li>
-                <li><Icon name="check" size={14} /> Läuft weiter, wenn in der Halle das Netz wegbricht</li>
+                <li><Icon name="check" size={14} /> Der Code erneuert sich jede Minute, Screenshots sind wertlos</li>
+                <li><Icon name="check" size={14} /> Läuft weiter, wenn im Keller das Netz wegbricht</li>
+                <li><Icon name="check" size={14} /> Wiedereinlass für den Hof, mit Sperrzeit gegen Weiterreichen</li>
                 <li><Icon name="check" size={14} /> Abendkasse für Laufkundschaft, zum selben Preis wie online</li>
-                <li><Icon name="check" size={14} /> Wiedereinlass in der Halbzeitpause, wenn du ihn einschaltest</li>
               </ul>
 
-              {/* Kapitel 4 — Zahlen */}
+              {/* Kapitel 3 — Rückgabe. Steht an der Stelle, an der die
+                  Vereinsseite die Dauerkarte hat: das eine Kapitel, das diese
+                  Nische wirklich anders braucht. */}
+              <div className="sc-chapter flip" data-reveal>
+                <div className="sc-copy">
+                  <span className="sc-eyebrow">Deine Rückgabe</span>
+                  <h3>Der Weiterverkauf findet bei dir statt.</h3>
+                  <p>
+                    Wer nicht kann, gibt sein Ticket zurück, statt es in einer Story
+                    anzubieten. Der Platz geht zurück in den Verkauf, der nächste Gast
+                    kauft ihn ganz normal — zum selben Preis, denn erstattet wird immer
+                    nur, was bezahlt wurde. Ein Ticket zum Dreifachen gibt es hier gar
+                    nicht erst.
+                  </p>
+                  <ul className="sc-points">
+                    <li><Icon name="check" size={14} /> Du gibst die Rückgabe pro Event frei, oder eben nicht</li>
+                    <li><Icon name="check" size={14} /> Der freigewordene Platz wird sofort wieder verkauft</li>
+                    <li><Icon name="check" size={14} /> Das zurückgegebene Ticket verliert seine Gültigkeit</li>
+                    <li><Icon name="check" size={14} /> Für dich ändert sich nichts: du wirst für den Platz einmal bezahlt</li>
+                  </ul>
+                </div>
+                <div className="sc-media">
+                  <ReturnMock />
+                </div>
+              </div>
+
+              {/* Kapitel 4 — Zahlen. Voreinstellung ist bereits die Clubnacht. */}
               <div className="sc-chapter" data-reveal>
                 <div className="sc-copy">
                   <span className="sc-eyebrow">Deine Zahlen</span>
-                  <h3>Am Donnerstag weißt du, wie voll es Samstag wird.</h3>
+                  <h3>Am Freitagabend weißt du, wie die Nacht steht.</h3>
                   <p>
-                    Wie viele Karten weg sind, wie viele Zuschauer wirklich da waren, was
-                    hereingekommen ist — je Heimspiel, ohne dass jemand eine Liste führt.
-                    Und für den Kassenwart alles als Datei.
+                    Wie viele Tickets weg sind, wie viele wirklich drin waren, was
+                    hereingekommen ist. Live an der Tür und am nächsten Tag als
+                    Abrechnung — ohne dass jemand mitzählt.
                   </p>
                   <ul className="sc-points">
-                    <li><Icon name="check" size={14} /> Verkauft, eingelassen und Einnahmen je Spiel</li>
-                    <li><Icon name="check" size={14} /> Zuschauerliste mit Einlassstatus, auch offline geführt</li>
+                    <li><Icon name="check" size={14} /> Verkauft, eingelassen und Einnahmen je Abend</li>
+                    <li><Icon name="check" size={14} /> Gästeliste mit Einlassstatus, auch offline geführt</li>
                     <li><Icon name="check" size={14} /> Jede Auszahlung einzeln nachvollziehbar</li>
-                    <li><Icon name="check" size={14} /> Export für die Vereinsbuchhaltung, als CSV</li>
+                    <li><Icon name="check" size={14} /> Export für die Buchhaltung, als CSV</li>
                   </ul>
                 </div>
                 <div className="sc-media">
-                  <DashboardMock
-                    kicker="Samstag, 11. Oktober"
-                    title="Heimspiel gegen SV Nordstadt"
-                    sold={164}
-                    capacity={220}
-                    redeemed={151}
-                    revenueLabel="1.312 €"
-                  />
+                  <DashboardMock />
                 </div>
               </div>
             </section>
 
-            {/* Gebühren. Der Mindestbetrag wird hier offen angesprochen:
-                Vereinstickets liegen fast alle unter der Schwelle, ab der die
-                7,9 % greifen — der Rechner daneben zeigt die Zahl ohnehin, und
-                sie erst an der Kasse zu erklären wäre die schlechtere Reihenfolge. */}
             <section>
               <div className="fee-section" data-reveal>
                 <div className="fee-copy">
-                  <h2>Was bleibt dem Verein?</h2>
+                  <h2>Was bleibt dir?</h2>
                   <p>
-                    Pro verkauftem Ticket fallen 7,9&nbsp;% Servicegebühr an, mindestens
-                    aber 0,99&nbsp;€. Bei Vereinspreisen greift fast immer dieser
-                    Mindestbetrag: unter rund 12,50&nbsp;€ sind es 0,99&nbsp;€ pro Karte,
-                    darüber der Prozentsatz. Standardmäßig zahlt sie der Zuschauer offen
-                    ausgewiesen obendrauf, und ihr bekommt euren Kartenpreis auf den Cent.
-                    Wollt ihr lieber einen runden Eintrittspreis, übernehmt ihr sie.
-                    Kostenlose Spiele bleiben komplett kostenlos.
+                    Pro verkauftem Ticket 7,9&nbsp;% Servicegebühr, mindestens 0,99&nbsp;€,
+                    und der Satz sinkt, je teurer das Ticket ist. Standardmäßig zahlt sie
+                    dein Gast offen ausgewiesen obendrauf, und du bekommst deinen
+                    Ticketpreis auf den Cent. Willst du lieber einen runden Endpreis am
+                    Tresen, übernimmst du sie. Keine Einrichtungskosten, keine monatliche
+                    Gebühr, keine Mindestlaufzeit.
                   </p>
                   <Link href="/preise" className="more">
                     Alle Preise im Detail <Icon name="arrow" size={13} />
                   </Link>
                 </div>
-                <FeeCalculator initialPrice={NICHE_SPORT.calcStartPriceEur} quantity={150} />
+                <FeeCalculator initialPrice={NICHE_CLUB.calcStartPriceEur} quantity={200} />
               </div>
             </section>
 
             <section>
               <div className="section-head" data-reveal>
                 <div>
-                  <h2>Häufige Fragen aus Vereinen</h2>
+                  <h2>Häufige Fragen aus Clubs</h2>
                   <div className="sub">Kurz beantwortet</div>
                 </div>
               </div>
@@ -409,7 +387,7 @@ export default function SportvereinePage() {
 
             <section>
               <div className="cta-banner" data-reveal>
-                <h2>Leg dein erstes Heimspiel an.</h2>
+                <h2>Leg deine erste Nacht an.</h2>
                 <p>Kostenlos, ohne Vertrag und ohne Grundgebühr. Anmelden und direkt anlegen.</p>
                 <Link href="/become-organizer" className="btn lg">
                   Jetzt starten <Icon name="arrow" size={14} />
@@ -421,7 +399,7 @@ export default function SportvereinePage() {
               <div>© 2026 Passly · Digitale Tickets</div>
               <div className="links">
                 <Link href="/fuer-veranstalter">Für Veranstalter</Link>
-                <Link href="/clubs">Für Clubs</Link>
+                <Link href="/sportvereine">Für Sportvereine</Link>
                 <Link href="/preise">Preise</Link>
                 <Link href="/events">Events</Link>
                 <Link href="/so-funktionierts">So funktioniert&rsquo;s</Link>

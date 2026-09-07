@@ -515,6 +515,7 @@ export default function Home() {
               <div className="links">
                 <Link href="/fuer-veranstalter">Für Veranstalter</Link>
                 <Link href="/sportvereine">Für Sportvereine</Link>
+                <Link href="/clubs">Für Clubs</Link>
                 <Link href="/preise">Preise</Link>
                 <Link href="/events">Events</Link>
                 <Link href="/so-funktionierts">So funktioniert&rsquo;s</Link>

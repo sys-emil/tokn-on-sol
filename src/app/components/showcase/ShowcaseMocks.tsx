@@ -181,6 +181,68 @@ export function SeasonPassMock({
   );
 }
 
+/* ── Kapitel „Deine Rückgabe“ ─────────────────────────────────────────
+   Nachbau des Rückgabe-Dialogs aus /my-tickets, Zeile für Zeile: gezahlt,
+   Rückgabegebühr, Erstattung. Die Zahlen sind die echten — 10 %, mindestens
+   1 € (`returnBreakdown` in src/lib/fees.ts) — und die Gebühr rechnet gegen
+   den **gezahlten Ticketpreis**, nicht gegen den Gesamtbetrag. Kein
+   Weiterverkauf zu einem anderen Preis: Stripe erstattet nie mehr als die
+   ursprüngliche Zahlung, deshalb gibt es hier keinen Aufschlag zu zeigen. */
+export interface ReturnMockProps {
+  eventName?: string;
+  paidLabel?: string;
+  feeLabel?: string;
+  refundLabel?: string;
+}
+
+export function ReturnMock({
+  eventName = 'Die beste Nacht des Jahres',
+  paidLabel = '15,00 €',
+  feeLabel = '1,50 €',
+  refundLabel = '13,50 €',
+}: ReturnMockProps = {}) {
+  return (
+    <div className="rtm">
+      <div className="rtm-head">Ticket zurückgeben</div>
+
+      <div className="rtm-body">
+        <div className="rtm-intro">
+          <b>{eventName}</b>
+          <span>
+            Dein Platz geht zurück in den Verkauf. Sobald ihn jemand kauft, bekommst du
+            dein Geld auf dem Weg zurück, auf dem du bezahlt hast.
+          </span>
+        </div>
+
+        <div className="rtm-rows">
+          <div className="rtm-row">
+            <span className="k">Du hast gezahlt</span>
+            <span className="v">{paidLabel}</span>
+          </div>
+          <div className="rtm-row">
+            <span className="k">Rückgabegebühr</span>
+            <span className="v">− {feeLabel}</span>
+          </div>
+          <div className="rtm-row total">
+            <span className="k">Du bekommst zurück</span>
+            <span className="v">{refundLabel}</span>
+          </div>
+        </div>
+
+        <div className="rtm-note">
+          Du kannst es jederzeit zurückholen, solange es niemand gekauft hat. Verkauft es
+          sich bis zum Eventtag nicht, bekommst du es automatisch zurück.
+        </div>
+      </div>
+
+      <div className="rtm-foot">
+        <span className="rtm-btn ghost">Abbrechen</span>
+        <span className="rtm-btn primary">Zurückgeben</span>
+      </div>
+    </div>
+  );
+}
+
 export const SHOWCASE_CSS = `
   /* ── Kapitel-Raster ──────────────────────────────────────── */
   .sc-chapter {
@@ -331,4 +393,39 @@ export const SHOWCASE_CSS = `
     background: var(--accent); color: #fff; display: grid; place-items: center;
     font-size: 14px; font-weight: 600; opacity: 0.75;
   }
+
+  /* ── Rückgabe: Nachbau des Dialogs aus /my-tickets ───────── */
+  .rtm {
+    width: 100%; max-width: 400px; margin: 0 auto;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden;
+  }
+  .rtm-head {
+    padding: 15px 18px; border-bottom: 1px solid var(--line);
+    font-size: 14.5px; font-weight: 600; letter-spacing: -0.015em;
+  }
+  .rtm-body { padding: 16px 18px; }
+  .rtm-intro { font-size: 12.5px; color: var(--ink-3); line-height: 1.55; display: grid; gap: 4px; }
+  .rtm-intro b { color: var(--ink); font-size: 13.5px; font-weight: 600; }
+  .rtm-rows {
+    margin-top: 14px; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface-2); display: grid; gap: 6px;
+  }
+  .rtm-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .rtm-row .k { color: var(--ink-3); }
+  .rtm-row .v { font-variant-numeric: tabular-nums; color: var(--ink); }
+  .rtm-row.total { border-top: 1px solid var(--line); padding-top: 7px; font-weight: 600; }
+  .rtm-row.total .v { color: var(--accent); }
+  .rtm-note { margin-top: 10px; font-size: 11.5px; color: var(--ink-3); line-height: 1.5; }
+  .rtm-foot {
+    padding: 14px 18px; border-top: 1px solid var(--line); background: var(--surface-2);
+    display: flex; justify-content: flex-end; gap: 8px;
+  }
+  .rtm-btn {
+    display: grid; place-items: center; height: 36px; padding: 0 16px;
+    border-radius: 9px; font-size: 13px; font-weight: 550;
+  }
+  .rtm-btn.ghost { border: 1px solid var(--line-2); color: var(--ink-2); background: var(--surface); }
+  .rtm-btn.primary { background: var(--accent); color: #fff; opacity: 0.75; }
 `;

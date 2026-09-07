@@ -46,7 +46,7 @@ export interface Niche {
 const CLUB: Niche = {
   key: 'club',
   switchLabel: 'Club',
-  href: null,
+  href: '/clubs',
   linkLabel: 'Mehr für Clubs',
   calcStartPriceEur: 15,
   shopCard: {
@@ -117,3 +117,4 @@ export const NICHES: readonly Niche[] = [CLUB, SPORT, KULTUR];
 export const DEFAULT_NICHE: NicheKey = 'club';
 
 export const NICHE_SPORT = SPORT;
+export const NICHE_CLUB = CLUB;

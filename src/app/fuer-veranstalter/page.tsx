@@ -390,9 +390,10 @@ export default function FuerVeranstalterPage() {
                       Dein Ticketumsatz wird automatisch auf dein Bankkonto überwiesen,
                       abgewickelt über unseren Zahlungspartner Stripe. Dafür verifizierst
                       du einmalig dein Auszahlungskonto (gesetzlich vorgeschrieben,
-                      dauert nur ein paar Minuten). Auf Wunsch kannst du pro Event eine
-                      Haltefrist einstellen und dir das Geld erst nach dem Event
-                      auszahlen lassen.
+                      dauert nur ein paar Minuten). Ausgezahlt wird ab dem Tag nach dem
+                      Event — nicht schon beim Verkauf, damit bei einer Absage nichts
+                      zurückgeholt werden muss. Auf Wunsch kannst du pro Event länger
+                      warten.
                     </p>
                   </div>
                 </div>
@@ -512,10 +513,12 @@ export default function FuerVeranstalterPage() {
                     <span className="faq-chev"><Icon name="chevronRight" size={15} /></span>
                   </summary>
                   <div className="faq-a">
-                    Standardmäßig wird dein Umsatz laufend automatisch überwiesen, in
-                    der Regel innerhalb eines Tages nach dem Verkauf. Optional kannst du
-                    pro Event eine Haltefrist einstellen, sodass die Auszahlung erst
-                    einige Tage nach dem Event erfolgt.
+                    Ab dem Tag nach deinem Event, nicht schon beim Verkauf. Das
+                    schützt beide Seiten vor Rückbuchungen, wenn eine Veranstaltung
+                    doch noch abgesagt wird. Bei deiner allerersten Auszahlung sind es
+                    drei Tage nach dem Event, danach immer der Tag danach. Du kannst
+                    pro Event länger warten, wenn du willst; brauchst du dein Geld
+                    früher, fragst du im Dashboard eine vorzeitige Auszahlung an.
                   </div>
                 </details>
                 <details>
@@ -570,6 +573,7 @@ export default function FuerVeranstalterPage() {
               <div>© 2026 Passly · Digitale Tickets</div>
               <div className="links">
                 <Link href="/sportvereine">Für Sportvereine</Link>
+                <Link href="/clubs">Für Clubs</Link>
                 <Link href="/events">Events</Link>
                 <Link href="/so-funktionierts">Für Gäste</Link>
                 <Link href="/hilfe">Hilfe</Link>
