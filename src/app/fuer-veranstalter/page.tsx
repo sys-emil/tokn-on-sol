@@ -569,6 +569,7 @@ export default function FuerVeranstalterPage() {
             <footer className="footer">
               <div>© 2026 Passly · Digitale Tickets</div>
               <div className="links">
+                <Link href="/sportvereine">Für Sportvereine</Link>
                 <Link href="/events">Events</Link>
                 <Link href="/so-funktionierts">Für Gäste</Link>
                 <Link href="/hilfe">Hilfe</Link>

@@ -32,7 +32,46 @@ import { useEffect, useRef } from 'react';
  * Zählern und nur dem Sucherfeld dunkel — genau wie /doorman/[eventId].
  * Die Ecken sitzen wie dort bei 14 %, der Strahl ist der violette aus `sweep`.
  */
-export function DoorScene() {
+export interface DoorSceneProps {
+  /** Eventname auf beiden Geraeten. */
+  eventName?: string;
+  /** Ausgeschriebenes Datum auf dem Ticket, mit Uhrzeit. */
+  ticketWhen?: string;
+  /** Dasselbe Datum auf der Tuerflaeche, ohne Uhrzeit. */
+  doorWhen?: string;
+  /** Kategorie- und Ortszeile in den Ticketdetails. */
+  tierLabel?: string;
+  venue?: string;
+  /** Zaehler auf der Tuerflaeche. */
+  admittedCount?: string;
+  lastScanAt?: string;
+  /** Die beiden Textbloecke neben der Buehne. */
+  doorHeading?: string;
+  doorText?: string;
+  ticketHeading?: string;
+  ticketText?: string;
+}
+
+/**
+ * Alle Beschriftungen sind Voreinstellungen, keine festen Werte: die
+ * Nischenseiten zeigen dieselbe Szene mit ihrem eigenen Abend (Heimspiel
+ * statt Clubnacht). Die Voreinstellung ist der Zustand der Startseite, damit
+ * die sich durch die Parametrisierung nicht veraendert. Die Schrittsteuerung
+ * bleibt davon unberuehrt.
+ */
+export function DoorScene({
+  eventName = 'Die beste Nacht des Jahres',
+  ticketWhen = 'Freitag, 5. September · 20:00 Uhr',
+  doorWhen = 'Freitag, 5. September',
+  tierLabel = 'Frühbucher',
+  venue = 'Halle 7',
+  admittedCount = '79',
+  lastScanAt = '20:14',
+  doorHeading = 'Die Tür ist schon eingebaut.',
+  doorText = 'Kein Scanner, keine Hardware, keine Schulung: dein Personal öffnet einen Link und scannt mit dem eigenen Handy.',
+  ticketHeading = 'Der Code steht nie still.',
+  ticketText = 'Der Code auf dem Handy deines Gastes erneuert sich jede Minute. Ein Screenshot ist an der Tür wertlos.',
+}: DoorSceneProps = {}) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const cue1Ref = useRef<HTMLDivElement | null>(null);
   const cue2Ref = useRef<HTMLDivElement | null>(null);
@@ -78,20 +117,14 @@ export function DoorScene() {
 
         <div className="scn-text scn-text-door">
           <span className="sc-eyebrow">Deine Tür</span>
-          <h3>Die Tür ist schon eingebaut.</h3>
-          <p>
-            Kein Scanner, keine Hardware, keine Schulung: dein Personal öffnet
-            einen Link und scannt mit dem eigenen Handy.
-          </p>
+          <h3>{doorHeading}</h3>
+          <p>{doorText}</p>
         </div>
 
         <div className="scn-text scn-text-ticket">
           <span className="sc-eyebrow">Das Ticket</span>
-          <h3>Der Code steht nie still.</h3>
-          <p>
-            Der Code auf dem Handy deines Gastes erneuert sich jede Minute.
-            Ein Screenshot ist an der Tür wertlos.
-          </p>
+          <h3>{ticketHeading}</h3>
+          <p>{ticketText}</p>
         </div>
 
         <div className="scn-phones">
@@ -100,8 +133,8 @@ export function DoorScene() {
             <div className="scn-screen">
               <div className="scn-tk-top">
                 <span className="scn-tk-kicker">Dein Ticket</span>
-                <div className="scn-tk-name">Die beste Nacht des Jahres</div>
-                <div className="scn-tk-when">Freitag, 5. September · 20:00 Uhr</div>
+                <div className="scn-tk-name">{eventName}</div>
+                <div className="scn-tk-when">{ticketWhen}</div>
               </div>
               <div className="scn-tk-code">
                 <div className="scn-tk-status">
@@ -120,8 +153,8 @@ export function DoorScene() {
                 <div className="scn-tk-hint">Zeig den Code am Einlass</div>
               </div>
               <div className="scn-tk-rows">
-                <div><span>Kategorie</span><b>Frühbucher</b></div>
-                <div><span>Ort</span><b>Halle 7</b></div>
+                <div><span>Kategorie</span><b>{tierLabel}</b></div>
+                <div><span>Ort</span><b>{venue}</b></div>
                 <div><span>Ticket</span><b className="mono">#PSL-K4X2</b></div>
               </div>
               <div className="scn-tk-actions">
@@ -137,15 +170,15 @@ export function DoorScene() {
               <div className="scn-door-head">
                 <div className="scn-door-who">
                   <div className="k">Einlass</div>
-                  <div className="n">Die beste Nacht des Jahres</div>
-                  <div className="w">Freitag, 5. September</div>
+                  <div className="n">{eventName}</div>
+                  <div className="w">{doorWhen}</div>
                 </div>
                 <span className="scn-pill ok"><i />Online</span>
               </div>
 
               <div className="scn-door-counters">
-                <div><div className="l">Eingelassen</div><div className="v">79</div></div>
-                <div><div className="l">Letzter Scan</div><div className="v">20:14</div></div>
+                <div><div className="l">Eingelassen</div><div className="v">{admittedCount}</div></div>
+                <div><div className="l">Letzter Scan</div><div className="v">{lastScanAt}</div></div>
               </div>
 
               {/* Der Sucher ist ein echtes Loch: die helle Oberfläche ringsum

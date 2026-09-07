@@ -17,14 +17,39 @@
 
 /* ── Kapitel „Deine Zahlen“ ───────────────────────────────────────────
    Ein einzelner Abend, wie ihn das kostenlose Dashboard zeigt: verkauft,
-   eingelöst, Einnahmen. Nichts davon ist Pro. */
-export function DashboardMock() {
+   eingelöst, Einnahmen. Nichts davon ist Pro.
+
+   Die Werte sind Voreinstellungen, keine festen Zahlen: die Nischenseiten
+   zeigen dieselbe Fläche mit ihrem eigenen Abend. Voreingestellt ist der
+   Zustand der Startseite. Die Auslastung wird aus verkauft/Kapazität
+   gerechnet, damit Balken und Zahlen gar nicht erst auseinanderlaufen
+   können. */
+export interface DashboardMockProps {
+  kicker?: string;
+  title?: string;
+  sold?: number;
+  capacity?: number;
+  redeemed?: number;
+  /** Fertig formatiert, z. B. „1.044 €“. */
+  revenueLabel?: string;
+}
+
+export function DashboardMock({
+  kicker = 'Freitag, 5. September',
+  title = 'Die beste Nacht des Jahres',
+  sold = 87,
+  capacity = 120,
+  redeemed = 79,
+  revenueLabel = '1.044 €',
+}: DashboardMockProps = {}) {
+  const occupancy = capacity > 0 ? Math.round((sold / capacity) * 100) : 0;
+
   return (
     <div className="dbm">
       <div className="dbm-head">
         <div>
-          <div className="dbm-kicker">Freitag, 5. September</div>
-          <div className="dbm-title">Die beste Nacht des Jahres</div>
+          <div className="dbm-kicker">{kicker}</div>
+          <div className="dbm-title">{title}</div>
         </div>
         <span className="chip ok"><span className="d" />Läuft</span>
       </div>
@@ -32,24 +57,24 @@ export function DashboardMock() {
       <div className="dbm-kpis">
         <div className="dbm-kpi">
           <div className="l">Verkauft</div>
-          <div className="v">87<span className="of"> / 120</span></div>
+          <div className="v">{sold}<span className="of"> / {capacity}</span></div>
         </div>
         <div className="dbm-kpi">
           <div className="l">Eingelöst</div>
-          <div className="v">79</div>
+          <div className="v">{redeemed}</div>
         </div>
         <div className="dbm-kpi">
           <div className="l">Einnahmen</div>
-          <div className="v">1.044 €</div>
+          <div className="v">{revenueLabel}</div>
         </div>
       </div>
 
       <div className="dbm-bar">
         <div className="dbm-barhead">
           <span>Auslastung</span>
-          <span className="mono">73 %</span>
+          <span className="mono">{occupancy} %</span>
         </div>
-        <div className="progress"><span style={{ width: '73%' }} /></div>
+        <div className="progress"><span style={{ width: `${occupancy}%` }} /></div>
       </div>
 
       <div className="dbm-rows">
@@ -68,6 +93,89 @@ export function DashboardMock() {
           <span className="dbm-who">a•••@example.de</span>
           <span className="chip"><span className="d" />Offen</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Kapitel „Deine Dauerkarte“ ───────────────────────────────────────
+   Nachbau der Verkaufsseite /pass/[id] und der Terminliste, die der Gast auf
+   seinem Ticket sieht. Nur was es gibt: ein Preis, ein eigenes Kontingent,
+   die Termine der Serie und je Termin ein Einlass — genau das, was
+   `season_pass_events` und `pass_redemptions` abbilden. Kein Sitzplatz, kein
+   Mitgliedsausweis, keine Saisonstatistik. */
+export interface SeasonPassMockProps {
+  eyebrow?: string;
+  name?: string;
+  priceLabel?: string;
+  feeNote?: string;
+  validForLabel?: string;
+  datesHead?: string;
+  dates?: { month: string; day: string; label: string; done?: boolean }[];
+  /** Zeile unter der Liste, z. B. „+ 8 weitere Termine“. */
+  moreLabel?: string;
+  ctaLabel?: string;
+}
+
+export function SeasonPassMock({
+  eyebrow = 'Saisonpass',
+  name = 'Dauerkarte Saison 26/27',
+  priceLabel = '70,00 €',
+  feeNote = 'zzgl. Servicegebühr',
+  validForLabel = '11 Heimspiele',
+  datesHead = 'Termine',
+  dates = [
+    { month: 'Sep', day: '20', label: 'gegen TuS Bergheim', done: true },
+    { month: 'Okt', day: '11', label: 'gegen SV Nordstadt' },
+    { month: 'Okt', day: '25', label: 'gegen SG Talbach' },
+  ],
+  moreLabel = '+ 8 weitere Termine',
+  ctaLabel = 'Dauerkarte kaufen',
+}: SeasonPassMockProps = {}) {
+  return (
+    <div className="spm">
+      <div className="spm-head">
+        <div className="spm-eyebrow">{eyebrow}</div>
+        <div className="spm-title">{name}</div>
+      </div>
+
+      <div className="spm-rows">
+        <div className="spm-row">
+          <span className="k">
+            Preis
+            {feeNote && <span className="sub">{feeNote}</span>}
+          </span>
+          <span className="v big">{priceLabel}</span>
+        </div>
+        <div className="spm-row">
+          <span className="k">Gültig für</span>
+          <span className="v">{validForLabel}</span>
+        </div>
+        <div className="spm-row">
+          <span className="k">Verfügbarkeit</span>
+          <span className="chip ok"><span className="d" />Verfügbar</span>
+        </div>
+      </div>
+
+      <div className="spm-dates">
+        <div className="spm-dates-head">{datesHead}</div>
+        {dates.map((d, i) => (
+          <div key={i} className="spm-date">
+            <div className="spm-cal">
+              <div className="m">{d.month}</div>
+              <div className="d">{d.day}</div>
+            </div>
+            <div className="spm-txt">{d.label}</div>
+            {d.done
+              ? <span className="chip ok"><span className="d" />Eingelöst</span>
+              : <span className="chip"><span className="d" />Offen</span>}
+          </div>
+        ))}
+        {moreLabel && <div className="spm-more">{moreLabel}</div>}
+      </div>
+
+      <div className="spm-foot">
+        <div className="spm-cta">{ctaLabel}</div>
       </div>
     </div>
   );
@@ -180,4 +288,47 @@ export const SHOWCASE_CSS = `
     display: grid; place-items: center; font-size: 9.5px; font-weight: 600;
   }
   .dbm-who { flex: 1; min-width: 0; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Dauerkarte: Nachbau von /pass/[id] ──────────────────── */
+  .spm {
+    width: 100%; max-width: 420px; margin: 0 auto;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden;
+  }
+  .spm-head { padding: 20px 22px 16px; }
+  .spm-eyebrow {
+    font-size: 11px; font-weight: 600; color: var(--accent-ink);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .spm-title { font-size: 19px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; margin-top: 6px; }
+  .spm-rows { border-top: 1px solid var(--line); padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; }
+  .spm-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13.5px; flex-wrap: wrap; }
+  .spm-row .k { color: var(--ink-3); min-width: 0; }
+  .spm-row .k .sub { display: block; font-size: 11px; color: var(--ink-4); margin-top: 2px; }
+  .spm-row .v { font-weight: 600; font-variant-numeric: tabular-nums; min-width: 0; }
+  .spm-row .v.big { font-size: 19px; letter-spacing: -0.01em; }
+  .spm-dates { border-top: 1px solid var(--line); padding: 14px 22px 4px; }
+  .spm-dates-head {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--ink-3); font-weight: 500; margin-bottom: 10px;
+  }
+  .spm-date { display: flex; align-items: center; gap: 11px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .spm-date:last-of-type { border-bottom: none; }
+  .spm-cal {
+    width: 40px; flex-shrink: 0; border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden; text-align: center; background: var(--surface);
+  }
+  .spm-cal .m {
+    font-size: 8.5px; letter-spacing: 0.08em; color: #fff; text-transform: uppercase;
+    font-weight: 600; background: var(--accent); padding: 2px 0;
+  }
+  .spm-cal .d { font-size: 15px; font-weight: 600; padding: 3px 0 4px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .spm-txt { flex: 1; min-width: 0; font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spm-more { font-size: 12px; color: var(--ink-4); padding: 10px 0 12px; }
+  .spm-foot { border-top: 1px solid var(--line); padding: 16px 22px 20px; background: var(--surface-2); }
+  .spm-cta {
+    height: 42px; border-radius: 10px;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+    font-size: 14px; font-weight: 600; opacity: 0.75;
+  }
 `;

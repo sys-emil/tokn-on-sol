@@ -72,8 +72,18 @@ const PAYER_LABELS: { key: FeePayer; label: string }[] = [
 const euro = (cents: number): string =>
   (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
-export function FeeCalculator({ quantity = 100 }: { quantity?: number }) {
-  const [priceEur, setPriceEur] = useState(20);
+/**
+ * `initialPrice` / `quantity` stellen den Rechner auf die jeweilige Seite ein:
+ * die Nischenseiten starten bei einem nischentypischen Ticketpreis und einer
+ * plausiblen Abendgroesse, damit die erste angezeigte Zahl die des Lesers ist
+ * und nicht die eines fremden Events. Gerechnet wird in jedem Fall mit
+ * `splitServiceFee`, also mit derselben Formel wie der Checkout.
+ */
+export function FeeCalculator({
+  quantity = 100,
+  initialPrice = 20,
+}: { quantity?: number; initialPrice?: number }) {
+  const [priceEur, setPriceEur] = useState(initialPrice);
   const [payer, setPayer] = useState<FeePayer>('buyer');
 
   const unitCents = Math.round(priceEur * 100);

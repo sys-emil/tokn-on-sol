@@ -20,6 +20,11 @@ export const RESERVED_HANDLES = new Set([
   "my-tickets", "collection", "account", "hilfe", "datenschutz", "impressum",
   "become-organizer", "organizer", "organizers", "passly", "support", "app",
   "login", "signup", "settings", "about", "agb", "terms", "privacy",
+  // Die Nischen-Einstiegsseiten. `/sportvereine` ist eine echte Route und
+  // gewinnt ohnehin gegen dieses dynamische Segment; hier stehen sie, damit
+  // niemand `@clubs` neben `/clubs` betreibt. „clubs" und „kultur" sind
+  // vorgemerkt, ihre Seiten kommen nach der Sportseite.
+  "sportvereine", "clubs", "kultur",
 ]);
 
 /** Strip a leading `@` and lowercase; does not validate. */

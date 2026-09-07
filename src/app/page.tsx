@@ -7,10 +7,11 @@ import { HeroTicket } from '@/app/components/HeroTicket';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
 import { SiteNav } from '@/app/components/SiteNav';
-import { ShopCard, SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard';
+import { SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard';
 import { DashboardMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
 import { DoorScene } from '@/app/components/showcase/DoorScene';
 import { LiveEvents } from '@/app/components/showcase/LiveEvents';
+import { NicheSwitch } from '@/app/components/showcase/NicheSwitch';
 
 /*
  * Startseite — richtet sich an Veranstalter, die noch nie online verkauft
@@ -400,20 +401,12 @@ export default function Home() {
                     <li><Icon name="check" size={14} /> Für dich kostenlos, ohne Grundgebühr und Vertrag</li>
                   </ul>
                 </div>
+                {/* Die Karte liegt im Umschalter, nicht mehr fest hier: der
+                    Besucher waehlt seine Nische und sieht sein eigenes Event
+                    an derselben Stelle. Startzustand ist die Club-Karte, die
+                    hier vorher stand. */}
                 <div className="sc-media">
-                  <ShopCard
-                    name="Die beste Nacht des Jahres"
-                    dateChip={{ month: 'Sep', day: '5' }}
-                    whenLabel="Freitag, 5. September · 20:00 Uhr"
-                    venue="Halle 7, Leipzig"
-                    priceLabel="ab 12,00 €"
-                    feeNote="zzgl. Servicegebühr"
-                    tiers={[
-                      { name: 'Frühbucher', priceLabel: '12,00 €' },
-                      { name: 'Abendkasse', priceLabel: '15,00 €' },
-                    ]}
-                    ctaLabel="Jetzt kaufen"
-                  />
+                  <NicheSwitch />
                 </div>
               </div>
 
@@ -521,6 +514,7 @@ export default function Home() {
               <div>© 2026 Passly · Digitale Tickets</div>
               <div className="links">
                 <Link href="/fuer-veranstalter">Für Veranstalter</Link>
+                <Link href="/sportvereine">Für Sportvereine</Link>
                 <Link href="/preise">Preise</Link>
                 <Link href="/events">Events</Link>
                 <Link href="/so-funktionierts">So funktioniert&rsquo;s</Link>
