@@ -275,8 +275,9 @@ keeps it only if the dispute is **lost**. That fee is passed through to the
 organizer as a `platform_fees_due` row with `source = 'chargeback'`, settled by
 the same payout machinery as the box-office and cancellation dues
 (`bookChargebackFee` in `src/lib/platformFees.ts`). AGB § 4 Abs. 4 is what
-covers it — it was written for this and did not exist before; § 12 Abs. 3 only
-ever covered *withholding* a payout, not passing the fee on.
+covers it — it was written for this and did not exist before; § 12 Abs. 4
+(Abs. 3 bis zur Auszahlungsfrist vom 08.09.2026) only ever covered
+*withholding* a payout, not passing the fee on.
 
 - **Booked on `charge.dispute.closed`, never on `created`.** Stripe refunds the
   dispute fee when the dispute is won, so booking at the start would bill

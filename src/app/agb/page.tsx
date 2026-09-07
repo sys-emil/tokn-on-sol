@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 
 export default function AgbPage() {
   return (
-    <LegalPageShell title="Allgemeine Geschäftsbedingungen" stand="August 2026">
+    <LegalPageShell title="Allgemeine Geschäftsbedingungen" stand="September 2026">
 
       <h2>§ 1 Geltungsbereich und Rolle von Passly</h2>
       <p>
@@ -225,13 +225,24 @@ export default function AgbPage() {
         Abschluss ist der Verkauf kostenpflichtiger Tickets nicht möglich.
       </p>
       <p>
-        (2) Der Veranstalter kann je Event eine Haltefrist festlegen, nach deren
-        Ablauf die Ticketerlöse ausgezahlt werden. Ohne Haltefrist erfolgt die
-        Auszahlung fortlaufend, in der Regel innerhalb eines Tages nach dem
-        jeweiligen Verkauf.
+        (2) Ticketerlöse werden <strong>nicht bereits mit dem Verkauf</strong>,
+        sondern erst nach der Veranstaltung ausgezahlt. Maßgeblich ist das
+        Veranstaltungsdatum: Die Auszahlung erfolgt frühestens am Tag nach der
+        Veranstaltung, bei der ersten Auszahlung eines Veranstalters frühestens
+        drei Tage nach der Veranstaltung. Diese Frist dient der Abwicklung von
+        Absagen, Erstattungen und Rückbuchungen. Der Veranstalter kann je Event
+        eine längere Haltefrist festlegen; eine Verkürzung unter die vorstehenden
+        Fristen ist nicht möglich. Bei Saisonpässen, die mehrere Termine umfassen,
+        tritt an die Stelle des Veranstaltungsdatums das Kaufdatum.
       </p>
       <p>
-        (3) Bei Zahlungsstreitigkeiten (Chargebacks), Rückerstattungen oder
+        (3) Der Veranstalter kann je Event eine vorzeitige Auszahlung beantragen.
+        Über den Antrag entscheidet Passly nach billigem Ermessen; ein Anspruch
+        auf vorzeitige Auszahlung besteht nicht. Eine Freigabe gilt nur für die
+        im Zeitpunkt der Entscheidung offenen Beträge dieses Events.
+      </p>
+      <p>
+        (4) Bei Zahlungsstreitigkeiten (Chargebacks), Rückerstattungen oder
         begründetem Betrugsverdacht kann Passly Auszahlungen ganz oder teilweise
         zurückhalten, bis der Sachverhalt geklärt ist. Bereits ausgezahlte, aber
         vom Gast wirksam zurückgeforderte Beträge hat der Veranstalter zu
