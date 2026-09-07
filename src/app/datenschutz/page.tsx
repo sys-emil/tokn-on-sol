@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 
 export default function DatenschutzPage() {
   return (
-    <LegalPageShell title="Datenschutzerklärung" stand="Juli 2026">
+    <LegalPageShell title="Datenschutzerklärung" stand="September 2026">
 
       <p>
         Mit dieser Erklärung informieren wir dich darüber, welche personenbezogenen
@@ -86,6 +86,18 @@ export default function DatenschutzPage() {
         von uns aus deiner Konto-Kennung berechnet und nicht gespeichert.
       </p>
       <p>
+        <strong>Öffentliches Profil:</strong> Zu deinem Konto gehört eine
+        öffentlich abrufbare Profilseite, deren Adresse die technische Kennung aus
+        dem vorigen Absatz enthält. Sie zeigt einen von dir gewählten Anzeigenamen,
+        eine optionale Kurzbeschreibung, die Anzahl deiner besuchten
+        Veranstaltungen und deine Abzeichen. Solange du keinen Anzeigenamen
+        hinterlegst, erscheint dort nur die technische Kennung. Du kannst die Seite
+        in den Kontoeinstellungen jederzeit auf privat stellen; sie ist dann nicht
+        mehr abrufbar. Rechtsgrundlage: Art. 6 Abs. 1 lit. f DSGVO (berechtigtes
+        Interesse an einer teilbaren Sammlung), Widerspruch jederzeit durch
+        Umstellen auf privat.
+      </p>
+      <p>
         Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Bereitstellung des Kontos zur
         Vertragserfüllung).
       </p>
@@ -133,19 +145,35 @@ export default function DatenschutzPage() {
       <p>
         Die Fälschungssicherheit der Tickets beruht darauf, dass jedes Ticket als
         einzigartiger Eintrag in einer öffentlichen, dezentralen Datenbank (der
-        Solana-Blockchain) ausgestellt wird. Dort gespeichert werden: eine
+        Solana-Blockchain) ausgestellt wird. Dasselbe gilt für die Abzeichen, die
+        du für besuchte Veranstaltungen erhältst. Dort gespeichert werden: eine
         pseudonyme technische Kennung deines Kontos (die automatisch erzeugte
-        Kennung aus Ziffer 4), die Ticket-Kennung sowie allgemeine Eventdaten
-        (Name, Datum). <strong>Nicht</strong> gespeichert werden dein Name, deine
-        E-Mail-Adresse oder Zahlungsdaten.
+        Kennung aus Ziffer 4), die Kennung des Tickets oder Abzeichens, der
+        Zeitpunkt der Ausstellung sowie allgemeine Angaben zur Veranstaltung
+        (Name, Datum, Veranstaltungsort, Beschreibung und Bild).
+        <strong>Nicht</strong> gespeichert werden dein Name, deine E-Mail-Adresse,
+        Zahlungsdaten, der gezahlte Preis oder ob und wann du eingelassen wurdest.
+      </p>
+      <p>
+        <strong>Verknüpfbarkeit:</strong> Alle deine Tickets und Abzeichen tragen
+        dieselbe pseudonyme Kennung. Wer diese Kennung kennt, kann über frei
+        zugängliche Blockchain-Dienste einsehen, welche Veranstaltungen du über
+        Passly besucht hast, mit Datum und Ort. Die Kennung ist unter anderem in
+        deinem Ticket-QR-Code enthalten und Bestandteil der Adresse deines
+        öffentlichen Profils (Ziffer 4). Wir ordnen die Kennung öffentlich keiner
+        Person zu; ohne Kenntnis der Kennung ist ein Rückschluss auf dich für
+        Dritte nicht möglich.
       </p>
       <p>
         Wichtig zu wissen: Einträge in dieser dezentralen Datenbank sind
         systembedingt öffentlich einsehbar und können nachträglich nicht verändert
-        oder gelöscht werden. Ein Rückschluss von der pseudonymen Kennung auf deine
-        Person ist Dritten ohne Zusatzwissen nicht möglich. Zur technischen
-        Anbindung nutzen wir den Dienst Helius (Helius Labs, Inc., USA), der dabei
-        die pseudonymen Ticket- und Kontokennungen verarbeitet.
+        oder gelöscht werden — auch dann nicht, wenn du dein Passly-Konto löschen
+        lässt oder ein Ticket erstattet, zurückgegeben oder storniert wird. Ein
+        zurückgegebenes oder storniertes Ticket verliert seine Gültigkeit
+        ausschließlich in unserer Datenbank; sein Eintrag in der dezentralen
+        Datenbank bleibt bestehen. Zur technischen Anbindung nutzen wir den Dienst
+        Helius (Helius Labs, Inc., USA), der dabei die pseudonymen Ticket- und
+        Kontokennungen verarbeitet.
       </p>
       <p>
         Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Ausstellung und Prüfung des
