@@ -3,7 +3,7 @@ import { after } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
-import { buildPayoutRow, claimWebhookEvent, computeAvailableAt, computeFeeSplit, disputeFeeCents, resolveFeeCents } from "@/lib/payouts";
+import { buildPayoutRow, claimWebhookEvent, computeAvailableAt, computeFeeSplit, disputeFeeCents, effectiveHoldDays, resolveFeeCents } from "@/lib/payouts";
 import { subscriptionPlanFromStatus } from "@/lib/subscription";
 import { processMintJobs } from "@/lib/mintJobs";
 import { sendAdminAlert } from "@/lib/email";
@@ -217,6 +217,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .update({
         stripe_charges_enabled: account.charges_enabled ?? false,
         stripe_payouts_enabled: account.payouts_enabled ?? false,
+        // Stripes KYC ist die Identitaetspruefung, die Passly selbst nicht
+        // leistet: bestandenes Onboarding schaltet den Veranstalter ins
+        // oeffentliche Listing und traegt den „Geprueft“-Chip. Nur nach oben,
+        // nie zurueck — ein spaeter eingeschraenktes Konto soll einen
+        // etablierten Veranstalter nicht aus dem Listing kippen.
+        ...(account.charges_enabled ? { is_vetted: true } : {}),
       })
       .eq("stripe_account_id", account.id);
     return NextResponse.json({ received: true });
@@ -567,7 +573,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       const { data: organizer } = await supabaseAdmin
         .from("organizers")
-        .select("stripe_account_id")
+        .select("stripe_account_id, first_payout_at")
         .eq("wallet_address", event.organizer_wallet)
         .maybeSingle();
 
@@ -592,7 +598,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         eventDate: event.date,
         organizerWallet: event.organizer_wallet,
         stripeAccountId: (organizer?.stripe_account_id as string | null) ?? null,
-        holdDays: event.payout_hold_days ?? 0,
+        // Plattform-Boden: fruehestens am Tag nach dem Event, beim allerersten
+        // Verkauf eines Veranstalters drei Tage danach. Der Wunsch des
+        // Veranstalters zaehlt nur, wenn er darueber liegt.
+        holdDays: effectiveHoldDays(event.payout_hold_days ?? 0, !organizer?.first_payout_at),
         serviceFeeCents,
         buyerFeeCents,
       });
@@ -727,7 +736,7 @@ async function handlePassCompleted(session: Stripe.Checkout.Session): Promise<vo
 
     const { data: organizer } = await supabaseAdmin
       .from("organizers")
-      .select("stripe_account_id")
+      .select("stripe_account_id, first_payout_at")
       .eq("wallet_address", pass.organizer_wallet)
       .maybeSingle();
 
@@ -752,8 +761,13 @@ async function handlePassCompleted(session: Stripe.Checkout.Session): Promise<vo
         fee_cents: feeCents,
         net_cents: grossCents - feeCents,
         currency: session.currency ?? "eur",
-        // Empty date → computeAvailableAt anchors the hold on now (purchase time).
-        available_at: computeAvailableAt("", (pass.payout_hold_days as number) ?? 0).toISOString(),
+        // Empty date → computeAvailableAt anchors the hold on now (purchase time):
+        // ein Pass spannt viele Termine, das Geld bis zum letzten zu halten
+        // waere ein saisonlanges Darlehen. Der Plattform-Boden gilt trotzdem.
+        available_at: computeAvailableAt(
+          "",
+          effectiveHoldDays((pass.payout_hold_days as number) ?? 0, !organizer?.first_payout_at),
+        ).toISOString(),
         payment_method: paymentMethod,
       },
       { onConflict: "stripe_session_id", ignoreDuplicates: true },

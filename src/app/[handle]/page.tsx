@@ -40,6 +40,7 @@ interface OrganizerRow {
   featured_event_id: string | null;
   is_verified: boolean;
   verified_label: string | null;
+  is_vetted: boolean;
 }
 
 interface EventRow {
@@ -52,7 +53,7 @@ interface EventRow {
 }
 
 const ORG_SELECT =
-  'wallet_address, handle, public_name, business_name, name, type, bio, avatar_url, banner_url, links, accent_hue, featured_event_id, is_verified, verified_label';
+  'wallet_address, handle, public_name, business_name, name, type, bio, avatar_url, banner_url, links, accent_hue, featured_event_id, is_verified, verified_label, is_vetted';
 
 async function getOrganizer(handle: string): Promise<OrganizerRow | null> {
   const { data } = await supabaseAdmin
@@ -293,7 +294,9 @@ export default async function OrganizerPublicPage({
           {/* The handle IS the page's address and was shown nowhere on it. */}
           <div className="org-handle">@{organizer.handle ?? handle}</div>
           <div className="row gap-2" style={{ marginTop: 10, flexWrap: 'wrap' }}>
-            <span className="chip ok"><Icon name="shield" size={11} /> Geprüft</span>
+            {organizer.is_vetted && (
+              <span className="chip ok" title="Die Identität dieses Veranstalters ist geprüft."><Icon name="shield" size={11} /> Geprüft</span>
+            )}
             {organizer.is_verified && organizer.verified_label && (
               <span className="chip" style={{ color: 'var(--accent-ink)', background: 'var(--accent-wash)', borderColor: 'var(--accent-line)' }}>
                 {organizer.verified_label}

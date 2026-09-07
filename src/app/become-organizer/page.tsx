@@ -2,7 +2,7 @@
 
 import { useAuth, useLogout, useWallets as useSolanaWallets } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { SiteNav } from '@/app/components/SiteNav';
@@ -32,6 +32,28 @@ const PAGE_CSS = `
   .type-card .name { font-size: 13.5px; font-weight: 600; }
   .type-card.selected .name { color: var(--accent-ink); }
   .type-card .sub { font-size: 12px; color: var(--ink-3); }
+
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+  .steps li { display: flex; gap: 12px; align-items: flex-start; }
+  .steps .n {
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    border-radius: 7px;
+    background: var(--accent-wash); color: var(--accent-ink);
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 600;
+  }
+  .steps .s-title { font-size: 13.5px; font-weight: 600; }
+  .steps .s-sub { font-size: 12.5px; color: var(--ink-3); line-height: 1.5; margin-top: 2px; }
+
+  .mail-fixed {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 12px;
+    border: 1px solid var(--line-2); border-radius: var(--radius-sm, 8px);
+    background: var(--surface-2);
+    font-size: 13.5px;
+  }
+  .mail-fixed .hint { font-size: 12px; color: var(--ink-3); }
 `;
 
 export default function BecomeOrganizer() {
@@ -50,17 +72,11 @@ export default function BecomeOrganizer() {
 
   const walletAddress = solanaWallets[0]?.address;
 
-  // If not authenticated, trigger login, but at most once. Re-invoking login()
-  // from effect re-runs would reset the modal to the e-mail step, so the code
-  // input would never show.
-  const loginPrompted = useRef(false);
-  useEffect(() => {
-    if (!ready) return;
-    if (!authenticated && !loginPrompted.current) {
-      loginPrompted.current = true;
-      login();
-    }
-  }, [ready, authenticated, login]);
+  // Frueher sprang die Anmeldung hier von selbst auf. Das ergab eine leere
+  // Seite mit einem Modal darueber — und mit dem Erklaerblock, der jetzt hier
+  // steht, waere es noch schlechter: das Modal verdeckte genau den Text, der
+  // die Frage beantwortet, warum man sich ueberhaupt anmeldet. Die Seite
+  // erklaert erst, angemeldet wird auf Klick.
 
   // Check existing application status; if already approved, go straight to dashboard
   useEffect(() => {
@@ -124,7 +140,8 @@ export default function BecomeOrganizer() {
         }
         return;
       }
-      setPageState('pending');
+      // Freigabe ist automatisch: direkt an den Arbeitsplatz, kein Wartezustand.
+      router.push('/dashboard');
     } catch {
       setFormError('Netzwerkfehler. Bitte versuch es erneut.');
     } finally {
@@ -132,7 +149,81 @@ export default function BecomeOrganizer() {
     }
   }
 
-  if (!ready || !authenticated) return null;
+  // Vor der Anmeldung stand hier `return null`: eine leere Seite mit einem
+  // aufspringenden Modal, der abrupteste Uebergang im ganzen Funnel und das
+  // direkt hinter dem staerksten Knopf der Startseite. Jetzt sagt die Seite
+  // erst, was gleich passiert. `!ready` bleibt leer, sonst blitzt der
+  // Erklaertext auch fuer laengst angemeldete Besucher kurz auf.
+  if (!ready) return null;
+
+  if (!authenticated) {
+    return (
+      <>
+        <style>{PAGE_CSS}</style>
+        <div className="app">
+          <div className="topbar">
+            <div className="topbar-inner">
+              <PasslyLogo height={24} />
+              <SiteNav />
+            </div>
+          </div>
+          <div className="main">
+            <div className="aurora" aria-hidden="true" />
+            <div className="container">
+              <div className="narrow">
+                <div className="hero" style={{ padding: '32px 0 28px', marginBottom: 8 }}>
+                  <div className="eyebrow"><span className="pulse" />Für Veranstalter</div>
+                  <h1 style={{ fontSize: 32 }}>Eigene Events veranstalten</h1>
+                  <p className="lead" style={{ fontSize: 14.5 }}>
+                    Du meldest dich mit deiner E-Mail an, sagst uns kurz, wer du bist, und
+                    legst direkt dein erstes Event an. Keine Freischaltung, keine Wartezeit.
+                  </p>
+                </div>
+
+                <div className="card" style={{ padding: '22px 24px' }}>
+                  <ol className="steps">
+                    <li>
+                      <span className="n">1</span>
+                      <div>
+                        <div className="s-title">Anmelden</div>
+                        <div className="s-sub">Mit einem Einmalcode per E-Mail. Kein Passwort.</div>
+                      </div>
+                    </li>
+                    <li>
+                      <span className="n">2</span>
+                      <div>
+                        <div className="s-title">Event anlegen</div>
+                        <div className="s-sub">Name, Datum, Tickets. Danach hast du deinen Verkaufslink.</div>
+                      </div>
+                    </li>
+                    <li>
+                      <span className="n">3</span>
+                      <div>
+                        <div className="s-title">Auszahlungen einrichten</div>
+                        <div className="s-sub">
+                          Einmalige Verifizierung über Stripe. Erst danach lassen sich bezahlte
+                          Tickets verkaufen; kostenlose gehen sofort.
+                        </div>
+                      </div>
+                    </li>
+                  </ol>
+                  <button
+                    className="btn primary lg"
+                    style={{ width: '100%', justifyContent: 'center', marginTop: 18 }}
+                    onClick={() => login()}
+                  >
+                    Anmelden und loslegen
+                  </button>
+                </div>
+
+                <LegalLinks style={{ marginTop: 40 }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -159,8 +250,8 @@ export default function BecomeOrganizer() {
                 <h1 style={{ fontSize: 32 }}>Eigene Events veranstalten</h1>
                 {pageState === 'form' && (
                   <p className="lead" style={{ fontSize: 14.5 }}>
-                    Erzähl uns kurz, wer du bist. Wir prüfen jede Bewerbung von Hand und melden uns
-                    in der Regel innerhalb eines Werktags.
+                    Erzähl uns kurz, wer du bist. Danach kannst du sofort dein erstes Event
+                    anlegen.
                   </p>
                 )}
               </div>
@@ -169,8 +260,8 @@ export default function BecomeOrganizer() {
                 <div className="card" style={{ padding: '24px 24px 22px', textAlign: 'center' }}>
                   <div style={{ fontSize: 15, fontWeight: 600 }}>Deine Bewerbung wird geprüft</div>
                   <p style={{ fontSize: 13.5, color: 'var(--ink-3)', marginTop: 8, lineHeight: 1.6 }}>
-                    Wir melden uns per E-Mail, sobald dein Account freigegeben ist, in der Regel
-                    innerhalb eines Werktags. Danach kannst du direkt dein erstes Event anlegen.
+                    Wir melden uns per E-Mail, sobald dein Konto freigegeben ist. Danach kannst du
+                    direkt dein erstes Event anlegen.
                   </p>
                 </div>
               )}
@@ -203,16 +294,27 @@ export default function BecomeOrganizer() {
                     />
                   </div>
 
+                  {/* Nicht erneut abfragen: die Anmeldung lief ueber einen
+                      Einmalcode an genau diese Adresse, sie ist per
+                      Konstruktion bestaetigt. Nur wenn die Sitzung keine
+                      liefert, wird daraus wieder ein Eingabefeld. */}
                   <div className="field">
                     <label htmlFor="org-email">E-Mail-Adresse</label>
-                    <input
-                      id="org-email"
-                      className="input"
-                      type="email"
-                      placeholder="du@beispiel.de"
-                      value={effectiveEmail}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
+                    {user?.email ? (
+                      <div className="mail-fixed" id="org-email">
+                        <span>{user.email}</span>
+                        <span className="hint">· bestätigt</span>
+                      </div>
+                    ) : (
+                      <input
+                        id="org-email"
+                        className="input"
+                        type="email"
+                        placeholder="du@beispiel.de"
+                        value={effectiveEmail}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    )}
                   </div>
 
                   <div className="field">

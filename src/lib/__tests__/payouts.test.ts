@@ -7,7 +7,10 @@ import {
   disputeFeeCents,
   computeAvailableAt,
   computeFeeSplit,
+  effectiveHoldDays,
   resolveFeeCents,
+  FIRST_EVENT_HOLD_DAYS,
+  MIN_HOLD_DAYS_AFTER_EVENT,
 } from "@/lib/payouts";
 import { serviceFeePerTicketCents, serviceFeeTotalCents } from "@/lib/fees";
 
@@ -77,11 +80,49 @@ describe("computeFeeSplit (legacy 3% platform fee)", () => {
   });
 });
 
+describe("effectiveHoldDays (platform floor)", () => {
+  it("first payout: floor is three days, whatever the organizer asked for", () => {
+    expect(effectiveHoldDays(0, true)).toBe(FIRST_EVENT_HOLD_DAYS);
+    expect(effectiveHoldDays(1, true)).toBe(FIRST_EVENT_HOLD_DAYS);
+  });
+
+  it("later payouts: floor is one day after the event", () => {
+    expect(effectiveHoldDays(0, false)).toBe(MIN_HOLD_DAYS_AFTER_EVENT);
+  });
+
+  it("the organizer may only go above the floor", () => {
+    expect(effectiveHoldDays(14, false)).toBe(14);
+    expect(effectiveHoldDays(14, true)).toBe(14);
+  });
+
+  it("treats a malformed hold as zero rather than throwing", () => {
+    expect(effectiveHoldDays(-5, false)).toBe(MIN_HOLD_DAYS_AFTER_EVENT);
+    expect(effectiveHoldDays(2.5, false)).toBe(MIN_HOLD_DAYS_AFTER_EVENT);
+  });
+});
+
 describe("computeAvailableAt (payout hold period)", () => {
   const now = new Date("2026-07-01T12:00:00Z");
 
-  it("holdDays = 0 → available immediately (daily automatic payout)", () => {
-    expect(computeAvailableAt("2026-08-15", 0, now)).toEqual(now);
+  it("holdDays = 0 → the event date itself, never `now`", () => {
+    // Der Anker ist immer das Eventdatum; die Rueckgabe-Logik haengt daran,
+    // dass die Auszahlung am Eventtag noch nicht gelaufen ist.
+    expect(computeAvailableAt("2026-08-15", 0, now).toISOString()).toBe("2026-08-15T00:00:00.000Z");
+  });
+
+  it("the platform floor lands the payout the day after the event", () => {
+    const available = computeAvailableAt("2026-08-15", effectiveHoldDays(0, false), now);
+    expect(available.toISOString()).toBe("2026-08-16T00:00:00.000Z");
+  });
+
+  it("a first event is held three days past the event date", () => {
+    const available = computeAvailableAt("2026-08-15", effectiveHoldDays(0, true), now);
+    expect(available.toISOString()).toBe("2026-08-18T00:00:00.000Z");
+  });
+
+  it("season pass (empty date) anchors on the purchase instead", () => {
+    const available = computeAvailableAt("", effectiveHoldDays(0, true), now);
+    expect(available.toISOString()).toBe("2026-07-04T12:00:00.000Z");
   });
 
   it("holdDays > 0 → event date + N days at midnight UTC", () => {

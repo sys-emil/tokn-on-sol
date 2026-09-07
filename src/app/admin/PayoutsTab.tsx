@@ -47,8 +47,27 @@ function eur(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 }
 
+interface RequestRow {
+  id: string;
+  organizerWallet: string;
+  organizerName: string;
+  /** Noch nie ausgezahlt worden — die wichtigste Zahl fuer diese Entscheidung. */
+  firstEver: boolean;
+  eventId: string;
+  eventName: string;
+  eventDate: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  note: string | null;
+  openCents: number;
+  releasedCount: number | null;
+  releasedCents: number | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
 export function PayoutsTab({ secret }: { secret: string }) {
   const [payouts, setPayouts] = useState<PayoutRow[]>([]);
+  const [requests, setRequests] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -67,6 +86,13 @@ export function PayoutsTab({ secret }: { secret: string }) {
         (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.created_at.localeCompare(a.created_at),
       );
       setPayouts(sorted);
+
+      const reqRes = await fetch('/api/admin/payout-requests', {
+        headers: { 'x-admin-secret': secret },
+        cache: 'no-store',
+      });
+      const reqData = (await reqRes.json()) as { requests?: RequestRow[] };
+      if (reqRes.ok && reqData.requests) setRequests(reqData.requests);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Auszahlungen konnten nicht geladen werden.');
     } finally {
@@ -100,7 +126,30 @@ export function PayoutsTab({ secret }: { secret: string }) {
     }
   }
 
+  async function decideRequest(requestId: string, action: 'approve' | 'reject'): Promise<void> {
+    setBusyId(requestId);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/payout-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify({ requestId, action }),
+      });
+      const data = (await res.json()) as { success?: boolean; error?: string };
+      if (!res.ok || !data.success) {
+        setError(data.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Aktion fehlgeschlagen.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   const attention = payouts.filter((p) => p.status === 'held' || p.status === 'disputed' || p.status === 'failed');
+  const openRequests = requests.filter((r) => r.status === 'pending');
 
   return (
     <>
@@ -108,6 +157,70 @@ export function PayoutsTab({ secret }: { secret: string }) {
         <div className="card" style={{ padding: '12px 16px', marginBottom: 20, maxWidth: 640, fontSize: 13, color: 'var(--bad)', border: '1px solid oklch(0.86 0.10 25)', background: 'var(--bad-wash)' }}>
           {error}
         </div>
+      )}
+
+      {/* Sofort-Auszahlungen stehen oben: hier wartet ein Mensch auf eine
+          Antwort, waehrend die Faelle darunter Maschinenfehler sind. */}
+      {openRequests.length > 0 && (
+        <section>
+          <div className="section-head">
+            <div>
+              <h2>Sofort-Auszahlung angefragt</h2>
+              <div className="sub">{openRequests.length} offen</div>
+            </div>
+          </div>
+          <div className="card" style={{ padding: 0 }}>
+            {openRequests.map((r, i) => (
+              <div
+                key={r.id}
+                style={{
+                  padding: 16,
+                  borderTop: i === 0 ? 'none' : '1px solid var(--line)',
+                  display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 260 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {r.eventName}
+                    {r.firstEver && (
+                      <span className="chip warn" title="Dieser Veranstalter wurde noch nie ausgezahlt.">
+                        <span className="d" />Erste Auszahlung
+                      </span>
+                    )}
+                  </div>
+                  <div className="cell-sub">
+                    {r.organizerName} · {r.organizerWallet}
+                  </div>
+                  <div style={{ fontSize: 13, marginTop: 6 }}>
+                    <strong>{eur(r.openCents)}</strong> würden freigegeben
+                    {r.eventDate && ` · Event am ${new Date(r.eventDate).toLocaleDateString('de-DE')}`}
+                    {` · angefragt ${new Date(r.createdAt).toLocaleString('de-DE')}`}
+                  </div>
+                  {r.note && <div className="reason" style={{ marginTop: 6 }}>{r.note}</div>}
+                </div>
+                <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    disabled={busyId === r.id}
+                    onClick={() => void decideRequest(r.id, 'approve')}
+                  >
+                    Freigeben
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    style={{ color: 'var(--bad)', borderColor: 'oklch(0.86 0.10 25)' }}
+                    disabled={busyId === r.id}
+                    onClick={() => void decideRequest(r.id, 'reject')}
+                  >
+                    Ablehnen
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <section>

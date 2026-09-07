@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildCalendar, type IcsEvent } from "@/lib/ics";
 import { cityMatches } from "@/lib/eventCity";
+import { listedOrganizerWallets } from "@/lib/vetted";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .eq("is_private", false)
     .is("cancelled_at", null)
     .order("date", { ascending: true });
-  if (veranstalter) query = query.eq("organizer_wallet", veranstalter);
+  // Gleiche Regel wie auf /events: das Schaufenster zeigt nur gelistete
+  // Veranstalter, die Ansicht eines einzelnen Veranstalters zeigt ihn selbst.
+  if (veranstalter) {
+    query = query.eq("organizer_wallet", veranstalter);
+  } else {
+    query = query.in("organizer_wallet", await listedOrganizerWallets());
+  }
 
   const { data } = await query;
 

@@ -42,7 +42,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ) {
       await supabaseAdmin
         .from("organizers")
-        .update({ stripe_charges_enabled: charges_enabled, stripe_payouts_enabled: payouts_enabled })
+        .update({
+          stripe_charges_enabled: charges_enabled,
+          stripe_payouts_enabled: payouts_enabled,
+          // Zweiter Schreiber von is_vetted neben dem account.updated-Webhook;
+          // siehe dort. Nur nach oben.
+          ...(charges_enabled ? { is_vetted: true } : {}),
+        })
         .eq("wallet_address", walletAddress);
     }
 

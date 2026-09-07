@@ -21,7 +21,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await supabaseAdmin
     .from("organizers")
-    .select("id, wallet_address, email, name, type, business_name, status, created_at, handle, public_name, is_verified, verified_label, plan")
+    .select("id, wallet_address, email, name, type, business_name, status, created_at, handle, public_name, is_verified, verified_label, is_vetted, stripe_charges_enabled, plan")
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const { walletAddress, action, reason, verifiedLabel } = body;
-  const validActions = ["approve", "reject", "verify", "unverify"];
+  const validActions = ["approve", "reject", "verify", "unverify", "list", "unlist"];
   if (!walletAddress || !action || !validActions.includes(action)) {
     return NextResponse.json({ error: "walletAddress and a valid action are required" }, { status: 400 });
   }
@@ -77,6 +77,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: vErr.message }, { status: 500 });
     }
     return NextResponse.json({ success: true, is_verified: action === "verify" });
+  }
+
+  // Oeffentliche Sichtbarkeit von Hand. Normalerweise setzt Stripes
+  // abgeschlossenes KYC `is_vetted` selbst; dieser Weg ist fuer Veranstalter
+  // gedacht, die ausschliesslich kostenlose Events machen und deshalb nie ein
+  // Connect-Konto verifizieren. Unabhaengig vom Review-Lebenszyklus, wie
+  // verify/unverify.
+  if (action === "list" || action === "unlist") {
+    const { error: lErr } = await supabaseAdmin
+      .from("organizers")
+      .update({ is_vetted: action === "list" })
+      .eq("wallet_address", walletAddress);
+    if (lErr) {
+      return NextResponse.json({ error: lErr.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: true, is_vetted: action === "list" });
   }
 
   if (organizer.status !== "pending") {

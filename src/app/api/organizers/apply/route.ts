@@ -1,7 +1,7 @@
 import { requestUser } from "@/lib/sessionUser";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
-import { sendAdminAlert } from "@/lib/email";
+import { sendAdminAlert, sendOrganizerWelcome } from "@/lib/email";
 import { isBot, botDenied } from "@/lib/botCheck";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -76,24 +76,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Freigabe automatisch (seit 2026-09-07). Das frühere manuelle Tor entschied
+  // über vier selbstbehauptete Felder und prüfte damit nichts, was Stripes KYC
+  // nicht besser prüft — gekostet hat es einen Werktag Konversion an der
+  // Stelle der höchsten Motivation. An seine Stelle sind zwei Tore getreten,
+  // die auf echte Signale schauen: `organizers.is_vetted` (Stripe-KYC oder
+  // Admin) für die öffentliche Sichtbarkeit, und der Auszahlungs-Puffer fürs
+  // Geld (`effectiveHoldDays` in src/lib/payouts.ts).
   const { error } = await supabaseAdmin.from("organizers").insert({
     wallet_address: walletAddress,
     email: email.trim(),
     name: name.trim(),
     type,
     business_name: type === "business" ? (businessName?.trim() ?? null) : null,
-    status: "pending",
+    status: "approved",
   });
 
   if (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 
-  // Fire-and-forget: nudges the admin to review the application at /admin/organizers.
+  const baseUrl = process.env.APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
+  // Fire-and-forget. Der Admin-Alert bleibt: die Freigabe fällt weg, der Blick
+  // auf jeden Neuzugang soll es nicht.
   void sendAdminAlert({
-    subject: "Neue Veranstalter-Bewerbung",
-    text: `${name.trim()} (${email.trim()}, ${type}${type === "business" ? `, ${businessName?.trim()}` : ""}) wartet auf Freigabe.\nWallet: ${walletAddress}\n\nPrüfen unter /admin/organizers`,
+    subject: "Neuer Veranstalter",
+    text: `${name.trim()} (${email.trim()}, ${type}${type === "business" ? `, ${businessName?.trim()}` : ""}) hat sich registriert.\nWallet: ${walletAddress}\n\nNoch nicht öffentlich gelistet; das passiert automatisch mit dem Stripe-Onboarding oder von Hand unter /admin?tab=organizers`,
   }).catch(() => {});
 
-  return NextResponse.json({ success: true, status: "pending" });
+  void sendOrganizerWelcome({ to: email.trim(), name: name.trim(), baseUrl }).catch(() => {});
+
+  return NextResponse.json({ success: true, status: "approved" });
 }

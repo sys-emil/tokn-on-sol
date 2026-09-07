@@ -345,11 +345,11 @@ export default function Home() {
                 <div className="hero-v2-ctas">
                   <Link href="/become-organizer" className="btn primary lg">Kostenlos anfangen →</Link>
                 </div>
-                {/* Die Pruefung wird ausgesprochen statt verschwiegen: der Knopf fuehrt
-                    auf ein Bewerbungsformular, und wer „anlegen“ liest, erwartet anlegen.
-                    Faellt die manuelle Freischaltung, wird hier „Sofort loslegen“ daraus. */}
+                {/* Die manuelle Freischaltung ist am 2026-09-07 gefallen, damit
+                    auch der Satz, der einen Werktag Wartezeit ankuendigte. Der
+                    Knopf haelt jetzt, was er verspricht: anlegen heisst anlegen. */}
                 <p className="hero-v2-note">
-                  In der Regel innerhalb eines Werktags freigeschaltet.
+                  Sofort loslegen, ohne Freischaltung.
                 </p>
               </div>
 
@@ -510,7 +510,7 @@ export default function Home() {
             <section>
               <div className="cta-banner" data-reveal>
                 <h2>Leg dein erstes Event an.</h2>
-                <p>Kostenlos, ohne Vertrag und ohne Grundgebühr. Wir schalten dich in der Regel innerhalb eines Werktags frei.</p>
+                <p>Kostenlos, ohne Vertrag und ohne Grundgebühr. Anmelden und direkt anlegen.</p>
                 <Link href="/become-organizer" className="btn lg btn-shine">
                   Jetzt starten <Icon name="arrow" size={14} />
                 </Link>

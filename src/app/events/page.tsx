@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
 import { countSellablePassDates } from '@/lib/seasonPass';
+import { listedOrganizerWallets } from '@/lib/vetted';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { LegalLinks } from '@/app/components/LegalLinks';
@@ -358,8 +359,16 @@ export default async function EventsPage({ searchParams }: {
     .select('id, name, date, start_time, price_eur, capacity, tickets_sold, tickets_reserved, image_url, venue, description, created_at, organizer_wallet')
     .gte('date', today)
     .eq('is_private', false)
+    .is('cancelled_at', null)
     .order('date', { ascending: true });
-  if (veranstalter) dbQuery = dbQuery.eq('organizer_wallet', veranstalter);
+  if (veranstalter) {
+    // Die Veranstalter-Ansicht ist kein Schaufenster: hierher kommt man ueber
+    // „Weitere Events von …“ auf der Eventseite genau dieses Veranstalters.
+    // Sie zeigt deshalb auch ungelistete Konten, wie deren Direktlinks auch.
+    dbQuery = dbQuery.eq('organizer_wallet', veranstalter);
+  } else {
+    dbQuery = dbQuery.in('organizer_wallet', await listedOrganizerWallets());
+  }
 
   const { data } = await dbQuery;
 

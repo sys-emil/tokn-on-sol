@@ -3,7 +3,7 @@
 import { useLogout, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AccountMenu } from '@/app/components/AccountMenu';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
@@ -33,6 +33,19 @@ interface PayoutData {
     outstandingChargeback: number;
   };
   payouts: PayoutRow[];
+  /** Events mit noch nicht fälligen Auszahlungen; Grundlage der Sofort-Anfrage. */
+  instant: InstantRow[];
+}
+
+interface InstantRow {
+  eventId: string;
+  eventName: string;
+  eventDate: string | null;
+  netCents: number;
+  salesCount: number;
+  availableAt: string;
+  /** 'none' | 'pending' | 'approved' | 'rejected' */
+  requestStatus: string;
 }
 
 const eur = (cents: number) => (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
@@ -58,6 +71,13 @@ export default function PayoutsPage() {
 
   const [data, setData] = useState<PayoutData | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  // Sofort-Auszahlung: zweistufig, weil die Anfrage einen Menschen beschäftigt.
+  // `askFor` hält das Event, für das gerade das Notizfeld offen steht.
+  const [askFor, setAskFor] = useState<string | null>(null);
+  const [askNote, setAskNote] = useState('');
+  const [asking, setAsking] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
 
   // Bookkeeping export. Defaults to the current calendar year, the unit an
   // organizer files in; the route accepts any range.
@@ -92,21 +112,46 @@ export default function PayoutsPage() {
     if (ready && !authenticated) router.push('/');
   }, [ready, authenticated, router]);
 
-  useEffect(() => {
+  const loadPayouts = useCallback(async (): Promise<void> => {
     if (!wallet) return;
-    async function load(): Promise<void> {
-      try {
-        const token = await getAccessToken();
-        const res = await fetch(`/api/organizer/payouts?walletAddress=${wallet}`, {
-          headers: { Authorization: `Bearer ${token ?? ''}` },
-        });
-        if (res.ok) setData((await res.json()) as PayoutData);
-      } finally {
-        setLoaded(true);
-      }
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(`/api/organizer/payouts?walletAddress=${wallet}`, {
+        headers: { Authorization: `Bearer ${token ?? ''}` },
+      });
+      if (res.ok) setData((await res.json()) as PayoutData);
+    } finally {
+      setLoaded(true);
     }
-    void load();
   }, [wallet, getAccessToken]);
+
+  useEffect(() => { void loadPayouts(); }, [loadPayouts]);
+
+  async function requestInstant(eventId: string): Promise<void> {
+    if (!wallet || asking) return;
+    setAsking(true);
+    setAskError(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/organizer/payout-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ walletAddress: wallet, eventId, note: askNote.trim() || undefined }),
+      });
+      const body = (await res.json()) as { success: boolean; error?: string };
+      if (!body.success) {
+        setAskError(body.error ?? 'Die Anfrage konnte nicht gesendet werden.');
+        return;
+      }
+      setAskFor(null);
+      setAskNote('');
+      await loadPayouts();
+    } catch {
+      setAskError('Netzwerkfehler. Bitte versuch es erneut.');
+    } finally {
+      setAsking(false);
+    }
+  }
 
   if (!ready || !authenticated) return null;
 
@@ -179,6 +224,105 @@ export default function PayoutsPage() {
             </div>
           </section>
 
+          {/* Einnahmen fließen nach dem Event. Wer vorher an sie muss, fragt
+              hier an; entschieden wird von Hand. Die Sektion erscheint nur,
+              wenn es überhaupt etwas vorzuziehen gibt. */}
+          {data?.instant && data.instant.length > 0 && (
+            <section>
+              <div className="section-head">
+                <div>
+                  <h2>Geld vor dem Event</h2>
+                  <div className="sub">
+                    Deine Einnahmen überweisen wir nach der Veranstaltung. Brauchst du sie vorher,
+                    frag eine Sofort-Auszahlung an — wir schauen sie uns an und geben sie frei.
+                  </div>
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: 0 }}>
+                {data.instant.map((row, i) => (
+                  <div
+                    key={row.eventId}
+                    style={{
+                      padding: 18,
+                      borderTop: i === 0 ? 'none' : '1px solid var(--line)',
+                      display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 240 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{row.eventName}</div>
+                      <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3, lineHeight: 1.5 }}>
+                        {eur(row.netCents)} aus {row.salesCount} {row.salesCount === 1 ? 'Verkauf' : 'Verkäufen'}
+                        {' · geplant ab '}{shortStamp(row.availableAt)}
+                      </div>
+
+                      {row.requestStatus === 'pending' && (
+                        <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 8 }}>
+                          Anfrage läuft. Wir melden uns per E-Mail.
+                        </div>
+                      )}
+                      {row.requestStatus === 'rejected' && (
+                        <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 8 }}>
+                          Letzte Anfrage abgelehnt. Die Auszahlung läuft wie geplant nach dem Event.
+                        </div>
+                      )}
+                      {/* Eine Freigabe gilt nur fuer die Verkaeufe, die es zu
+                          dem Zeitpunkt gab. Was danach hereinkommt, steht
+                          wieder hier — und muss erneut angefragt werden
+                          koennen. */}
+                      {row.requestStatus === 'approved' && (
+                        <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 8 }}>
+                          Diese Verkäufe kamen nach deiner letzten Freigabe herein.
+                        </div>
+                      )}
+
+                      {askFor === row.eventId && (
+                        <div style={{ marginTop: 12 }}>
+                          <textarea
+                            className="textarea"
+                            rows={2}
+                            maxLength={500}
+                            placeholder="Wofür brauchst du das Geld? (hilft uns bei der Entscheidung)"
+                            value={askNote}
+                            onChange={(e) => setAskNote(e.target.value)}
+                          />
+                          {askError && (
+                            <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>{askError}</div>
+                          )}
+                          <div className="row gap-2" style={{ marginTop: 10 }}>
+                            <button
+                              className="btn primary sm"
+                              disabled={asking}
+                              onClick={() => void requestInstant(row.eventId)}
+                            >
+                              {asking ? 'Wird gesendet …' : 'Anfrage senden'}
+                            </button>
+                            <button
+                              className="btn subtle sm"
+                              disabled={asking}
+                              onClick={() => { setAskFor(null); setAskError(null); }}
+                            >
+                              Abbrechen
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {row.requestStatus !== 'pending' && askFor !== row.eventId && (
+                      <button
+                        className="btn ghost"
+                        onClick={() => { setAskFor(row.eventId); setAskNote(''); setAskError(null); }}
+                      >
+                        Sofort-Auszahlung anfragen
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section>
             <div className="section-head">
               <div>
@@ -213,7 +357,7 @@ export default function PayoutsPage() {
             <div className="section-head">
               <div>
                 <h2>Alle Auszahlungen</h2>
-                <div className="sub">Ein Eintrag pro Verkauf · Auszahlung täglich, nach Ablauf der Schutzfrist</div>
+                <div className="sub">Ein Eintrag pro Verkauf · überwiesen nach dem Event, beim ersten Event drei Tage danach</div>
               </div>
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>

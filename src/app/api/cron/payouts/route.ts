@@ -191,6 +191,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           .eq("id", payout.id);
         paid++;
         offsetCents += offset.offsetCents;
+
+        // Erste tatsaechlich geflossene Auszahlung des Veranstalters festhalten:
+        // sie senkt den Plattform-Puffer kuenftiger Events von drei Tagen auf
+        // einen (siehe effectiveHoldDays). `.is(..., null)` macht den Schreib-
+        // vorgang idempotent. Bewusst nur hier und nicht im Null-Betrag-Zweig
+        // oben: dort ist nie Geld geflossen, also ist auch nichts belegt.
+        await supabaseAdmin
+          .from("organizers")
+          .update({ first_payout_at: new Date().toISOString() })
+          .eq("wallet_address", payout.organizer_wallet)
+          .is("first_payout_at", null);
       } catch (err) {
         // Restricted/disabled account, missing transfer capability, etc.
         // funds remain on the platform balance, row goes to 'held' for the

@@ -58,9 +58,12 @@ export async function LiveEvents() {
     // gar keiner Datenbank — sie soll nicht wegen dieses Beiwerks ausfallen,
     // wenn eine Umgebungsvariable fehlt.
     const { supabaseAdmin } = await import('@/lib/supabase');
+    const { listedOrganizerWallets } = await import('@/lib/vetted');
 
     // Eine Abfrage für beides: `count` ist die Gesamtzahl, die über die
-    // Schwelle entscheidet, `data` sind die drei, die gezeigt werden.
+    // Schwelle entscheidet, `data` sind die drei, die gezeigt werden. Beide
+    // sehen nur gelistete Veranstalter — die Schwelle soll zählen, was ein
+    // Besucher auf /events auch tatsächlich fände.
     const { data, count } = await supabaseAdmin
       .from('events')
       .select(
@@ -70,6 +73,7 @@ export async function LiveEvents() {
       .gte('date', today)
       .eq('is_private', false)
       .is('cancelled_at', null)
+      .in('organizer_wallet', await listedOrganizerWallets())
       .order('date', { ascending: true })
       .limit(ZEIGE);
 

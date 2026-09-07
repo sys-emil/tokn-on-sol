@@ -550,7 +550,10 @@ export function EventEditor({
                 <input type="number" className="input" value={draft.payoutHoldDays} min={0} max={90} step={1}
                   onChange={(e) => set('payoutHoldDays', e.target.value)} disabled={saving} />
                 <span className="hint">
-                  0 = tägliche automatische Auszahlung. Ein Puffer hält Einnahmen als Rückbuchungsschutz zurück.
+                  0 = wir überweisen am Tag nach dem Event. Beim ersten Event deines Kontos
+                  sind es drei Tage; brauchst du das Geld vorher, kannst du unter
+                  „Auszahlungen“ eine Sofort-Auszahlung anfragen. Ein größerer Puffer hält
+                  Einnahmen als Rückbuchungsschutz länger zurück.
                 </span>
               </div>
             )}

@@ -204,11 +204,13 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
 
   // Waitlist is a Pro feature of the organizer; the shop only offers the
   // signup when the plan is active (the join API enforces the same rule).
-  // Name/type feed the "Veranstaltet von" trust block: every listed organizer
-  // has passed the manual vetting, so the "Geprüft" badge is earned.
+  // Name/type feed the "Veranstaltet von" trust block. Der „Geprüft“-Chip
+  // hängt seit dem Wegfall der manuellen Freigabe (2026-09-07) an
+  // `is_vetted` — also an Stripes Identitätsprüfung oder am Admin. Ohne das
+  // wäre er eine Behauptung über eine Prüfung, die niemand vorgenommen hat.
   const { data: organizerRow } = await supabaseAdmin
     .from('organizers')
-    .select('plan, name, business_name, type, public_name, handle, is_verified, verified_label')
+    .select('plan, name, business_name, type, public_name, handle, is_verified, verified_label, is_vetted')
     .eq('wallet_address', event.organizer_wallet)
     .maybeSingle();
   const waitlistEnabled = organizerRow?.plan === 'pro';
@@ -314,7 +316,9 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
                       {organizerVerified && <VerifiedCheck size={15} title={organizerVerifiedLabel ?? 'Verifiziert'} />}
                     </span>
                   )}
-                  <span className="chip ok" title="Dieser Veranstalter wurde von Passly geprüft."><Icon name="shield" size={11} /> Geprüft</span>
+                  {organizerRow?.is_vetted && (
+                    <span className="chip ok" title="Die Identität dieses Veranstalters ist geprüft."><Icon name="shield" size={11} /> Geprüft</span>
+                  )}
                   {organizerVerified && organizerVerifiedLabel && (
                     <span className="chip" style={{ color: 'var(--accent-ink)', background: 'var(--accent-wash)', borderColor: 'var(--accent-line)' }}>{organizerVerifiedLabel}</span>
                   )}

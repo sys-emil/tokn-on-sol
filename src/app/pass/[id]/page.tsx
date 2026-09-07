@@ -136,7 +136,7 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
 
   const { data: organizerRow } = await supabaseAdmin
     .from('organizers')
-    .select('name, business_name, type, public_name, handle, is_verified, verified_label')
+    .select('name, business_name, type, public_name, handle, is_verified, verified_label, is_vetted')
     .eq('wallet_address', pass.organizer_wallet)
     .maybeSingle();
   const organizerName = organizerRow
@@ -197,7 +197,9 @@ export default async function PassPage({ params }: { params: Promise<{ id: strin
                       {organizerVerified && <VerifiedCheck size={15} title={organizerVerifiedLabel ?? 'Verifiziert'} />}
                     </span>
                   )}
-                  <span className="chip ok" title={t('shop.verifiedTitle')}><Icon name="shield" size={11} /> {t('shop.verified')}</span>
+                  {organizerRow?.is_vetted && (
+                    <span className="chip ok" title={t('shop.verifiedTitle')}><Icon name="shield" size={11} /> {t('shop.verified')}</span>
+                  )}
                 </span>
               </div>
             )}

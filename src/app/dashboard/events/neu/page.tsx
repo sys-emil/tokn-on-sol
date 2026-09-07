@@ -106,12 +106,15 @@ export default function NewEventPage() {
               <EventEditorSkeleton />
             ) : orgStatus !== 'approved' ? (
               <div className="card" style={{ padding: 32 }}>
-                <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Noch nicht freigeschaltet</h3>
+                {/* Seit der Auto-Freigabe erreicht das nur noch Konten, die es
+                    gar nicht gibt, und Altzeilen aus der Zeit der manuellen
+                    Pruefung. Deshalb bleibt es stehen, aber knapp. */}
+                <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Kein Veranstalter-Konto</h3>
                 <p style={{ fontSize: 13.5, color: 'var(--ink-3)', lineHeight: 1.6 }}>
-                  Veranstaltungen kannst du anlegen, sobald dein Veranstalter-Konto geprüft ist.
+                  Veranstaltungen kannst du anlegen, sobald dein Veranstalter-Konto steht.
                 </p>
                 <Link href="/become-organizer" className="btn primary" style={{ marginTop: 16 }}>
-                  Zum Antrag <Icon name="arrow" size={13} />
+                  Konto einrichten <Icon name="arrow" size={13} />
                 </Link>
               </div>
             ) : (

@@ -21,6 +21,13 @@ export interface ShowcaseHeroProps {
   organizerVerified?: boolean;
   organizerVerifiedLabel?: string | null;
   verifiedLabel: string;
+  /**
+   * Ob der „Geprüft“-Chip überhaupt erscheint (`organizers.is_vetted`). Der
+   * Chip behauptet eine Identitätsprüfung; seit die Freigabe automatisch ist,
+   * trifft das nur auf Veranstalter mit Stripe-KYC oder Admin-Häkchen zu.
+   * Voreinstellung `true` für die Editor-Vorschau, die kein echtes Konto zeigt.
+   */
+  organizerVetted?: boolean;
   priceLabel: string;
   feeLabel?: string | null;
   trustLabel: string;
@@ -57,12 +64,13 @@ export function ShowcaseHero({
   cancelledText,
   backHref = '/events',
   venueLink = false,
+  organizerVetted = true,
 }: ShowcaseHeroProps) {
   const organizerBlock = organizerName && (
     <>
       {organizerName}
       {organizerVerified && <VerifiedCheck size={15} title={organizerVerifiedLabel ?? verifiedLabel} />}
-      <span className="sc-hero-chip"><Icon name="shield" size={11} />{verifiedLabel}</span>
+      {organizerVetted && <span className="sc-hero-chip"><Icon name="shield" size={11} />{verifiedLabel}</span>}
     </>
   );
 

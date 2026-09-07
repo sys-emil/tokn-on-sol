@@ -198,6 +198,82 @@ export async function sendBadgeProgressEmail({
  * Result of the manual organizer-application review (/admin/organizers).
  * Plaintext, single recipient, the applicant themselves.
  */
+/**
+ * Begruessung nach der Registrierung als Veranstalter. Seit der Wegfall der
+ * manuellen Freigabe (2026-09-07) ist das der einzige Brief, den ein neuer
+ * Veranstalter bekommt — deshalb nennt er die zwei Schritte, die zwischen
+ * Anmeldung und erstem Verkauf stehen, statt nur „willkommen“ zu sagen.
+ */
+export async function sendOrganizerWelcome({
+  to,
+  name,
+  baseUrl,
+}: {
+  to: string;
+  name: string;
+  baseUrl: string;
+}): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const body = `Hallo ${name},\n\n`
+    + `dein Veranstalter-Konto bei Passly steht. Zwei Schritte trennen dich vom ersten verkauften Ticket:\n\n`
+    + `1. Veranstaltung anlegen: ${baseUrl}/dashboard/events/neu\n`
+    + `2. Auszahlungen einrichten: ${baseUrl}/dashboard — dafuer verifiziert dich Stripe einmalig. `
+    + `Solange das laeuft, kannst du dein Event schon anlegen und teilen; bezahlte Tickets werden erst danach verkauft.\n\n`
+    + `Deine Einnahmen ueberweisen wir nach dem Event. Beim ersten Event halten wir sie drei Tage laenger zurueck; `
+    + `brauchst du das Geld vorher, kannst du unter ${baseUrl}/dashboard/payouts eine Sofort-Auszahlung anfragen.\n\n`
+    + `--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  await resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to,
+    subject: "Willkommen bei Passly",
+    text: body,
+  });
+}
+
+/**
+ * Entscheidung ueber eine angefragte Sofort-Auszahlung (siehe
+ * /dashboard/payouts und den Admin-Tab). Freigegebenes Geld geht mit dem
+ * naechsten taeglichen Auszahlungslauf raus, nicht sofort.
+ */
+export async function sendPayoutRequestDecision({
+  to,
+  name,
+  eventName,
+  approved,
+  baseUrl,
+}: {
+  to: string;
+  name: string;
+  eventName: string;
+  approved: boolean;
+  baseUrl: string;
+}): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const body = approved
+    ? `Hallo ${name},\n\ndeine Sofort-Auszahlung fuer „${eventName}“ ist freigegeben. `
+      + `Das Geld geht mit dem naechsten Auszahlungslauf raus, spaetestens morgen frueh.\n\n`
+      + `Uebersicht: ${baseUrl}/dashboard/payouts\n\n`
+      + `--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`
+    : `Hallo ${name},\n\ndeine Sofort-Auszahlung fuer „${eventName}“ konnten wir nicht freigeben. `
+      + `Die Einnahmen werden wie geplant nach dem Event ueberwiesen.\n\n`
+      + `Fragen dazu beantworten wir gerne unter ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@getpassly.de"}.\n\n`
+      + `--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  await resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to,
+    subject: approved ? "Sofort-Auszahlung freigegeben" : "Sofort-Auszahlung abgelehnt",
+    text: body,
+  });
+}
+
 export async function sendOrganizerApplicationDecision({
   to,
   name,

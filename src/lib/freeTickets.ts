@@ -15,7 +15,10 @@
  *   table and a reset, and an organizer cannot tell from their own screen how
  *   much of it is left. A per-event ceiling is decided in the same request that
  *   writes the event. What it does not bound is an organizer creating many free
- *   events; the manual approval gate on `/become-organizer` is what bounds that.
+ *   events; since the manual approval gate fell (2026-09-07) that is bounded by
+ *   `organizers.is_vetted` instead — an unvetted organizer's events never reach
+ *   the public listing, so a spammer only ever reaches people they mail the
+ *   link to themselves.
  *
  * - **Checked when the event is written, never at checkout.** A guest must not
  *   be the one who discovers the limit — being turned away at the buy button

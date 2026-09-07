@@ -375,7 +375,8 @@ export default function PassesPage() {
                 />
                 <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 5, lineHeight: 1.5 }}>
                   Gerechnet ab dem Kauf, nicht ab einem Termin — ein Pass läuft über viele
-                  Termine, und so lange soll dein Geld nicht liegen.
+                  Termine, und so lange soll dein Geld nicht liegen. 0 heißt: einen Tag nach
+                  dem Kauf, bei der allerersten Auszahlung deines Kontos drei.
                 </div>
               </div>
 

@@ -76,21 +76,55 @@ export function computeFeeSplit(grossCents: number): { feeCents: number; netCent
 }
 
 /**
- * When funds for a purchase become transferable to the organizer.
+ * Plattform-Mindestpuffer, ab dem eine Auszahlung frühestens fließt. Der
+ * Veranstalter darf über `payout_hold_days` nur nach OBEN abweichen.
  *
- * - holdDays = 0 → available immediately (transferred by the next daily cron run,
- *   i.e. the default "automatic daily payout" behaviour).
- * - holdDays > 0 → held until midnight UTC `holdDays` days after the event date,
- *   as chargeback protection.
+ * Warum überhaupt ein Boden: Bei Separate Charges & Transfers ist Passly
+ * Merchant of Record, ein Chargeback belastet also die Plattform-Balance, und
+ * eine Transfer-Reversal gibt es in diesem System nicht. Vorher stand der
+ * Regler auf 0 und wurde von genau der Person gesetzt, vor der er schützt.
  *
- * If the event date can't be parsed, fall back to `now` as the hold anchor so a
- * malformed date never accelerates a payout past its hold period.
+ * Warum 1 und nicht 0 im Normalfall: `events.date` ist ein reines Datum ohne
+ * Uhrzeit und der Payout-Cron läuft um 03:00 UTC — ein Puffer von 0 Tagen
+ * würde am Morgen *des* Eventtags auszahlen. Ein Tag ist der erste Zeitpunkt,
+ * der eindeutig nach dem Event liegt.
+ */
+export const MIN_HOLD_DAYS_AFTER_EVENT = 1;
+
+/**
+ * Puffer bis zur allerersten Auszahlung eines Veranstalters. Danach greift
+ * `MIN_HOLD_DAYS_AFTER_EVENT`: wessen erstes Event sauber durchgelaufen und
+ * abgerechnet ist, hat den teuersten Betrugsfall hinter sich.
+ */
+export const FIRST_EVENT_HOLD_DAYS = 3;
+
+/**
+ * Der tatsächlich geltende Puffer: der größere von Plattform-Boden und dem
+ * Wunsch des Veranstalters. Serverseitig beim Schreiben der payouts-Zeile
+ * angewandt, nicht im Editor — der Boden darf nicht umgehbar sein.
+ */
+export function effectiveHoldDays(organizerHoldDays: number, isFirstPayout: boolean): number {
+  const own = Number.isInteger(organizerHoldDays) && organizerHoldDays > 0 ? organizerHoldDays : 0;
+  return Math.max(own, isFirstPayout ? FIRST_EVENT_HOLD_DAYS : MIN_HOLD_DAYS_AFTER_EVENT);
+}
+
+/**
+ * When funds for a purchase become transferable to the organizer: midnight UTC
+ * `holdDays` days after the event date, never earlier than `now`.
+ *
+ * The anchor is ALWAYS the event date — with `effectiveHoldDays` there is no
+ * zero-hold case any more, and the ticket-return path depends on it: a return
+ * is rejected from the event day onwards precisely so the original payout is
+ * still `pending` and can be un-booked (see `unbookOrganizerShare`).
+ *
+ * If the event date can't be parsed, fall back to `now` as the hold anchor. A
+ * season pass passes "" deliberately: it spans many dates, so its hold is
+ * anchored on the purchase instead.
  */
 export function computeAvailableAt(eventDate: string, holdDays: number, now: Date = new Date()): Date {
   if (!Number.isInteger(holdDays) || holdDays < 0) {
     throw new Error(`holdDays must be a non-negative integer, got ${holdDays}`);
   }
-  if (holdDays === 0) return now;
 
   const parsed = new Date(`${eventDate}T00:00:00Z`);
   const anchor = Number.isNaN(parsed.getTime()) ? now : parsed;

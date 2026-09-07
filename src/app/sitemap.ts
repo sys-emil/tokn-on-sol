@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
+import { listedOrganizerWallets } from '@/lib/vetted';
 
 // Evaluated per request, not at build time; otherwise the event list would be
 // frozen until the next deploy.
@@ -15,12 +16,18 @@ const STATIC_ROUTES = ['/', '/events', '/fuer-veranstalter', '/preise', '/so-fun
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const today = new Date().toISOString().slice(0, 10);
 
+  // Nur gelistete Veranstalter: die Sitemap ist die aktivste Discovery-Fläche
+  // von allen. Die Seiten selbst bleiben erreichbar, sie werden nur nicht von
+  // uns bei Google angemeldet.
+  const listed = await listedOrganizerWallets();
+
   const { data } = await supabaseAdmin
     .from('events')
     .select('id, date')
     .gte('date', today)
     .eq('is_private', false)
-    .is('cancelled_at', null);
+    .is('cancelled_at', null)
+    .in('organizer_wallet', listed);
 
   const eventEntries: MetadataRoute.Sitemap = (data ?? []).map((e) => ({
     url: `${siteUrl}/event/${e.id as string}`,
@@ -54,11 +61,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  // Public organizer profiles (approved + handle set).
+  // Public organizer profiles (gelistet + handle set).
   const { data: orgs } = await supabaseAdmin
     .from('organizers')
     .select('handle')
     .eq('status', 'approved')
+    .eq('is_vetted', true)
     .not('handle', 'is', null);
 
   const organizerEntries: MetadataRoute.Sitemap = (orgs ?? [])

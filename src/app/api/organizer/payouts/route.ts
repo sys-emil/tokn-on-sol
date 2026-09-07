@@ -75,7 +75,72 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // costs trust.
   const fees = await outstandingFees(walletAddress);
 
+  // Was noch nicht fällig ist, nach Event gruppiert: die Grundlage für die
+  // Sofort-Auszahlung. Eigene Abfrage statt der 200 Zeilen oben, weil ein
+  // ausverkauftes Event allein mehr Verkäufe haben kann als die Liste zeigt.
+  // Nur Events, keine Saisonpässe: ein Pass hat kein einzelnes Datum, an dem
+  // „nach dem Event“ etwas bedeuten würde.
+  const nowIso = new Date().toISOString();
+  const { data: dueRows } = await supabaseAdmin
+    .from("payouts")
+    .select("event_id, net_cents, available_at")
+    .eq("organizer_wallet", walletAddress)
+    .eq("status", "pending")
+    .gt("available_at", nowIso)
+    .not("event_id", "is", null)
+    .limit(2000);
+
+  const byEvent = new Map<string, { netCents: number; count: number; availableAt: string }>();
+  for (const r of (dueRows ?? []) as { event_id: string; net_cents: number; available_at: string }[]) {
+    const cur = byEvent.get(r.event_id);
+    if (cur) {
+      cur.netCents += r.net_cents;
+      cur.count++;
+      if (r.available_at < cur.availableAt) cur.availableAt = r.available_at;
+    } else {
+      byEvent.set(r.event_id, { netCents: r.net_cents, count: 1, availableAt: r.available_at });
+    }
+  }
+
+  const heldEventIds = [...byEvent.keys()];
+  const [{ data: heldEvents }, { data: requests }] = await Promise.all([
+    heldEventIds.length > 0
+      ? supabaseAdmin.from("events").select("id, name, date").in("id", heldEventIds)
+      : Promise.resolve({ data: [] }),
+    heldEventIds.length > 0
+      ? supabaseAdmin
+          .from("payout_requests")
+          .select("event_id, status, created_at")
+          .eq("organizer_wallet", walletAddress)
+          .in("event_id", heldEventIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const heldEventMeta = new Map<string, { name: string; date: string }>();
+  for (const e of (heldEvents ?? []) as { id: string; name: string; date: string }[]) {
+    heldEventMeta.set(e.id, { name: e.name, date: e.date });
+  }
+  // Absteigend sortiert geladen, also gewinnt der erste Treffer pro Event.
+  const latestRequest = new Map<string, string>();
+  for (const r of (requests ?? []) as { event_id: string; status: string }[]) {
+    if (!latestRequest.has(r.event_id)) latestRequest.set(r.event_id, r.status);
+  }
+
+  const instant = [...byEvent.entries()]
+    .map(([id, agg]) => ({
+      eventId: id,
+      eventName: heldEventMeta.get(id)?.name ?? "–",
+      eventDate: heldEventMeta.get(id)?.date ?? null,
+      netCents: agg.netCents,
+      salesCount: agg.count,
+      availableAt: agg.availableAt,
+      requestStatus: latestRequest.get(id) ?? "none",
+    }))
+    .sort((a, b) => a.availableAt.localeCompare(b.availableAt));
+
   return NextResponse.json({
+    instant,
     summary: {
       pendingCents, paidCents, heldCount, nextAvailableAt,
       outstandingFees: fees.totalCents,

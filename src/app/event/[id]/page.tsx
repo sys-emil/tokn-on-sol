@@ -323,7 +323,7 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
 
   const { data: organizerRow } = await supabaseAdmin
     .from('organizers')
-    .select('name, business_name, type, public_name, handle, is_verified, verified_label')
+    .select('name, business_name, type, public_name, handle, is_verified, verified_label, is_vetted')
     .eq('wallet_address', event.organizer_wallet)
     .maybeSingle();
   const organizerName = organizerRow
@@ -473,6 +473,7 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
             organizerVerified={organizerVerified}
             organizerVerifiedLabel={organizerVerifiedLabel}
             verifiedLabel={t('shop.verified')}
+            organizerVetted={organizerRow?.is_vetted ?? false}
             priceLabel={priceLabel}
             feeLabel={minPrice > 0 ? feeLabel : null}
             trustLabel={t('shop.trust')}

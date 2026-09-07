@@ -16,6 +16,8 @@ interface OrganizerRow {
   public_name: string | null;
   is_verified: boolean;
   verified_label: string | null;
+  is_vetted: boolean;
+  stripe_charges_enabled: boolean;
   plan: string | null;
 }
 
@@ -31,7 +33,7 @@ interface AdminEventRow {
   cancelled_at: string | null;
 }
 
-type Action = 'approve' | 'reject' | 'verify' | 'unverify';
+type Action = 'approve' | 'reject' | 'verify' | 'unverify' | 'list' | 'unlist';
 
 const STATUS_ORDER: Record<OrganizerRow['status'], number> = { pending: 0, approved: 1, rejected: 2 };
 
@@ -191,7 +193,14 @@ function OrganizerTable({
             return (
               <>
                 <tr key={o.id}>
-                  <td><span className={`chip ${chip.cls}`}><span className="d" />{chip.label}</span></td>
+                  <td>
+                    <span className={`chip ${chip.cls}`}><span className="d" />{chip.label}</span>
+                    {o.status === 'approved' && !o.is_vetted && (
+                      <span className="chip warn" style={{ marginTop: 4 }} title="Erscheint nicht auf /events, in der Sitemap oder auf der Startseite. Eigene Links funktionieren.">
+                        <span className="d" />Nicht gelistet
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       {shownName}
@@ -220,6 +229,32 @@ function OrganizerTable({
                             Ablehnen
                           </button>
                         </>
+                      )}
+                      {/* Sichtbarkeit im oeffentlichen Listing. Setzt sich mit
+                          dem Stripe-Onboarding von selbst; von Hand gebraucht
+                          wird das nur fuer Veranstalter ohne Connect-Konto. */}
+                      {o.status === 'approved' && (
+                        o.is_vetted ? (
+                          <button
+                            className="btn ghost sm"
+                            disabled={busyWallet === o.wallet_address}
+                            title={o.stripe_charges_enabled
+                              ? 'Stripe-KYC ist abgeschlossen; das Ausblenden hält nur bis zum nächsten Statusabgleich.'
+                              : undefined}
+                            onClick={() => void onAction(o.wallet_address, 'unlist')}
+                          >
+                            Aus Listing nehmen
+                          </button>
+                        ) : (
+                          <button
+                            className="btn ghost sm"
+                            style={{ color: 'var(--accent-ink)', borderColor: 'var(--accent-line)' }}
+                            disabled={busyWallet === o.wallet_address}
+                            onClick={() => void onAction(o.wallet_address, 'list')}
+                          >
+                            Ins Listing aufnehmen
+                          </button>
+                        )
                       )}
                       {o.status === 'approved' && (
                         o.is_verified ? (
