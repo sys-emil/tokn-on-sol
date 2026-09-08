@@ -21,6 +21,14 @@ export const metadata: Metadata = {
  * VOR GO-LIVE: "PLATZHALTER" ausfüllen und mit allen genannten Anbietern
  * Auftragsverarbeitungsverträge (AVV/DPA) abschließen, bei Vercel, Supabase,
  * Stripe und Resend im Dashboard verfügbar.
+ *
+ * HELIUS ist der offene Fall (geprüft 08.09.2026): weder Terms of Service noch
+ * Privacy Policy nennen einen AVV, Art. 28 DSGVO oder eine Auftragsverarbeiter-
+ * Rolle; Standardvertragsklauseln erwähnen sie nur für ihre eigenen
+ * Übermittlungen. Bis das per Support geklärt ist, steht hier bewusst KEIN Satz
+ * über einen bestehenden AVV — ein behaupteter Vertrag wäre eine Falschangabe.
+ * Stattdessen ist offengelegt, was übermittelt wird, dass es serverseitig
+ * geschieht und wie lange Helius es speichert.
  */
 
 export default function DatenschutzPage() {
@@ -189,9 +197,18 @@ export default function DatenschutzPage() {
         unserer eigenen Datenbank können wir sehr wohl löschen. Ein
         zurückgegebenes oder storniertes Ticket verliert seine Gültigkeit
         ausschließlich in unserer Datenbank; sein Eintrag in der dezentralen
-        Datenbank bleibt bestehen. Zur technischen Anbindung nutzen wir den Dienst
-        Helius (Helius Labs, Inc., USA), der dabei die pseudonymen Ticket- und
-        Kontokennungen verarbeitet.
+        Datenbank bleibt bestehen.       </p>
+      <p>
+        Für den technischen Zugriff auf die dezentrale Datenbank nutzen wir den
+        Dienst Helius (Helius Blockchain Technologies, Inc., 2093 Philadelphia
+        Pike PMB 7808, Claymont, DE 19703, USA). Übermittelt werden dabei die
+        pseudonyme Kontokennung und die Ticketkennung, jeweils zum Ausstellen
+        eines Tickets und zum Prüfen der Echtheit am Einlass. <strong>Diese
+        Abfragen stellt ausschließlich unser Server</strong>, nicht dein Browser
+        oder dein Gerät — deine IP-Adresse wird dabei also nicht an Helius
+        übermittelt. Nach den Angaben des Anbieters werden solche Abfragen dort
+        bis zu 20 Wochen gespeichert. Name, E-Mail-Adresse, Zahlungsdaten und
+        Einlassstatus werden nicht übermittelt.
       </p>
       <p>
         Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (Ausstellung und Prüfung des
