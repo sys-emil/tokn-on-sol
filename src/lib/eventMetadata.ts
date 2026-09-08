@@ -1,8 +1,4 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import {
-  GENERIC_TICKET_METADATA_PATH,
-  GENERIC_BADGE_METADATA_PATH,
-} from "@/lib/genericMetadata";
 
 /**
  * Static per-event cNFT metadata in Supabase Storage (public bucket
@@ -55,36 +51,6 @@ export function validateGalleryUrls(value: unknown): string[] | { error: string 
     if (!urls.includes(raw)) urls.push(raw);
   }
   return urls;
-}
-
-/**
- * Schreibt die beiden generischen Metadaten-Dateien, auf die seit dem
- * minimalen Mint jedes Ticket und jedes Abzeichen zeigt (Begruendung in
- * `src/lib/mint.ts`). Die Pfade stehen in `@/lib/genericMetadata`, weil der
- * Mint sie braucht und dieses Modul hier beim Import einen Supabase-Client
- * anlegt.
- *
- * Idempotent (upsert). Gibt die von Supabase selbst gebildeten oeffentlichen
- * URLs zurueck, damit das Skript sie gegen die gerechnete Form pruefen kann.
- */
-export async function uploadGenericMetadata(siteUrl: string): Promise<{ ticket: string; badge: string }> {
-  const ticket = await writeMetadata(GENERIC_TICKET_METADATA_PATH, {
-    name: "Passly Ticket",
-    symbol: "TOKN",
-    description:
-      "Digitales Ticket von Passly. Zu welcher Veranstaltung es gehoert, sieht nur der Inhaber in seinem Passly-Konto.",
-    image: `${siteUrl}/icon-512.png`,
-    attributes: [{ trait_type: "Typ", value: "Ticket" }],
-  });
-  const badge = await writeMetadata(GENERIC_BADGE_METADATA_PATH, {
-    name: "Passly Abzeichen",
-    symbol: "BADG",
-    description:
-      "Abzeichen von Passly. Wofuer es vergeben wurde, sieht nur der Inhaber in seinem Passly-Konto.",
-    image: `${siteUrl}/icon-512.png`,
-    attributes: [{ trait_type: "Typ", value: "Abzeichen" }],
-  });
-  return { ticket, badge };
 }
 
 export async function uploadEventImage(
