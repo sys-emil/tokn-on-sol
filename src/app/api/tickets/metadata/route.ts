@@ -11,7 +11,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const metadata = {
     name,
-    symbol: "TOKN",
+    symbol: "PSLY",
     description: date
       ? `NFT ticket for ${name} on ${date}`
       : `NFT ticket for ${name}`,

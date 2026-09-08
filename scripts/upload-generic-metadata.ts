@@ -60,7 +60,7 @@ async function main() {
       path: GENERIC_TICKET_METADATA_PATH,
       body: {
         name: "Passly Ticket",
-        symbol: "TOKN",
+        symbol: "PSLY",
         description:
           "Digitales Ticket von Passly. Zu welcher Veranstaltung es gehoert, sieht nur der Inhaber in seinem Passly-Konto.",
         image: `${siteUrl}/icon-512.png`,

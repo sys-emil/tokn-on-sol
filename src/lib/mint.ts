@@ -147,7 +147,7 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
     payer: operatorSigner,
     metadata: {
       name: GENERIC_TICKET_NAME,
-      symbol: "TOKN",
+      symbol: "PSLY",
       uri: metadataUri,
       sellerFeeBasisPoints: 0,
       collection: null,

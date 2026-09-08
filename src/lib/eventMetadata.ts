@@ -108,7 +108,7 @@ export async function uploadEventMetadata(params: {
 
   const metadata = {
     name,
-    symbol: "TOKN",
+    symbol: "PSLY",
     description: description
       || (date ? `NFT ticket for ${name} on ${date}` : `NFT ticket for ${name}`),
     image: imageUrl ?? "",
@@ -144,7 +144,7 @@ export async function uploadPassMetadata(params: {
 
   const metadata = {
     name,
-    symbol: "TOKN",
+    symbol: "PSLY",
     description: description || `Saisonpass für ${eventDates.length} Termine`,
     image: imageUrl ?? "",
     attributes: [
