@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "create-tree": "ts-node -r dotenv/config --project tsconfig.scripts.json scripts/create-tree.ts",
+    "upload-generic-metadata": "ts-node -r dotenv/config --project tsconfig.scripts.json scripts/upload-generic-metadata.ts",
     "test": "vitest run"
   },
   "dependencies": {

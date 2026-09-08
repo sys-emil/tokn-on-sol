@@ -21,6 +21,11 @@ import {
   PRIORITY_CU_LIMIT,
   priorityFeeMicroLamports,
 } from "@/lib/operatorBalance";
+import {
+  genericMetadataUri,
+  GENERIC_TICKET_METADATA_PATH,
+  GENERIC_BADGE_METADATA_PATH,
+} from "@/lib/genericMetadata";
 import bs58 from "bs58";
 
 export interface MintTicketParams {
@@ -63,10 +68,45 @@ async function parseLeafWithRetry(umi: Umi, signature: TransactionSignature) {
   throw new Error(`Could not parse leaf from tx ${sig} after ${MAX_ATTEMPTS} attempts: ${msg}`);
 }
 
+/**
+ * **Minimaler Mint (seit 2026-09-08).**
+ *
+ * `name` und `uri` sind die beiden inhaltlichen Felder, die dauerhaft und
+ * oeffentlich in der Mint-Transaktion stehen. Frueher trugen sie den
+ * Eventnamen und eine URL mit der Event-ID im Pfad. Weil alle Tickets und
+ * Abzeichen einer Person unter derselben pseudonymen Adresse liegen und diese
+ * Adresse im QR-Code des Tickets steht, konnte jeder, der einmal ein Ticket
+ * abfotografiert hatte, die **vollstaendige Besuchshistorie** dieser Person
+ * mit Datum und Ort nachschlagen — unloeschbar.
+ *
+ * Der Eventname on-chain war dabei fuer niemanden ein Gewinn: Passly-Nutzer
+ * haben keine Wallet-App (abgeleitete Schluessel, keine Seed Phrase, nichts zu
+ * importieren), und jede Passly-Oberflaeche liest zuerst die Datenbank. Genau
+ * eine Stelle im Projekt liest ueberhaupt On-Chain-Metadaten
+ * (`/tickets/[assetId]`), und dort erst als dritter Fallback.
+ *
+ * Sichtbar bleibt damit, **wie viele** Passly-Assets eine Adresse haelt — das
+ * laesst sich nicht verbergen, weil `numMinted` auf dem Merkle-Baum steht.
+ * Unsichtbar wird, **welche**.
+ *
+ * Nicht angetastet, weil daran echte Funktion haengt: `creators` (Zaehlbarkeit
+ * aendert sich dadurch ohnehin nicht, die Baum-Autoritaet zaehlt weiter) und
+ * die Nicht-Leere der Felder — `getAssetWithProof` in `transfer.ts` (Teilen,
+ * Neuausstellung) braucht ein sauber indiziertes Asset, und ein leerer `uri`
+ * ist der Fall, bei dem Indexer unberechenbar werden.
+ *
+ * **Wirkt nur nach vorn.** Vor diesem Datum geminteten Assets ist nicht mehr
+ * beizukommen. Zurueckdrehen heisst: die zwei Konstanten unten wieder durch
+ * `onChainName(eventName)` und `params.metadataUri` ersetzen.
+ */
+const GENERIC_TICKET_NAME = "Passly Ticket";
+const GENERIC_BADGE_NAME = "Passly Abzeichen";
+
 // Bubblegum caps the on-chain metadata name at 32 BYTES (error 6012
 // MetadataNameTooLong); long event names must be truncated UTF-8-safely
-// (umlauts are 2 bytes). Display everywhere uses the DB / off-chain JSON,
-// so only the on-chain field is shortened.
+// (umlauts are 2 bytes). Seit dem minimalen Mint steht dort ein konstanter
+// Name, der die Grenze sicher einhaelt; die Funktion bleibt fuer den
+// Rueckweg und ihren Test.
 const MAX_ONCHAIN_NAME_BYTES = 32;
 const utf8 = new TextEncoder();
 
@@ -81,10 +121,13 @@ export function onChainName(name: string): string {
 }
 
 export async function mintTicket(params: MintTicketParams): Promise<MintTicketResult> {
-  const { eventName, eventDate, ownerWallet, baseUrl } = params;
+  // Bewusst werden nur `ownerWallet` gelesen: `eventName`, `eventDate`,
+  // `baseUrl` und `metadataUri` bleiben in der Signatur, damit die vier
+  // Aufrufer (Mint-Worker, Gast-Claim, Rueckgabe-Neumint, Admin-Mint)
+  // unveraendert bleiben und das Zurueckdrehen zwei Zeilen ist.
+  const { ownerWallet } = params;
 
-  const metadataUri = params.metadataUri
-    ?? `${baseUrl}/api/tickets/metadata?name=${encodeURIComponent(eventName)}&date=${encodeURIComponent(eventDate)}`;
+  const metadataUri = genericMetadataUri(GENERIC_TICKET_METADATA_PATH);
 
   const operatorKeypair = getOperatorKeypair();
   const umi = createUmi(heliusRpcUrl())
@@ -103,7 +146,7 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
     merkleTree: merkleTreePk,
     payer: operatorSigner,
     metadata: {
-      name: onChainName(eventName),
+      name: GENERIC_TICKET_NAME,
       symbol: "TOKN",
       uri: metadataUri,
       sellerFeeBasisPoints: 0,
@@ -136,9 +179,12 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
 }
 
 export async function mintBadge(params: MintBadgeParams): Promise<MintTicketResult> {
-  const { badgeType, badgeName, ownerWallet, baseUrl } = params;
+  // Wie bei mintTicket: `badgeType`, `badgeName` und `baseUrl` bleiben in der
+  // Signatur, werden aber nicht mehr gestampft. Der alte `?type=`-Parameter
+  // haette sonst genau das verraten, was der minimale Mint verbergen soll.
+  const { ownerWallet } = params;
 
-  const metadataUri = `${baseUrl}/api/badges/metadata?type=${encodeURIComponent(badgeType)}`;
+  const metadataUri = genericMetadataUri(GENERIC_BADGE_METADATA_PATH);
 
   const operatorKeypair = getOperatorKeypair();
   const umi = createUmi(heliusRpcUrl())
@@ -157,7 +203,7 @@ export async function mintBadge(params: MintBadgeParams): Promise<MintTicketResu
     merkleTree: merkleTreePk,
     payer: operatorSigner,
     metadata: {
-      name: onChainName(badgeName),
+      name: GENERIC_BADGE_NAME,
       symbol: "BADG",
       uri: metadataUri,
       sellerFeeBasisPoints: 0,
