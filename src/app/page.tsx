@@ -49,7 +49,7 @@ const PAGE_CSS = `
     filter: blur(64px) saturate(1.1);
     /* Zurueckhaltender als frueher: die Hero-Sektion bringt inzwischen mit
        .hero-v2-bg eine eigene Farbgrafik mit, die darueber liegt. */
-    opacity: 0.34;
+    opacity: 0.22;
   }
   .aurora::before {
     left: 2%; top: 4%;
@@ -120,8 +120,8 @@ const PAGE_CSS = `
   .hero-v2-bg {
     position: absolute; inset: 0; pointer-events: none;
     background:
-      radial-gradient(680px 420px at 76% -6%, oklch(0.80 0.14 300/.30), transparent 62%),
-      radial-gradient(560px 380px at 96% 46%, oklch(0.85 0.10 220/.24), transparent 65%),
+      radial-gradient(680px 420px at 76% -6%, oklch(0.80 0.14 300/.13), transparent 62%),
+      radial-gradient(560px 380px at 96% 46%, oklch(0.85 0.10 220/.12), transparent 65%),
       radial-gradient(520px 320px at 58% 96%, oklch(0.90 0.08 330/.20), transparent 70%);
     filter: blur(6px);
     /* Der dritte Verlauf sitzt auf 96% Hoehe und ist an der Unterkante noch
@@ -142,16 +142,12 @@ const PAGE_CSS = `
     margin: 0; font: 700 62px/1.03 var(--font);
     letter-spacing: -0.045em; color: var(--ink);
   }
-  .hero-v2 h1 .grad {
-    background: linear-gradient(92deg, oklch(0.54 0.22 285), oklch(0.58 0.19 320));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
+  .hero-v2 h1 .grad { color: var(--accent); }
   .hero-v2 .lead {
     margin: 22px 0 0; max-width: 520px;
     font: 400 17px/1.65 var(--font); color: var(--ink-3);
   }
   .hero-v2-ctas { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
-  .hero-v2-note { margin: 18px 0 0; font: 400 13px var(--font); color: var(--ink-3); }
   .hero-v2-mock {
     position: relative;
     display: flex; align-items: center; justify-content: center;
@@ -254,7 +250,7 @@ const PAGE_CSS = `
 
   /* ── CTA banner ──────────────────────────────────────────── */
   .cta-banner {
-    background: linear-gradient(135deg, var(--accent), oklch(0.48 0.22 calc(var(--hue) + 30)));
+    background: var(--accent);
     border-radius: var(--radius-lg);
     padding: 48px 32px;
     text-align: center;
@@ -262,12 +258,6 @@ const PAGE_CSS = `
     box-shadow: var(--shadow-lg);
     position: relative;
     overflow: hidden;
-  }
-  .cta-banner::before {
-    content: "";
-    position: absolute; inset: 0;
-    background: radial-gradient(600px 300px at 70% -20%, rgba(255,255,255,0.22), transparent 70%);
-    pointer-events: none;
   }
   /* Der Abschluss-CTA ist selbst ein Ticket: Stanz-Kerben wie im Hero-Mockup */
   .cta-banner::after {
@@ -346,12 +336,6 @@ export default function Home() {
                 <div className="hero-v2-ctas">
                   <Link href="/become-organizer" className="btn primary lg">Kostenlos anfangen →</Link>
                 </div>
-                {/* Die manuelle Freischaltung ist am 2026-09-07 gefallen, damit
-                    auch der Satz, der einen Werktag Wartezeit ankuendigte. Der
-                    Knopf haelt jetzt, was er verspricht: anlegen heisst anlegen. */}
-                <p className="hero-v2-note">
-                  Sofort loslegen, ohne Freischaltung.
-                </p>
               </div>
 
               <HeroTicket />

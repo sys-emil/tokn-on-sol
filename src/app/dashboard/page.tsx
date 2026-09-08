@@ -396,7 +396,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className={`kpis${plan === 'pro' ? ' pro-active' : ''}`}>
+                <div className="kpis">
                   <div className="kpi">
                     <div className="label">Verkaufte Tickets</div>
                     <div className="value">{ticketsIssued.toLocaleString('de-DE')}</div>
@@ -461,7 +461,7 @@ export default function Dashboard() {
 
                 <section>
                   <div className={`card${plan === 'free' ? ' pro-outline' : ' pro-active'}`} style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'linear-gradient(135deg, var(--accent), oklch(0.62 0.19 calc(var(--hue) + 45)))', border: 'none', display: 'grid', placeItems: 'center', color: 'white', flexShrink: 0, boxShadow: '0 2px 10px oklch(0.50 0.20 var(--hue) / 0.40)' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--accent)', border: 'none', display: 'grid', placeItems: 'center', color: 'white', flexShrink: 0, boxShadow: '0 2px 10px oklch(0.50 0.20 var(--hue) / 0.40)' }}>
                       <Icon name="sparkle" size={16} />
                     </div>
                     <div style={{ flex: 1, minWidth: 240 }}>

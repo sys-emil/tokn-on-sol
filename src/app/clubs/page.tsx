@@ -99,7 +99,6 @@ const PAGE_CSS = `
     margin-bottom: 18px;
   }
   .hero-ctas { margin-top: 26px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .hero-note { margin-top: 16px; font-size: 13px; color: var(--ink-3); }
 
   /* ── Trust-Leiste ────────────────────────────────────────── */
   .trust-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
@@ -148,15 +147,9 @@ const PAGE_CSS = `
   /* ── Abschluss ───────────────────────────────────────────── */
   .cta-banner {
     max-width: 760px;
-    background: linear-gradient(135deg, var(--accent), oklch(0.48 0.22 calc(var(--hue) + 30)));
+    background: var(--accent);
     border-radius: var(--radius-lg); padding: 44px 32px; text-align: center;
     color: white; box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
-  }
-  .cta-banner::before {
-    content: "";
-    position: absolute; inset: 0;
-    background: radial-gradient(600px 300px at 70% -20%, rgba(255,255,255,0.22), transparent 70%);
-    pointer-events: none;
   }
   .cta-banner h2 { font-size: clamp(22px, 3vw, 30px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; position: relative; }
   .cta-banner p { font-size: 14px; opacity: 0.85; margin-top: 10px; position: relative; }
@@ -236,7 +229,6 @@ export default function ClubsPage() {
                 </Link>
                 <Link href="/preise" className="btn ghost lg">Was es kostet</Link>
               </div>
-              <p className="hero-note">Sofort loslegen, ohne Freischaltung.</p>
             </section>
 
             <section>

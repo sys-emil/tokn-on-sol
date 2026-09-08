@@ -20,20 +20,6 @@ const PAGE_CSS = `
     display: flex; align-items: flex-end; justify-content: space-between;
     gap: 24px; padding: 26px 0 22px; flex-wrap: wrap;
   }
-  .tk-eyebrow {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 11.5px; color: var(--accent-ink); font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px;
-  }
-  .tk-eyebrow .pulse {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
-    animation: tkPulse 2s infinite;
-  }
-  @keyframes tkPulse {
-    0%   { box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent) 55%, transparent); }
-    70%  { box-shadow: 0 0 0 10px transparent; }
-    100% { box-shadow: 0 0 0 0 transparent; }
-  }
   .tk-title { font-size: 38px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; }
   .tk-subline { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
   .tk-subline .sep { width: 1px; height: 12px; background: var(--line-2); }
@@ -459,7 +445,6 @@ const PAGE_CSS = `
     .tk-stub.border-neon, .tk-wcard.border-neon,
     .badge-tile.is-new, .badge-tile.is-new .badge-medal { animation: none; }
     .is-fresh::after { opacity: 0; }
-    .tk-eyebrow .pulse { animation: none; }
     .tk-wcard, .tk-stackarea { transition: none; }
     .badge-tile::after { transition: none; }
     .badge-detail-overlay, .badge-detail-overlay.is-closing,
@@ -1269,7 +1254,6 @@ export default function MyTickets() {
 
             <div className="tk-head">
               <div>
-                <div className="tk-eyebrow"><span className="pulse" />Deine Brieftasche</div>
                 <h1 className="tk-title">Meine Tickets</h1>
                 <div className="tk-subline">
                   {accountWallet && (

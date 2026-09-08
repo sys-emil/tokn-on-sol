@@ -756,54 +756,37 @@ section + section { margin-top: 36px; }
   box-shadow: 0 1px 5px oklch(0.50 0.20 var(--bh) / 0.45);
 }
 
-/* Pro highlight; animated brand-gradient outline with soft glow.
-   Used on the Passly-Pro upsell cards (dashboard + /dashboard/analytics). */
+/* Pro highlight; einfarbige Akzentkante mit weichem Schein.
+   Used on the Passly-Pro upsell cards (dashboard + /dashboard/analytics).
+   Frueher wanderte hier ein Farbverlauf ueber die Kante — die Pro-Flaechen
+   tragen jetzt durchgaengig das eine Passly-Lila, sonst hat ein einzelnes
+   Bauteil eine Farbwelt, die es sonst nirgends gibt. */
 .pro-outline {
   position: relative;
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(var(--surface), var(--surface)) padding-box,
-    linear-gradient(115deg,
-      oklch(0.56 0.22 var(--hue)),
-      oklch(0.72 0.16 calc(var(--hue) + 50)),
-      /* -35 landete bei Hue 250, also mitten im Blau; die Verlaufstiefe kommt
-         jetzt von der Magenta-Seite statt aus einer fremden Farbfamilie. */
-      oklch(0.62 0.20 calc(var(--hue) + 25)),
-      oklch(0.56 0.22 var(--hue))) border-box;
-  background-size: auto, 300% 300%;
-  animation: proBorderDrift 7s linear infinite, proGlowPulse 3.4s ease-in-out infinite;
-}
-@keyframes proBorderDrift {
-  from { background-position: 0 0, 0% 50%; }
-  to   { background-position: 0 0, 300% 50%; }
+  border: 1.5px solid var(--accent);
+  background: var(--surface);
+  animation: proGlowPulse 3.4s ease-in-out infinite;
 }
 @keyframes proGlowPulse {
   0%, 100% { box-shadow: 0 0 14px oklch(0.56 0.22 var(--hue) / 0.14), var(--shadow); }
   50%      { box-shadow: 0 0 32px oklch(0.56 0.22 var(--hue) / 0.30), var(--shadow); }
 }
 
-/* Gradient "Pro" chip */
+/* "Pro" chip in reinem Passly-Lila */
 .chip.pro {
-  background: linear-gradient(115deg, var(--accent), oklch(0.62 0.19 calc(var(--hue) + 45)));
+  background: var(--accent);
   color: white; border-color: transparent;
   box-shadow: 0 1px 6px oklch(0.50 0.20 var(--hue) / 0.40);
 }
 .chip.pro .d { background: white; }
 
 /* Pro card in its *active* state (as opposed to .pro-outline, the free-plan
-   upsell rail); a quieter, permanent "you're in" treatment: fixed gradient
-   wash, no animation loop, so it doesn't read as a recurring ad. */
+   upsell rail); a quieter, permanent "you're in" treatment: nur die
+   Akzentkante, keine Animationsschleife, damit sie nicht als Dauerwerbung
+   liest. */
 .card.pro-active {
-  background:
-    radial-gradient(420px 160px at 8% -20%, var(--accent-wash), transparent 70%),
-    var(--surface);
+  background: var(--surface);
   border-color: var(--accent-line);
-}
-
-/* KPI strip gets a subtle Pro-gradient top edge once the plan is active. */
-.kpis.pro-active .kpi { border-top: 2px solid transparent; }
-.kpis.pro-active .kpi {
-  border-image: linear-gradient(90deg, var(--accent), oklch(0.68 0.17 calc(var(--hue) + 45))) 1;
 }
 
 /* Shine sweep for high-intent CTAs */
