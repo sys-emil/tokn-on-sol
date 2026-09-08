@@ -178,6 +178,13 @@ export async function mintTicket(params: MintTicketParams): Promise<MintTicketRe
   return { assetId, signature: signatureEncoded };
 }
 
+/**
+ * **Derzeit ungenutzt** (seit 2026-09-08): Abzeichen werden nicht mehr
+ * on-chain gemintet. Die Begruendung steht bei der entfernten Aufrufstelle in
+ * `src/lib/badges.ts`. Die Funktion bleibt stehen, weil Wiedereinschalten
+ * damit eine Zeile ist; die drei vorher geminteten Abzeichen-Assets
+ * existieren weiter und zeigen auf `/api/badges/metadata`.
+ */
 export async function mintBadge(params: MintBadgeParams): Promise<MintTicketResult> {
   // Wie bei mintTicket: `badgeType`, `badgeName` und `baseUrl` bleiben in der
   // Signatur, werden aber nicht mehr gestampft. Der alte `?type=`-Parameter

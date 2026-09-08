@@ -296,7 +296,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
     // Purchase-time badges (Frühstarter, Early Bird); must not delay the job.
     // Both are event-scoped, so a season pass earns them at the door instead.
     if (job.event_id) {
-      void checkPurchaseBadges(job.buyer_wallet, job.event_id, baseUrl).catch((err) =>
+      void checkPurchaseBadges(job.buyer_wallet, job.event_id).catch((err) =>
         console.error("Purchase badge check failed:", err),
       );
     }

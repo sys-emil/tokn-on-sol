@@ -1,5 +1,4 @@
 import { supabaseAdmin } from "@/lib/supabase";
-import { mintBadge } from "@/lib/mint";
 import { sendBadgeProgressEmail } from "@/lib/email";
 import {
   BADGE_META,
@@ -25,20 +24,19 @@ interface AwardBadgeParams {
   type: BadgeType;
   eventId: string;
   organizerWallet?: string;
-  baseUrl: string;
 }
 
-async function awardBadge({ wallet, type, eventId, organizerWallet, baseUrl }: AwardBadgeParams): Promise<void> {
-  const { data: inserted, error } = await supabaseAdmin
+async function awardBadge({ wallet, type, eventId, organizerWallet }: AwardBadgeParams): Promise<void> {
+  // Kein `.select()` mehr: die eingefuegte id wurde nur gebraucht, um spaeter
+  // die `asset_id` des Abzeichen-cNFT nachzutragen. Der Fehlercode reicht.
+  const { error } = await supabaseAdmin
     .from("badges")
     .insert({
       wallet_address: wallet,
       badge_type: type,
       event_id: eventId,
       organizer_wallet: organizerWallet ?? null,
-    })
-    .select("id")
-    .single();
+    });
 
   if (error) {
     // 23505 = already earned (unique index), the expected dedupe outcome.
@@ -47,18 +45,30 @@ async function awardBadge({ wallet, type, eventId, organizerWallet, baseUrl }: A
     }
     return;
   }
-  if (!inserted) return;
-
-  const badgeId = (inserted as { id: string }).id;
-
-  // Fire-and-forget: badge record exists immediately; cNFT arrives in wallet shortly after
-  mintBadge({ badgeType: type, badgeName: BADGE_META[type].name, ownerWallet: wallet, baseUrl })
-    .then(({ assetId }) =>
-      supabaseAdmin.from("badges").update({ asset_id: assetId }).eq("id", badgeId),
-    )
-    .catch(() => {
-      // Badge row exists; assetId can be backfilled manually if needed
-    });
+  // **Abzeichen werden nicht mehr on-chain gemintet** (seit 2026-09-08).
+  //
+  // Hier stand ein freischwebendes `mintBadge(...)` ohne await. In einer
+  // Serverless-Funktion ueberlebt das die Invocation nicht zuverlaessig: der
+  // Mint braucht Senden, Warten auf `confirmed` und bis zu 15 Leseversuche
+  // fuer das Blatt, die Instanz wird vorher eingefroren. Nachweisbar an den
+  // Daten -- von sieben vergebenen Abzeichen hatten vier nie eine `asset_id`,
+  // und das leere `.catch()` hat es nie gemeldet.
+  //
+  // Repariert wurde es nicht, sondern entfernt, weil das cNFT nichts geliefert
+  // hat: `badges.asset_id` wird zwar zweimal selektiert, aber nirgends
+  // gerendert oder geprueft -- die Anzeige auf /my-tickets und
+  // /collection/[wallet] kommt aus dieser Tabelle und `BADGE_META`. Sehen
+  // kann es auch niemand: Passly-Nutzer haben keine Wallet-App (abgeleitete
+  // Schluessel, keine Seed Phrase). Und seit dem minimalen Mint stuende dort
+  // ohnehin fuer jeden Typ dasselbe -- "Passly Abzeichen" mit generischer
+  // URI --, die Information, die es haette bedeuten koennen, ist weg.
+  //
+  // Anders als beim Ticket, wo `/api/tickets/verify` die Eigentuemerschaft
+  // on-chain wirklich prueft. Beim Abzeichen tut das nichts.
+  //
+  // `badges.asset_id` bleibt als Spalte (die drei alten Zeilen haben Werte),
+  // `mintBadge` bleibt in `mint.ts` und `/api/badges/metadata` bleibt fuer
+  // die bereits geminteten Assets. Wiedereinschalten waere eine Zeile.
 }
 
 /** Awards attendance-based badges after a ticket was redeemed. */
@@ -84,12 +94,12 @@ export async function checkRedemptionBadges(
 
   for (const { type, threshold } of MILESTONES) {
     if ((attendedCount ?? 0) >= threshold) {
-      awards.push(awardBadge({ wallet: walletAddress, type, eventId, baseUrl }));
+      awards.push(awardBadge({ wallet: walletAddress, type, eventId }));
     }
   }
 
   if (eventRow && (eventRow.tickets_sold as number) >= (eventRow.capacity as number)) {
-    awards.push(awardBadge({ wallet: walletAddress, type: "sold_out_show", eventId, baseUrl }));
+    awards.push(awardBadge({ wallet: walletAddress, type: "sold_out_show", eventId }));
   }
 
   // Stammgast: distinct redeemed events at this event's organizer.
@@ -114,7 +124,7 @@ export async function checkRedemptionBadges(
       distinctOrganizerEvents = distinctEvents.size;
       if (distinctEvents.size >= STAMMGAST_THRESHOLD) {
         awards.push(
-          awardBadge({ wallet: walletAddress, type: "loyal_organizer", eventId, organizerWallet, baseUrl }),
+          awardBadge({ wallet: walletAddress, type: "loyal_organizer", eventId, organizerWallet }),
         );
       }
     }
@@ -224,7 +234,6 @@ async function maybeSendBadgeNudge({
 export async function checkPurchaseBadges(
   walletAddress: string,
   eventId: string,
-  baseUrl: string,
 ): Promise<void> {
   const [{ count: purchaseCount }, { data: eventRow }, { data: firstPurchase }] = await Promise.all([
     supabaseAdmin
@@ -249,14 +258,14 @@ export async function checkPurchaseBadges(
   const awards: Promise<void>[] = [];
 
   if ((purchaseCount ?? 0) >= 1) {
-    awards.push(awardBadge({ wallet: walletAddress, type: "first_ticket", eventId, baseUrl }));
+    awards.push(awardBadge({ wallet: walletAddress, type: "first_ticket", eventId }));
   }
 
   if (eventRow?.created_at && firstPurchase?.created_at) {
     const saleStart = Date.parse(eventRow.created_at as string);
     const purchasedAt = Date.parse(firstPurchase.created_at as string);
     if (purchasedAt - saleStart <= EARLY_BIRD_WINDOW_MS) {
-      awards.push(awardBadge({ wallet: walletAddress, type: "early_bird", eventId, baseUrl }));
+      awards.push(awardBadge({ wallet: walletAddress, type: "early_bird", eventId }));
     }
   }
 
