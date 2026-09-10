@@ -549,7 +549,12 @@ section + section { margin-top: 2.25rem; }
 .modal-backdrop {
   position: fixed; inset: 0; z-index: 100;
   background: color-mix(in oklab, var(--ink) 40%, transparent);
-  backdrop-filter: blur(4px);
+  /* Staerker als der Blur der Kopfleiste (14px), obwohl die Zahl frueher
+     kleiner war: eine bildschirmfuellende Flaeche liest sich dicker als ein
+     60px hoher Streifen, und §12 will, dass die Materialstaerke der Flaeche
+     folgt. Vorher war es genau andersherum. */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   display: grid; place-items: center;
   padding: 1.5rem;
   animation: fadeIn 0.18s ease-out;
@@ -864,8 +869,10 @@ section + section { margin-top: 2.25rem; }
 .celebrate-backdrop {
   position: fixed; inset: 0; z-index: 120;
   background: color-mix(in oklab, var(--ink) 36%, transparent);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* Noch eine Stufe dicker als das Modal: hier soll alles andere wirklich
+     zuruecktreten. Siehe die Begruendung bei .modal-backdrop. */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   display: grid; place-items: center;
   padding: 1.5rem;
   animation: fadeIn 0.2s ease-out;

@@ -24,6 +24,15 @@ import { NICHE_CLUB } from '@/app/components/showcase/niches';
  * Rückgabe-Kapitel an der Stelle, an der die Vereinsseite die Dauerkarte
  * hat.
  *
+ * **Die eigene Hero-Bauform ist Absicht** (entschieden 2026-09-10, D4 im
+ * Apple-Design-Plan): einspaltig, dreizeilige Ueberschrift, zwei CTAs — gegen
+ * den zweispaltigen Hero der Startseite mit Ticket-Mockup und einem CTA. Wer
+ * ueber `NicheSwitch` von dort herkommt, erlebt damit einen Schnitt statt
+ * eines Uebergangs. Das ist der Preis dafuer, dass diese Seite ein eigener
+ * Eingang ist und nicht wie eine Unterseite aussieht; §7 (das Ziel soll dort
+ * hervorgehen, wo es ausgeloest wurde) tritt hier bewusst zurueck. Wer die
+ * drei Heros spaeter vereinheitlicht, nimmt genau diese Eigenstaendigkeit weg.
+ *
  * **Kein Kunde auf dieser Seite**, kein Clubname, kein Logo, kein Zitat.
  * Alle Namen in den Mockups sind erfunden, alle Werte plausibel für einen
  * einzelnen Abend.

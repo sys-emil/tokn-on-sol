@@ -71,43 +71,21 @@ const PAGE_CSS = `
     from { transform: translate3d(0, 0, 0); }
     to   { transform: translate3d(-48px, 18px, 0); }
   }
-  /* Blurry colour glows further down the page (violet only) */
-  .glow {
-    position: absolute;
-    border-radius: 50%;
-    pointer-events: none;
-    filter: blur(90px);
-    z-index: 0;
-  }
-  /* Positioned as a share of page height so each glow lands behind a real
-     section (hero · mid · CTA) instead of in a dead-zone at a guessed pixel. */
-  .glow-violet {
-    width: 560px; height: 560px;
-    left: -160px; top: 16%;
-    background: radial-gradient(circle at 50% 50%, oklch(0.76 0.20 var(--hue)) 0%, transparent 68%);
-    opacity: 0.38;
-    animation: glowFloatA 14s ease-in-out infinite alternate;
-  }
-  .glow-violet-2 {
-    width: 480px; height: 480px;
-    left: 8%; top: 76%;
-    background: radial-gradient(circle at 50% 50%, oklch(0.77 0.18 calc(var(--hue) + 25)) 0%, transparent 68%);
-    opacity: 0.3;
-    animation: glowFloatA 20s ease-in-out infinite alternate-reverse;
-  }
-  @keyframes glowFloatA {
-    from { transform: translate3d(0, 0, 0) scale(1); }
-    to   { transform: translate3d(36px, -24px, 0) scale(1.06); }
-  }
+  /* Die zwei violetten Farbflecken (.glow-violet / -2) sind am 2026-09-10
+     entfallen. Sie lagen oben mit der Aurora *und* dem Hero-Verlaufsfeld
+     uebereinander — drei Farbebenen an derselben Stelle — und brachten zwei
+     weitere Dauer-Animationen (14s und 20s) in eine Seite, auf der ohnehin
+     ueber elf Bewegungen gleichzeitig laufen. Dazu kosteten zwei 560px-Kreise
+     mit blur(90px) auf dem Telefon echte Zeichenzeit.
+     Uebrig bleibt eine Farbebene, dieselbe wie auf /sportvereine und /clubs;
+     Farbe in der unteren Haelfte tragen der Pro-Block und das Abschlussbanner
+     aus sich heraus. Nicht zurueckbauen, ohne dafuer etwas anderes wegzunehmen. */
   @media (max-width: 40em) {
-    .glow { filter: blur(64px); }
-    .glow-violet { width: 340px; height: 340px; left: -120px; }
-    .glow-violet-2 { width: 300px; height: 300px; }
     .landing-hero { padding: 2rem 0 2.5rem; }
     .cta-banner { padding: 2.5rem 1.38rem; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .aurora::before, .aurora::after, .glow { animation: none; }
+    .aurora::before, .aurora::after { animation: none; }
   }
 
   /* ── Hero (1:1 aus passly-hero.html) ──────────────────────── */
@@ -326,8 +304,6 @@ export default function Home() {
         <div className="main">
           <ScrollReveal />
           <div className="aurora" aria-hidden="true" />
-          <div className="glow glow-violet" aria-hidden="true" />
-          <div className="glow glow-violet-2" aria-hidden="true" />
 
           {/* Hero — 1:1 aus passly-hero.html, vollbreit außerhalb des Containers */}
           <section className="hero-v2">

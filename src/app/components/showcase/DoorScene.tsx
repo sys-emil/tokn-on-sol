@@ -5,24 +5,39 @@ import { useEffect, useRef } from 'react';
 /**
  * Die Tür-Szene auf der Startseite: zwei Geräte, in zwei Schritten.
  *
- * **Zwei Schritte statt einer scrollgebundenen Bewegung.** Vorher hing jede
- * Position am Scrollbalken — das JS schrieb eine Zahl pro Frame, und der
- * Browser musste die Ebenen dabei laufend neu rastern. Das ruckelte auf
- * beiden Seiten. Jetzt löst der Scroll nur noch *aus*:
+ * **Zwei Schritte, von Federn getragen** (seit 2026-09-10; davor CSS-Übergänge,
+ * davor eine scrollgebundene Fassung).
  *
  *  1. Der erste Auslöser führt die Geräte übereinander.
  *  2. Der zweite scannt.
  *
- * Beides sind CSS-Übergänge, die in ihrem eigenen Takt ablaufen. Damit gibt
- * es während des Scrollens überhaupt keine Arbeit mehr zu tun, und die
- * Bewegung ist so flüssig, wie der Compositor sie zeichnen kann.
+ * Die **scrollgebundene** Urfassung schrieb eine Zahl pro Frame über die
+ * ganzen 240vh Scrollstrecke und ruckelte auf beiden Seiten. Diese Begründung
+ * gilt weiter, und die Szene hängt bis heute nicht am Scrollbalken: der Scroll
+ * löst nur aus, über zwei unsichtbare Marken und einen `IntersectionObserver`.
+ * Kein Scroll-Listener.
  *
- * Ausgelöst wird über zwei unsichtbare Marken im hohen Abschnitt, beobachtet
- * mit einem `IntersectionObserver`. Kein Scroll-Listener, kein
- * `requestAnimationFrame`, keine Bibliothek.
+ * Der Schritt zu **Federn** hat einen anderen Grund. Eine CSS-Transition kann
+ * ihr Ziel zwar mitten in der Bewegung wechseln, beginnt dann aber eine neue
+ * Kurve bei Geschwindigkeit null — es hakt sichtbar. Eine Feder rechnet vom
+ * aktuellen Wert *und* Tempo weiter. Das ist der Unterschied zwischen einer
+ * abgespielten Aufzeichnung und einer Fläche, die dem Leser folgt (§3:
+ * Unterbrechbarkeit ist das wichtigste Prinzip). Der Integrator steht unten,
+ * er ist rund zwanzig Zeilen und braucht keine Bibliothek — für eine
+ * Landingpage, die ihren kalten Traffic aus einem Instagram-Link bekommt, wäre
+ * ein Animationspaket im Bundle der teurere Teil.
  *
- * **Die Schritte gehen nur vorwärts.** Wer hochscrollt, sieht das Ergebnis
- * stehen bleiben — eine Szene, die zurückspult, ist ein Spielzeug.
+ * `requestAnimationFrame` läuft deshalb wieder — aber nur, solange eine Feder
+ * unterwegs ist (unter einer Sekunde), und sie schreibt ausschließlich
+ * `transform`, also ohne Layout. Das ist nicht die alte Fassung.
+ *
+ * **Die Schritte gehen jetzt in beide Richtungen.** Wer zurückscrollt, sieht
+ * die Geräte wieder auseinandergehen und bekommt die Szene beim nächsten
+ * Herunterscrollen neu — vorher stand dort eine tote Bühne. Das ist die
+ * Umkehrung einer früheren Entscheidung („eine Szene, die zurückspult, ist ein
+ * Spielzeug"), und sie hängt an der Feder: ohne Ziel, das sich ändern darf,
+ * hätte die Feder keinen Zweck. Soll es wieder nur vorwärts gehen, ist das
+ * eine Zeile — das Ziel unten auf sein Maximum festhalten.
  *
  * Die Texte stehen dauerhaft. Sie ein- und wieder auszublenden erzeugte ein
  * Fenster, in dem die Bühne leer war, und sie sind ohnehin die Erklärung zu
@@ -78,35 +93,151 @@ export function DoorScene({
 
   useEffect(() => {
     const stage = stageRef.current;
+    const ticket = stage?.querySelector<HTMLElement>('.scn-ticket');
+    const door = stage?.querySelector<HTMLElement>('.scn-door');
     const cues = [cue1Ref.current, cue2Ref.current];
-    if (!stage || !cues[0] || !cues[1]) return;
+    if (!stage || !ticket || !door || !cues[0] || !cues[1]) return;
 
-    // Wer Bewegung abbestellt hat, bekommt den Endzustand als Standbild.
+    // Wer Bewegung abbestellt hat, bekommt den Endzustand als Standbild. Ohne
+    // Inline-transform, also genau die Endlage aus der CSS.
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       stage.dataset.step = '2';
       return;
     }
 
-    let step = 0;
-    const advance = (to: number): void => {
-      if (to <= step) return;
-      step = to;
-      stage.dataset.step = String(to);
+    /**
+     * Ein Geraet und seine Feder. `p` ist der Fortschritt aus der Ruhelage
+     * (0) in die Endlage (1); `v` seine Geschwindigkeit, und die ist der
+     * ganze Punkt: aendert sich das Ziel mitten in der Bewegung, rechnet die
+     * Feder vom aktuellen Wert *und* Tempo weiter, statt eine neue Kurve bei
+     * Geschwindigkeit null zu beginnen. Genau das kann eine CSS-Transition
+     * nicht, und genau das ist der sichtbare Unterschied beim Umkehren.
+     */
+    type Dev = {
+      el: HTMLElement;
+      key: 'tk' | 'dr';
+      p: number; v: number;
+      /** Restverzoegerung in Sekunden, bevor diese Feder losgeht. */
+      wait: number;
+      /** Aus der CSS gelesen, weil der 1180px-Zweig sie ueberschreibt. */
+      x: number; y: number; rot: string;
+      dx: number; dy: number; ds: number;
+      delay: number;
     };
 
-    // Die obere Bildschirmhälfte ist der Beobachtungsbereich: eine Marke
-    // löst aus, sobald sie beim Herunterscrollen die Mitte erreicht.
+    const devs: Dev[] = [
+      { el: ticket, key: 'tk', p: 0, v: 0, wait: 0, x: 0, y: 0, rot: '0deg', dx: 0, dy: 0, ds: 0, delay: 0 },
+      { el: door, key: 'dr', p: 0, v: 0, wait: 0, x: 0, y: 0, rot: '0deg', dx: 0, dy: 0, ds: 0, delay: 0 },
+    ];
+
+    const readParams = () => {
+      const cs = getComputedStyle(stage);
+      const num = (name: string) => parseFloat(cs.getPropertyValue(name)) || 0;
+      for (const d of devs) {
+        d.x = num(`--${d.key}-x`);
+        d.y = num(`--${d.key}-y`);
+        d.rot = cs.getPropertyValue(`--${d.key}-rot`).trim() || '0deg';
+        d.dx = num(`--${d.key}-dx`);
+        d.dy = num(`--${d.key}-dy`);
+        d.ds = num(`--${d.key}-ds`);
+      }
+      // Nur der Tuersteher wartet; das Ticket liegt schon da.
+      devs[1].delay = num('--dr-delay');
+    };
+    readParams();
+
+    const paint = (d: Dev) => {
+      const q = 1 - d.p;
+      if (q < 0.0005) {
+        // Am Ziel: den Inline-Stil wegraeumen, damit wieder die CSS-Endlage
+        // gilt und nichts Ueberfluessiges auf dem Element stehen bleibt.
+        d.el.style.transform = '';
+        return;
+      }
+      // Grundlage und Weg zu je einer Zahl verrechnet: so entsteht kein
+      // `calc(-50% + -4px + …)`, dessen Vorzeichenfolge nicht jede Engine mag.
+      d.el.style.transform =
+        `translate(calc(-50% + ${(d.x + d.dx * q).toFixed(2)}px), ` +
+        `calc(-50% + ${(d.y + d.dy * q).toFixed(2)}px)) ` +
+        `rotate(${d.rot}) scale(${(1 - d.ds * q).toFixed(4)})`;
+    };
+
+    // Leicht unterdaempft (Daempfungsgrad ~0.9): kommt in gut einer halben
+    // Sekunde an, mit einem Hauch Ueberschwingen statt eines harten Halts.
+    const STIFFNESS = 170;
+    const DAMPING = 24;
+
+    let target = 0;
+    let frame = 0;
+    let last = 0;
+
+    const tick = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 1 / 30);
+      last = now;
+      let moving = false;
+
+      for (const d of devs) {
+        if (d.p === target && d.v === 0) continue;
+        if (d.wait > 0) { d.wait -= dt; moving = true; continue; }
+        d.v += (-STIFFNESS * (d.p - target) - DAMPING * d.v) * dt;
+        d.p += d.v * dt;
+        if (Math.abs(d.p - target) < 0.001 && Math.abs(d.v) < 0.01) {
+          d.p = target; d.v = 0;
+        } else {
+          moving = true;
+        }
+        paint(d);
+      }
+
+      frame = moving ? requestAnimationFrame(tick) : 0;
+    };
+
+    const retarget = (to: number) => {
+      if (to === target) return;
+      target = to;
+      // Der Verzug gilt in beide Richtungen — auch beim Auseinandergehen
+      // reagiert der Tuersteher auf das Ticket. Aber nur aus dem Stand: ein
+      // Geraet, das schon unterwegs ist, wuerde sonst mitten in der Bewegung
+      // einfrieren, statt einfach neu zu zielen.
+      for (const d of devs) if (d.v === 0) d.wait = d.delay;
+      if (!frame) { last = performance.now(); frame = requestAnimationFrame(tick); }
+    };
+
+    // Die obere Bildschirmhälfte ist der Beobachtungsbereich. `passed` gilt in
+    // beide Richtungen: eine Marke ist passiert, wenn sie darin liegt *oder*
+    // schon oben herausgelaufen ist. Ohne den zweiten Fall meldete der
+    // Beobachter beim Hochscrollen dasselbe wie beim Weiterscrollen.
+    const passed = new Set<number>();
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting) advance(Number((e.target as HTMLElement).dataset.cue));
+          const cue = Number((e.target as HTMLElement).dataset.cue);
+          if (e.isIntersecting || e.boundingClientRect.top < 0) passed.add(cue);
+          else passed.delete(cue);
         }
+        const step = passed.size;
+        stage.dataset.step = String(step);
+        // Nur Schritt 1 bewegt die Geraete; Schritt 2 ist der Scan und haengt
+        // an data-step. Wird er zurueckgenommen, spielt er beim naechsten Mal
+        // von vorn — die Szene ist damit eine Flaeche, die dem Leser folgt,
+        // und keine Aufzeichnung, die einmal ablaeuft.
+        retarget(step >= 1 ? 1 : 0);
       },
       { rootMargin: '0px 0px -50% 0px' },
     );
     cues.forEach((c) => c && io.observe(c));
 
-    return () => io.disconnect();
+    const onResize = () => {
+      readParams();
+      for (const d of devs) paint(d);
+    };
+    window.addEventListener('resize', onResize, { passive: true });
+
+    return () => {
+      io.disconnect();
+      window.removeEventListener('resize', onResize);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
   return (
@@ -275,13 +406,22 @@ const DOOR_SCENE_CSS = `
     position: sticky; top: 0; height: 100vh; height: 100svh;
     display: grid; place-items: center;
 
-    /* Ruhe- und Endlage je Gerät. Sie stehen als ganze Transformationen da,
-       nicht als Einzelwerte: zwischen zwei fertigen Transformationen kann der
-       Browser sauber überblenden, und mehr braucht es nicht mehr. */
-    --tk-rest: translate(calc(-50% + 16px + 180px), calc(-50% + 34px)) rotate(-3deg);
-    --tk-end:  translate(calc(-50% + 16px),         calc(-50% + 34px)) rotate(-3deg);
-    --dr-rest: translate(calc(-50% - 4px - 180px),  calc(-50% - 102px)) rotate(2.5deg);
-    --dr-end:  translate(calc(-50% - 4px),          calc(-50% - 77px))  rotate(2.5deg);
+    /* Endlage und Weg dorthin, getrennt. Frueher standen hier zwei fertige
+       Transformationen und CSS blendete zwischen ihnen ueber; jetzt federt JS
+       zwischen ihnen und braucht die Zahlen einzeln. Sie stehen weiter *hier*,
+       weil der 1180px-Zweig sie ueberschreibt — das JS liest sie aus, statt
+       sie zu kennen.
+
+       x/y/rot ist die Endlage (das Geraet an seinem Platz), d* der Weg, den
+       es aus der Ruhelage dorthin zuruecklegt, ds die Verkleinerung dabei. */
+    --tk-x: 16px;  --tk-y: 34px;  --tk-rot: -3deg;
+    --tk-dx: 180px; --tk-dy: 0px;  --tk-ds: 0;
+    --dr-x: -4px;  --dr-y: -77px; --dr-rot: 2.5deg;
+    --dr-dx: -180px; --dr-dy: -25px; --dr-ds: 0;
+    /* Der Tuersteher kommt mit einem Hauch Verzug. Der Versatz ist
+       Kausalitaet, nicht Zierrat — er reagiert auf das hingehaltene Ticket,
+       und das liest das Auge als Geschichte statt als zwei bewegte Objekte. */
+    --dr-delay: 0.16;
   }
   .scn-cue { position: absolute; left: 0; right: 0; height: 1px; pointer-events: none; }
 
@@ -292,9 +432,12 @@ const DOOR_SCENE_CSS = `
     border-radius: 30px; padding: 8px;
     background: linear-gradient(160deg, oklch(0.32 0.03 285), oklch(0.20 0.02 285));
     box-shadow: 0 26px 60px -16px rgba(17, 20, 45, 0.44), 0 5px 14px rgba(17, 20, 45, 0.15);
-    /* Nur die Transformation wechselt, und nur zweimal. Kein Wert wird pro
-       Frame geschrieben — das ist der ganze Unterschied zur alten Fassung. */
-    transition: transform 0.78s cubic-bezier(.16, 1, .3, 1);
+    /* Keine transition mehr: die Bewegung kommt aus der Feder im JS, die
+       transform pro Frame schreibt. Das ist nicht die alte scrollgebundene
+       Fassung — dort lief eine Schreiboperation pro Frame ueber die ganzen
+       240vh Scrollstrecke. Hier laeuft sie nur, solange die Feder unterwegs
+       ist (unter einer Sekunde), und schreibt ausschliesslich transform, also
+       ohne Layout. */
     will-change: transform;
   }
   .scn-screen {
@@ -306,10 +449,13 @@ const DOOR_SCENE_CSS = `
     aspect-ratio: 9 / 19.5; display: flex; flex-direction: column;
   }
 
-  .scn-ticket { transform: var(--tk-rest); }
-  /* Türsteher: kommt zum Ticket, mit einem Hauch Verzug. Der Versatz ist
-     Kausalität, nicht Zierrat — er reagiert auf das hingehaltene Ticket, und
-     das liest das Auge als Geschichte statt als zwei bewegte Objekte. */
+  /* Die Endlage steht in der CSS, nicht im JS: ohne JavaScript und bei
+     abbestellter Bewegung zeigt die Szene damit ihr Ergebnis statt ihres
+     Anfangs. Solange die Feder laeuft, ueberschreibt ein Inline-transform
+     diese Zeile; ist sie am Ziel angekommen, raeumt das JS ihn wieder weg. */
+  .scn-ticket {
+    transform: translate(calc(-50% + var(--tk-x)), calc(-50% + var(--tk-y))) rotate(var(--tk-rot));
+  }
   .scn-door {
     z-index: 2;
     background: none;
@@ -317,15 +463,9 @@ const DOOR_SCENE_CSS = `
       inset 0 0 0 8px oklch(0.24 0.025 285),
       0 26px 60px -16px rgba(17, 20, 45, 0.44),
       0 5px 14px rgba(17, 20, 45, 0.15);
-    transform: var(--dr-rest);
-    transition-delay: 0.16s;
+    transform: translate(calc(-50% + var(--dr-x)), calc(-50% + var(--dr-y))) rotate(var(--dr-rot));
   }
   .scn-door-screen { background: none; }
-
-  .scn-stage[data-step="1"] .scn-ticket,
-  .scn-stage[data-step="2"] .scn-ticket { transform: var(--tk-end); }
-  .scn-stage[data-step="1"] .scn-door,
-  .scn-stage[data-step="2"] .scn-door { transform: var(--dr-end); }
 
   /* ── Texte — dauerhaft sichtbar ──────────────────────────────────── */
   .scn-text { position: absolute; width: clamp(200px, 15vw, 240px); }
@@ -513,10 +653,10 @@ const DOOR_SCENE_CSS = `
   @media (max-width: 1180px) {
     .scn { height: 260vh; }
     .scn-stage {
-      --tk-rest: translate(calc(-50% + 16px), calc(-50% + 34px + 240px)) rotate(-3deg) scale(0.8);
-      --tk-end:  translate(calc(-50% + 16px), calc(-50% + 34px))         rotate(-3deg) scale(1);
-      --dr-rest: translate(calc(-50% - 4px),  calc(-50% - 77px - 60px))  rotate(2.5deg) scale(0.8);
-      --dr-end:  translate(calc(-50% - 4px),  calc(-50% - 77px))         rotate(2.5deg) scale(1);
+      /* Untereinander statt nebeneinander: die Geraete kommen von unten bzw.
+         oben und wachsen dabei aus 0.8 auf ihre Groesse. */
+      --tk-dx: 0px; --tk-dy: 240px; --tk-ds: 0.2;
+      --dr-dx: 0px; --dr-dy: -60px; --dr-ds: 0.2;
     }
     /* Beide Texte stehen oben und mittig, die Geräte darunter — nur so steht
        das fertige Bild aus zwei übereinanderliegenden Geräten wirklich in der
@@ -544,7 +684,6 @@ const DOOR_SCENE_CSS = `
   @media (prefers-reduced-motion: reduce) {
     .scn { height: auto; }
     .scn-stage { position: static; height: 660px; }
-    .scn-phone { transition: none; }
     .scn-qr, .scn-qr-mark, .scn-tk-drain > span, .scn-beam::after,
     .scn-result, .scn-check, .scn-check path,
     .scn-welcome, .scn-admit { animation: none !important; }

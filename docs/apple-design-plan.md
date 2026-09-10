@@ -1,8 +1,8 @@
 # Apple-Design-Plan — Landingpages
 
-**Status:** Phasen 1–6 sind umgesetzt — Stand 2026-09-10. Offen ist nur noch
-**Phase 7** (C1, C4, D4, E), und das sind laut Plan Entscheidungen, keine
-Patches.
+**Status:** Der Plan ist abgearbeitet — Stand 2026-09-10. Phasen 1–6 umgesetzt,
+Phase 7 vom Nutzer entschieden und umgesetzt. Was offen blieb, steht bei den
+jeweiligen Punkten unter „Entscheidung".
 **Geltungsbereich:** `/` (`src/app/page.tsx`), `/sportvereine`, `/clubs` und alles,
 was sie rendern — plus die Tokens in `src/app/globals.css`, soweit die drei
 Seiten sie tragen.
@@ -70,9 +70,10 @@ Zusätzlich bei diesem Plan von Hand zu prüfen:
 | ~~**4**~~ | ~~C6, C5, C2~~ | erledigt 2026-09-10 | — |
 | ~~**5**~~ | ~~B3 (rem-Umstellung)~~ | erledigt 2026-09-10 | — |
 | ~~**6**~~ | ~~C3~~ | erledigt 2026-09-10 | — |
-| **7** | C1, C4, D4, E | **Entscheidungen, keine Patches** | — |
+| ~~**7**~~ | ~~C1, C4, D4, E~~ | entschieden + umgesetzt 2026-09-10 | — |
 
-Phase 7 nicht ohne Rücksprache umsetzen: das sind Haltungsfragen, keine Fehler.
+Phase 7 wurde am 2026-09-10 dem Nutzer vorgelegt und von ihm entschieden. Die
+vier Entscheidungen stehen unten bei den Punkten.
 
 ---
 
@@ -695,7 +696,7 @@ jeden. Die Handler steigen jetzt bei aktiver Einstellung aus; `handleLeave`
 **nicht**, sondern es holt die Karte ohne Feder zurück, damit sie nicht gekippt
 stehen bleibt, wenn die Einstellung mitten in einer Berührung umgelegt wird.
 
-## [ ] C4 — Bewegungsbudget (§14, §16 Zurückhaltung) — **Entscheidung**
+## [x] C4 — Bewegungsbudget (§14, §16 Zurückhaltung) — **Entscheidung** — entschieden 2026-09-10
 
 Auf der Startseite laufen gleichzeitig: 2 Aurora-Flecken, 2 Glows, das
 Hero-Verlaufsfeld, der Shimmer-Sweep, das Idle-Kippen, ~10 Scroll-Reveals, der
@@ -715,7 +716,26 @@ durchsichtig zu machen.
   Hero-Feld.
 - Scroll-Reveal auf die Kapitelanfänge begrenzen statt auf jeden Block.
 
-## [ ] C1 — `DoorScene` ist ein Film, keine Oberfläche (§3, §8) — **Entscheidung**
+### Entscheidung (2026-09-10): nur die Farbebenen, sonst nichts
+
+Gewählt wurde **„Aurora oder Glows, nicht beides"**. Idle-Kippen und
+Scroll-Reveal bleiben unangetastet.
+
+Umgesetzt als: **die zwei `.glow`-Flecken sind raus**, die Aurora bleibt. Nicht
+umgekehrt, aus drei Gründen — die Aurora ist die Ebene, die alle drei
+Landingpages teilen (die Nischenseiten hatten nie Glows, `/` wäre der Ausreißer
+geworden); die Überlagerung lag ohnehin oben, wo Aurora, `.hero-v2-bg` **und**
+`.glow-violet` auf derselben Fläche lagen; und die Glows brachten zwei weitere
+Dauer-Animationen (14s und 20s) mit, also gleich zwei Posten aus dem
+Bewegungsbudget. Nebeneffekt: zwei 560px-Kreise mit `blur(90px)` weniger, was
+auf dem Telefon echte Zeichenzeit spart.
+
+Farbe in der unteren Seitenhälfte tragen jetzt der Pro-Block und das
+Abschlussbanner aus sich heraus. **Offen geblieben:** das Idle-Kippen läuft
+weiter endlos, und jeder Block hat weiter sein Scroll-Reveal. Beides war
+angeboten und wurde nicht gewählt.
+
+## [x] C1 — `DoorScene` ist ein Film, keine Oberfläche (§3, §8) — **Entscheidung** — entschieden 2026-09-10
 
 `DoorScene.tsx:113` schaltet `data-step` **nur vorwärts**, danach läuft eine
 verkettete Keyframe-Folge von rund **1,6 s** mit festen Verzögerungen
@@ -737,6 +757,48 @@ gehören trotzdem benannt:
 Federn vom aktuellen Bildschirmwert aus, sodass ein unterbrochener Schritt neu
 zielt statt sich anzustellen. Das wäre eine Bibliothek (Motion) und ein größerer
 Umbau — nur mit ausdrücklicher Entscheidung.
+
+### Entscheidung (2026-09-10): federbasiert neu gebaut
+
+Der Nutzer hat die tiefste der vier angebotenen Fassungen gewählt.
+
+**Ohne Bibliothek.** Der Plan nennt Motion als Mittel; das Ziel sind Federn. Ein
+Integrator dafür sind rund zwanzig Zeilen, und für eine Seite, deren kalter
+Traffic aus einem Instagram-Bio-Link kommt, wäre ein Animationspaket im Bundle
+der teurere Teil der Rechnung. Die Abweichung betrifft das Mittel, nicht das
+Ergebnis.
+
+**Wie es gebaut ist.** Die vier fertigen Transformationen
+(`--tk-rest`/`--tk-end`/…) sind ersetzt durch Endlage plus Weg
+(`--tk-x/-y/-rot` und `--tk-dx/-dy/-ds`), weiterhin in der CSS, weil der
+1180px-Zweig sie überschreibt — das JS liest sie aus, statt sie zu kennen. Die
+Endlage steht als normale CSS-Regel auf dem Element, also zeigt die Szene ohne
+JavaScript und bei abbestellter Bewegung ihr **Ergebnis** statt ihres Anfangs.
+Solange eine Feder läuft, überschreibt ein Inline-`transform` diese Regel; am
+Ziel räumt das JS ihn wieder weg.
+
+**`requestAnimationFrame` läuft wieder — das ist kein Rückfall.** Die
+scrollgebundene Urfassung schrieb pro Frame über die ganzen 240vh
+Scrollstrecke. Hier schreibt sie nur, solange eine Feder unterwegs ist (unter
+einer Sekunde), ausschließlich `transform`, also ohne Layout. Die Begründung im
+Dateikopf ist entsprechend neu geschrieben.
+
+**Der Verzug des Türstehers (0,16s) ist geblieben** — er ist Kausalität, nicht
+Zierrat — gilt jetzt aber in beide Richtungen und **nur aus dem Stand**: ein
+Gerät, das schon unterwegs ist, würde sonst mitten in der Bewegung einfrieren,
+statt einfach neu zu zielen.
+
+**Weiter gegangen als die gewählte Option, bewusst:** die Schritte gehen jetzt
+in **beide** Richtungen. Das kehrt die frühere Entscheidung „eine Szene, die
+zurückspult, ist ein Spielzeug" um — und ohne sie hätte die Feder keinen Zweck.
+Mit nur-vorwärts bewegt sich nur Schritt 1, und den unterbricht nie etwas; es
+gäbe schlicht nichts, das neu zielen müsste. Wer das zurückdrehen will: das Ziel
+in `retarget` auf sein Maximum festhalten, eine Zeile. Als Nebenwirkung ist die
+tote Bühne beim Hochscrollen (Folge 2 oben) damit weg.
+
+**Nicht behoben, Folge 1 oben:** wer schneller als 1,6 s vorbeiscrollt, sieht
+den Erfolgsmoment weiterhin nicht. Das war die zweite angebotene Option und
+wurde nicht gewählt.
 
 ---
 
@@ -849,7 +911,7 @@ Preview stört, ist das ein Einzeiler
 (`.container > .info-hero + section { border-top: none; padding-top: 0 }`),
 kein Rückbau von D3.
 
-## [ ] D4 — Seitenwechsel ohne Anker (§7) — **Entscheidung**
+## [x] D4 — Seitenwechsel ohne Anker (§7) — **Entscheidung** — entschieden 2026-09-10
 
 `NicheSwitch` (`NicheSwitch.tsx`) führt aus der Mitte von Kapitel 1 auf eine
 Seite mit anderer Hero-Bauform: `.hero-v2` (zweispaltig, 62px, Ticket-Mockup,
@@ -864,11 +926,19 @@ bewusst behalten, weil die Nischenseiten eigene Eingänge sind und nicht
 Unterseiten (so steht es im Kopfkommentar von `sportvereine/page.tsx`).
 Beides vertretbar; heute ist es keine Entscheidung, sondern ein Nebeneffekt.
 
+### Entscheidung (2026-09-10): Unterschied behalten
+
+Kein Code geändert — genau das war der Punkt: aus einem Nebeneffekt eine
+Entscheidung machen. Der Kopfkommentar **beider** Nischenseiten hält jetzt fest,
+dass die eigene Hero-Bauform Absicht ist, dass §7 dort bewusst zurücktritt und
+dass eine spätere Vereinheitlichung genau die Eigenständigkeit wegnähme, für die
+es diese Seiten gibt.
+
 ---
 
 # E — Material und Tiefe (§12) — meist Entscheidung
 
-## [ ] E1 — Harte Trennlinie statt Scroll-Kante
+## [x] E1 — Harte Trennlinie statt Scroll-Kante — entschieden 2026-09-10: nicht umsetzen
 
 `globals.css:125`: `.topbar { border-bottom: 1px solid var(--line) }` wird
 **immer** gezeichnet, auch ganz oben, wenn gar nichts darunter durchläuft. §12
@@ -880,7 +950,13 @@ tatsächlich Inhalt überdeckt.
 Deshalb: **prüfen, ob es die Sache wert ist.** Die Linie stört nicht, sie ist nur
 nicht das, was Apple tut.
 
-## [ ] E2 — Materialstärke skaliert nicht mit der Fläche
+### Entscheidung (2026-09-10): nicht umsetzen
+
+Es ist die Sache nicht wert. Die Linie stört niemanden, `animation-timeline`
+trägt noch nicht überall, und die Alternative wäre ein Scroll-Listener in einer
+App, die bewusst keinen hat.
+
+## [x] E2 — Materialstärke skaliert nicht mit der Fläche — umgesetzt 2026-09-10
 
 Kopfleiste, 60px hoch: `blur(14px)` (`globals.css:123`).
 `.modal-backdrop`, ganzer Bildschirm: `blur(4px)` (`globals.css:496`).
@@ -888,7 +964,24 @@ Die **größere** Fläche hat den **schwächeren** Blur. §12: größere Fläche
 sich dicker. Umdrehen wäre eine Zeile — betrifft aber jedes Modal der App, also
 mit B1 zusammen anfassen und dann überall ansehen.
 
-## [ ] E3 — Hell auf hell im Hero (nur vermerkt, kein Fehler)
+### Umsetzung (2026-09-10)
+
+`.modal-backdrop` 4px → **16px**, `.celebrate-backdrop` 6px → **20px**; beide
+liegen damit über den 14px der Kopfleiste, und die Reihenfolge stimmt wieder mit
+der Fläche überein. Der Feiermoment bekommt die dickste Schicht, weil dort alles
+andere wirklich zurücktreten soll.
+
+**`.login-veil` (7px) blieb absichtlich unverändert.** Es ist ebenfalls
+bildschirmfüllend, gleicht die dünnere Schicht aber mit einer viel kräftigeren
+Abdunklung aus (46 % eines fast schwarzen Tons gegen 40 % `--ink`) und liest
+sich dadurch bereits als dickeres Material. Es hat seine eigene Gestaltung, und
+die Regel „größere Fläche, dickere Schicht" ist damit nicht verletzt.
+
+Zu prüfen beim nächsten Durchgang durch die App: jedes Modal (Rückgabe und
+Teilen auf `/my-tickets`, Gäste kontaktieren und Absagen auf der Event-Seite,
+`ProfileNudge`, `BackupTicketModal`) und der Feier-Overlay.
+
+## [x] E3 — Hell auf hell im Hero (nur vermerkt, kein Fehler) — bleibt ein Vermerk
 
 `HeroTicket`s `rgba(255,255,255,.72)` liegt über dem Hero-Verlaufsfeld, der
 Aurora und einem Glow — nominell der „helle durchscheinende Fläche auf heller

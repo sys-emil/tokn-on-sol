@@ -28,6 +28,15 @@ import { NICHE_SPORT } from '@/app/components/showcase/niches';
  * das Argument, das Sport von Clubs unterscheidet, und der Grund, mit dieser
  * Nische anzufangen.
  *
+ * **Die eigene Hero-Bauform ist Absicht** (entschieden 2026-09-10, D4 im
+ * Apple-Design-Plan): einspaltig, dreizeilige Ueberschrift, zwei CTAs — gegen
+ * den zweispaltigen Hero der Startseite mit Ticket-Mockup und einem CTA. Wer
+ * ueber `NicheSwitch` von dort herkommt, erlebt damit einen Schnitt statt
+ * eines Uebergangs. Das ist der Preis dafuer, dass diese Seite ein eigener
+ * Eingang ist und nicht wie eine Unterseite aussieht; §7 (das Ziel soll dort
+ * hervorgehen, wo es ausgeloest wurde) tritt hier bewusst zurueck. Wer die
+ * drei Heros spaeter vereinheitlicht, nimmt genau diese Eigenstaendigkeit weg.
+ *
  * **Kein Kunde auf dieser Seite**, auch nicht anonym: kein Vereinsname, kein
  * Logo, kein Zitat, keine Zuschauerzahl aus einer echten Halle. Solange es
  * keine Referenz gibt, wird auch keine behauptet — dieselbe Regel wie auf der
