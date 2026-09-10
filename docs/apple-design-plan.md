@@ -1,7 +1,7 @@
 # Apple-Design-Plan — Landingpages
 
-**Status:** Phasen 1–3 sind umgesetzt (A2, A1, A3 · B1, B2 · D1, D2, D3) —
-Stand 2026-09-10. Alles Übrige steht noch aus.
+**Status:** Phasen 1–4 sind umgesetzt (A2, A1, A3 · B1, B2 · D1, D2, D3 ·
+C6, C5, C2) — Stand 2026-09-10. Alles Übrige steht noch aus.
 **Geltungsbereich:** `/` (`src/app/page.tsx`), `/sportvereine`, `/clubs` und alles,
 was sie rendern — plus die Tokens in `src/app/globals.css`, soweit die drei
 Seiten sie tragen.
@@ -66,7 +66,7 @@ Zusätzlich bei diesem Plan von Hand zu prüfen:
 | ~~**1**~~ | ~~A2 → A1, A3~~ | erledigt 2026-09-10 | — |
 | ~~**2**~~ | ~~B1, B2~~ | erledigt 2026-09-10 | — |
 | ~~**3**~~ | ~~D1, D2, D3~~ | erledigt 2026-09-10 | — |
-| **4** | C6, C5, C2 | mittel, je eine Datei | gering |
+| ~~**4**~~ | ~~C6, C5, C2~~ | erledigt 2026-09-10 | — |
 | **5** | B3 (rem-Umstellung) | groß, mechanisch | mittel — eigener Durchgang |
 | **6** | C3 | mittel | gering |
 | **7** | C1, C4, D4, E | **Entscheidungen, keine Patches** | — |
@@ -395,7 +395,7 @@ werden, ohne dass etwas überlappt oder waagerecht scrollt.
 
 # C — Bewegung und Interaktionshandwerk
 
-## [ ] C6 — Schieberegler: Trefferfläche und Druck (§1, §2)
+## [x] C6 — Schieberegler: Trefferfläche und Druck (§1, §2) — erledigt 2026-09-10
 
 **Wo:** `FeeCalculator.tsx:29`
 
@@ -427,7 +427,52 @@ erreicht `input[type=range]` nicht. Und der Griff wächst beim Drücken nicht �
 **Fertig, wenn:** der Griff auf dem Telefon ohne Zielen zu treffen ist und beim
 Drücken sichtbar reagiert.
 
-## [ ] C5 — FAQ öffnet ohne Bewegung (§8)
+### Umsetzung (2026-09-10)
+
+Bahn und Griff sind jetzt selbst gezeichnet, jede Zeile doppelt (WebKit und
+Gecko) und in **getrennten** Regeln, wie oben gewarnt. Trefferfläche über
+`height` am Eingabefeld: 24px normal, **44px unter `(pointer: coarse)`**. Griff
+18px, echter Kreis, `margin-top: -7px` zentriert ihn auf der 4px-Bahn; bei
+`:active` `scale(1.15)`.
+
+**Die gefüllte Bahn musste ersetzt werden.** Das stand nicht im Plan: mit
+`accent-color` malt der Browser die Bahn links vom Griff von allein in der
+Akzentfarbe — sobald `appearance: none` gesetzt ist, ist auch das weg, und ein
+Regler ohne Füllung sieht nach „deaktiviert" aus. Die Füllung kommt jetzt aus
+der Komponente als `--fill` (Prozent) in einen `linear-gradient` auf der Bahn.
+Der Versatz zwischen Füllkante und Griffmitte beträgt an den Vierteln maximal
+4,5px und liegt damit unter dem 18px breiten Griff — nicht korrigiert, weil die
+`calc()`-Fassung die Regel unlesbar macht.
+
+**Die Trefferfläche wächst nur nach innen.** Ein 44px hohes Eingabefeld an der
+Stelle eines 4px hohen schiebt Preiszeile, Bahn und Beschriftung um 20px
+auseinander — die Karte fällt auseinander, und die Beschriftung „kostenlos /
+150 €" steht plötzlich weit unter der Bahn, zu der sie gehört. Deshalb steht die
+zusätzliche Höhe in `--hit` und wird von den Außenabständen wieder
+herausgenommen: `(14 − hit) + (4 + 2·hit) + (−hit) = 18px`, also genau der
+senkrechte Platzbedarf von vorher, unabhängig von `--hit`. Fein 10px (24px
+Feld), grob 20px (44px Feld). Der Abstand nach oben ist dafür aus dem
+Inline-Style in die CSS gewandert, wo er mit `--hit` verrechnet wird.
+
+**Zusätzlich: Fokus.** Der Ring aus A3 greift hier nicht — ein `input` ist weder
+`a` noch `button` noch `summary`, und mit `appearance: none` verschwindet der
+Standardring mancher Engines gleich mit. Der Regler bekommt deshalb einen
+eigenen `:focus-visible`-Ring **am Griff** statt eines Rechtecks um das ganze
+44px-Feld, in derselben Sprache wie `.input:focus` in `globals.css`. Das war
+eine Lücke in Phase 1, die erst hier auffiel.
+
+`prefers-reduced-motion`: der Druck bleibt, wird aber ein Ring statt einer
+Vergrößerung.
+
+**Auf `/preise` geprüft:** die Seite rendert `<FeeCalculator />` ohne eigene
+`.fee-calc`-Regeln, bekommt die Änderung also unverändert.
+
+⚠️ **Das ist der Punkt aus Phase 4, der am ehesten eine Pixelkorrektur braucht.**
+Die vertikale Zentrierung der Bahn im 44px-Feld hängt daran, wie die Engine
+`::-webkit-slider-runnable-track` im Eingabefeld platziert; das ist das übliche
+Rezept, aber ungetestet im Browser.
+
+## [x] C5 — FAQ öffnet ohne Bewegung (§8) — erledigt 2026-09-10
 
 **Wo:** `sportvereine/page.tsx`, `clubs/page.tsx` (`.faq details`, beide PAGE_CSS)
 
@@ -456,7 +501,30 @@ den Inhalt, der erscheint. §8: Zwischenbewegung soll auf das Ergebnis zeigen.
 - `@media (prefers-reduced-motion: reduce)` in beiden PAGE_CSS ergänzen; dort
   steht bislang nur das Chevron.
 
-## [ ] C2 — `100dvh` unter einer klebenden Bühne (§11)
+### Umsetzung (2026-09-10)
+
+Wie vorgeschlagen, mit **einer Abweichung: `interpolate-size` steht auf
+`.faq details`, nicht auf `:root`.** Die Eigenschaft vererbt, das reicht für
+`::details-content` vollständig — und damit entfällt die app-weite Reichweite,
+vor der der Plan selbst warnt. Drawer, Modal und EventEditor sind gar nicht
+erst betroffen, es gibt nichts nachzusehen.
+
+Der reduced-motion-Zweig ist in beiden PAGE_CSS ergänzt.
+
+**Rückfall geprüft, alle Stufen sind unschädlich:** ohne `::details-content`
+greift keine der beiden Regeln und es klappt auf wie bisher; mit
+`::details-content`, aber ohne `interpolate-size` schaltet `block-size` sofort
+von 0 auf auto (kein Zwischenzustand, in dem etwas unsichtbar bliebe); kennt
+eine Engine `allow-discrete` nicht, ist nur die `transition`-Deklaration
+ungültig, nicht die Höhe.
+
+**`/fuer-veranstalter` und `/so-funktionierts` haben dieselbe FAQ und bleiben
+unanimiert** — ihre PAGE_CSS ist eine eigene Kopie, und der Plan grenzt C5 auf
+die beiden Nischenseiten ein. Das ist jetzt der dritte Punkt, an dem die
+vierfach getippte FAQ-CSS auffällt (siehe die Falle unter A1); eine geteilte
+Konstante wäre ein eigener, lohnender Schritt.
+
+## [x] C2 — `100dvh` unter einer klebenden Bühne (§11) — erledigt 2026-09-10
 
 **Wo:** `DoorScene.tsx` (DOOR_SCENE_CSS): `.scn { height: 240vh }`,
 `.scn-stage { position: sticky; top: 0; height: 100vh; height: 100dvh; }`
@@ -471,6 +539,23 @@ niedriger; die Innenaufteilung (`.scn-phone { top: calc(50% + 55px) }` und die
 Breakpoint-Varianten bei 1180px/480px) danach nachmessen.
 
 **Betrifft alle drei Seiten** — `DoorScene` steht auf jeder.
+
+### Umsetzung (2026-09-10)
+
+`height: 100vh; height: 100svh;` — die erste Zeile bleibt als Rückfall.
+
+**Nachgemessen wurde nichts, und das ist begründet, nicht vergessen:** `svh` ist
+genau die Höhe, mit der iOS die Seite ohnehin **lädt** (Adressleiste
+ausgefahren). Die Innenaufteilung musste also nie mit mehr Platz auskommen als
+jetzt — es fällt nur weg, dass die Bühne beim Scrollen auf `lvh` *wächst*. Alle
+Offsets (`place-items: center`, `.scn-phone { top: calc(50% + 55px) }`, die
+1180er- und 480er-Varianten) sind relativ zur Bühnenmitte und wandern mit. Die
+zwei Auslöser liegen in `.scn` (240vh), nicht in der Bühne, und sind von der
+Änderung gar nicht berührt.
+
+`.scn { height: 240vh }` bleibt absichtlich `vh`: das ist die Scrollstrecke, nicht
+die Bühne. Auf dem Desktop ändert sich nichts, dort sind `svh`, `dvh` und `vh`
+identisch.
 
 ## [ ] C3 — `HeroTicket` ist reine Maus (§2, §1)
 

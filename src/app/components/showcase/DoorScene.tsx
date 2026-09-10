@@ -264,7 +264,15 @@ const DOOR_SCENE_CSS = `
   /* ── Bühne ─────────────────────────────────────────────────────────── */
   .scn { height: 240vh; position: relative; }
   .scn-stage {
-    position: sticky; top: 0; height: 100vh; height: 100dvh;
+    /* svh, nicht dvh: auf iOS aendert das Ein- und Ausfahren der Adressleiste
+       dvh *waehrend* des Scrollens, die angeheftete Buehne wuerde also mitten
+       in der Geraete-Transition neu vermessen — eine klassische Zitterquelle.
+       svh ist der kleinste Zustand und bleibt beim Scrollen konstant; es ist
+       genau die Hoehe, mit der die Seite auf iOS ohnehin geladen wird, das
+       Layout musste also nie mehr Platz haben als jetzt. Auf dem Desktop sind
+       svh, dvh und vh identisch. Die erste Zeile ist der Rueckfall fuer
+       Engines ohne die neuen Einheiten. */
+    position: sticky; top: 0; height: 100vh; height: 100svh;
     display: grid; place-items: center;
 
     /* Ruhe- und Endlage je Gerät. Sie stehen als ganze Transformationen da,

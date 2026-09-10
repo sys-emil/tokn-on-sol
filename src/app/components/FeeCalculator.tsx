@@ -21,9 +21,92 @@ const CALC_CSS = `
     text-transform: uppercase; letter-spacing: 0.08em;
   }
   .fee-calc .calc-head .price { font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
+  /* Der Schieberegler ist das einzige Element dieser Seiten, das man wirklich
+     anfasst — und war mit 4px Hoehe auf dem Telefon am schwersten zu greifen.
+     min-height: 44px aus globals.css gilt nur fuer .btn und erreicht ein
+     input[type=range] nicht.
+
+     Sobald appearance: none gesetzt ist, wirkt accent-color nicht mehr:
+     Bahn und Griff muessen vollstaendig selbst gezeichnet werden, und zwar
+     doppelt (WebKit und Gecko). Die beiden Pseudo-Selektoren duerfen **nicht**
+     in einer gemeinsamen Regelliste stehen — ein Browser, der den fremden
+     nicht kennt, verwirft dann die ganze Regel. Deshalb steht unten jede
+     Zeile zweimal.
+
+     --fill kommt aus der Komponente und ersetzt die gefuellte Bahn, die
+     accent-color von allein gezeichnet hat. */
   .fee-calc input[type="range"] {
-    width: 100%; accent-color: var(--accent);
-    height: 4px; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    width: 100%; background: none; cursor: pointer;
+    --fill: 0%;
+
+    /* Die Trefferflaeche waechst am Eingabefeld, nicht am Griff — sonst wuerde
+       die sichtbare Bahn mitwachsen. Sie waechst aber nur nach *innen*: die
+       negativen Aussenabstaende nehmen die zusaetzliche Hoehe wieder heraus,
+       sonst ruecken Preiszeile, Bahn und Beschriftung um --hit auseinander und
+       die Karte faellt auseinander. Der senkrechte Platzbedarf bleibt so bei
+       14 + 4 = 18px wie vorher, egal wie gross --hit ist. Rechnung:
+       (14 - hit) + (4 + 2*hit) + (-hit) = 18. */
+    --hit: 10px;
+    height: calc(4px + 2 * var(--hit));
+    margin-top: calc(14px - var(--hit));
+    margin-bottom: calc(-1 * var(--hit));
+  }
+  /* 4px Bahn + 2 x 20px = 44px anfassbar. */
+  @media (pointer: coarse) {
+    .fee-calc input[type="range"] { --hit: 20px; }
+  }
+
+  /* Bahn. Der runde Abschluss ist hier richtig und kein Verstoss gegen die
+     Pillen-Regel: das ist ein Fortschrittsbalken, kein Textbadge. */
+  .fee-calc input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent) var(--fill), var(--line-2) var(--fill));
+  }
+  .fee-calc input[type="range"]::-moz-range-track {
+    height: 4px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent) var(--fill), var(--line-2) var(--fill));
+  }
+
+  /* Griff. Ein echter Kreis — border-radius: 50% ist hier korrekt.
+     margin-top zentriert ihn auf der 4px-Bahn ((4 - 18) / 2). */
+  .fee-calc input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    box-sizing: border-box; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--accent);
+    box-shadow: 0 1px 3px oklch(0.40 0.18 var(--hue) / 0.35);
+    margin-top: -7px;
+    transition: transform 0.1s ease-out, box-shadow 0.15s;
+  }
+  .fee-calc input[type="range"]::-moz-range-thumb {
+    box-sizing: border-box; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--accent);
+    box-shadow: 0 1px 3px oklch(0.40 0.18 var(--hue) / 0.35);
+    transition: transform 0.1s ease-out, box-shadow 0.15s;
+  }
+
+  /* Druck: der Griff waechst unter dem Finger. */
+  .fee-calc input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.15); }
+  .fee-calc input[type="range"]:active::-moz-range-thumb { transform: scale(1.15); }
+
+  /* Fokus als Ring am Griff statt als Rechteck um das ganze Feld — dieselbe
+     Sprache wie .input:focus in globals.css. Der Ring der A3-Regel greift hier
+     nicht: ein input ist weder a noch button noch summary. */
+  .fee-calc input[type="range"]:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 25%, transparent);
+  }
+  .fee-calc input[type="range"]:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 25%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Der Druck bleibt sichtbar, nur nicht als Bewegung. */
+    .fee-calc input[type="range"]:active::-webkit-slider-thumb {
+      transform: none; box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 25%, transparent);
+    }
+    .fee-calc input[type="range"]:active::-moz-range-thumb {
+      transform: none; box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 25%, transparent);
+    }
   }
   .fee-calc .scale {
     display: flex; justify-content: space-between;
@@ -117,7 +200,11 @@ export function FeeCalculator({
             value={priceEur}
             onChange={(e) => setPriceEur(Number(e.target.value))}
             aria-label="Ticketpreis in Euro"
-            style={{ marginTop: 14 }}
+            /* --fill zeichnet die gefuellte Bahn, die accent-color vor dem
+               Selbstzeichnen von allein gemalt hat. Der Abstand nach oben steht
+               jetzt in CALC_CSS, weil er dort mit der Trefferflaeche verrechnet
+               wird. */
+            style={{ '--fill': `${(priceEur / 150) * 100}%` } as React.CSSProperties}
           />
           <div className="scale">
             <span>kostenlos</span>

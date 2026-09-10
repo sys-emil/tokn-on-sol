@@ -158,6 +158,24 @@ const PAGE_CSS = `
   .faq summary .faq-chev { color: var(--ink-4); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); flex-shrink: 0; }
   .faq details[open] summary .faq-chev { transform: rotate(90deg); }
   .faq .faq-a { padding: 0 18px 16px; font-size: 13.5px; line-height: 1.65; color: var(--ink-3); max-width: 66ch; }
+  /* Die Antwort faehrt auf, statt schlagartig in voller Hoehe dazustehen:
+     bisher war das drehende Chevron das einzige bewegte Teil und sagte nichts
+     ueber den Inhalt, der erscheint.
+
+     interpolate-size steht bewusst auf .faq details und nicht auf :root — die
+     Eigenschaft vererbt, das reicht hier vollstaendig, und app-weit wuerde sie
+     jede Hoehen-Transition mit Schluesselwort betreffen (Drawer, Modal,
+     EventEditor), also auch etwas animieren, was heute steht.
+
+     ::details-content und interpolate-size gibt es noch nicht ueberall. Wo
+     nicht, klappt es auf wie bisher — der akzeptierte Rueckfall, kein Fehler. */
+  .faq details { interpolate-size: allow-keywords; }
+  .faq details::details-content {
+    block-size: 0; overflow: hidden;
+    transition: block-size 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                content-visibility 0.28s allow-discrete;
+  }
+  .faq details[open]::details-content { block-size: auto; }
 
   /* ── Abschluss ───────────────────────────────────────────── */
   .cta-banner {
@@ -184,6 +202,7 @@ const PAGE_CSS = `
 
   @media (prefers-reduced-motion: reduce) {
     .faq summary .faq-chev { transition: none; }
+    .faq details::details-content { transition: none; }
   }
 `;
 
