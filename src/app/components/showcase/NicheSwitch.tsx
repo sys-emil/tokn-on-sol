@@ -20,13 +20,13 @@ import { NICHES, DEFAULT_NICHE } from '@/app/components/showcase/niches';
  */
 
 const NICHE_SWITCH_CSS = `
-  .nsw { display: grid; gap: 14px; }
+  .nsw { display: grid; gap: 0.88rem; }
   .nsw-links {
-    display: flex; gap: 8px 18px; flex-wrap: wrap; justify-content: center;
+    display: flex; gap: 0.5rem 1.12rem; flex-wrap: wrap; justify-content: center;
   }
   .nsw-more {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 13px; font-weight: 500; color: var(--accent);
+    display: inline-flex; align-items: center; gap: 0.38rem;
+    font-size: 0.81rem; font-weight: 500; color: var(--accent);
   }
   .nsw-more:hover { text-decoration: underline; }
   .nsw-more:active { opacity: 0.7; }

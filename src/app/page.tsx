@@ -99,12 +99,12 @@ const PAGE_CSS = `
     from { transform: translate3d(0, 0, 0) scale(1); }
     to   { transform: translate3d(36px, -24px, 0) scale(1.06); }
   }
-  @media (max-width: 640px) {
+  @media (max-width: 40em) {
     .glow { filter: blur(64px); }
     .glow-violet { width: 340px; height: 340px; left: -120px; }
     .glow-violet-2 { width: 300px; height: 300px; }
-    .landing-hero { padding: 32px 0 40px; }
-    .cta-banner { padding: 40px 22px; }
+    .landing-hero { padding: 2rem 0 2.5rem; }
+    .cta-banner { padding: 2.5rem 1.38rem; }
   }
   @media (prefers-reduced-motion: reduce) {
     .aurora::before, .aurora::after, .glow { animation: none; }
@@ -134,24 +134,30 @@ const PAGE_CSS = `
   .hero-v2-inner {
     position: relative;
     display: grid; grid-template-columns: 1.05fr .95fr;
-    gap: 48px; align-items: center;
-    padding: 88px 64px 96px;
-    max-width: 1280px; margin: 0 auto;
+    gap: 3rem; align-items: center;
+    padding: 5.5rem 4rem 6rem;
+    max-width: 80rem; margin: 0 auto;
   }
   .hero-v2 h1 {
-    margin: 0; font: 700 62px/1.03 var(--font);
+    margin: 0; font: 700 3.88rem/1.03 var(--font);
+    /* Das clamp() steht nach der Kurzform und ueberschreibt deren Groesse.
+       Vorher standen die 62px zwischen 980px und 1280px Viewport unveraendert
+       in einer Spalte von rund 430px — dort ist die Zeile zu gross fuer ihren
+       Platz. 4.85vw trifft die 62px genau an der Stelle, an der .hero-v2-inner
+       mit 80rem ausgereizt ist, und faellt darunter mit. */
+    font-size: clamp(2.75rem, 4.85vw, 3.88rem);
     letter-spacing: -0.045em; color: var(--ink);
   }
   .hero-v2 h1 .grad { color: var(--accent); }
   .hero-v2 .lead {
-    margin: 22px 0 0; max-width: 520px;
-    font: 400 17px/1.65 var(--font); color: var(--ink-3);
+    margin: 1.38rem 0 0; max-width: 32.5rem;
+    font: 400 1.06rem/1.65 var(--font); color: var(--ink-3);
   }
-  .hero-v2-ctas { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+  .hero-v2-ctas { display: flex; gap: 0.75rem; margin-top: 2rem; flex-wrap: wrap; }
   .hero-v2-mock {
     position: relative;
     display: flex; align-items: center; justify-content: center;
-    min-height: 520px; perspective: 1500px;
+    min-height: 32.5rem; perspective: 1500px;
   }
   /* 600% × 22% Streifenbreite = 132% der Karte: der Sweep laeuft vollstaendig
      rechts hinaus statt kurz davor stehenzubleiben. Das Easing sitzt auf dem
@@ -162,12 +168,12 @@ const PAGE_CSS = `
     100% { transform: translateX(600%) skewX(-18deg); }
   }
   /* Nicht im Original: die Vorlage ist ein Desktop-Mockup ohne Umbruch. */
-  @media (max-width: 980px) {
-    .hero-v2-inner { grid-template-columns: 1fr; gap: 40px; padding: 56px 24px 64px; }
-    .hero-v2 h1 { font-size: clamp(38px, 8vw, 56px); }
+  @media (max-width: 61.25em) {
+    .hero-v2-inner { grid-template-columns: 1fr; gap: 2.5rem; padding: 3.5rem 1.5rem 4rem; }
+    .hero-v2 h1 { font-size: clamp(2.38rem, 8vw, 3.5rem); }
     .hero-v2-mock { min-height: 0; }
   }
-  @media (max-width: 420px) {
+  @media (max-width: 26.25em) {
     .hero-v2-ticket { width: 100% !important; }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -178,30 +184,30 @@ const PAGE_CSS = `
   .trust-bar {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
+    gap: 0.62rem;
   }
-  @media (max-width: 820px) { .trust-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 51.25em) { .trust-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .trust-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 14px 16px;
+    display: flex; align-items: center; gap: 0.62rem;
+    padding: 0.88rem 1rem;
     border: 1px solid var(--line-2);
     background: var(--surface);
     border-radius: var(--radius);
   }
   .trust-item .ic {
-    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+    width: 2rem; height: 2rem; border-radius: 9px; flex-shrink: 0;
     display: grid; place-items: center;
     background: var(--accent-wash); color: var(--accent-ink);
   }
-  .trust-item .label { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
+  .trust-item .label { font-size: 0.78rem; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
 
   /* Die Startseite ist lang; die 36px aus globals.css liessen ihre Abschnitte
      ineinanderlaufen. Hier bekommt jeder Abschnitt Luft und eine Haarlinie. */
   .container > section + section {
-    margin-top: 88px; padding-top: 88px; border-top: 1px solid var(--line);
+    margin-top: 5.5rem; padding-top: 5.5rem; border-top: 1px solid var(--line);
   }
-  @media (max-width: 700px) {
-    .container > section + section { margin-top: 56px; padding-top: 56px; }
+  @media (max-width: 43.75em) {
+    .container > section + section { margin-top: 3.5rem; padding-top: 3.5rem; }
   }
 
   /* ── Showcase: die drei Kapitel ──────────────────────────── */
@@ -209,11 +215,11 @@ const PAGE_CSS = `
   ${SHOWCASE_CSS}
 
   /* ── Gebühren-Abschnitt ──────────────────────────────────── */
-  .fee-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: center; }
-  @media (max-width: 900px) { .fee-section { grid-template-columns: 1fr; gap: 24px; } }
-  .fee-copy h2 { font-size: clamp(24px, 3.2vw, 32px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
-  .fee-copy p { font-size: 14.5px; color: var(--ink-3); line-height: 1.65; margin-top: 12px; max-width: 44ch; }
-  .fee-copy .more { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; font-size: 13.5px; font-weight: 500; color: var(--accent); }
+  .fee-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 2.5rem; align-items: center; }
+  @media (max-width: 56.25em) { .fee-section { grid-template-columns: 1fr; gap: 1.5rem; } }
+  .fee-copy h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
+  .fee-copy p { font-size: 0.91rem; color: var(--ink-3); line-height: 1.65; margin-top: 0.75rem; max-width: 44ch; }
+  .fee-copy .more { display: inline-flex; align-items: center; gap: 0.44rem; margin-top: 1.12rem; font-size: 0.84rem; font-weight: 500; color: var(--accent); }
   .fee-copy .more:hover { color: var(--accent-2); }
   .fee-copy .more:active { opacity: 0.7; }
 
@@ -224,29 +230,29 @@ const PAGE_CSS = `
       radial-gradient(700px 260px at 12% -30%, var(--accent-wash), transparent 70%),
       var(--surface);
     border-radius: var(--radius-lg);
-    padding: 32px;
+    padding: 2rem;
     display: grid;
     grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-    gap: 36px;
+    gap: 2.25rem;
     align-items: center;
     box-shadow: var(--shadow);
   }
-  @media (max-width: 900px) { .pro-block { grid-template-columns: 1fr; gap: 24px; padding: 26px 22px; } }
+  @media (max-width: 56.25em) { .pro-block { grid-template-columns: 1fr; gap: 1.5rem; padding: 1.62rem 1.38rem; } }
   .pro-block .tag {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 11px; font-weight: 600; color: var(--accent-ink);
+    display: inline-flex; align-items: center; gap: 0.44rem;
+    font-size: 0.69rem; font-weight: 600; color: var(--accent-ink);
     text-transform: uppercase; letter-spacing: 0.08em;
   }
-  .pro-block h2 { font-size: clamp(22px, 3vw, 28px); font-weight: 600; letter-spacing: -0.03em; margin-top: 12px; line-height: 1.2; }
-  .pro-block .sub { font-size: 14px; color: var(--ink-3); line-height: 1.6; margin-top: 10px; }
-  .pro-price { margin-top: 20px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .pro-block h2 { font-size: clamp(1.38rem, 3vw, 1.75rem); font-weight: 600; letter-spacing: -0.03em; margin-top: 0.75rem; line-height: 1.2; }
+  .pro-block .sub { font-size: 0.88rem; color: var(--ink-3); line-height: 1.6; margin-top: 0.62rem; }
+  .pro-price { margin-top: 1.25rem; display: flex; align-items: baseline; gap: 0.62rem; flex-wrap: wrap; }
   .pro-price a:active { opacity: 0.7; }
-  .pro-feats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
-  @media (max-width: 560px) { .pro-feats { grid-template-columns: 1fr; } }
+  .pro-feats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.62rem 1.25rem; }
+  @media (max-width: 35em) { .pro-feats { grid-template-columns: 1fr; } }
   .pro-feats li {
     list-style: none;
-    display: flex; gap: 9px; align-items: flex-start;
-    font-size: 13.5px; color: var(--ink-2); line-height: 1.5;
+    display: flex; gap: 0.56rem; align-items: flex-start;
+    font-size: 0.84rem; color: var(--ink-2); line-height: 1.5;
   }
   .pro-feats svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
 
@@ -254,7 +260,7 @@ const PAGE_CSS = `
   .cta-banner {
     background: var(--accent);
     border-radius: var(--radius-lg);
-    padding: 48px 32px;
+    padding: 3rem 2rem;
     text-align: center;
     color: white;
     box-shadow: var(--shadow-lg);
@@ -271,13 +277,13 @@ const PAGE_CSS = `
       radial-gradient(circle at 100% 50%, var(--surface-2) 9px, transparent 10px);
   }
   .cta-banner h2 {
-    font-size: clamp(24px, 3.4vw, 34px);
+    font-size: clamp(1.5rem, 3.4vw, 2.12rem);
     font-weight: 600; letter-spacing: -0.03em; line-height: 1.15;
     position: relative;
   }
-  .cta-banner p { font-size: 14.5px; opacity: 0.85; margin-top: 10px; position: relative; }
+  .cta-banner p { font-size: 0.91rem; opacity: 0.85; margin-top: 0.62rem; position: relative; }
   .cta-banner .btn {
-    margin-top: 24px;
+    margin-top: 1.5rem;
     background: white; color: var(--accent-ink);
     position: relative;
   }
@@ -290,13 +296,13 @@ const PAGE_CSS = `
   /* ── Footer ──────────────────────────────────────────────── */
   .footer {
     border-top: 1px solid var(--line);
-    margin-top: 64px;
-    padding: 28px 0 8px;
-    display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    font-size: 12.5px; color: var(--ink-3);
+    margin-top: 4rem;
+    padding: 1.75rem 0 0.5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    font-size: 0.78rem; color: var(--ink-3);
     flex-wrap: wrap;
   }
-  .footer .links { display: flex; gap: 14px 18px; flex-wrap: wrap; }
+  .footer .links { display: flex; gap: 0.88rem 1.12rem; flex-wrap: wrap; }
   .footer a:hover { color: var(--ink); }
   .footer .links a:active { opacity: 0.7; }
 `;
@@ -470,7 +476,7 @@ export default function Home() {
                   </div>
                   <div className="pro-price">
                     <ProPrice />
-                    <Link href="/preise" style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--accent)' }}>
+                    <Link href="/preise" style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--accent)' }}>
                       Was drin ist →
                     </Link>
                   </div>

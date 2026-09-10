@@ -1,8 +1,8 @@
 # Apple-Design-Plan — Landingpages
 
-**Status:** Phasen 1–4 und 6 sind umgesetzt (A2, A1, A3 · B1, B2 ·
-D1, D2, D3 · C6, C5, C2 · C3) — Stand 2026-09-10. Offen sind **Phase 5**
-(die rem-Umstellung, bewusst übersprungen) und **Phase 7** (Entscheidungen).
+**Status:** Phasen 1–6 sind umgesetzt — Stand 2026-09-10. Offen ist nur noch
+**Phase 7** (C1, C4, D4, E), und das sind laut Plan Entscheidungen, keine
+Patches.
 **Geltungsbereich:** `/` (`src/app/page.tsx`), `/sportvereine`, `/clubs` und alles,
 was sie rendern — plus die Tokens in `src/app/globals.css`, soweit die drei
 Seiten sie tragen.
@@ -68,7 +68,7 @@ Zusätzlich bei diesem Plan von Hand zu prüfen:
 | ~~**2**~~ | ~~B1, B2~~ | erledigt 2026-09-10 | — |
 | ~~**3**~~ | ~~D1, D2, D3~~ | erledigt 2026-09-10 | — |
 | ~~**4**~~ | ~~C6, C5, C2~~ | erledigt 2026-09-10 | — |
-| **5** | B3 (rem-Umstellung) | groß, mechanisch | mittel — eigener Durchgang |
+| ~~**5**~~ | ~~B3 (rem-Umstellung)~~ | erledigt 2026-09-10 | — |
 | ~~**6**~~ | ~~C3~~ | erledigt 2026-09-10 | — |
 | **7** | C1, C4, D4, E | **Entscheidungen, keine Patches** | — |
 
@@ -359,7 +359,7 @@ ihre Begründung stimmte nach der Anhebung nicht mehr.
 `--ink-3` 7.78:1, `--ink-4` 6.01:1, `--line` 1.23 → 1.87:1, `--line-2`
 1.44 → 2.48:1.
 
-## [ ] B3 — Nichts skaliert mit der Textgröße des Nutzers (§15)
+## [x] B3 — Nichts skaliert mit der Textgröße des Nutzers (§15) — erledigt 2026-09-10
 
 **Warum:** jede Maßangabe auf allen drei Seiten ist feste px — Schrift
 (`14.5px`, `13.5px`, `9.5px`), Abstände (`padding: 88px 64px 96px`), und der
@@ -391,6 +391,78 @@ entscheiden, ob gerundet wird. Im Zweifel den optischen Eindruck erhalten.
 
 **Fertig, wenn:** bei Browserschrift 20px statt 16px alle drei Seiten größer
 werden, ohne dass etwas überlappt oder waagerecht scrollt.
+
+### Umsetzung (2026-09-10)
+
+Umgestellt wurden 9 Dateien, rund 360 Deklarationen, mit einem Skript und
+anschließender Durchsicht. Basis 16px, gerundet auf zwei Nachkommastellen
+(größter Fehler 0,16px — unsichtbar, dafür lesbare Werte statt `0.90625rem`).
+Die halben Pixel des Hausstils überleben damit als `0.91rem` / `0.84rem` /
+`0.78rem`.
+
+**Was umgestellt wurde:** `font-size`, `font` (Kurzform), `line-height`,
+sämtliche `margin*`/`padding*`/`gap`, sowie `width`/`height`/`max-width`/
+`min-height` **an Elementen, deren Größe ihrem Text folgt** — Karten, Felder,
+Leisten, Datumsplaketten.
+
+**Was in px geblieben ist:** Haarlinien, Rahmenstärken, `border-radius` und
+`--radius*`, `box-shadow`/`--shadow*`, `outline`, `transform`, `filter`,
+`backdrop-filter`, Positionsangaben (`top`/`left`/…) und alles unter 4px (das
+sind optische Korrekturen, keine Abstände).
+
+Fünf Entscheidungen, die der Plan nicht vorgibt:
+
+1. **Beide Achsen statt nur der senkrechten.** Der Plan nennt „vertikale
+   Abstände", listet als Beispiel aber `gap`, das beide Achsen betrifft. Eine
+   Kurzform wie `padding: 15px 18px` nur zur Hälfte umzustellen ergäbe ein
+   Layout, das in einer Richtung mitwächst und in der anderen nicht — und
+   waagerecht *zu wenig* Platz ist genau die Richtung, in der Text überläuft.
+2. **Trefferflächen bleiben px.** `@media (pointer: coarse) { .btn { min-height:
+   44px } }` und `--hit` im Gebührenrechner sind Fingermaße (Apple HIG). In rem
+   würden sie bei *kleiner* gestellter Browserschrift unter das ergonomische
+   Minimum rutschen. Das Skript hatte sie erwischt; zurückgedreht.
+3. **Breakpoints sind jetzt `em` statt px** (28 Stück in 6 Dateien). Das steht
+   nicht im Plan, ist aber der letzte Weg, auf dem die Abnahmebedingung sonst
+   scheitert: in einer Media Query bezieht sich `em` auf die *Standardschrift
+   des Browsers*. Bei 16px sind `43.75em` exakt die 700px von vorher; bei 20px
+   greift der schmale Umbruch schon bei 875px — also genau dann, wenn der
+   gewachsene Text ihn braucht. Mit px-Breakpoints wäre das Layout breit
+   geblieben und der Inhalt herausgelaufen.
+4. **Drei Dateien sind bewusst ganz in px geblieben: `DoorScene`,
+   `ShowcaseMocks`, `HeroTicket`.** Das sind gezeichnete Abbilder des Produkts,
+   keine Textblöcke — `HeroTicket` und `DoorScene` tragen dafür sogar
+   `aria-hidden`. Entscheidend ist die Türszene: ihre Bühne ist an `100svh`
+   gebunden, und der Kommentar im 1180px-Zweig rechnet das senkrechte Budget
+   ausdrücklich vor („nach Kopfleiste (60) und Endbild (583) fast
+   aufgebraucht"). Alles darin um 25 % zu vergrößern hieße, die Szene aus einer
+   Bühne laufen zu lassen, die nicht mitwächst — also genau das „Überlappen",
+   das die Abnahmebedingung verbietet. Entweder skaliert so eine Szene
+   vollständig oder gar nicht; hier kann sie es nicht. **Bekannter Preis:** die
+   Bildunterschriften der Türszene (`.scn-text h3/p`) sind echter Fließtext und
+   wachsen nicht mit. Das ist die eine Stelle, an der die Umstellung
+   unvollständig bleibt.
+5. **Dekorative Verlaufsflecken (`.aurora`, `.glow-*`) bleiben px.** Das Skript
+   hatte sie mitgenommen; ein weichgezeichneter Farbfleck ist Geometrie, keine
+   Typografie.
+
+**Punkt 5 des Vorgehens ist erledigt:** `.hero-v2 h1` hat ein `clamp(2.75rem,
+4.85vw, 3.88rem)` nach der `font`-Kurzform bekommen. `4.85vw` trifft die
+ursprünglichen 62px genau dort, wo `.hero-v2-inner` mit 80rem ausgereizt ist,
+und fällt darunter mit — vorher standen die 62px zwischen 980px und 1280px
+Viewport unverändert in einer rund 430px schmalen Spalte.
+
+**Nicht umgestellt, bewusst:** Icons. Ihre Größe kommt als Prop
+(`<Icon size={13} />`) und landet als SVG-Attribut, nicht als CSS. Sie
+mitwachsen zu lassen hieße, die `Icon`-Schnittstelle zu ändern — ein eigener
+Schritt. Sichtbare Folge: bei hochgestellter Schrift wirken Icons neben ihrem
+Text etwas kleiner als heute.
+
+⚠️ **Diese Phase ist die am wenigsten prüfbare von allen.** 360 Werte, kein
+Browser in der Session. Der Test ist eine Zeile: Browserschrift auf 20px
+stellen (Chrome: Einstellungen → Darstellung → Schriftgröße „Groß"), dann `/`,
+`/sportvereine` und `/clubs` einmal von oben nach unten — es darf nichts
+überlappen und nichts waagerecht scrollen. Und danach dieselbe Runde auf
+Standard 16px, wo sich **nichts** verändert haben darf.
 
 ---
 

@@ -14,16 +14,16 @@ import { splitServiceFee, minUnitPriceCentsFor, type FeePayer } from '@/lib/fees
  */
 
 const CALC_CSS = `
-  .fee-calc { padding: 24px; display: grid; gap: 20px; }
-  .fee-calc .calc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .fee-calc { padding: 1.5rem; display: grid; gap: 1.25rem; }
+  .fee-calc .calc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
   .fee-calc .calc-head .cap {
-    font-size: 11px; font-weight: 600; color: var(--accent-ink);
+    font-size: 0.69rem; font-weight: 600; color: var(--accent-ink);
     text-transform: uppercase; letter-spacing: 0.08em;
   }
-  .fee-calc .calc-head .price { font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
+  .fee-calc .calc-head .price { font-size: 1.38rem; font-weight: 600; letter-spacing: -0.03em; }
   /* Der Schieberegler ist das einzige Element dieser Seiten, das man wirklich
      anfasst — und war mit 4px Hoehe auf dem Telefon am schwersten zu greifen.
-     min-height: 44px aus globals.css gilt nur fuer .btn und erreicht ein
+     min-height: 2.75rem aus globals.css gilt nur fuer .btn und erreicht ein
      input[type=range] nicht.
 
      Sobald appearance: none gesetzt ist, wirkt accent-color nicht mehr:
@@ -45,11 +45,12 @@ const CALC_CSS = `
        negativen Aussenabstaende nehmen die zusaetzliche Hoehe wieder heraus,
        sonst ruecken Preiszeile, Bahn und Beschriftung um --hit auseinander und
        die Karte faellt auseinander. Der senkrechte Platzbedarf bleibt so bei
-       14 + 4 = 18px wie vorher, egal wie gross --hit ist. Rechnung:
-       (14 - hit) + (4 + 2*hit) + (-hit) = 18. */
+       0.88 + 0.25 = 1.13rem wie vorher, egal wie gross --hit ist. Rechnung:
+       (0.88 - hit) + (0.25 + 2*hit) + (-hit) = 1.13rem. --hit selbst bleibt px:
+       44 ist ein Fingermass, keine Typografie. */
     --hit: 10px;
-    height: calc(4px + 2 * var(--hit));
-    margin-top: calc(14px - var(--hit));
+    height: calc(0.25rem + 2 * var(--hit));
+    margin-top: calc(0.88rem - var(--hit));
     margin-bottom: calc(-1 * var(--hit));
   }
   /* 4px Bahn + 2 x 20px = 44px anfassbar. */
@@ -60,11 +61,11 @@ const CALC_CSS = `
   /* Bahn. Der runde Abschluss ist hier richtig und kein Verstoss gegen die
      Pillen-Regel: das ist ein Fortschrittsbalken, kein Textbadge. */
   .fee-calc input[type="range"]::-webkit-slider-runnable-track {
-    height: 4px; border-radius: 999px;
+    height: 0.25rem; border-radius: 999px;
     background: linear-gradient(90deg, var(--accent) var(--fill), var(--line-2) var(--fill));
   }
   .fee-calc input[type="range"]::-moz-range-track {
-    height: 4px; border-radius: 999px;
+    height: 0.25rem; border-radius: 999px;
     background: linear-gradient(90deg, var(--accent) var(--fill), var(--line-2) var(--fill));
   }
 
@@ -72,14 +73,14 @@ const CALC_CSS = `
      margin-top zentriert ihn auf der 4px-Bahn ((4 - 18) / 2). */
   .fee-calc input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
-    box-sizing: border-box; width: 18px; height: 18px; border-radius: 50%;
+    box-sizing: border-box; width: 1.12rem; height: 1.12rem; border-radius: 50%;
     background: var(--surface); border: 2px solid var(--accent);
     box-shadow: 0 1px 3px oklch(0.40 0.18 var(--hue) / 0.35);
-    margin-top: -7px;
+    margin-top: -0.44rem;
     transition: transform 0.1s ease-out, box-shadow 0.15s;
   }
   .fee-calc input[type="range"]::-moz-range-thumb {
-    box-sizing: border-box; width: 18px; height: 18px; border-radius: 50%;
+    box-sizing: border-box; width: 1.12rem; height: 1.12rem; border-radius: 50%;
     background: var(--surface); border: 2px solid var(--accent);
     box-shadow: 0 1px 3px oklch(0.40 0.18 var(--hue) / 0.35);
     transition: transform 0.1s ease-out, box-shadow 0.15s;
@@ -110,36 +111,36 @@ const CALC_CSS = `
   }
   .fee-calc .scale {
     display: flex; justify-content: space-between;
-    font-size: 11.5px; color: var(--ink-4); margin-top: 6px;
+    font-size: 0.72rem; color: var(--ink-4); margin-top: 0.38rem;
   }
   .fee-rows { display: grid; gap: 2px; }
   .fee-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    padding: 11px 0;
-    font-size: 14px; color: var(--ink-2);
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: 0.69rem 0;
+    font-size: 0.88rem; color: var(--ink-2);
     border-bottom: 1px solid var(--line);
   }
   .fee-row .val { font-variant-numeric: tabular-nums; font-weight: 500; color: var(--ink); }
-  .fee-row .hint { font-size: 12px; color: var(--ink-4); font-weight: 400; }
+  .fee-row .hint { font-size: 0.75rem; color: var(--ink-4); font-weight: 400; }
   .fee-row.total {
     border-bottom: none;
-    margin-top: 6px; padding-top: 14px;
+    margin-top: 0.38rem; padding-top: 0.88rem;
     border-top: 1px solid var(--line-2);
-    font-size: 15px; font-weight: 600; color: var(--ink);
+    font-size: 0.94rem; font-weight: 600; color: var(--ink);
   }
-  .fee-row.total .val { font-size: 19px; color: var(--accent); letter-spacing: -0.02em; }
-  .fee-note { font-size: 12.5px; color: var(--ink-3); line-height: 1.6; }
-  .fee-calc .payer { display: grid; gap: 8px; }
+  .fee-row.total .val { font-size: 1.19rem; color: var(--accent); letter-spacing: -0.02em; }
+  .fee-note { font-size: 0.78rem; color: var(--ink-3); line-height: 1.6; }
+  .fee-calc .payer { display: grid; gap: 0.5rem; }
   .fee-calc .payer .cap {
-    font-size: 11px; font-weight: 600; color: var(--accent-ink);
+    font-size: 0.69rem; font-weight: 600; color: var(--accent-ink);
     text-transform: uppercase; letter-spacing: 0.08em;
   }
-  .fee-calc .payer .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fee-calc .payer .seg { display: flex; gap: 0.38rem; flex-wrap: wrap; }
   .fee-calc .payer button {
-    flex: 1 1 auto; min-width: 96px; appearance: none; cursor: pointer;
+    flex: 1 1 auto; min-width: 6rem; appearance: none; cursor: pointer;
     background: var(--surface-2); color: var(--ink-2);
     border: 1px solid var(--line); border-radius: 8px;
-    padding: 9px 10px; font: inherit; font-size: 13px; font-weight: 550;
+    padding: 0.56rem 0.62rem; font: inherit; font-size: 0.81rem; font-weight: 550;
     transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.1s ease-out;
   }
   .fee-calc .payer button:active { transform: scale(0.97); }

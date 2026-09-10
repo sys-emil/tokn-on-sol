@@ -84,72 +84,72 @@ const PAGE_CSS = `
   .aurora { opacity: 0.3; }
 
   /* ── Hero ─────────────────────────────────────────────────── */
-  .info-hero { max-width: 720px; padding: 56px 0 48px; }
+  .info-hero { max-width: 45rem; padding: 3.5rem 0 3rem; }
   .info-hero h1 {
-    font-size: clamp(32px, 4.6vw, 48px);
+    font-size: clamp(2rem, 4.6vw, 3rem);
     letter-spacing: -0.035em; font-weight: 600; line-height: 1.08;
   }
   .info-hero h1 .accent { color: var(--accent); }
   .info-hero .lead {
-    margin-top: 16px;
-    font-size: 16px; line-height: 1.65; color: var(--ink-3);
+    margin-top: 1rem;
+    font-size: 1rem; line-height: 1.65; color: var(--ink-3);
     max-width: 56ch;
   }
   .info-eyebrow {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 11.5px; font-weight: 600; color: var(--accent-ink);
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-size: 0.72rem; font-weight: 600; color: var(--accent-ink);
     text-transform: uppercase; letter-spacing: 0.08em;
-    margin-bottom: 18px;
+    margin-bottom: 1.12rem;
   }
-  .hero-ctas { margin-top: 26px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .hero-ctas { margin-top: 1.62rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 
   /* ── Trust-Leiste ────────────────────────────────────────── */
-  .trust-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-  @media (max-width: 820px) { .trust-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .trust-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.62rem; }
+  @media (max-width: 51.25em) { .trust-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .trust-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 14px 16px;
+    display: flex; align-items: center; gap: 0.62rem;
+    padding: 0.88rem 1rem;
     border: 1px solid var(--line-2); background: var(--surface);
     border-radius: var(--radius);
   }
   .trust-item .ic {
-    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+    width: 2rem; height: 2rem; border-radius: 9px; flex-shrink: 0;
     display: grid; place-items: center;
     background: var(--accent-wash); color: var(--accent-ink);
   }
-  .trust-item .label { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
+  .trust-item .label { font-size: 0.78rem; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
 
   /* Abstand und Haarlinie zwischen den Abschnitten wie auf der Startseite —
      hier gilt derselbe Grund: vier Kapitel plus FAQ laufen ohne Trennung
      ineinander. Der Abstand allein stand vorher da, die Linie fehlte; gleicher
      Abstand bei unterschiedlichem Struktursignal war ein Versehen. */
   .container > section + section {
-    margin-top: 88px; padding-top: 88px; border-top: 1px solid var(--line);
+    margin-top: 5.5rem; padding-top: 5.5rem; border-top: 1px solid var(--line);
   }
-  @media (max-width: 700px) {
-    .container > section + section { margin-top: 56px; padding-top: 56px; }
+  @media (max-width: 43.75em) {
+    .container > section + section { margin-top: 3.5rem; padding-top: 3.5rem; }
   }
 
   /* ── Gebühren ────────────────────────────────────────────── */
-  .fee-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: center; }
-  @media (max-width: 900px) { .fee-section { grid-template-columns: 1fr; gap: 24px; } }
-  .fee-copy h2 { font-size: clamp(24px, 3.2vw, 32px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
-  .fee-copy p { font-size: 14.5px; color: var(--ink-3); line-height: 1.65; margin-top: 12px; max-width: 46ch; }
-  .fee-copy .more { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; font-size: 13.5px; font-weight: 500; color: var(--accent); }
+  .fee-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 2.5rem; align-items: center; }
+  @media (max-width: 56.25em) { .fee-section { grid-template-columns: 1fr; gap: 1.5rem; } }
+  .fee-copy h2 { font-size: clamp(1.5rem, 3.2vw, 2rem); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
+  .fee-copy p { font-size: 0.91rem; color: var(--ink-3); line-height: 1.65; margin-top: 0.75rem; max-width: 46ch; }
+  .fee-copy .more { display: inline-flex; align-items: center; gap: 0.44rem; margin-top: 1.12rem; font-size: 0.84rem; font-weight: 500; color: var(--accent); }
   .fee-copy .more:hover { color: var(--accent-2); }
   .fee-copy .more:active { opacity: 0.7; }
 
   /* ── FAQ ─────────────────────────────────────────────────── */
-  .faq { max-width: 760px; display: flex; flex-direction: column; gap: 10px; }
+  .faq { max-width: 47.5rem; display: flex; flex-direction: column; gap: 0.62rem; }
   .faq details {
     background: var(--surface); border: 1px solid var(--line);
     border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden;
   }
   .faq details[open] { border-color: var(--line-2); box-shadow: var(--shadow); }
   .faq summary {
-    list-style: none; cursor: pointer; padding: 15px 18px;
-    font-size: 14.5px; font-weight: 500; letter-spacing: -0.01em;
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    list-style: none; cursor: pointer; padding: 0.94rem 1.12rem;
+    font-size: 0.91rem; font-weight: 500; letter-spacing: -0.01em;
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
   }
   .faq summary::-webkit-details-marker { display: none; }
   /* Kein Scale: die Zeile ist breit, ein Kippen waere unruhig. Ein Ton dunkler
@@ -159,7 +159,7 @@ const PAGE_CSS = `
   .faq summary:active { background: var(--surface-3); }
   .faq summary .faq-chev { color: var(--ink-4); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); flex-shrink: 0; }
   .faq details[open] summary .faq-chev { transform: rotate(90deg); }
-  .faq .faq-a { padding: 0 18px 16px; font-size: 13.5px; line-height: 1.65; color: var(--ink-3); max-width: 66ch; }
+  .faq .faq-a { padding: 0 1.12rem 1rem; font-size: 0.84rem; line-height: 1.65; color: var(--ink-3); max-width: 66ch; }
   /* Die Antwort faehrt auf, statt schlagartig in voller Hoehe dazustehen:
      bisher war das drehende Chevron das einzige bewegte Teil und sagte nichts
      ueber den Inhalt, der erscheint.
@@ -181,24 +181,24 @@ const PAGE_CSS = `
 
   /* ── Abschluss ───────────────────────────────────────────── */
   .cta-banner {
-    max-width: 760px;
+    max-width: 47.5rem;
     background: var(--accent);
-    border-radius: var(--radius-lg); padding: 44px 32px; text-align: center;
+    border-radius: var(--radius-lg); padding: 2.75rem 2rem; text-align: center;
     color: white; box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
   }
-  .cta-banner h2 { font-size: clamp(22px, 3vw, 30px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; position: relative; }
-  .cta-banner p { font-size: 14px; opacity: 0.85; margin-top: 10px; position: relative; }
-  .cta-banner .btn { margin-top: 22px; background: white; color: var(--accent-ink); position: relative; }
+  .cta-banner h2 { font-size: clamp(1.38rem, 3vw, 1.88rem); font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; position: relative; }
+  .cta-banner p { font-size: 0.88rem; opacity: 0.85; margin-top: 0.62rem; position: relative; }
+  .cta-banner .btn { margin-top: 1.38rem; background: white; color: var(--accent-ink); position: relative; }
   .cta-banner .btn:hover { background: oklch(0.96 0.01 var(--hue)); }
-  @media (max-width: 640px) { .cta-banner { padding: 40px 22px; } }
+  @media (max-width: 40em) { .cta-banner { padding: 2.5rem 1.38rem; } }
 
   .footer {
     border-top: 1px solid var(--line);
-    margin-top: 64px; padding: 28px 0 8px;
-    display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    font-size: 12.5px; color: var(--ink-3); flex-wrap: wrap;
+    margin-top: 4rem; padding: 1.75rem 0 0.5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    font-size: 0.78rem; color: var(--ink-3); flex-wrap: wrap;
   }
-  .footer .links { display: flex; gap: 14px 18px; flex-wrap: wrap; }
+  .footer .links { display: flex; gap: 0.88rem 1.12rem; flex-wrap: wrap; }
   .footer a:hover { color: var(--ink); }
   .footer .links a:active { opacity: 0.7; }
 

@@ -152,20 +152,20 @@ export async function LiveEvents() {
 const LIVE_EVENTS_CSS = `
   .le-head {
     display: flex; align-items: flex-end; justify-content: space-between;
-    gap: 24px; margin-bottom: 20px;
+    gap: 1.5rem; margin-bottom: 1.25rem;
   }
-  .le-head h2 { font-size: clamp(22px, 2.6vw, 28px); font-weight: 620; letter-spacing: -0.03em; line-height: 1.15; }
-  .le-head .sub { font-size: 14px; color: var(--ink-3); margin-top: 8px; max-width: 52ch; line-height: 1.6; }
+  .le-head h2 { font-size: clamp(1.38rem, 2.6vw, 1.75rem); font-weight: 620; letter-spacing: -0.03em; line-height: 1.15; }
+  .le-head .sub { font-size: 0.88rem; color: var(--ink-3); margin-top: 0.5rem; max-width: 52ch; line-height: 1.6; }
   .le-more {
-    display: inline-flex; align-items: center; gap: 6px; flex: none;
-    font-size: 14px; font-weight: 550; color: var(--accent); white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 0.38rem; flex: none;
+    font-size: 0.88rem; font-weight: 550; color: var(--accent); white-space: nowrap;
   }
   .le-more:hover { color: var(--accent-2); }
   .le-more:active { opacity: 0.7; }
-  .le-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
-  @media (max-width: 980px) { .le-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 640px) {
-    .le-head { flex-direction: column; align-items: flex-start; gap: 12px; }
-    .le-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .le-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
+  @media (max-width: 61.25em) { .le-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 40em) {
+    .le-head { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .le-grid { grid-template-columns: minmax(0, 1fr); gap: 0.88rem; }
   }
 `;

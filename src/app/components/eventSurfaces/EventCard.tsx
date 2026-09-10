@@ -164,61 +164,61 @@ export const EVENT_CARD_CSS = `
   .ev-datebadge {
     position: absolute; top: 12px; left: 12px;
     display: flex; flex-direction: column; align-items: center;
-    width: 44px; padding: 6px 0 7px; border-radius: 11px;
+    width: 2.75rem; padding: 0.38rem 0 0.44rem; border-radius: 11px;
     background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(8px);
     box-shadow: 0 4px 14px rgba(17, 20, 45, 0.16); pointer-events: none;
   }
   .ev-datebadge .m {
-    font-size: 9.5px; font-weight: 700; letter-spacing: 0.09em;
+    font-size: 0.59rem; font-weight: 700; letter-spacing: 0.09em;
     color: var(--accent); text-transform: uppercase;
   }
-  .ev-datebadge .d { font-size: 18px; font-weight: 640; letter-spacing: -0.03em; line-height: 1.1; color: var(--ink); }
+  .ev-datebadge .d { font-size: 1.12rem; font-weight: 640; letter-spacing: -0.03em; line-height: 1.1; color: var(--ink); }
   .ev-badge {
     position: absolute; top: 14px; right: 12px;
-    padding: 5px 10px; border-radius: 8px;
-    font-size: 11.5px; font-weight: 600;
+    padding: 0.31rem 0.62rem; border-radius: 8px;
+    font-size: 0.72rem; font-weight: 600;
     background: rgba(11, 8, 26, 0.62); color: #fff;
     backdrop-filter: blur(8px); pointer-events: none;
   }
-  .ev-card-body { display: flex; flex-direction: column; gap: 14px; padding: 18px 18px 20px; flex: 1; }
-  .ev-card-eyebrow { display: none; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
-  .ev-card h3 { margin: 0; font-size: 17px; font-weight: 620; letter-spacing: -0.025em; line-height: 1.3; }
-  .ev-card-sub { margin: 7px 0 0; font-size: 13.5px; color: var(--ink-3); }
-  .ev-progress { display: flex; flex-direction: column; gap: 7px; margin-top: auto; }
-  .ev-track { height: 4px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+  .ev-card-body { display: flex; flex-direction: column; gap: 0.88rem; padding: 1.12rem 1.12rem 1.25rem; flex: 1; }
+  .ev-card-eyebrow { display: none; font-size: 0.69rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); }
+  .ev-card h3 { margin: 0; font-size: 1.06rem; font-weight: 620; letter-spacing: -0.025em; line-height: 1.3; }
+  .ev-card-sub { margin: 0.44rem 0 0; font-size: 0.84rem; color: var(--ink-3); }
+  .ev-progress { display: flex; flex-direction: column; gap: 0.44rem; margin-top: auto; }
+  .ev-track { height: 0.25rem; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
   .ev-fill { height: 100%; border-radius: 999px; transition: width 0.3s; }
-  .ev-progress-label { font-size: 12px; color: var(--ink-3); }
+  .ev-progress-label { font-size: 0.75rem; color: var(--ink-3); }
   .ev-card-foot {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding-top: 14px; border-top: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    padding-top: 0.88rem; border-top: 1px solid var(--line);
   }
-  .ev-price { font-size: 19px; font-weight: 640; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .ev-price { font-size: 1.19rem; font-weight: 640; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
   /* Optik kommt aus .btn.primary / .btn.ghost in globals.css — die Karte legt
      nur den Hover der ganzen Karte darueber. Ausverkauft/Warteliste ist
      .btn.ghost, deshalb gibt es hier keine eigene .waitlist-Variante mehr. */
-  .ev-cta { gap: 7px; }
+  .ev-cta { gap: 0.44rem; }
   .ev-card:hover .ev-cta.primary { background: var(--accent-2); }
   .ev-card:hover .ev-cta.ghost { background: var(--surface-2); border-color: var(--ink-4); }
-  .ev-foot-note { display: none; font-size: 12px; color: var(--ink-3); }
+  .ev-foot-note { display: none; font-size: 0.75rem; color: var(--ink-3); }
   .ev-card.is-soldout .ev-card-art img, .ev-card.is-soldout .ev-card-art .art-bg { filter: grayscale(0.7); opacity: 0.75; }
   .ev-card.is-soldout .ev-price { color: var(--ink-3); }
 
-  @media (max-width: 780px) {
-    .ev-card { flex-direction: row; gap: 13px; padding: 12px; border-radius: 16px; }
+  @media (max-width: 48.75em) {
+    .ev-card { flex-direction: row; gap: 0.81rem; padding: 0.75rem; border-radius: 16px; }
     .ev-card:hover { transform: none; }
     .ev-card-art {
-      width: 92px; height: 92px; flex: none;
+      width: 5.75rem; height: 5.75rem; flex: none;
       aspect-ratio: auto; border-radius: 12px;
     }
     .ev-datebadge, .ev-badge, .ev-progress { display: none; }
     /* Ueber .ev-card, damit die Regel den .btn-Basisstil sicher schlaegt. */
     .ev-card .ev-cta { display: none; }
-    .ev-card-body { padding: 0; gap: 6px; min-width: 0; }
+    .ev-card-body { padding: 0; gap: 0.38rem; min-width: 0; }
     .ev-card-eyebrow { display: block; }
-    .ev-card h3 { font-size: 15px; font-weight: 620; letter-spacing: -0.02em; }
-    .ev-card-sub { margin: 0; font-size: 12.5px; }
+    .ev-card h3 { font-size: 0.94rem; font-weight: 620; letter-spacing: -0.02em; }
+    .ev-card-sub { margin: 0; font-size: 0.78rem; }
     .ev-card-foot { border-top: none; padding-top: 0; margin-top: auto; }
-    .ev-price { font-size: 15px; }
+    .ev-price { font-size: 0.94rem; }
     .ev-foot-note { display: block; }
   }
 
