@@ -161,6 +161,7 @@ const LIVE_EVENTS_CSS = `
     font-size: 14px; font-weight: 550; color: var(--accent); white-space: nowrap;
   }
   .le-more:hover { color: var(--accent-2); }
+  .le-more:active { opacity: 0.7; }
   .le-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
   @media (max-width: 980px) { .le-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 640px) {

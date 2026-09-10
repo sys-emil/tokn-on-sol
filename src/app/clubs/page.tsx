@@ -4,6 +4,7 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { SiteNav } from '@/app/components/SiteNav';
+import { SignInButton } from '@/app/components/SignInButton';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ShopCard, SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard';
 import { DashboardMock, ReturnMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
@@ -116,8 +117,16 @@ const PAGE_CSS = `
   }
   .trust-item .label { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; font-weight: 500; }
 
-  .container > section + section { margin-top: 88px; }
-  @media (max-width: 700px) { .container > section + section { margin-top: 56px; } }
+  /* Abstand und Haarlinie zwischen den Abschnitten wie auf der Startseite —
+     hier gilt derselbe Grund: vier Kapitel plus FAQ laufen ohne Trennung
+     ineinander. Der Abstand allein stand vorher da, die Linie fehlte; gleicher
+     Abstand bei unterschiedlichem Struktursignal war ein Versehen. */
+  .container > section + section {
+    margin-top: 88px; padding-top: 88px; border-top: 1px solid var(--line);
+  }
+  @media (max-width: 700px) {
+    .container > section + section { margin-top: 56px; padding-top: 56px; }
+  }
 
   /* ── Gebühren ────────────────────────────────────────────── */
   .fee-section { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: center; }
@@ -126,6 +135,7 @@ const PAGE_CSS = `
   .fee-copy p { font-size: 14.5px; color: var(--ink-3); line-height: 1.65; margin-top: 12px; max-width: 46ch; }
   .fee-copy .more { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; font-size: 13.5px; font-weight: 500; color: var(--accent); }
   .fee-copy .more:hover { color: var(--accent-2); }
+  .fee-copy .more:active { opacity: 0.7; }
 
   /* ── FAQ ─────────────────────────────────────────────────── */
   .faq { max-width: 760px; display: flex; flex-direction: column; gap: 10px; }
@@ -140,6 +150,11 @@ const PAGE_CSS = `
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
   }
   .faq summary::-webkit-details-marker { display: none; }
+  /* Kein Scale: die Zeile ist breit, ein Kippen waere unruhig. Ein Ton dunkler
+     ist die Rueckmeldung, dass der Druck angekommen ist. --surface-3 statt
+     --surface-2, weil die Zeile auf weissem Grund steht: 0.987 gegen 1.0 waere
+     kein sichtbarer Unterschied. Gleiche Stufe wie .nav a:active. */
+  .faq summary:active { background: var(--surface-3); }
   .faq summary .faq-chev { color: var(--ink-4); transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1); flex-shrink: 0; }
   .faq details[open] summary .faq-chev { transform: rotate(90deg); }
   .faq .faq-a { padding: 0 18px 16px; font-size: 13.5px; line-height: 1.65; color: var(--ink-3); max-width: 66ch; }
@@ -165,6 +180,7 @@ const PAGE_CSS = `
   }
   .footer .links { display: flex; gap: 14px 18px; flex-wrap: wrap; }
   .footer a:hover { color: var(--ink); }
+  .footer .links a:active { opacity: 0.7; }
 
   @media (prefers-reduced-motion: reduce) {
     .faq summary .faq-chev { transition: none; }
@@ -194,11 +210,9 @@ export default function ClubsPage() {
         <div className="topbar">
           <div className="topbar-inner">
             <PasslyLogo height={24} />
-            <SiteNav active="organizers" />
+            <SiteNav active="clubs" />
             <div className="topbar-right">
-              <Link href="/become-organizer" className="btn primary sm">
-                Kostenlos starten <Icon name="arrow" size={13} />
-              </Link>
+              <SignInButton />
             </div>
           </div>
         </div>

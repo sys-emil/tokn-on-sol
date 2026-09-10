@@ -3,6 +3,21 @@
 import Link from 'next/link';
 import { useT } from '@/app/components/LangProvider';
 
+/** Die Punkte, die die Leiste selbst ausgibt. */
+type SiteNavItemKey = 'events' | 'tickets' | 'how' | 'organizers' | 'pricing';
+
+/**
+ * Wo eine Seite steht. Enthaelt mehr als die Leiste an Punkten hat: die beiden
+ * Nischenseiten (`/sportvereine`, `/clubs`) haben bewusst keinen eigenen Punkt,
+ * sind aber auch nicht „Fuer Veranstalter" — sie standen frueher auf
+ * `organizers` und hoben damit einen Punkt hervor, der woandershin fuehrt.
+ * Mit einem eigenen Schluessel hebt die Leiste dort **nichts** hervor, und das
+ * ist die ehrliche Antwort auf „wo bin ich?". Ob die beiden zusaetzlich eigene
+ * Punkte bekommen, ist eine eigene Frage — die Leiste hat schon fuenf und
+ * scrollt auf dem Handy in sich selbst.
+ */
+export type SiteNavKey = SiteNavItemKey | 'sport' | 'clubs';
+
 /**
  * Die Navigationsleiste aller oeffentlichen Seiten — Startseite, Eventliste,
  * Eventseite, Meine Tickets, Konto, oeffentliche Profile, Marketing- und
@@ -20,12 +35,10 @@ import { useT } from '@/app/components/LangProvider';
  * Veranstalter. Dass die Startseite Veranstalter anspricht, traegt ihre
  * Ueberschrift und ihr Hauptknopf, nicht die Leiste.
  */
-export type SiteNavKey = 'events' | 'tickets' | 'how' | 'organizers' | 'pricing';
-
 export function SiteNav({ active }: { active?: SiteNavKey }) {
   const t = useT();
 
-  const items: { key: SiteNavKey; href: string; label: string }[] = [
+  const items: { key: SiteNavItemKey; href: string; label: string }[] = [
     { key: 'events', href: '/events', label: t('common.events') },
     { key: 'tickets', href: '/my-tickets', label: t('common.myTickets') },
     { key: 'how', href: '/so-funktionierts', label: t('common.howItWorks') },

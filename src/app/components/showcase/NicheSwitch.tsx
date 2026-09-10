@@ -29,6 +29,7 @@ const NICHE_SWITCH_CSS = `
     font-size: 13px; font-weight: 500; color: var(--accent);
   }
   .nsw-more:hover { text-decoration: underline; }
+  .nsw-more:active { opacity: 0.7; }
 `;
 
 export function NicheSwitch() {

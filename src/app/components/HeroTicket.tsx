@@ -60,7 +60,7 @@ export function HeroTicket() {
 
   return (
     <div className="hero-v2-mock" aria-hidden="true">
-      <style>{IDLE_CSS}</style>
+      <style>{HERO_TICKET_CSS}</style>
       <div
         ref={ref}
         className="hero-v2-ticket"
@@ -72,11 +72,9 @@ export function HeroTicket() {
           width: 352,
           borderRadius: 24,
           overflow: 'hidden',
-          // Kein backdrop-filter: die Kinder decken die Flaeche vollstaendig ab,
-          // der Blur war unsichtbar — kostete aber pro Shimmer-Frame ein
-          // Neuberechnen des Hintergrunds und war die Ursache des Ruckelns.
-          background: 'rgba(255,255,255,.72)',
-          border: '1px solid rgba(255,255,255,.85)',
+          // Flaeche und Rahmen stehen in HERO_TICKET_CSS, nicht hier: ein
+          // Inline-Style ist fuer @media (prefers-reduced-transparency) nicht
+          // erreichbar.
           boxShadow:
             '0 44px 90px -30px rgba(40,20,90,.45), 0 10px 26px rgba(17,20,45,.10), inset 0 1px 0 rgba(255,255,255,.9)',
           transform: REST_TRANSFORM,
@@ -188,17 +186,34 @@ export function HeroTicket() {
   );
 }
 
-/* Dieselbe Bewegung wie unter dem Zeiger, nur von allein: die Karte kippt auf
-   beiden Achsen und bleibt dabei an Ort und Stelle — keine Verschiebung, kein
-   translateZ. Der Ausschlag liegt bei gut zwei Dritteln dessen, was die Maus
-   erreicht (die kommt auf rund ±11 Grad seitlich) und bleibt damit im selben
-   Bereich, den der Zeiger auch abfahren wuerde. `rotate(1.5deg)` bleibt fest,
-   genau wie im Zeiger-Handler: das ist die Schraeglage der Karte selbst.
+/* Alles an der Karte, was eine Regel braucht statt eines Inline-Styles:
+   die durchscheinende Flaeche (wegen der Media Query) und die Idle-Bewegung. */
+const HERO_TICKET_CSS = `
+  /* Kein backdrop-filter: die Kinder decken die Flaeche vollstaendig ab, der
+     Blur war unsichtbar — kostete aber pro Shimmer-Frame ein Neuberechnen des
+     Hintergrunds und war die Ursache des Ruckelns. Nicht zurueckbauen. */
+  .hero-v2-ticket {
+    background: rgba(255,255,255,.72);
+    border: 1px solid rgba(255,255,255,.85);
+  }
+  /* Die Karte liegt ueber Aurora, Glow und dem Hero-Verlaufsfeld — genau der
+     Stapel „helle durchscheinende Flaeche auf heller durchscheinender
+     Flaeche". Wer Transparenz abschaltet, bekommt hier eine deckende Karte. */
+  @media (prefers-reduced-transparency: reduce) {
+    .hero-v2-ticket { background: #fff; border-color: oklch(0.90 0.02 300); }
+  }
 
-   Vier Stationen im Kreis statt eines Hin und Her, sonst wirkt es wie ein
-   Metronom. 0% und 100% tragen REST_TRANSFORM, damit das Ein- und Ausschalten
-   der Animation an keiner Stelle springt. */
-const IDLE_CSS = `
+  /* Dieselbe Bewegung wie unter dem Zeiger, nur von allein: die Karte kippt
+     auf beiden Achsen und bleibt dabei an Ort und Stelle — keine Verschiebung,
+     kein translateZ. Der Ausschlag liegt bei gut zwei Dritteln dessen, was die
+     Maus erreicht (die kommt auf rund +/-11 Grad seitlich) und bleibt damit im
+     selben Bereich, den der Zeiger auch abfahren wuerde. rotate(1.5deg)
+     bleibt fest, genau wie im Zeiger-Handler: das ist die Schraeglage der
+     Karte selbst.
+
+     Vier Stationen im Kreis statt eines Hin und Her, sonst wirkt es wie ein
+     Metronom. 0% und 100% tragen REST_TRANSFORM, damit das Ein- und
+     Ausschalten der Animation an keiner Stelle springt. */
   .hero-v2-ticket { animation: heroTicketIdle 13s ease-in-out infinite; }
   .hero-v2-ticket.is-tilting { animation: none; }
   @keyframes heroTicketIdle {

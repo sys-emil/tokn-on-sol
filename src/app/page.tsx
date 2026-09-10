@@ -215,6 +215,7 @@ const PAGE_CSS = `
   .fee-copy p { font-size: 14.5px; color: var(--ink-3); line-height: 1.65; margin-top: 12px; max-width: 44ch; }
   .fee-copy .more { display: inline-flex; align-items: center; gap: 7px; margin-top: 18px; font-size: 13.5px; font-weight: 500; color: var(--accent); }
   .fee-copy .more:hover { color: var(--accent-2); }
+  .fee-copy .more:active { opacity: 0.7; }
 
   /* ── Pro-Block ───────────────────────────────────────────── */
   .pro-block {
@@ -239,6 +240,7 @@ const PAGE_CSS = `
   .pro-block h2 { font-size: clamp(22px, 3vw, 28px); font-weight: 600; letter-spacing: -0.03em; margin-top: 12px; line-height: 1.2; }
   .pro-block .sub { font-size: 14px; color: var(--ink-3); line-height: 1.6; margin-top: 10px; }
   .pro-price { margin-top: 20px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .pro-price a:active { opacity: 0.7; }
   .pro-feats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
   @media (max-width: 560px) { .pro-feats { grid-template-columns: 1fr; } }
   .pro-feats li {
@@ -296,6 +298,7 @@ const PAGE_CSS = `
   }
   .footer .links { display: flex; gap: 14px 18px; flex-wrap: wrap; }
   .footer a:hover { color: var(--ink); }
+  .footer .links a:active { opacity: 0.7; }
 `;
 
 export default function Home() {

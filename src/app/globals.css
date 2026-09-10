@@ -10,7 +10,15 @@
   --ink:        oklch(0.20 0.02 275);
   --ink-2:      oklch(0.36 0.02 275);
   --ink-3:      oklch(0.54 0.015 275);
-  --ink-4:      oklch(0.68 0.012 275);
+  /* 0.68 lag auf Weiss bei gemessen 2.88:1 und trug ueberall genau die
+     kleinsten Schriften (9–12.5px). 0.555 misst 4.76:1 auf --surface und
+     4.58:1 auf --surface-2, also beidesmal ueber den 4.5:1 fuer kleinen Text.
+     Der Preis ist ehrlich zu nennen: damit liegt der leiseste Ton fast auf
+     --ink-3 (0.54) — eine vierte, noch leisere Stufe ist auf weissem Grund
+     nicht barrierefrei zu haben. Wo etwas wirklich zuruecktreten *muss*
+     (deaktivierte Bedienelemente), traegt das jetzt eine eigene Deckung,
+     nicht dieses Token. */
+  --ink-4:      oklch(0.555 0.012 275);
   --line:       oklch(0.93 0.006 275);
   --line-2:     oklch(0.88 0.008 275);
   --surface:    #ffffff;
@@ -39,6 +47,20 @@
   --mono: var(--font-geist-mono), 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
+/* „Kontrast erhoehen" im System: die leisen Toene ruecken an den Text heran,
+   die Linien werden ueberhaupt erst sichtbar (--line misst sonst 1.23:1).
+   Nur Farben, keine Layoutwerte — die Seite soll dichter lesen, nicht anders
+   gebaut sein. Der dunkle Pro-Bereich ueberschreibt dieselben Tokens spaeter
+   in der Kaskade und bleibt deshalb bei seiner eigenen Palette. */
+@media (prefers-contrast: more) {
+  :root {
+    --ink-3:  oklch(0.44 0.015 275);
+    --ink-4:  oklch(0.50 0.012 275);
+    --line:   oklch(0.80 0.01 275);
+    --line-2: oklch(0.72 0.012 275);
+  }
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 html, body { background: var(--surface-2); }
@@ -57,6 +79,26 @@ body {
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, textarea, select { font-family: inherit; color: inherit; }
 a { color: inherit; text-decoration: none; }
+
+/* Sichtbarer Fokus fuer die Tastatur; vorher gab es hier gar keinen Ring.
+   Gezielt statt global auf `*`: .input/.textarea/.select haben ihren eigenen
+   Fokuszustand (Rand + Schatten, weiter unten) und bekommen absichtlich keinen
+   zweiten. `:focus-visible` statt `:focus`, sonst blitzt der Ring bei jedem
+   Mausklick auf. Hier bewusst *kein* border-radius: der Ring folgt in heutigen
+   Engines von allein der Form des Elements, und ein Wert an dieser Stelle
+   wuerde die Elemente beim Fokussieren selbst umformen. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* Im violetten Abschlussbanner (.cta-banner, in den Seiten-CSS der drei
+   Landingpages) waere var(--accent) unsichtbar. Der Sonderfall steht hier bei
+   der Regel, die er ueberschreibt, statt dreimal in den Seiten. */
+.cta-banner a:focus-visible,
+.cta-banner button:focus-visible { outline-color: white; }
 
 /* Aurora */
 .aurora {
@@ -137,6 +179,9 @@ a { color: inherit; text-decoration: none; }
 }
 .nav a:hover, .nav button:hover { color: var(--ink); background: var(--surface-2); }
 .nav a.active, .nav button.active { color: var(--ink); background: var(--surface-2); }
+/* Bewusst kein Scale: ein kippender Navigationspunkt in einer 60px-Leiste
+   wirkt unruhig. Eine Stufe dunkler reicht als Druckrueckmeldung. */
+.nav a:active, .nav button:active { color: var(--ink); background: var(--surface-3); }
 /* Trennt im Dashboard die eigenen Abschnitte von den zwei Wegen hinaus auf
    die Gastseite; ohne ihn liest sich „Events" wie ein weiterer Abschnitt. */
 .nav-sep { width: 1px; height: 18px; margin: 0 8px; background: var(--line-2); flex: none; }
@@ -229,9 +274,20 @@ section + section { margin-top: 36px; }
   display: inline-flex; align-items: center; gap: 8px;
   padding: 9px 14px; border-radius: 8px;
   font-size: 13.5px; font-weight: 500; letter-spacing: -0.005em;
-  border: 1px solid transparent; transition: all 0.15s;
+  border: 1px solid transparent;
+  /* Benannte Eigenschaften statt `all`: `all` nimmt jede kuenftige Eigenschaft
+     ungefragt mit und zwingt den Druck auf dieselbe Dauer wie den Hover. Der
+     Druck (transform) darf schneller sein — er soll unter dem Finger liegen,
+     nicht ihm hinterherlaufen. */
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s,
+              color 0.15s, opacity 0.15s, transform 0.1s ease-out;
   white-space: nowrap;
 }
+/* Rueckmeldung auf Pointer-down, nicht erst auf Release: auf dem Telefon gibt
+   es keinen Hover, dort ist das die einzige Bestaetigung zwischen Tippen und
+   Navigation. Gleiche Sprache wie a.card / .tk-stub auf /my-tickets, nur
+   staerker, weil ein Knopf klein ist und eine Karte gross. */
+.btn:not(:disabled):active { transform: scale(0.97); }
 .btn.primary {
   background: var(--accent); color: white;
   box-shadow: 0 1px 0 rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.18), 0 1px 2px oklch(0.40 0.18 var(--hue) / 0.35);
@@ -868,8 +924,34 @@ section + section { margin-top: 36px; }
   .modal, .drawer, .modal-backdrop, .drawer-backdrop { animation: none; }
   .pro-outline { animation: none; box-shadow: 0 0 20px oklch(0.56 0.22 var(--hue) / 0.20), var(--shadow); }
   .btn-shine::after { animation: none; }
+  /* Der Druck bleibt spuerbar, nur nicht mehr als Bewegung. */
+  .btn:not(:disabled):active { transform: none; filter: brightness(0.94); }
   .celebrate-card, .celebrate-emoji { animation: none; }
   .confetti { display: none; }
+}
+
+/* „Transparenz reduzieren" im System. Die durchscheinenden Ebenen sind hier
+   Material und kein Zierrat — sie bleiben an ihrem Platz, lassen aber nichts
+   mehr durch. Die Scrims ueber dem Inhalt behalten mit Absicht einen Rest
+   Durchsicht (sonst verschwindet die Seite dahinter komplett); was faellt, ist
+   der Blur, und die Deckung steigt zum Ausgleich.
+   Wo die Abfrage noch nicht unterstuetzt wird, bleibt alles wie bisher. */
+@media (prefers-reduced-transparency: reduce) {
+  .topbar {
+    background: var(--surface);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .modal-backdrop {
+    background: color-mix(in oklab, var(--ink) 50%, transparent);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .celebrate-backdrop {
+    background: color-mix(in oklab, var(--ink) 48%, transparent);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  /* Der Seiteninhalt hinter dem Anmeldedialog bleibt scharf; die Trennung
+     traegt dort der (deckendere) Schleier von .login-veil. */
+  .auth-scene[data-dimmed="true"] { filter: none; }
 }
 
 @media (max-width: 700px) {
@@ -878,7 +960,9 @@ section + section { margin-top: 36px; }
   .topbar-inner { padding: 0 16px; gap: 10px; }
   .container { padding: 28px 16px 72px; }
   /* Nav scrolls inside itself instead of pushing the topbar past the viewport */
-  .nav { gap: 0; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  /* padding-block schafft Platz fuer den Fokusring: die scrollende Leiste ist
+     ein Clip-Container und wuerde ihn sonst oben und unten abschneiden. */
+  .nav { gap: 0; flex: 1; min-width: 0; padding-block: 4px; overflow-x: auto; scrollbar-width: none; }
   .nav::-webkit-scrollbar { display: none; }
   .nav a, .nav button { padding: 7px 8px; font-size: 12.5px; white-space: nowrap; }
   .topbar-right { gap: 8px; flex-shrink: 0; }

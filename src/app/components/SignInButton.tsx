@@ -6,20 +6,27 @@ import Link from 'next/link';
 import { postLoginDestination } from '@/lib/postLogin';
 
 /**
- * Anmelde-Knopf oben rechts auf der Startseite.
+ * Anmelde-Knopf oben rechts auf den drei Einstiegsseiten: Startseite,
+ * `/sportvereine`, `/clubs`.
  *
  * Vorher stand dort „Event anlegen" und schickte jeden auf das
  * Bewerbungsformular — auch Veranstalter, die laengst ein Konto haben und
  * eigentlich nur in ihr Dashboard wollten. Der Knopf zeigt deshalb, was
  * jeweils dran ist: anmelden, oder weiter ins Dashboard.
  *
+ * Auf den beiden Nischenseiten stand bis 2026-09-10 „Kostenlos starten" —
+ * derselbe Text, dieselbe Farbe und gleichzeitig sichtbar mit dem Hauptknopf
+ * im Hero. Zwei gleich auffaellige Hauptsachen heben sich gegenseitig auf, und
+ * ein Veranstalter mit Konto hatte auf diesen Seiten ueberhaupt keinen Weg
+ * hinein.
+ *
  * Nach erfolgreicher Anmeldung geht es sofort weiter — ins Dashboard, wenn das
  * Konto ein freigeschalteter Veranstalter ist, sonst zu den eigenen Tickets
- * (`postLoginDestination`). Das gilt nur hier auf der Startseite; wer sich auf
- * einer Unterseite anmeldet, bleibt dort.
+ * (`postLoginDestination`). Das gilt nur auf diesen Einstiegsseiten; wer sich
+ * mitten in einem Kauf oder an der Tuer anmeldet, bleibt dort.
  *
- * Eigene Client-Komponente, weil die Startseite ein Server-Component ist und
- * bleiben soll (globale Metadaten, statisch ausgeliefert). Nur dieser Knopf
+ * Eigene Client-Komponente, weil die drei Seiten Server-Components sind und
+ * bleiben sollen (globale Metadaten, statisch ausgeliefert). Nur dieser Knopf
  * braucht die Anmeldung.
  */
 export function SignInButton() {

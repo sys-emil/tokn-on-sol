@@ -324,6 +324,14 @@ export function LoginModal({
           -webkit-backdrop-filter: blur(7px) saturate(115%);
           animation: login-veil .28s ${EASE};
         }
+        /* Ohne Blur muss der Schleier selbst decken, sonst steht der Dialog
+           auf einer scharf lesbaren Seite. */
+        @media (prefers-reduced-transparency: reduce) {
+          .login-veil {
+            background: color-mix(in oklab, oklch(0.16 0.02 280) 72%, transparent);
+            backdrop-filter: none; -webkit-backdrop-filter: none;
+          }
+        }
         .login-card {
           position: relative; width: 400px; max-width: 100%;
           padding: 38px 36px 32px; border-radius: 22px;
@@ -386,7 +394,11 @@ export function LoginModal({
           color: var(--ink-3); font-variant-numeric: tabular-nums; transition: color .2s ease;
         }
         .login-resend:hover:not(:disabled) { color: var(--accent); }
-        .login-resend:disabled { color: var(--ink-4); cursor: default; }
+        /* Nicht --ink-4: das Token traegt jetzt den AA-Wert und liegt damit
+           praktisch auf --ink-3, dem aktiven Zustand dieser Zeile — der
+           Unterschied waere verschwunden. Deaktivierte Bedienelemente sind
+           von der Kontrastregel ausgenommen, hier zaehlt das Zuruecktreten. */
+        .login-resend:disabled { color: var(--ink-3); opacity: 0.55; cursor: default; }
 
         @media (max-width: 480px) {
           .login-scrim { padding: 16px; }

@@ -57,6 +57,11 @@ const CALC_CSS = `
     background: var(--surface-2); color: var(--ink-2);
     border: 1px solid var(--line); border-radius: 8px;
     padding: 9px 10px; font: inherit; font-size: 13px; font-weight: 550;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.1s ease-out;
+  }
+  .fee-calc .payer button:active { transform: scale(0.97); }
+  @media (prefers-reduced-motion: reduce) {
+    .fee-calc .payer button:active { transform: none; filter: brightness(0.94); }
   }
   .fee-calc .payer button.active {
     background: var(--accent-wash); color: var(--accent-ink); border-color: var(--accent);

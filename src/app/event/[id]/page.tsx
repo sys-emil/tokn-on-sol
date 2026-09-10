@@ -131,8 +131,10 @@ const PAGE_CSS = `
   .sc-tablist::-webkit-scrollbar { display: none; }
   .sc-tab {
     padding: 8px 4px; font-size: 26px; font-weight: 620; letter-spacing: -0.03em;
-    /* ink-3, nicht ink-4: die Tableiste ist die Hauptnavigation dieser Seite,
-       und ink-4 auf surface-2 liegt unter dem 3:1-Kontrast fuer grosse Schrift. */
+    /* ink-3, nicht ink-4: die Tableiste ist die Hauptnavigation dieser Seite
+       und soll deutlich lesen. (Der urspruengliche Grund — ink-4 lag unter dem
+       3:1-Kontrast — ist seit der Anhebung des Tokens auf 0.555 weg; die Wahl
+       bleibt trotzdem richtig, ink-4 ist der leiseste Ton der Seite.) */
     color: var(--ink-3); background: none; border: none; cursor: pointer;
     white-space: nowrap; transition: color 0.25s;
   }
