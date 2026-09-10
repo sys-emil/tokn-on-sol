@@ -162,6 +162,14 @@ export function DoorScene({
         `rotate(${d.rot}) scale(${(1 - d.ds * q).toFixed(4)})`;
     };
 
+    // Einmal die Ruhelage schreiben, bevor irgendetwas scrollt. Ohne das
+    // stehen die Geraete auf der CSS-Grundlage — und die ist mit Absicht die
+    // *Endlage*, damit die Szene ohne JavaScript ihr Ergebnis zeigt statt
+    // ihres Anfangs. Sie stuenden also schon uebereinander, und der erste
+    // Frame der ersten Feder setzte sie schlagartig nach aussen, bevor sie
+    // wieder zusammengehen. Genau dieser Sprung war zu sehen.
+    for (const d of devs) paint(d);
+
     // Leicht unterdaempft (Daempfungsgrad ~0.9): kommt in gut einer halben
     // Sekunde an, mit einem Hauch Ueberschwingen statt eines harten Halts.
     const STIFFNESS = 170;
