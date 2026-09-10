@@ -1,7 +1,8 @@
 # Apple-Design-Plan — Landingpages
 
-**Status:** Phasen 1–4 sind umgesetzt (A2, A1, A3 · B1, B2 · D1, D2, D3 ·
-C6, C5, C2) — Stand 2026-09-10. Alles Übrige steht noch aus.
+**Status:** Phasen 1–4 und 6 sind umgesetzt (A2, A1, A3 · B1, B2 ·
+D1, D2, D3 · C6, C5, C2 · C3) — Stand 2026-09-10. Offen sind **Phase 5**
+(die rem-Umstellung, bewusst übersprungen) und **Phase 7** (Entscheidungen).
 **Geltungsbereich:** `/` (`src/app/page.tsx`), `/sportvereine`, `/clubs` und alles,
 was sie rendern — plus die Tokens in `src/app/globals.css`, soweit die drei
 Seiten sie tragen.
@@ -68,7 +69,7 @@ Zusätzlich bei diesem Plan von Hand zu prüfen:
 | ~~**3**~~ | ~~D1, D2, D3~~ | erledigt 2026-09-10 | — |
 | ~~**4**~~ | ~~C6, C5, C2~~ | erledigt 2026-09-10 | — |
 | **5** | B3 (rem-Umstellung) | groß, mechanisch | mittel — eigener Durchgang |
-| **6** | C3 | mittel | gering |
+| ~~**6**~~ | ~~C3~~ | erledigt 2026-09-10 | — |
 | **7** | C1, C4, D4, E | **Entscheidungen, keine Patches** | — |
 
 Phase 7 nicht ohne Rücksprache umsetzen: das sind Haltungsfragen, keine Fehler.
@@ -557,7 +558,7 @@ zwei Auslöser liegen in `.scn` (240vh), nicht in der Bühne, und sind von der
 die Bühne. Auf dem Desktop ändert sich nichts, dort sind `svh`, `dvh` und `vh`
 identisch.
 
-## [ ] C3 — `HeroTicket` ist reine Maus (§2, §1)
+## [x] C3 — `HeroTicket` ist reine Maus (§2, §1) — erledigt 2026-09-10
 
 **Wo:** `HeroTicket.tsx:38` (`onMouseMove`), `:54` (`onMouseLeave`)
 
@@ -588,6 +589,39 @@ Reaktion, sie ersetzt nur die Bewegung.
   Rückkehr übergeben. Heute liefert ein schnelles Wegreißen und ein langsames
   Verlassen dieselbe 700ms-Kurve. Nur machen, wenn ohnehin an der Datei
   gearbeitet wird.
+
+### Umsetzung (2026-09-10)
+
+Alle drei Schritte wie beschrieben. `handleMove` und `tiltTo` sind getrennt,
+weil `pointerdown` dieselbe Rechnung braucht; `beginTilt` kapselt das Abräumen
+der Idle-Animation, dessen Cascade-Begründung unverändert im Code steht.
+
+**`pointerup` federt nur bei Finger und Stift zurück, nicht bei der Maus.** Nach
+einem Mausklick steht der Zeiger weiter auf der Karte — dort beendet erst
+`pointerleave` die Bewegung. Ohne diese Unterscheidung hätte jeder Klick ein
+sichtbares Zucken erzeugt: zurückfedern und vom nächsten `pointermove` sofort
+wieder aufrichten.
+
+**`touch-action: pan-y`** wie vermutet, plus **`user-select: none`** — ein Ziehen
+mit der Maus markierte sonst den Text im Mockup, statt die Karte zu kippen. Die
+Karte ist `aria-hidden` und reine Dekoration, es geht nichts zum Kopieren
+verloren.
+
+**Die optionale §5-Sache ist mitgemacht**, weil die Bedingung („wenn ohnehin an
+der Datei gearbeitet wird") erfüllt war: die Zeigergeschwindigkeit vor dem
+Loslassen verkürzt die Rückkehr von 700ms auf minimal 440ms (gedeckelt bei
+1 px/ms). Der `resumeTimer` folgt jetzt der tatsächlichen Dauer statt einer
+festen 700 — sonst übernähme die Idle-Animation bei einem schnellen Wegreißen zu
+spät. Das ist der am leichtesten wieder herausnehmbare Teil dieses Punktes,
+falls er sich falsch anfühlt.
+
+**Nebenbei geschlossen: das Kippen war nie von `prefers-reduced-motion`
+erfasst.** Die Liste unter „Nicht anfassen" führt die Abdeckung als vollständig,
+aber sie gilt nur für die CSS-Animationen — das zeigergesteuerte Kippen liegt in
+JS und lief weiter. Bisher traf das nur Maus-Nutzer, mit dem Touch-Pfad träfe es
+jeden. Die Handler steigen jetzt bei aktiver Einstellung aus; `handleLeave`
+**nicht**, sondern es holt die Karte ohne Feder zurück, damit sie nicht gekippt
+stehen bleibt, wenn die Einstellung mitten in einer Berührung umgelegt wird.
 
 ## [ ] C4 — Bewegungsbudget (§14, §16 Zurückhaltung) — **Entscheidung**
 

@@ -11,11 +11,20 @@ import { TodayStamp } from '@/app/components/TodayStamp';
  * federt die Karte in ihre Ruhelage zurück. Das Datum kommt weiterhin aus
  * <TodayStamp>, damit im Mockup nicht irgendwann ein Datum von gestern steht.
  *
+ * **Zeiger, nicht Maus** (seit 2026-09-10). Vorher hingen die Handler an
+ * `mousemove`/`mouseleave`, und damit passierte auf dem Telefon bei einer
+ * Berührung *gar nichts* — ausgerechnet dort, wo der Großteil des kalten
+ * Traffics ankommt. Auf Touch gibt es kein Hover: `pointermove` feuert dort
+ * erst während einer Berührung, der Ablauf ist `down → move → up` statt
+ * `move → leave`. Deshalb kippt `pointerdown` die Karte sofort in Richtung
+ * Finger — das ist die Rückmeldung auf den Druck — und `pointerup` /
+ * `pointercancel` lassen sie zurückfedern.
+ *
  * Ohne Zeiger kippt die Karte von selbst weiter (`heroTicketIdle`) — dieselbe
  * Bewegung wie unter der Maus, nur langsamer und an Ort und Stelle. Damit wirkt
- * der Hero nicht wie ein Screenshot, und es ist zu sehen, dass die Karte auf
- * Berührung reagiert. Auf Touch-Geräten, wo es kein Hover gibt, ist das die
- * einzige Bewegung überhaupt.
+ * der Hero nicht wie ein Screenshot. Sie ersetzt aber keine Reaktion, sondern
+ * nur die Bewegung; die Reaktion kommt seit der Umstellung von den
+ * Zeiger-Handlern.
  */
 
 const REST_TRANSFORM = 'rotateY(-8deg) rotateX(4deg) rotate(1.5deg)';
@@ -25,37 +34,107 @@ export function HeroTicket() {
 
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => { if (resumeTimer.current) clearTimeout(resumeTimer.current); }, []);
+  // Letzte Zeigerposition und -zeit, nur fuer die Geschwindigkeit beim
+  // Loslassen. performance.now() statt ev.timeStamp, damit die Rechnung nicht
+  // an der Zeitbasis des Events haengt.
+  const last = useRef<{ x: number; y: number; t: number } | null>(null);
+  const speed = useRef(0);
 
-  function handleMove(ev: React.MouseEvent<HTMLDivElement>) {
-    const el = ref.current;
-    if (!el) return;
+  // Das Kippen liegt in JS und wurde deshalb von der CSS-Regel, die die
+  // Idle-Animation abschaltet, nie erfasst — eine Luecke, die mit dem
+  // Touch-Pfad groesser wird: bisher traf sie nur Maus-Nutzer, jetzt jeden.
+  // Eine MediaQueryList reicht fuer die Lebensdauer der Komponente, .matches
+  // ist immer aktuell.
+  const reduceMotion = useRef<MediaQueryList | null>(null);
+
+  useEffect(() => {
+    reduceMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)');
+    return () => { if (resumeTimer.current) clearTimeout(resumeTimer.current); };
+  }, []);
+
+  const motionOff = () => reduceMotion.current?.matches === true;
+
+  /** Die Idle-Animation weichen lassen und die Karte uebernehmen. */
+  function beginTilt(el: HTMLDivElement) {
     // Die Idle-Animation muss weichen, nicht nur pausieren: eine laufende
     // CSS-Animation schlaegt im Cascade jede Inline-Transformation, die
     // Karte wuerde dem Zeiger sonst gar nicht folgen.
     if (resumeTimer.current) { clearTimeout(resumeTimer.current); resumeTimer.current = null; }
     el.classList.add('is-tilting');
+  }
+
+  /** Kippt die Karte in Richtung eines Punktes im Fenster. */
+  function tiltTo(el: HTMLDivElement, clientX: number, clientY: number) {
     const r = el.getBoundingClientRect();
-    const dx = (ev.clientX - r.left) / r.width - 0.5;
-    const dy = (ev.clientY - r.top) / r.height - 0.5;
+    const dx = (clientX - r.left) / r.width - 0.5;
+    const dy = (clientY - r.top) / r.height - 0.5;
     el.style.transition = 'transform 120ms cubic-bezier(.22,.61,.36,1)';
     el.style.transform =
       `rotateY(${-8 + dx * 22}deg) rotateX(${4 - dy * 18}deg) rotate(1.5deg) translateZ(14px)`;
   }
 
+  function handleDown(ev: React.PointerEvent<HTMLDivElement>) {
+    const el = ref.current;
+    if (!el || motionOff()) return;
+    // Mit Capture folgt die Karte auch, wenn der Finger ueber ihren Rand
+    // hinauswandert — und der Browser liefert uns danach zuverlaessig ein
+    // pointerup oder pointercancel, worauf die Rueckkehr haengt.
+    try { el.setPointerCapture(ev.pointerId); } catch { /* aeltere Engines */ }
+    beginTilt(el);
+    last.current = { x: ev.clientX, y: ev.clientY, t: performance.now() };
+    speed.current = 0;
+    tiltTo(el, ev.clientX, ev.clientY);
+  }
+
+  function handleMove(ev: React.PointerEvent<HTMLDivElement>) {
+    const el = ref.current;
+    if (!el || motionOff()) return;
+    const now = performance.now();
+    const prev = last.current;
+    if (prev && now > prev.t) {
+      speed.current = Math.hypot(ev.clientX - prev.x, ev.clientY - prev.y) / (now - prev.t);
+    }
+    last.current = { x: ev.clientX, y: ev.clientY, t: now };
+    beginTilt(el);
+    tiltTo(el, ev.clientX, ev.clientY);
+  }
+
   function handleLeave() {
     const el = ref.current;
-    if (!el) return;
-    el.style.transition = 'transform 700ms cubic-bezier(.16,1,.3,1)';
+    // Nur zurueckholen, was ueberhaupt gekippt ist. Fangt nebenbei den
+    // Touch-Ablauf ab, bei dem nach pointerup noch ein pointerleave folgt.
+    if (!el || !el.classList.contains('is-tilting')) return;
+    // Die Zeigergeschwindigkeit geht in die Rueckkehr ein: ein schnelles
+    // Wegreissen und ein langsames Verlassen bekamen vorher dieselbe traege
+    // 700ms-Kurve, und im Moment des Loslassens brach die Bewegung sichtbar ab.
+    // Ueber 1 px/ms (etwa „zuegig") wird nicht weiter verkuerzt. Wurde die
+    // Bewegung waehrend einer Beruehrung abgeschaltet, geht es ohne Feder
+    // zurueck — sonst bliebe die Karte gekippt stehen.
+    const ms = motionOff() ? 0 : Math.round(700 - Math.min(speed.current, 1) * 260);
+    el.style.transition = `transform ${ms}ms cubic-bezier(.16,1,.3,1)`;
     el.style.transform = REST_TRANSFORM;
+    last.current = null;
+    speed.current = 0;
     // Erst zurueckfedern lassen, dann die Drift wieder uebernehmen. Sofort
-    // wieder anzuschalten wuerde die 700ms-Feder ueberspringen, weil die
-    // Animation ab ihrem ersten Frame gewinnt.
+    // wieder anzuschalten wuerde die Feder ueberspringen, weil die Animation
+    // ab ihrem ersten Frame gewinnt. Der Timer folgt deshalb der tatsaechlichen
+    // Dauer, nicht mehr einer festen 700.
     if (resumeTimer.current) clearTimeout(resumeTimer.current);
     resumeTimer.current = setTimeout(() => {
       ref.current?.classList.remove('is-tilting');
       resumeTimer.current = null;
-    }, 700);
+    }, ms);
+  }
+
+  function handleUp(ev: React.PointerEvent<HTMLDivElement>) {
+    const el = ref.current;
+    if (!el) return;
+    if (el.hasPointerCapture?.(ev.pointerId)) el.releasePointerCapture(ev.pointerId);
+    // Bei der Maus steht der Zeiger nach dem Loslassen weiter auf der Karte —
+    // dort beendet erst pointerleave die Kippbewegung, sonst federte die Karte
+    // bei jedem Klick kurz zurueck und wuerde vom naechsten pointermove sofort
+    // wieder aufgerichtet. Ein Finger dagegen ist mit dem Loslassen weg.
+    if (ev.pointerType !== 'mouse') handleLeave();
   }
 
   return (
@@ -64,8 +143,11 @@ export function HeroTicket() {
       <div
         ref={ref}
         className="hero-v2-ticket"
-        onMouseMove={handleMove}
-        onMouseLeave={handleLeave}
+        onPointerDown={handleDown}
+        onPointerMove={handleMove}
+        onPointerUp={handleUp}
+        onPointerCancel={handleUp}
+        onPointerLeave={handleLeave}
         style={{
           position: 'relative',
           flex: 'none',
@@ -195,6 +277,18 @@ const HERO_TICKET_CSS = `
   .hero-v2-ticket {
     background: rgba(255,255,255,.72);
     border: 1px solid rgba(255,255,255,.85);
+
+    /* pan-y: ein Ziehen quer ueber die Karte kippt sie, ein senkrechtes
+       Ziehen scrollt die Seite. Ohne diese Zeile wuerde ein Wisch auf dem
+       groessten Element ueber der Falz das Scrollen abwuergen — und der
+       Browser bricht unsere Geste sauber mit pointercancel ab, worauf
+       handleUp die Karte zurueckfedern laesst.
+
+       user-select: none, weil ein Ziehen mit der Maus sonst den Text im
+       Mockup markiert statt die Karte zu kippen. Die Karte ist aria-hidden
+       und reine Dekoration; es geht dort nichts zum Kopieren verloren. */
+    touch-action: pan-y;
+    -webkit-user-select: none; user-select: none;
   }
   /* Die Karte liegt ueber Aurora, Glow und dem Hero-Verlaufsfeld — genau der
      Stapel „helle durchscheinende Flaeche auf heller durchscheinender
