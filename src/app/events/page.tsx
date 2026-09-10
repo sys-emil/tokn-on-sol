@@ -13,6 +13,8 @@ import { eventCardView } from '@/lib/eventCardView';
 import type { CardLabel } from '@/lib/eventCardView';
 import type { Lang } from '@/lib/i18n';
 import { SiteNav } from '@/app/components/SiteNav';
+import { JsonLd } from '@/app/components/JsonLd';
+import { breadcrumbLd } from '@/lib/structuredData';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +23,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t('events.metaTitle'),
     description: t('events.metaDescription'),
+    // Die Filter (?q=, ?stadt=, ?veranstalter=) sind Ansichten derselben
+    // Liste, keine eigenen Seiten — sonst steht /events in zig Varianten im
+    // Index und keine davon traegt das Gewicht aller anderen.
+    alternates: { canonical: '/events' },
     openGraph: { title: t('events.metaTitle'), description: t('events.metaDescription') },
   };
 }
@@ -499,6 +505,7 @@ export default async function EventsPage({ searchParams }: {
 
   return (
     <>
+      <JsonLd data={breadcrumbLd([{ name: 'Events', path: '/events' }])} />
       <style>{PAGE_CSS}</style>
       <div className="app ev-page">
 

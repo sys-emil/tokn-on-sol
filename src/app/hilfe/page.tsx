@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LegalPageShell } from '@/app/components/LegalPageShell';
+import { JsonLd } from '@/app/components/JsonLd';
+import { breadcrumbLd } from '@/lib/structuredData';
 
 export const metadata: Metadata = {
   title: 'Hilfe & Support · Passly',
+  alternates: { canonical: '/hilfe' },
   description: 'Antworten auf häufige Fragen zu Tickets, Anmeldung und Rückerstattungen: der Draht zum Passly-Support.',
 };
 
@@ -11,6 +14,8 @@ const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@getpassl
 
 export default function HilfePage() {
   return (
+    <>
+      <JsonLd data={breadcrumbLd([{ name: 'Hilfe & Support', path: '/hilfe' }])} />
     <LegalPageShell title="Hilfe & Support" stand="7. Juli 2026">
       <p>
         Die häufigsten Fragen sind hier beantwortet. Für alles andere erreichst du uns unter{' '}
@@ -71,5 +76,6 @@ export default function HilfePage() {
         <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
       </p>
     </LegalPageShell>
+    </>
   );
 }

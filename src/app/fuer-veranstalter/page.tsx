@@ -4,9 +4,12 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { SiteNav } from '@/app/components/SiteNav';
+import { JsonLd } from '@/app/components/JsonLd';
+import { breadcrumbLd } from '@/lib/structuredData';
 
 export const metadata: Metadata = {
   title: 'Für Veranstalter · Passly',
+  alternates: { canonical: '/fuer-veranstalter' },
   description:
     'Event anlegen, fälschungssichere Tickets verkaufen, mit dem Handy einlassen, ohne Fixkosten. Du entscheidest, wer die Servicegebühr zahlt. So funktioniert Passly für Veranstalter.',
 };
@@ -264,6 +267,7 @@ const PAGE_CSS = `
 export default function FuerVeranstalterPage() {
   return (
     <>
+      <JsonLd data={breadcrumbLd([{ name: 'Für Veranstalter', path: '/fuer-veranstalter' }])} />
       <style>{PAGE_CSS}</style>
       <div className="app">
 

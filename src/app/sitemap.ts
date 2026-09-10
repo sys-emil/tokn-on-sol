@@ -9,8 +9,10 @@ export const dynamic = 'force-dynamic';
 const siteUrl = process.env.APP_URL
   ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
-// /become-organizer is deliberately absent: it's auth-gated (robots.ts
-// disallows it); listing it in the sitemap would contradict robots.txt.
+// /become-organizer is deliberately absent: it's auth-gated and carries
+// `robots: noindex` in its own layout.tsx (robots.ts leaves it crawlable, like
+// every other auth-gated surface). Listing a noindex page in the sitemap is a
+// contradiction Google reports as an error.
 const STATIC_ROUTES = ['/', '/events', '/fuer-veranstalter', '/sportvereine', '/clubs', '/preise', '/so-funktionierts', '/hilfe'];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

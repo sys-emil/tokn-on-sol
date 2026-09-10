@@ -5,9 +5,12 @@ import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { SiteNav } from '@/app/components/SiteNav';
+import { JsonLd } from '@/app/components/JsonLd';
+import { breadcrumbLd } from '@/lib/structuredData';
 
 export const metadata: Metadata = {
   title: 'So funktioniert’s · Passly',
+  alternates: { canonical: '/so-funktionierts' },
   description:
     'Ticket kaufen, per E-Mail anmelden, QR-Code am Einlass zeigen, so einfach funktioniert Passly für Gäste.',
 };
@@ -151,6 +154,7 @@ const PAGE_CSS = `
 export default function SoFunktioniertsPage() {
   return (
     <>
+      <JsonLd data={breadcrumbLd([{ name: 'So funktioniert\'s', path: '/so-funktionierts' }])} />
       <style>{PAGE_CSS}</style>
       <div className="app">
 

@@ -12,6 +12,9 @@ import { DashboardMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseM
 import { DoorScene } from '@/app/components/showcase/DoorScene';
 import { LiveEvents } from '@/app/components/showcase/LiveEvents';
 import { NicheSwitch } from '@/app/components/showcase/NicheSwitch';
+import { JsonLd } from '@/app/components/JsonLd';
+import { organizationLd, webSiteLd } from '@/lib/structuredData';
+import type { Metadata } from 'next';
 
 /*
  * Startseite — richtet sich an Veranstalter, die noch nie online verkauft
@@ -285,9 +288,22 @@ const PAGE_CSS = `
   .footer .links a:active { opacity: 0.7; }
 `;
 
+export const metadata: Metadata = {
+  // Titel und Description erbt die Startseite vom Root-Layout. Das Canonical
+  // kann dort nicht stehen: Next vererbt es an jede Unterseite, die dann "/"
+  // als ihre eigene kanonische Adresse ausgeben wuerde.
+  alternates: { canonical: '/' },
+};
+
 export default function Home() {
   return (
     <>
+      {/*
+        Site-Name und Organisation gehoeren laut Google auf die Startseite,
+        nicht ins Root-Layout — das laeuft auch ueber Dashboard, Tuer und Admin.
+      */}
+      <JsonLd data={organizationLd()} />
+      <JsonLd data={webSiteLd()} />
       <style>{PAGE_CSS}</style>
       <div className="app">
 

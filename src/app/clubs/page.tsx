@@ -10,6 +10,8 @@ import { ShopCard, SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard
 import { DashboardMock, ReturnMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
 import { DoorScene } from '@/app/components/showcase/DoorScene';
 import { NICHE_CLUB } from '@/app/components/showcase/niches';
+import { JsonLd } from '@/app/components/JsonLd';
+import { breadcrumbLd } from '@/lib/structuredData';
 
 /*
  * Nischenseite Club — die zweite der drei Türen (Sport · Clubs · Kultur) in
@@ -228,11 +230,9 @@ export default function ClubsPage() {
 
   return (
     <>
+      <JsonLd data={breadcrumbLd([{ name: 'Für Clubs', path: '/clubs' }])} />
       <style>{PAGE_CSS + SHOP_CARD_CSS + SHOWCASE_CSS}</style>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
-      />
+      <JsonLd data={faqLd} />
       <div className="app">
 
         <div className="topbar">

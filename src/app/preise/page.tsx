@@ -7,6 +7,8 @@ import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
 import { MIN_SERVICE_FEE_CENTS, SERVICE_FEE_BANDS } from '@/lib/fees';
 import { SiteNav } from '@/app/components/SiteNav';
+import { JsonLd } from '@/app/components/JsonLd';
+import { breadcrumbLd } from '@/lib/structuredData';
 
 /*
  * Canonical pricing page (since 2026-07-30). /fuer-veranstalter links here
@@ -77,6 +79,7 @@ const PRO_FEATURES = [
 
 export const metadata: Metadata = {
   title: 'Preise · Passly',
+  alternates: { canonical: '/preise' },
   description:
     'Passly kostet Veranstalter keine Grundgebühr: 7,9 % Servicegebühr pro Ticket (mindestens 0,99 €, sinkend bei teureren Tickets), und du entscheidest je Event, ob sie der Gast trägt, ihr sie teilt oder du sie übernimmst. Pro-Funktionen optional.',
 };
@@ -263,6 +266,7 @@ const PAGE_CSS = `
 export default function PreisePage() {
   return (
     <>
+      <JsonLd data={breadcrumbLd([{ name: 'Preise', path: '/preise' }])} />
       <style>{PAGE_CSS}</style>
       <div className="app">
 

@@ -10,6 +10,8 @@ import { ShopCard, SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard
 import { DashboardMock, SeasonPassMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
 import { DoorScene } from '@/app/components/showcase/DoorScene';
 import { NICHE_SPORT } from '@/app/components/showcase/niches';
+import { JsonLd } from '@/app/components/JsonLd';
+import { breadcrumbLd } from '@/lib/structuredData';
 
 /*
  * Nischenseite Sportverein — die erste der drei Türen (Sport · Clubs ·
@@ -230,11 +232,9 @@ export default function SportvereinePage() {
 
   return (
     <>
+      <JsonLd data={breadcrumbLd([{ name: 'Für Sportvereine', path: '/sportvereine' }])} />
       <style>{PAGE_CSS + SHOP_CARD_CSS + SHOWCASE_CSS}</style>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
-      />
+      <JsonLd data={faqLd} />
       <div className="app">
 
         <div className="topbar">
