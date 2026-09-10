@@ -8,7 +8,8 @@ Package name is `tokn-on-sol` (legacy). The product is branded **Passly** throug
 
 ## Verification workflow
 
-Don't run the dev server or build. Verify changes with:
+Static checks are the default and are always enough on their own for a change
+that type-checks and has tests:
 
 ```bash
 npx tsc --noEmit   # type-check
@@ -21,6 +22,97 @@ The user pushes to git and checks Vercel deploys manually.
 ```bash
 npm run create-tree  # Deploy a Merkle tree to whichever network NEXT_PUBLIC_HELIUS_RPC_URL points at
 ```
+
+**Don't run `npm run build`.** The production build is the single biggest memory
+spike in this repo and has no local audience — Vercel builds every push anyway.
+
+### The dev server is allowed, but never unwatched
+
+`npm run dev` is fine **when it runs in the background and something is watching
+its resource use.** It has repeatedly pulled enough RAM and CPU to freeze or
+crash the whole MacBook, and the reason was always the same: it kept running
+while nobody was looking at it. `package.json` already caps the Node heap
+(`--max-old-space-size=2048`), but that bounds only the JS heap of the parent —
+not RSS, and not the Turbopack workers. So the watchdog is the rule, not the
+cap.
+
+Four things, in this order:
+
+1. **Start it in the background**, never in the foreground (a foreground dev
+   server blocks the session, so nothing can react while it grows):
+   `npm run dev` via Bash with `run_in_background: true`, output to a log.
+2. **Arm the watchdog before opening a single page**, in the same turn. A
+   `Monitor` poll loop that samples the process tree and only speaks when a
+   threshold is crossed:
+
+   ```bash
+   while true; do
+     ps -Ao rss=,%cpu=,command= | awk '/[n]ext dev|[n]ext-server|[t]urbopack/ {r+=$1; c+=$2}
+       END {mb=int(r/1024);
+            if (mb>2500 || c>200) printf "dev-server: %d MB RSS, %d%% CPU\n", mb, c;
+            if (mb>4000) print "OVER-LIMIT: killing dev server";}'
+     ps -Ao rss=,command= | awk '/[n]ext dev|[n]ext-server|[t]urbopack/ {r+=$1}
+       END {if (r/1024>4000) exit 1}' || pkill -f "[n]ext dev|[n]ext-server|[t]urbopack"
+     sleep 20
+   done
+   ```
+
+   The bracket trick (`[n]ext`) is load-bearing twice over, on **every**
+   alternative of both patterns. In the sampler it keeps `awk` from measuring
+   its own command line, which contains the patterns verbatim. In the `pkill` it
+   keeps the watchdog from killing *itself* for the same reason — `pkill -f`
+   matches full command lines, and the watchdog's own contains the kill pattern.
+   Both take an ERE, so the alternation works in `pkill` too; it needs all three
+   names because `npm run dev` spawns `next dev`, which spawns the workers, and
+   killing only the parent leaves them running. Run one dev server at a time;
+   the pattern doesn't distinguish projects.
+3. **Thresholds**: report at 2.5 GB RSS or 200 % CPU, hard-kill at 4 GB. The
+   kill belongs *in the watchdog*, not in a plan to react to a notification —
+   by the time a frozen machine stops rendering, nothing can react any more.
+4. **Stop it as soon as the thing you wanted to see is seen** (`pkill -f "next
+   dev"`, and `TaskStop` the watchdog). A dev server left running across turns
+   is the exact failure this rule exists for.
+
+### What actually works locally
+
+`.env.local` has Solana (Helius, operator key, Merkle trees) and
+`WALLET_MASTER_SEED`. It has **no Stripe keys at all, and the three Supabase
+variables are present but empty** — `.env` doesn't fill them either. That is
+not a gap to fix before starting the dev server; it decides what the dev server
+can show you:
+
+- **Nothing renders until you fake the two public Supabase vars.** `/` returns
+  200, then dies on hydration: `AuthProvider` (root layout, so *every* page)
+  calls `authClient()`, which throws on the empty keys, and React unmounts the
+  tree into "This page couldn't load". Verified 2026-09-10. Start the server
+  with the values in the shell instead — Next does not let `.env.local`
+  override an existing `process.env` entry, so **no file is touched**:
+
+  ```bash
+  NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:54321" \
+  NEXT_PUBLIC_SUPABASE_ANON_KEY="dummy-anon-key-nur-fuer-lokale-ui" npm run dev
+  ```
+
+  The dead local port is deliberate: auth calls fail fast against nothing,
+  and no request leaves the machine. Don't write these into `.env.local` — a
+  dummy key sitting in the real env file reads like a working configuration.
+- **Then renders**: the marketing surfaces, which touch no database — `/`,
+  `/sportvereine`, `/clubs`, `/preise`, `/hilfe`, the legal pages. That is where
+  the showcase, the door scene and the fee calculator live, so most design work
+  is verifiable locally.
+- **Still 500s**: anything importing `@/lib/supabase` server-side.
+  `supabasePublic` is built at module scope and `createClient("")` throws on
+  import — so `/events`, `/shop/[id]`, the dashboard, the doorman and every
+  `/api/*` route that reads the DB fail immediately. `/api/organizer/billing/price`
+  500s the same way on the missing Stripe key, which is the "1 Issue" the dev
+  overlay shows on `/`. Don't debug any of it; it's the missing key, not the code.
+- **Degrades on purpose**: `LiveEvents` on `/` imports `supabaseAdmin` lazily
+  inside a `try`/`catch` and returns `null` when it throws, so the landing page
+  renders without the live-events block. `ProPrice` falls back to its
+  hardcoded 29 € when `/api/organizer/billing/price` fails.
+- **Impossible locally**: creating events, checkout, payments, webhooks, minting
+  against real rows, mail. Verify those by reading the code and the tests, or on
+  a Vercel deploy — never by trying to make them run here.
 
 ## Architecture
 
