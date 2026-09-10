@@ -12,7 +12,9 @@
  * Die Kaufseite ist bewusst nicht hier, sondern in
  * `eventSurfaces/ShopCard` — die teilt sich die Startseite mit der
  * Live-Vorschau im Event-Editor. Die zwei Geräte der Tür-Szene liegen in
- * `DoorScene`, weil sie ihre eigene Scroll-Steuerung mitbringen.
+ * `DoorScene`, das Dashboard-Bild in `DashboardMock` — beide, weil sie ihre
+ * eigene Scroll-Steuerung mitbringen und damit Client-Komponenten sind. Das
+ * CSS aller vier steht trotzdem hier unten beisammen.
  */
 
 /* ── Kapitel „Deine Zahlen“ ───────────────────────────────────────────
@@ -23,80 +25,13 @@
    zeigen dieselbe Fläche mit ihrem eigenen Abend. Voreingestellt ist der
    Zustand der Startseite. Die Auslastung wird aus verkauft/Kapazität
    gerechnet, damit Balken und Zahlen gar nicht erst auseinanderlaufen
-   können. */
-export interface DashboardMockProps {
-  kicker?: string;
-  title?: string;
-  sold?: number;
-  capacity?: number;
-  redeemed?: number;
-  /** Fertig formatiert, z. B. „1.044 €“. */
-  revenueLabel?: string;
-}
+   können.
 
-export function DashboardMock({
-  kicker = 'Freitag, 5. September',
-  title = 'Die beste Nacht des Jahres',
-  sold = 87,
-  capacity = 120,
-  redeemed = 79,
-  revenueLabel = '1.044 €',
-}: DashboardMockProps = {}) {
-  const occupancy = capacity > 0 ? Math.round((sold / capacity) * 100) : 0;
-
-  return (
-    <div className="dbm">
-      <div className="dbm-head">
-        <div>
-          <div className="dbm-kicker">{kicker}</div>
-          <div className="dbm-title">{title}</div>
-        </div>
-        <span className="chip ok"><span className="d" />Läuft</span>
-      </div>
-
-      <div className="dbm-kpis">
-        <div className="dbm-kpi">
-          <div className="l">Verkauft</div>
-          <div className="v">{sold}<span className="of"> / {capacity}</span></div>
-        </div>
-        <div className="dbm-kpi">
-          <div className="l">Eingelöst</div>
-          <div className="v">{redeemed}</div>
-        </div>
-        <div className="dbm-kpi">
-          <div className="l">Einnahmen</div>
-          <div className="v">{revenueLabel}</div>
-        </div>
-      </div>
-
-      <div className="dbm-bar">
-        <div className="dbm-barhead">
-          <span>Auslastung</span>
-          <span className="mono">{occupancy} %</span>
-        </div>
-        <div className="progress"><span style={{ width: `${occupancy}%` }} /></div>
-      </div>
-
-      <div className="dbm-rows">
-        <div className="dbm-row">
-          <span className="dbm-av">MK</span>
-          <span className="dbm-who">m•••@example.de</span>
-          <span className="chip ok"><span className="d" />Eingelöst</span>
-        </div>
-        <div className="dbm-row">
-          <span className="dbm-av">JS</span>
-          <span className="dbm-who">j•••@example.de</span>
-          <span className="chip ok"><span className="d" />Eingelöst</span>
-        </div>
-        <div className="dbm-row">
-          <span className="dbm-av">AB</span>
-          <span className="dbm-who">a•••@example.de</span>
-          <span className="chip"><span className="d" />Offen</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+   Die Fläche läuft beim Hereinscrollen einmal ein und liegt deshalb in einer
+   eigenen Client-Datei; hier steht nur die Weiterleitung, damit die drei
+   Seiten sie weiter von hier beziehen. */
+export { DashboardMock } from './DashboardMock';
+export type { DashboardMockProps } from './DashboardMock';
 
 /* ── Kapitel „Deine Dauerkarte“ ───────────────────────────────────────
    Nachbau der Verkaufsseite /pass/[id] und der Terminliste, die der Gast auf
@@ -339,6 +274,28 @@ export const SHOWCASE_CSS = `
   }
   .dbm-barhead .mono { font-family: var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
   .dbm-rows { padding: 6px 20px 16px; display: flex; flex-direction: column; }
+  /* Der Beschnitt sitzt bewusst hier drin und nicht auf .dbm-rows: dessen
+     Innenabstand gehört zum Beschnittbereich, eine hereingleitende Zeile
+     waere die letzten 6px darin schon zu sehen. So beginnt der Schnitt exakt
+     an der Oberkante der ersten Zeile — die Zeile kommt hinter dem
+     Auslastungsblock hervor. Ohne feste Hoehe: der Stapel ist immer
+     vollstaendig da und wird nur verschoben, die Karte bleibt gleich hoch. */
+  .dbm-rows-clip { overflow: hidden; }
+  .dbm-rows-list {
+    display: flex; flex-direction: column;
+    transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .dbm-row { transition: opacity 450ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .dbm-progress > span { transform-origin: left center; will-change: transform; }
+  /* Nur fuer Vorlesegeraete: der Endwert, waehrend daneben die Ziffern noch
+     laufen. Ohne Platzbedarf, deshalb absolut und weggeschnitten. */
+  .dbm-sr {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dbm-rows-list, .dbm-row { transition: none; }
+  }
   .dbm-row {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 12.5px;
