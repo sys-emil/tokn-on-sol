@@ -11,8 +11,10 @@ import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { badgeDisplay, BADGE_META, type BadgeType } from '@/lib/badgeMeta';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SiteNav } from '@/app/components/SiteNav';
+import { useDialogChrome } from '@/app/components/useDialogChrome';
+import { useStackMotion, useReducedMotion, type CardTarget } from './stackMotion';
 
 const PAGE_CSS = `
   /* ── Kopfbereich ─────────────────────────────────────────── */
@@ -20,35 +22,38 @@ const PAGE_CSS = `
     display: flex; align-items: flex-end; justify-content: space-between;
     gap: 24px; padding: 26px 0 22px; flex-wrap: wrap;
   }
-  .tk-title { font-size: 38px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; }
+  .tk-title { font-size: 2.375rem; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; }
   .tk-subline { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
   .tk-subline .sep { width: 1px; height: 12px; background: var(--line-2); }
 
   /* ── Brieftaschen-Stapel ─────────────────────────────────── */
   .tk-lane { display: grid; grid-template-columns: minmax(0, 1fr) 372px; gap: 36px; align-items: start; }
   .tk-lane-label {
-    font: 600 11px/1 var(--mono); letter-spacing: 0.1em;
+    font: 600 0.6875rem/1 var(--mono); letter-spacing: 0.1em;
     text-transform: uppercase; color: var(--ink-3);
   }
   .tk-stackarea { position: relative; transition: height 0.34s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  /* Lage, Neigung und Stapelordnung schreibt stackMotion.ts direkt auf den
+     Knoten — hier steht deshalb weder top/left noch eine Transition darauf.
+     Beides zusammen war der Grund, warum sich der Faecher weder greifen noch
+     umlenken liess und pro Bild und Karte einen Layout-Durchgang kostete.
+     Der Druck reist als --press mit, damit er sich in die Transformation des
+     Laufs einreihen kann, statt sie zu ersetzen. */
   .tk-wcard {
-    position: absolute; left: 0;
+    position: absolute; top: 0; left: 0;
     display: flex; flex-direction: column; align-items: stretch;
     background: var(--surface); border: 1px solid var(--line);
-    border-radius: 14px; overflow: hidden; text-align: left; padding: 0; cursor: pointer;
-    transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
-                top 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
-                left 0.34s cubic-bezier(0.2, 0.8, 0.2, 1),
-                box-shadow 0.2s;
+    border-radius: 14px; overflow: hidden; text-align: left; padding: 0; cursor: grab;
+    transform-origin: bottom center;
+    transition: box-shadow 0.2s;
+    /* Senkrecht scrollt die Seite, waagerecht gehoert die Geste der Karte. */
+    touch-action: pan-y;
+    will-change: transform;
+    -webkit-user-select: none; user-select: none;
   }
   .tk-wcard:hover { box-shadow: 0 14px 40px rgba(17, 20, 45, 0.16); }
-  /* Gefaechert steht die Karte schraeg; der Druck kommt als zweite
-     Transformation dazu, statt die Neigung zu ersetzen. */
-  .tk-wcard { transform: rotate(var(--tilt, 0deg)); }
-  .tk-wcard:active {
-    transform: rotate(var(--tilt, 0deg)) scale(0.965);
-    transition-duration: 0.08s;
-  }
+  .tk-wcard.is-front:active { cursor: grabbing; }
+  .tk-wcard:active { --press: 0.965; }
   .tk-wcard-head {
     display: flex; align-items: center; gap: 11px; padding: 0 14px; height: 62px;
     flex: none; border-bottom: 1px solid var(--line); background: var(--surface);
@@ -58,19 +63,19 @@ const PAGE_CSS = `
     border-radius: 8px; overflow: hidden; text-align: center;
   }
   .tk-datechip .m {
-    font-family: var(--mono); font-size: 8.5px; font-weight: 600; letter-spacing: 0.12em;
+    font-family: var(--mono); font-size: 0.5938rem; font-weight: 600; letter-spacing: 0.1em;
     background: var(--accent); color: #fff; padding: 3px 0;
   }
   .tk-datechip .d {
-    font-size: 15px; font-weight: 600; padding: 2px 0 3px;
+    font-size: 0.9375rem; font-weight: 600; padding: 2px 0 3px;
     letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
   }
   .tk-wcard-title {
-    font-size: 13.5px; font-weight: 600; letter-spacing: -0.015em;
+    font-size: 0.8438rem; font-weight: 600; letter-spacing: -0.015em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .tk-wcard-venue {
-    font-size: 11.5px; color: var(--ink-3); white-space: nowrap;
+    font-size: 0.7188rem; color: var(--ink-3); white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis; margin-top: 2px;
   }
   .tk-cover {
@@ -78,17 +83,17 @@ const PAGE_CSS = `
     background-size: cover; background-position: center;
   }
   .tk-cover span {
-    font-family: var(--mono); font-size: 10px; letter-spacing: 0.24em;
+    font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.24em;
     color: rgba(255, 255, 255, 0.86); text-transform: uppercase;
     padding: 0 12px; text-align: center; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis; max-width: 100%;
   }
   .tk-wcard-facts { padding: 12px 14px 0; display: flex; gap: 18px; }
   .tk-fact-k {
-    font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+    font-size: 0.625rem; letter-spacing: 0.06em; text-transform: uppercase;
     color: var(--ink-4); font-weight: 600;
   }
-  .tk-fact-v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .tk-fact-v { font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
   .tk-perf { position: absolute; left: 0; right: 0; bottom: 52px; border-top: 1px dashed var(--line-2); }
   .tk-notch {
     position: absolute; width: 16px; height: 16px; border-radius: 50%;
@@ -167,23 +172,23 @@ const PAGE_CSS = `
     flex: 1; min-width: 0; padding: 16px 18px; color: #fff;
     background-size: cover; background-position: center;
   }
-  .tk-motif-kicker { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.2em; opacity: 0.82; }
+  .tk-motif-kicker { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.16em; opacity: 0.92; }
   .tk-motif-vip {
-    font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em;
+    font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.14em;
     padding: 2px 7px; border-radius: 5px;
     background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.34);
   }
   .tk-motif-title {
-    font-size: 18px; font-weight: 600; letter-spacing: -0.025em;
+    font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em;
     line-height: 1.2; margin-top: 22px; text-wrap: pretty;
   }
-  .tk-motif-venue { font-size: 12.5px; opacity: 0.86; margin-top: 5px; }
+  .tk-motif-venue { font-size: 0.7812rem; opacity: 0.86; margin-top: 5px; }
   .tk-motif-facts { display: flex; gap: 20px; margin-top: 16px; flex-wrap: wrap; }
-  .tk-motif-k { font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; opacity: 0.72; }
-  .tk-motif-v { font-size: 14px; font-weight: 600; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .tk-motif-k { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.12em; opacity: 0.9; font-weight: 500; }
+  .tk-motif-v { font-size: 0.875rem; font-weight: 600; margin-top: 3px; font-variant-numeric: tabular-nums; }
   .tk-motif-count {
     display: inline-flex; align-items: center; gap: 6px; margin-top: 16px;
-    font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 6px;
+    font-size: 0.7188rem; font-weight: 500; padding: 3px 9px; border-radius: 6px;
     background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.3);
   }
   .tk-stubcol {
@@ -197,49 +202,86 @@ const PAGE_CSS = `
     background: var(--surface-2); transform: translateX(9px); pointer-events: none;
   }
   .tk-stub-link { position: absolute; inset: 0; z-index: 1; }
-  .tk-stub-actions { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .tk-stub-actions { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+  /* Diese drei sind die meistbenutzten Ziele der Seite und waren mit ~20px die
+     kleinsten. Sie liegen ausserdem als Inseln in der ganzflaechigen
+     Ticket-Verlinkung (.tk-stub-link), ein danebengesetzter Daumen oeffnete
+     also das Ticket statt zu teilen — bei „Zurueckgeben" bewegt das Geld.
+     Sichtbar bleiben sie klein (die Karte hat keinen Platz fuer drei
+     ausgewachsene Knoepfe); der Finger bekommt das Polster unsichtbar ueber
+     ::after dazu, zusammen 44px. */
   .tk-stub-action {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 11.5px; font-weight: 500; color: var(--ink-3);
-    border-radius: 6px; padding: 2px 6px;
+    position: relative;
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    font-size: 0.7188rem; font-weight: 500; color: var(--ink-3);
+    border-radius: 6px; padding: 7px 10px; min-height: 34px;
   }
+  .tk-stub-action::after { content: ""; position: absolute; inset: -5px; }
   .tk-stub-action:hover:not(:disabled) { color: var(--accent); background: var(--accent-wash); }
   .tk-stub-action { transition: transform 0.08s ease, color 0.15s ease, background 0.15s ease; }
   .tk-stub-action:active:not(:disabled) { transform: scale(0.94); }
   .tk-stub-action:disabled { opacity: 0.6; cursor: default; }
+  .tk-action-error {
+    font-size: 0.7188rem; line-height: 1.45; color: var(--bad);
+    text-align: center; text-wrap: pretty;
+  }
   .tk-qrbox {
     width: 60px; height: 60px; border: 1px solid var(--line);
     border-radius: 9px; display: grid; place-items: center; color: var(--ink-2);
   }
+  /* Der Wechsel Bevorstehend/Sammlung tauschte den Inhalt hart aus. Ein kurzer
+     Ueberblendweg stellt die Beziehung zwischen den beiden Ansichten her —
+     bewusst nur ein paar Pixel Weg, es ist ein Wechsel und kein Ortswechsel. */
+  .tk-panel { animation: tkPanelIn 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  @keyframes tkPanelIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
   .tk-groups-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .tk-group-head { display: flex; align-items: center; gap: 12px; margin-bottom: 13px; }
-  .tk-group-head h2 { font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
-  .tk-group-head .n { font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+  .tk-group-head h2 { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.015em; }
+  .tk-group-head .n { font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-4); }
   .tk-group-head .rule { flex: 1; height: 1px; background: var(--line); }
 
   /* ── Sticky Filterleiste ─────────────────────────────────── */
   .tk-filters {
-    position: sticky; top: 60px; z-index: 20;
+    position: sticky; top: var(--topbar-h); z-index: 20;
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     padding: 12px 0; margin-top: 22px;
     background: color-mix(in oklab, var(--surface-2) 88%, transparent);
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--line);
+  }
+  /* Kein 1px-Strich unter der schwebenden Leiste, sondern ein kurzer Verlauf:
+     der Inhalt laeuft darunter durch und loest sich auf, statt an einer Kante
+     abgeschnitten zu werden (§12). */
+  .tk-filters::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 14px;
+    background: linear-gradient(var(--surface-2), transparent);
+    pointer-events: none;
+  }
+  .tk-search-count {
+    flex-basis: 100%; font-size: 0.75rem; color: var(--ink-3);
   }
   .tk-search { position: relative; margin-left: auto; width: 260px; max-width: 100%; }
   .tk-search .ic { position: absolute; left: 10px; top: 9px; color: var(--ink-4); pointer-events: none; }
 
   /* ── Sammlung ────────────────────────────────────────────── */
   .tk-stats { display: flex; gap: 22px; text-align: right; }
-  .tk-stat-n { font-size: 24px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-  .tk-stat-l { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .tk-stat-n { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .tk-stat-l { font-size: 0.6875rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .tk-timeline-gap {
+    display: grid; grid-template-columns: 120px 1fr; gap: 24px;
+    font-size: 0.7188rem; color: var(--ink-4); font-style: italic;
+    padding: 10px 0 10px 0;
+  }
+  .tk-timeline-gap::before { content: ""; }
   .tk-timeline-row {
     display: grid; grid-template-columns: 120px 1fr; gap: 24px;
     padding: 18px 0; border-top: 1px solid var(--line);
   }
   .tk-timeline-label {
-    font-size: 13px; font-weight: 600; letter-spacing: -0.01em;
-    position: sticky; top: 120px; height: max-content;
+    font-size: 0.8125rem; font-weight: 600; letter-spacing: -0.01em;
+    position: sticky; top: calc(var(--topbar-h) + 3.5rem); height: max-content;
   }
   .tk-timeline-item {
     display: flex; align-items: center; gap: 12px; padding: 10px 14px;
@@ -256,7 +298,7 @@ const PAGE_CSS = `
      Breite und am Rechner in der schmalen rechten Spalte. */
   .tk-front { container-type: inline-size; }
   .tk-actions-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
-  @container (max-width: 320px) { .tk-actions-2 { grid-template-columns: minmax(0, 1fr); } }
+  @container (max-width: 20em) { .tk-actions-2 { grid-template-columns: minmax(0, 1fr); } }
 
   /* ── Vorteile + Abzeichen ────────────────────────────────── */
   /* Mobil-zuerst eine Spalte. Nebeneinander lohnt sich erst, wenn beide
@@ -266,7 +308,7 @@ const PAGE_CSS = `
     display: grid; grid-template-columns: minmax(0, 1fr);
     gap: 16px; margin-top: 30px; align-items: stretch;
   }
-  @media (min-width: 940px) {
+  @media (min-width: 58.75em) {
     .tk-rewards.is-split { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
   }
 
@@ -286,7 +328,7 @@ const PAGE_CSS = `
     text-align: right; padding-left: 14px;
     border-left: 1px dashed var(--line-2);
   }
-  @container (max-width: 380px) {
+  @container (max-width: 23.75em) {
     .tk-perk { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
     /* Gestapelt gehoert der Trenner nach oben; links stehend zeigte er
        quer zur Leserichtung ins Leere. */
@@ -303,24 +345,25 @@ const PAGE_CSS = `
     color: var(--accent); display: grid; place-items: center;
   }
   .tk-perk-code {
-    font-family: var(--mono); font-size: 15px; font-weight: 600;
+    font-family: var(--mono); font-size: 0.9375rem; font-weight: 600;
     letter-spacing: 0.13em; color: var(--accent);
   }
 
-  @media (max-width: 1080px) {
+  @media (max-width: 67.5em) {
     .tk-lane { grid-template-columns: minmax(0, 1fr); gap: 24px; }
     .tk-lane .tk-front { position: static !important; }
   }
-  @media (max-width: 760px) {
-    .tk-title { font-size: 30px; }
+  @media (max-width: 47.5em) {
+    .tk-title { font-size: 1.875rem; letter-spacing: -0.028em; }
     .tk-groups-grid { grid-template-columns: 1fr; }
     .tk-search { margin-left: 0; width: 100%; }
     .tk-stats { gap: 16px; }
-    .tk-timeline-row { grid-template-columns: 1fr; gap: 10px; }
+    .tk-timeline-row, .tk-timeline-gap { grid-template-columns: 1fr; gap: 10px; }
+    .tk-timeline-gap::before { display: none; }
     .tk-timeline-label { position: static; }
     .tk-stubcol, .tk-stubcol.narrow { width: 118px; }
     .tk-stub-notch { display: none; }
-    .tk-motif-title { font-size: 16px; }
+    .tk-motif-title { font-size: 1rem; }
   }
 
   /* ── Frisch gekauftes Ticket: Entrance + Akzent-Halo ─────── */
@@ -381,6 +424,14 @@ const PAGE_CSS = `
   .badge-tile.is-clickable:focus-visible {
     outline: 2px solid oklch(0.56 0.20 var(--bh)); outline-offset: 2px;
   }
+  /* Die Kachel war die einzige anfassbare Flaeche der Seite ohne Antwort auf
+     den Druck: am Telefon gibt es keinen Hover, dort lag zwischen Tippen und
+     erscheinender Detailkarte nichts. Kuerzere Dauer als der Hover, damit die
+     Kachel unter dem Finger liegt und ihm nicht hinterherlaeuft. */
+  .badge-tile.is-clickable:active {
+    transform: scale(0.965);
+    transition-duration: 0.08s;
+  }
   .badge-slot {
     text-align: center; color: var(--ink-4);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -396,12 +447,26 @@ const PAGE_CSS = `
     display: grid; place-items: center;
     padding: 20px;
     background: oklch(0.30 0.03 285 / 0.42);
-    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
-    animation: badgeOverlayIn 0.2s ease both;
+    /* Gleiche Materialstaerke wie .modal-backdrop in globals.css. Vorher
+       standen auf derselben Seite zwei Schleier mit 3px und 16px Blur; die
+       Begruendung dort — eine bildschirmfuellende Flaeche liest sich dicker
+       als ein 60px-Streifen — gilt hier genauso. */
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    animation: badgeOverlayIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
-  .badge-detail-overlay.is-closing { animation: badgeOverlayOut 0.24s ease both; }
-  @keyframes badgeOverlayIn { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes badgeOverlayOut { from { opacity: 1; } to { opacity: 0; } }
+  .badge-detail-overlay.is-closing {
+    animation: badgeOverlayOut 0.28s cubic-bezier(0.8, 0, 0.8, 0.2) both;
+  }
+  /* Blur und Deckkraft laufen zusammen: die Flaeche kommt als Material an,
+     statt als fertige Scheibe eingeblendet zu werden (§12). */
+  @keyframes badgeOverlayIn {
+    from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+    to   { opacity: 1; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  }
+  @keyframes badgeOverlayOut {
+    from { opacity: 1; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+    to   { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+  }
 
   .badge-detail-card {
     --bh: 285;
@@ -417,39 +482,85 @@ const PAGE_CSS = `
       linear-gradient(180deg, oklch(0.99 0.008 var(--bh)), #fff);
     border: 1px solid oklch(0.88 0.06 var(--bh));
     box-shadow: 0 24px 64px oklch(0.45 0.18 var(--bh) / 0.30), inset 0 1px 0 #fff;
-    transform-origin: center;
-    animation: badgeCardIn 0.36s cubic-bezier(0.18, 1.3, 0.3, 1) both;
+    /* Wachstumspunkt ist die angeklickte Kachel, nicht die Bildschirmmitte;
+       die Werte setzt die Karte selbst, sobald sie ihre eigene Lage kennt. */
+    transform-origin: var(--ox, 50%) var(--oy, 50%);
+    /* Kritisch gedaempft statt federnd: dem Erscheinen ging ein Klick voraus,
+       keine Geste mit Impuls — Ueberschwingen ist §4 vorbehalten, wo vorher
+       wirklich geschwungen wurde. Der Ausgang spiegelt den Eingang exakt:
+       dieselbe Dauer, dieselbe Skalierung, die umgekehrte Kurve
+       (1−x2, 1−y2, 1−x1, 1−y1). */
+    animation: badgeCardIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .badge-detail-overlay.is-closing .badge-detail-card {
-    animation: badgeCardOut 0.24s cubic-bezier(0.4, 0, 0.9, 0.4) both;
+    animation: badgeCardOut 0.28s cubic-bezier(0.8, 0, 0.8, 0.2) both;
   }
   @keyframes badgeCardIn {
-    from { opacity: 0; transform: scale(0.5) translateY(12px); }
+    from { opacity: 0; transform: scale(0.28); }
     to   { opacity: 1; transform: none; }
   }
   @keyframes badgeCardOut {
     from { opacity: 1; transform: none; }
-    to   { opacity: 0; transform: scale(0.72) translateY(6px); }
+    to   { opacity: 0; transform: scale(0.28); }
   }
-  .badge-detail-card .badge-medal { width: 78px; height: 78px; font-size: 30px; }
+  .badge-detail-card .badge-medal { width: 78px; height: 78px; font-size: 1.875rem; }
   .badge-detail-card .badge-medal::before { inset: -7px; }
-  .bd-name { font-size: 19px; font-weight: 700; margin-top: 18px; letter-spacing: -0.01em; animation: bdRise 0.4s ease 0.14s both; }
-  .bd-desc { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); margin-top: 10px; animation: bdRise 0.4s ease 0.22s both; }
-  .bd-meta { font-size: 12px; color: var(--ink-3); margin-top: 16px; animation: bdRise 0.4s ease 0.30s both; }
-  .bd-hint { font-size: 11px; color: var(--ink-3); opacity: 0.75; margin-top: 18px; animation: bdRise 0.4s ease 0.38s both; }
+  .bd-name { font-size: 1.1875rem; font-weight: 700; margin-top: 18px; letter-spacing: -0.02em; animation: bdRise 0.4s ease 0.14s both; }
+  .bd-desc { font-size: 0.8438rem; line-height: 1.55; color: var(--ink-2); margin-top: 10px; animation: bdRise 0.4s ease 0.22s both; }
+  .bd-meta { font-size: 0.75rem; color: var(--ink-3); margin-top: 16px; animation: bdRise 0.4s ease 0.30s both; }
+  .bd-close {
+    margin-top: 20px; min-height: 36px; padding: 8px 18px;
+    font-size: 0.7812rem; font-weight: 600; color: var(--ink-2);
+    border: 1px solid var(--line-2); border-radius: 9px; background: var(--surface);
+    animation: bdRise 0.4s ease 0.38s both;
+    transition: background 0.15s, color 0.15s, transform 0.08s ease;
+  }
+  .bd-close:hover { background: var(--surface-2); color: var(--ink); }
+  .bd-close:active { transform: scale(0.96); }
   @keyframes bdRise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
 
+  /* „Transparenz reduzieren" im System. globals.css loest das fuer .topbar,
+     .modal-backdrop und .celebrate-backdrop; diese beiden Ebenen gehoeren
+     derselben Familie an und waren dort nie eingetragen, blieben also als
+     einzige unscharf. Gleiche Behandlung: der Blur faellt, die Deckung steigt
+     zum Ausgleich. */
+  @media (prefers-reduced-transparency: reduce) {
+    .tk-filters {
+      background: var(--surface-2);
+      backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+    .badge-detail-overlay {
+      background: oklch(0.30 0.03 285 / 0.58);
+      backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
+    /* Der Druck bleibt spuerbar, nur nicht mehr als Bewegung — dieselbe
+       Behandlung, die .btn in globals.css schon bekommt. Ohne sie waren die
+       vier Kartenflaechen die einzigen, die hier weiter skalierten. */
+    .tk-stub:has(.tk-stub-link:active),
+    a.card:active,
+    .tk-timeline-item:active,
+    .badge-tile.is-clickable:active {
+      transform: none; filter: brightness(0.96);
+    }
+    /* Die Stapelkarte traegt ihre Lage im transform; transform:none wuerde
+       sie auf 0/0 werfen. Stillgelegt wird deshalb nur der Druckanteil. */
+    .tk-wcard:active { --press: 1; filter: brightness(0.96); }
+    .tk-stub-action:active:not(:disabled) { transform: none; filter: brightness(0.9); }
+    .badge-tile:hover { transform: none; }
     .is-fresh, .is-fresh::after,
     .tk-stub.border-aurora, .tk-wcard.border-aurora,
     .tk-stub.border-neon, .tk-wcard.border-neon,
     .badge-tile.is-new, .badge-tile.is-new .badge-medal { animation: none; }
     .is-fresh::after { opacity: 0; }
-    .tk-wcard, .tk-stackarea { transition: none; }
+    .tk-stackarea { transition: none; }
     .badge-tile::after { transition: none; }
+    .tk-panel { animation: none; }
     .badge-detail-overlay, .badge-detail-overlay.is-closing,
     .badge-detail-card, .badge-detail-overlay.is-closing .badge-detail-card,
-    .bd-name, .bd-desc, .bd-meta, .bd-hint { animation: none; }
+    .bd-name, .bd-desc, .bd-meta, .bd-close { animation: none; }
   }
 `;
 
@@ -517,6 +628,22 @@ interface LoyaltyProgramView {
   claim: { code: string; redeemedAt: string | null } | null;
 }
 
+/* Geometrie des Brieftaschen-Stapels. Diese Zahlen standen vorher roh in den
+   Rechnungen und waren von aussen nicht herleitbar. */
+/** Hoehe einer Ticketkarte. */
+const CARD_H = 296;
+/** Oberkante des Bogens, wenn gefaechert. */
+const FAN_TOP = 46;
+/** Wie stark der Bogen nach aussen durchhaengt (Faktor auf den quadratischen
+ *  Abstand zur Mitte). */
+const FAN_ARC = 7;
+/** Sichtbare Kante einer Karte im eingeklappten Stapel. */
+const COLLAPSED_EDGE = 48;
+
+/** Dauer der Ein-/Ausgangsanimation der Abzeichenkarte; muss zu den
+ *  `badgeCardIn`/`badgeCardOut`-Regeln in PAGE_CSS passen. */
+const BADGE_CARD_MS = 280;
+
 const MONTHS_FULL = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
 const monthShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
@@ -555,7 +682,7 @@ function TicketsSkeleton() {
           ))}
         </div>
         <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)' }}>
-          <div style={{ fontSize: 12, color: 'var(--accent-ink)', fontWeight: 500 }}>Türöffnung in</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--accent-ink)', fontWeight: 500 }}>Türöffnung in</div>
           <div className="sk" style={{ width: 132, height: 30, marginTop: 4 }} />
         </div>
         <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
@@ -678,13 +805,26 @@ export default function MyTickets() {
   const [claimingProgramId, setClaimingProgramId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [shareModal, setShareModal] = useState<{ assetId: string; url: string } | null>(null);
-  const [shareError, setShareError] = useState<string | null>(null);
+  // Die Rueckmeldung gehoert neben den Knopf, der sie ausgeloest hat, nicht in
+  // ein Banner am Seitenkopf: bei mehreren Tickets stand das Banner ausserhalb
+  // des Sichtfelds. Deshalb traegt der Fehler die Ticket-ID mit sich.
+  // `at` unterscheidet die beiden Aktionsflaechen desselben Tickets: das
+  // Frontpanel und der Stub in der Liste haben beide einen Teilen-Knopf, und
+  // die Meldung gehoert nur an den, der gedrueckt wurde.
+  const [actionError, setActionError] = useState<
+    { assetId: string; at: 'front' | 'stub'; message: string } | null
+  >(null);
   const [sharingAssetId, setSharingAssetId] = useState<string | null>(null);
   const [copyConfirmed, setCopyConfirmed] = useState(false);
   const [freshAssetIds, setFreshAssetIds] = useState<Set<string>>(new Set());
   const [newBadgeTypes, setNewBadgeTypes] = useState<Set<string>>(new Set());
   const [celebration, setCelebration] = useState<{ emoji: string; title: string; message: string } | null>(null);
-  const [badgeDetail, setBadgeDetail] = useState<{ type: string; earnedAt: string } | null>(null);
+  // `origin` ist der Bildschirmmittelpunkt der angeklickten Kachel. Die
+  // Detailkarte waechst daraus hervor, statt aus der Bildschirmmitte: §7
+  // verlangt, dass eine Flaeche dort entsteht, wo sie aufgerufen wurde.
+  const [badgeDetail, setBadgeDetail] = useState<
+    { type: string; earnedAt: string; origin: { x: number; y: number } } | null
+  >(null);
   const [badgeClosing, setBadgeClosing] = useState(false);
   const [resaleModal, setResaleModal] = useState<Ticket | null>(null);
   const [resaleQuote, setResaleQuote] = useState<
@@ -702,7 +842,6 @@ export default function MyTickets() {
   const [frontId, setFrontId] = useState<string | null>(null);
   const [stackWidth, setStackWidth] = useState(700);
   const [nowMs, setNowMs] = useState(() => Date.now());
-
   // Der Fächer richtet sich nach der tatsächlichen Spaltenbreite; die Karte
   // erscheint erst nach dem Laden, deshalb ein Callback-Ref statt eines Effekts.
   const resizeObs = useRef<ResizeObserver | null>(null);
@@ -718,18 +857,40 @@ export default function MyTickets() {
     resizeObs.current = ro;
   }, []);
 
+  /**
+   * Schliessen laeuft ueber einen Timer, weil die Ausgangsanimation zu Ende
+   * laufen soll. Der Timer haengt an einer Ref und wird bei jedem erneuten
+   * Aufruf verworfen: vorher legte ein zweiter Klick waehrend des Schliessens
+   * einen zweiten Timer an, waehrend der erste weiterlief. `openBadgeDetail`
+   * bricht ein laufendes Schliessen ab, statt es abzuwarten — die Karte laesst
+   * sich also mitten im Verschwinden wieder hervorholen.
+   */
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeBadgeDetail = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
     setBadgeClosing(true);
-    setTimeout(() => { setBadgeDetail(null); setBadgeClosing(false); }, 240);
+    closeTimer.current = setTimeout(() => {
+      closeTimer.current = null;
+      setBadgeDetail(null);
+      setBadgeClosing(false);
+    }, BADGE_CARD_MS);
   }, []);
 
-  // Escape schließt die Abzeichen-Detailkarte
-  useEffect(() => {
-    if (!badgeDetail) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeBadgeDetail(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [badgeDetail, closeBadgeDetail]);
+  const openBadgeDetail = useCallback((type: string, earnedAt: string, el: HTMLElement) => {
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
+    const r = el.getBoundingClientRect();
+    setBadgeClosing(false);
+    setBadgeDetail({ type, earnedAt, origin: { x: r.left + r.width / 2, y: r.top + r.height / 2 } });
+  }, []);
+
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
+
+  // Escape, Anfangsfokus und Tab-Kreis fuer alle drei Dialoge der Seite.
+  // Vorher hatte nur die Abzeichenkarte einen eigenen Escape-Listener, und
+  // keiner der drei fuehrte den Fokus.
+  const badgeDialogRef = useDialogChrome(!!badgeDetail && !badgeClosing, closeBadgeDetail);
+  const resaleDialogRef = useDialogChrome(!!resaleModal, () => { if (!resaleBusy) setResaleModal(null); });
+  const shareDialogRef = useDialogChrome(!!shareModal, () => setShareModal(null));
 
   // Sekundentakt für den Einlass-Countdown
   useEffect(() => {
@@ -793,16 +954,10 @@ export default function MyTickets() {
     } catch { /* private mode */ }
   }, [loaded, accountWallet, badges]);
 
-  // Open the login modal at most once for signed-out visitors. Never call
-  // login() from re-runs of this effect, or the modal resets mid-flow and the
-  // e-mail code step never appears.
-  const loginPrompted = useRef(false);
-  useEffect(() => {
-    if (ready && !authenticated && !loginPrompted.current) {
-      loginPrompted.current = true;
-      login();
-    }
-  }, [ready, authenticated, login]);
+  // Der Anmeldedialog sprang frueher von selbst auf, sobald die Sitzung als
+  // „nicht angemeldet" feststand. Das nimmt dem Besucher die Entscheidung ab,
+  // bevor er die Seite ueberhaupt gesehen hat; stattdessen steht jetzt die
+  // Karte unten („Deine Tickets warten hier") da und er oeffnet ihn selbst.
 
   useEffect(() => {
     if (!signedIn || loaded) return;
@@ -837,8 +992,8 @@ export default function MyTickets() {
     void load();
   }, [signedIn, loaded]);
 
-  async function handleShare(assetId: string, existingClaimUrl: string | null) {
-    setShareError(null);
+  async function handleShare(assetId: string, existingClaimUrl: string | null, at: 'front' | 'stub' = 'stub') {
+    setActionError(null);
     if (existingClaimUrl) { setShareModal({ assetId, url: existingClaimUrl }); return; }
     setSharingAssetId(assetId);
     try {
@@ -853,10 +1008,16 @@ export default function MyTickets() {
         setTickets((prev) => prev.map((t) => t.assetId === assetId ? { ...t, claimUrl: data.url! } : t));
         setShareModal({ assetId, url: data.url });
       } else if (data.error === 'not_delegated') {
-        setShareError('Dieses Ticket wurde gekauft, bevor Weitergabe unterstützt wurde, und kann nicht geteilt werden.');
+        setActionError({ assetId, at, message: 'Dieses Ticket wurde gekauft, bevor Weitergabe unterstützt wurde, und kann nicht geteilt werden.' });
       } else {
-        setShareError(data.error ?? 'Der Link konnte nicht erstellt werden.');
+        setActionError({ assetId, at, message: data.error ?? 'Der Link konnte nicht erstellt werden.' });
       }
+    } catch {
+      // Ohne diesen Zweig endete ein Netzfehler (oder eine Antwort, die kein
+      // JSON ist) in einer unbehandelten Ablehnung: der Knopf hoerte auf zu
+      // laden und sonst passierte nichts — der Gast steht vor einer Karte, die
+      // seinen Druck quittiert und dann schweigt.
+      setActionError({ assetId, at, message: 'Der Link konnte nicht erstellt werden. Bitte versuch es noch einmal.' });
     } finally {
       setSharingAssetId(null);
     }
@@ -914,15 +1075,23 @@ export default function MyTickets() {
       } else {
         setResaleError(data.error ?? 'Die Rückgabe konnte nicht angelegt werden.');
       }
+    } catch {
+      setResaleError('Die Rückgabe konnte nicht angelegt werden. Bitte versuch es noch einmal.');
     } finally {
       setResaleBusy(false);
     }
   }
 
-  async function withdrawResale(offerId: string) {
+  /**
+   * `assetId` nur fuer die Rueckmeldung: der Fehler erschien vorher unter dem
+   * Teilen-Banner am Seitenkopf, weil diese Funktion in `setShareError`
+   * schrieb — ein fehlgeschlagenes Zurueckholen las sich damit als
+   * Teilen-Fehler an einem ganz anderen Ticket.
+   */
+  async function withdrawResale(offerId: string, assetId: string, at: 'front' | 'stub' = 'stub') {
     if (cancelBusyId) return;
     setCancelBusyId(offerId);
-    setResaleError(null);
+    setActionError(null);
     try {
       const authToken = await getAccessToken();
       const res = await fetch('/api/resale/withdraw', {
@@ -934,8 +1103,10 @@ export default function MyTickets() {
       if (data.success) {
         setLoaded(false);
       } else {
-        setShareError(data.error ?? 'Das Angebot konnte nicht zurückgezogen werden.');
+        setActionError({ assetId, at, message: data.error ?? 'Das Angebot konnte nicht zurückgezogen werden.' });
       }
+    } catch {
+      setActionError({ assetId, at, message: 'Das Angebot konnte nicht zurückgezogen werden. Bitte versuch es noch einmal.' });
     } finally {
       setCancelBusyId(null);
     }
@@ -983,6 +1154,7 @@ export default function MyTickets() {
     return `${t.eventName} ${t.venue ?? ''} ${t.tierName ?? ''} ${ticketCode(t.eventName, t.assetId)}`.toLowerCase().includes(q);
   }, [query]);
 
+  const searching = query.trim().length > 0;
   const upcomingFiltered = useMemo(() => upcoming.filter(matches), [upcoming, matches]);
   const pastFiltered = useMemo(() => past.filter(matches), [past, matches]);
 
@@ -1013,10 +1185,61 @@ export default function MyTickets() {
   // Gefächert bestimmt der tiefste Bogenpunkt die Höhe (die Karten hängen nach
   // außen durch), eingeklappt die Kette aus Frontkarte + 48px-Kanten.
   const stackHeight = fan
-    ? Math.max(420, Math.round(46 + Math.pow((stackCount - 1) / 2, 2) * 7) + 296 + 20)
-    : visibleStack.length < 2 ? 300 : 300 + (visibleStack.length - 2) * 48 + 296;
+    ? Math.max(420, Math.round(FAN_TOP + Math.pow((stackCount - 1) / 2, 2) * FAN_ARC) + CARD_H + 20)
+    : visibleStack.length < 2
+      ? CARD_H + 4
+      : CARD_H + 4 + (visibleStack.length - 2) * COLLAPSED_EDGE + CARD_H;
 
   const frontTicket = stackOrder[0] ?? null;
+
+  /**
+   * Lage jeder sichtbaren Karte. Dieselbe Geometrie wie vorher, nur nicht mehr
+   * als `top`/`left` im Stil, sondern als Zahlen fuer die Federn — die Karten
+   * bewegen sich damit ueber `transform` und nicht mehr ueber das Layout.
+   */
+  const stackTargets = useMemo(() => {
+    const out: Record<string, CardTarget> = {};
+    const center = (stackCount - 1) / 2;
+    visibleStack.forEach((t, i) => {
+      const slot = fan ? (i === 0 ? stackCount - 1 : i - 1) : i;
+      out[t.assetId] = fan
+        ? {
+            x: Math.round(20 + slot * fanStep),
+            y: Math.round(FAN_TOP + Math.pow(slot - center, 2) * FAN_ARC + (i === 0 ? -14 : 0)),
+            tilt: (slot - center) * (stackGeometry.availW < 660 ? 0 : 2.6),
+            z: 10 + slot,
+          }
+        : {
+            x: 0,
+            y: i === 0 ? 0 : CARD_H + 4 + (i - 1) * COLLAPSED_EDGE,
+            tilt: 0,
+            z: i === 0 ? 5 : 10 + i,
+          };
+    });
+    return out;
+  }, [visibleStack, fan, fanStep, stackCount, stackGeometry.availW]);
+
+  const reducedMotion = useReducedMotion();
+
+  const stackMotion = useStackMotion({
+    order: visibleStack.map((t) => t.assetId),
+    targets: stackTargets,
+    cardWidth: cardW,
+    // Wegwischen setzt voraus, dass ueberhaupt etwas nachruecken kann.
+    canAdvance: stackOrder.length > 1,
+    onAdvance: () => {
+      const next = stackOrder[1];
+      if (next) setFrontId(next.assetId);
+    },
+    onTap: (assetId) => {
+      const i = visibleStack.findIndex((t) => t.assetId === assetId);
+      // Eingeklappt holt ein Tippen auf eine Kante das Ticket nach vorn;
+      // gefaechert und auf der Frontkarte oeffnet es.
+      if (!fan && i > 0) setFrontId(assetId);
+      else router.push(`/tickets/${assetId}`);
+    },
+    reducedMotion,
+  });
 
   // Gruppen der Bevorstehend-Liste: „Diese Woche" bzw. „Im <Monat>"
   const groups = useMemo(() => {
@@ -1032,15 +1255,27 @@ export default function MyTickets() {
     return out;
   }, [upcomingFiltered]);
 
+  /**
+   * Monate der Sammlung, absteigend. `gapBefore` zaehlt die uebersprungenen
+   * Monate seit dem vorherigen Eintrag: ein Zeitstrahl, der die Luecken
+   * weglaesst, behauptet eine Dichte, die es nicht gab — und die Pause ist bei
+   * einem Besuchsarchiv eine Aussage. Die leeren Monate werden gezaehlt und
+   * nicht ausgeschrieben, sonst stehen zwischen zwei Jahren dreissig leere
+   * Zeilen.
+   */
   const collectionMonths = useMemo(() => {
-    const out: { label: string; items: Ticket[] }[] = [];
+    const out: { label: string; items: Ticket[]; key: number; gapBefore: number }[] = [];
     for (const t of pastFiltered) {
       const d = new Date(t.eventDate + 'T00:00:00');
-      const label = `${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`;
-      let m = out.find((x) => x.label === label);
-      if (!m) { m = { label, items: [] }; out.push(m); }
+      const key = d.getFullYear() * 12 + d.getMonth();
+      let m = out.find((x) => x.key === key);
+      if (!m) {
+        m = { label: `${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`, items: [], key, gapBefore: 0 };
+        out.push(m);
+      }
       m.items.push(t);
     }
+    for (let i = 1; i < out.length; i++) out[i].gapBefore = out[i - 1].key - out[i].key - 1;
     return out;
   }, [pastFiltered]);
 
@@ -1068,8 +1303,8 @@ export default function MyTickets() {
               <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', margin: '0 auto 14px', color: 'var(--accent)' }}>
                 <Icon name="ticket" size={20} />
               </div>
-              <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Tickets warten hier.</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.6 }}>
+              <div style={{ fontSize: '1rem', fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Tickets warten hier.</div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.6 }}>
                 Melde dich mit deiner E-Mail-Adresse an. Ohne Passwort, ein Code genügt.
               </div>
               <button className="btn primary" style={{ marginTop: 18 }} onClick={() => login()}>
@@ -1089,6 +1324,12 @@ export default function MyTickets() {
   /** VIP > Rand-Preset des Veranstalters; identische Rangfolge wie auf /events. */
   const decorClass = (t: Ticket) => isVipTier(t) ? ' vip' : t.borderStyle ? ` border-${t.borderStyle}` : '';
 
+  /** Fehler der letzten Aktion — steht direkt unter dem ausloesenden Knopf. */
+  const actionErrorFor = (assetId: string, at: 'front' | 'stub') =>
+    actionError?.assetId === assetId && actionError.at === at
+      ? <div className="tk-action-error" role="status">{actionError.message}</div>
+      : null;
+
   /** Aktionen auf einem bevorstehenden Ticket (Teilen / Verkaufen / Zurückziehen). */
   const ticketActions = (t: Ticket) => {
     if (t.returnOffer) {
@@ -1102,12 +1343,13 @@ export default function MyTickets() {
           {!sold && (
             <button
               className="tk-stub-action"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); void withdrawResale(t.returnOffer!.id); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); void withdrawResale(t.returnOffer!.id, t.assetId); }}
               disabled={cancelBusyId === t.returnOffer.id}
             >
               <Icon name="x" size={13} />{cancelBusyId === t.returnOffer.id ? '…' : 'Zurückholen'}
             </button>
           )}
+          {actionErrorFor(t.assetId, 'stub')}
         </div>
       );
     }
@@ -1132,6 +1374,7 @@ export default function MyTickets() {
         <Link href={`/tickets/${t.assetId}`} className="tk-stub-action">
           <Icon name="qr" size={13} />Vorzeigen
         </Link>
+        {actionErrorFor(t.assetId, 'stub')}
       </div>
     );
   };
@@ -1178,7 +1421,7 @@ export default function MyTickets() {
         </div>
         <div className="tk-stubcol">
           <div className="tk-qrbox"><Icon name="qr" size={40} /></div>
-          <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.1em', color: 'var(--ink-3)' }}>
+          <div className="mono" style={{ fontSize: '0.6562rem', letterSpacing: '0.1em', color: 'var(--ink-3)' }}>
             {ticketCode(t.eventName, t.assetId)}
           </div>
           {ticketActions(t)}
@@ -1215,10 +1458,10 @@ export default function MyTickets() {
           </div>
         </div>
         <div className="tk-stubcol narrow">
-          <div className="mono" style={{ fontSize: 10, letterSpacing: '0.14em', color: 'var(--ink-4)' }}>
+          <div className="mono" style={{ fontSize: '0.625rem', letterSpacing: '0.14em', color: 'var(--ink-4)' }}>
             {monthShort(t.eventDate).toUpperCase()} {d.getFullYear()}
           </div>
-          <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: '-0.045em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+          <div style={{ fontSize: '2rem', fontWeight: 600, letterSpacing: '-0.045em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
             {String(dayNum(t.eventDate)).padStart(2, '0')}
           </div>
           <span className={attended ? 'chip ok' : 'chip'} style={{ marginTop: 4, whiteSpace: 'nowrap' }}>
@@ -1257,24 +1500,18 @@ export default function MyTickets() {
                 <h1 className="tk-title">Meine Tickets</h1>
                 <div className="tk-subline">
                   {accountWallet && (
-                    <Link href={`/collection/${accountWallet}`} style={{ fontSize: 13.5, color: 'var(--accent)', fontWeight: 500 }}>
+                    <Link href={`/collection/${accountWallet}`} style={{ fontSize: '0.8438rem', color: 'var(--accent)', fontWeight: 500 }}>
                       Öffentliches Profil ansehen →
                     </Link>
                   )}
                   {accountWallet && <span className="sep" />}
-                  <span style={{ fontSize: 13.5, color: 'var(--ink-3)' }}>
+                  <span style={{ fontSize: '0.8438rem', color: 'var(--ink-3)' }}>
                     {upcoming.length} bevorstehend · {past.length} besucht · {badges.length} Abzeichen
                   </span>
                 </div>
               </div>
               <Link href="/events" className="btn primary"><Icon name="search" size={15} /> Events entdecken</Link>
             </div>
-
-            {shareError && (
-              <div className="card" style={{ padding: '12px 16px', marginBottom: 20, fontSize: 13, color: 'var(--bad)', border: '1px solid oklch(0.86 0.10 25)', background: 'var(--bad-wash)' }}>
-                {shareError}
-              </div>
-            )}
 
             {loading && <TicketsSkeleton />}
 
@@ -1284,8 +1521,8 @@ export default function MyTickets() {
                   <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', margin: '0 auto 12px', color: 'var(--accent)' }}>
                     <Icon name="ticket" size={20} />
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Dein erstes Ticket wartet hier.</div>
-                  <div style={{ fontSize: 13, marginTop: 4, marginBottom: 16 }}>Kauf ein Ticket, es landet automatisch in dieser Übersicht.</div>
+                  <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--ink)' }}>Dein erstes Ticket wartet hier.</div>
+                  <div style={{ fontSize: '0.8125rem', marginTop: 4, marginBottom: 16 }}>Kauf ein Ticket, es landet automatisch in dieser Übersicht.</div>
                   <Link href="/events" className="btn primary">Events entdecken <Icon name="arrow" size={13} /></Link>
                 </div>
               </div>
@@ -1315,35 +1552,38 @@ export default function MyTickets() {
                         {visibleStack.map((t, i) => {
                           const hue = hueOf(t);
                           const vip = isVipTier(t);
-                          const slot = fan ? (i === 0 ? stackCount - 1 : i - 1) : i;
-                          const center = (stackCount - 1) / 2;
-                          const pos: React.CSSProperties = (fan
-                            ? {
-                                top: Math.round(46 + Math.pow(slot - center, 2) * 7 + (i === 0 ? -14 : 0)),
-                                left: Math.round(20 + slot * fanStep),
-                                // Die Neigung reist als Custom Property, nicht als
-                                // inline transform: sonst gaebe es keinen Weg, die
-                                // Druck-Skalierung dazuzurechnen (inline schlaegt
-                                // jede Klassenregel).
-                                '--tilt': `${((slot - center) * (stackGeometry.availW < 660 ? 0 : 2.6)).toFixed(2)}deg`,
-                                transformOrigin: 'bottom center',
-                                zIndex: 10 + slot,
-                                boxShadow: 'var(--shadow-lg)',
-                              }
-                            : {
-                                top: i === 0 ? 0 : 300 + (i - 1) * 48,
-                                zIndex: i === 0 ? 5 : 10 + i,
-                                boxShadow: i === 0 ? 'var(--shadow-lg)' : '0 -6px 18px rgba(17,20,45,.07)',
-                              }) as React.CSSProperties;
-                          // Eingeklappt bringt ein Klick auf eine Kante das Ticket
-                          // nach vorn; gefächert (oder auf der Frontkarte) öffnet er es.
+                          // Eingeklappt bringt ein Tippen auf eine Kante das Ticket
+                          // nach vorn; gefächert (oder auf der Frontkarte) öffnet es.
                           const bringToFront = !fan && i > 0;
+                          const isFront = i === 0;
                           return (
                             <button
                               key={t.assetId}
-                              className={`tk-wcard${decorClass(t)}`}
-                              style={{ width: cardW, height: 296, '--hue': hue, ...pos } as React.CSSProperties}
-                              onClick={() => bringToFront ? setFrontId(t.assetId) : router.push(`/tickets/${t.assetId}`)}
+                              ref={(el) => stackMotion.setNode(t.assetId, el)}
+                              className={`tk-wcard${decorClass(t)}${isFront ? ' is-front' : ''}`}
+                              // Lage, Neigung und Stapelordnung schreibt der
+                              // Bewegungslauf direkt auf den Knoten; hier steht
+                              // nur noch, was sich beim Ziehen nicht aendert.
+                              style={{
+                                width: cardW,
+                                height: CARD_H,
+                                '--hue': hue,
+                                boxShadow: fan || isFront ? 'var(--shadow-lg)' : '0 -6px 18px rgba(17,20,45,.07)',
+                              } as React.CSSProperties}
+                              onPointerDown={(e) => stackMotion.onPointerDown(e, t.assetId)}
+                              onPointerMove={stackMotion.onPointerMove}
+                              onPointerUp={stackMotion.onPointerUp}
+                              onPointerCancel={stackMotion.onPointerUp}
+                              // Die Zeigergeste erledigt das Tippen selbst (sie
+                              // unterscheidet Tippen von Ziehen). onClick bleibt
+                              // fuer Tastatur und Screenreader, wo es keinen
+                              // Zeiger gibt — deshalb nur, wenn kein Zeiger im
+                              // Spiel war.
+                              onClick={(e) => {
+                                if (e.detail !== 0) return;
+                                if (bringToFront) setFrontId(t.assetId);
+                                else router.push(`/tickets/${t.assetId}`);
+                              }}
                               aria-label={bringToFront ? `${t.eventName} nach vorn holen` : `Ticket öffnen: ${t.eventName}`}
                             >
                               <div className="tk-wcard-head">
@@ -1371,7 +1611,7 @@ export default function MyTickets() {
                                 </div>
                                 <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
                                   <div className="tk-fact-k">Ticket</div>
-                                  <div className="mono" style={{ fontSize: 12, marginTop: 3, color: 'var(--ink-2)' }}>
+                                  <div className="mono" style={{ fontSize: '0.75rem', marginTop: 3, color: 'var(--ink-2)' }}>
                                     {ticketCode(t.eventName, t.assetId)}
                                   </div>
                                 </div>
@@ -1381,7 +1621,7 @@ export default function MyTickets() {
                               <div className="tk-notch" style={{ right: -8 }} />
                               <div className="tk-wcard-foot">
                                 <span className="chip accent"><span className="d" />{relativeDayLabel(t.eventDate)}</span>
-                                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 500, color: 'var(--accent)' }}>
+                                <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7812rem', fontWeight: 500, color: 'var(--accent)' }}>
                                   <Icon name="qr" size={15} />{bringToFront ? 'Nach vorn' : 'Vorzeigen'}
                                 </span>
                               </div>
@@ -1390,7 +1630,7 @@ export default function MyTickets() {
                         })}
                       </div>
                       {restCount > 0 && (
-                        <div style={{ marginTop: 12, fontSize: 12.5, color: 'var(--ink-3)' }}>
+                        <div style={{ marginTop: 12, fontSize: '0.7812rem', color: 'var(--ink-3)' }}>
                           {restCount === 1
                             ? 'Noch 1 weiteres Ticket unten in der Liste'
                             : `Noch ${restCount} weitere Tickets unten in der Liste`}
@@ -1398,30 +1638,30 @@ export default function MyTickets() {
                       )}
                     </div>
 
-                    <div className="card tk-front" style={{ padding: 22, position: 'sticky', top: 76 }}>
+                    <div className="card tk-front" style={{ padding: 22, position: 'sticky', top: 'calc(var(--topbar-h) + 1rem)' }}>
                       <div className="tk-lane-label">Dein nächstes Ticket</div>
-                      <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.028em', lineHeight: 1.2, marginTop: 12 }}>
+                      <h2 style={{ fontSize: '1.375rem', fontWeight: 600, letterSpacing: '-0.028em', lineHeight: 1.2, marginTop: 12 }}>
                         {frontTicket.eventName}
                       </h2>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 14 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--ink-2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: '0.8438rem', color: 'var(--ink-2)' }}>
                           <Icon name="calendar" size={15} />
                           <span>{formatDate(frontTicket.eventDate)}{frontTicket.startTime ? `, ${frontTicket.startTime.slice(0, 5)}` : ''}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--ink-2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: '0.8438rem', color: 'var(--ink-2)' }}>
                           <Icon name="location" size={15} />
                           <span>{frontTicket.venue ?? 'Ort wird bekannt gegeben'}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13.5, color: 'var(--ink-2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: '0.8438rem', color: 'var(--ink-2)' }}>
                           <Icon name="ticket" size={15} />
                           <span>
-                            {frontTicket.tierName ?? 'Standard'} · <span className="mono" style={{ fontSize: 12.5 }}>{ticketCode(frontTicket.eventName, frontTicket.assetId)}</span>
+                            {frontTicket.tierName ?? 'Standard'} · <span className="mono" style={{ fontSize: '0.7812rem' }}>{ticketCode(frontTicket.eventName, frontTicket.assetId)}</span>
                           </span>
                         </div>
                       </div>
                       <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)' }}>
-                        <div style={{ fontSize: 12, color: 'var(--accent-ink)', fontWeight: 500 }}>Türöffnung in</div>
-                        <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--accent-ink)', marginTop: 2 }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--accent-ink)', fontWeight: 500 }}>Türöffnung in</div>
+                        <div style={{ fontSize: '1.875rem', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--accent-ink)', marginTop: 2 }}>
                           {countdownLabel(eventStartMs(frontTicket), nowMs)}
                         </div>
                       </div>
@@ -1433,7 +1673,7 @@ export default function MyTickets() {
                           <button
                             className="btn ghost"
                             style={{ justifyContent: 'center' }}
-                            onClick={() => void handleShare(frontTicket.assetId, frontTicket.claimUrl)}
+                            onClick={() => void handleShare(frontTicket.assetId, frontTicket.claimUrl, 'front')}
                             disabled={sharingAssetId === frontTicket.assetId}
                           >
                             <Icon name="share" size={15} />
@@ -1443,7 +1683,7 @@ export default function MyTickets() {
                             <button
                               className="btn ghost"
                               style={{ justifyContent: 'center' }}
-                              onClick={() => void withdrawResale(frontTicket.returnOffer!.id)}
+                              onClick={() => void withdrawResale(frontTicket.returnOffer!.id, frontTicket.assetId, 'front')}
                               disabled={cancelBusyId === frontTicket.returnOffer.id || frontTicket.returnOffer.status === 'sold'}
                               title={frontTicket.returnOffer.status === 'sold' ? 'Bereits verkauft, die Erstattung ist unterwegs.' : undefined}
                             >
@@ -1462,10 +1702,11 @@ export default function MyTickets() {
                             </button>
                           )}
                         </div>
+                        {actionErrorFor(frontTicket.assetId, 'front')}
                       </div>
                       <div style={{ display: 'flex', gap: 10, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)', color: 'var(--ink-3)' }}>
                         <Icon name="shield" size={15} />
-                        <p style={{ fontSize: 12.5, lineHeight: 1.55 }}>
+                        <p style={{ fontSize: '0.7812rem', lineHeight: 1.55 }}>
                           Fälschungssicher: der QR-Code erneuert sich jede Minute. Auch offline gültig.
                         </p>
                       </div>
@@ -1479,8 +1720,8 @@ export default function MyTickets() {
                     {loyalty.length > 0 && (
                       <div className="card tk-perks-card" style={{ padding: '18px 20px' }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-                          <h2 style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Vorteile</h2>
-                          <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Code am Einlass vorzeigen</span>
+                          <h2 style={{ fontSize: '0.9375rem', fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Vorteile</h2>
+                          <span style={{ fontSize: '0.7812rem', color: 'var(--ink-3)' }}>Code am Einlass vorzeigen</span>
                         </div>
                         <div style={{ display: 'grid', gap: 10 }}>
                           {loyalty.map((p) => {
@@ -1490,15 +1731,15 @@ export default function MyTickets() {
                               <div key={p.programId} className="tk-perk">
                                 <div className="tk-perk-ic"><Icon name="sparkle" size={17} /></div>
                                 <div>
-                                  <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.012em' }}>{p.benefitTitle}</div>
-                                  <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 2 }}>
+                                  <div style={{ fontSize: '0.8438rem', fontWeight: 600, letterSpacing: '-0.012em' }}>{p.benefitTitle}</div>
+                                  <div style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', marginTop: 2 }}>
                                     von {p.organizerName}
                                     {p.tierName ? ` · ${p.tierName}` : ''}
                                     {p.benefitDescription ? ` · ${p.benefitDescription}` : ''}
                                   </div>
                                   {!p.qualified && (
                                     <>
-                                      <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 8 }}>
+                                      <div style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', marginTop: 8 }}>
                                         Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis zu deinem Vorteil ({p.attendedEvents}/{p.threshold})
                                       </div>
                                       <div className="progress" style={{ marginTop: 6, maxWidth: 320 }}><span style={{ width: `${pct}%` }} /></div>
@@ -1513,7 +1754,7 @@ export default function MyTickets() {
                                       ) : (
                                         <>
                                           <div className="tk-perk-code">{p.claim.code}</div>
-                                          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>Am Einlass vorzeigen</div>
+                                          <div style={{ fontSize: '0.6875rem', color: 'var(--ink-3)', marginTop: 2 }}>Am Einlass vorzeigen</div>
                                         </>
                                       )
                                     ) : (
@@ -1537,8 +1778,8 @@ export default function MyTickets() {
                     {(badges.length > 0 || progress?.nextMilestone || progress?.topOrganizer) && (
                       <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-                          <h2 style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.015em' }}>Abzeichen</h2>
-                          <span style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
+                          <h2 style={{ fontSize: '0.9375rem', fontWeight: 600, letterSpacing: '-0.015em' }}>Abzeichen</h2>
+                          <span style={{ fontSize: '0.7812rem', color: 'var(--ink-3)' }}>
                             {badges.length > 0 ? `${badges.length} verdient` : 'Dein erstes Abzeichen wartet'}
                           </span>
                         </div>
@@ -1553,8 +1794,13 @@ export default function MyTickets() {
                                 role="button"
                                 tabIndex={0}
                                 aria-label={`${meta.name} – Details anzeigen`}
-                                onClick={() => setBadgeDetail({ type: b.badgeType, earnedAt: b.earnedAt })}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBadgeDetail({ type: b.badgeType, earnedAt: b.earnedAt }); } }}
+                                onClick={(e) => openBadgeDetail(b.badgeType, b.earnedAt, e.currentTarget)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    openBadgeDetail(b.badgeType, b.earnedAt, e.currentTarget);
+                                  }
+                                }}
                                 className={`badge-tile is-clickable${isNew ? ' is-new' : ''}`}
                                 style={{ '--bh': meta.hue, ...(isNew ? { '--fresh-delay': `${150 + i * 100}ms` } : null) } as React.CSSProperties}
                               >
@@ -1570,7 +1816,7 @@ export default function MyTickets() {
                             return (
                               <div className="badge-slot" title={`Nächstes Abzeichen: ${meta.name}`}>
                                 <div className="ring"><Icon name="plus" size={16} /></div>
-                                <div style={{ fontSize: 11.5, marginTop: 8, color: 'var(--ink-3)', lineHeight: 1.25 }}>{meta.name}</div>
+                                <div style={{ fontSize: '0.7188rem', marginTop: 8, color: 'var(--ink-3)', lineHeight: 1.25 }}>{meta.name}</div>
                               </div>
                             );
                           })()}
@@ -1583,10 +1829,10 @@ export default function MyTickets() {
                             return (
                               <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                                  <span style={{ fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500 }}>
+                                  <span style={{ fontSize: '0.7812rem', color: 'var(--ink-2)', fontWeight: 500 }}>
                                     Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis „{meta.name}“
                                   </span>
-                                  <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                                  <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--ink-3)' }}>
                                     {progress.attendedCount}/{progress.nextMilestone.threshold}
                                   </span>
                                 </div>
@@ -1601,10 +1847,10 @@ export default function MyTickets() {
                             return (
                               <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                                  <span style={{ fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500 }}>
+                                  <span style={{ fontSize: '0.7812rem', color: 'var(--ink-2)', fontWeight: 500 }}>
                                     Noch {remaining} Event{remaining !== 1 ? 's' : ''} bei {progress.topOrganizer.name} bis „{meta.name}“
                                   </span>
-                                  <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                                  <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--ink-3)' }}>
                                     {progress.topOrganizer.attendedEvents}/{progress.topOrganizer.threshold}
                                   </span>
                                 </div>
@@ -1637,16 +1883,16 @@ export default function MyTickets() {
                           <Link key={p.assetId} href={`/tickets/${p.assetId}`} className="card" style={{ display: 'grid', gap: 10, color: 'inherit' }}>
                             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                               <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-ink)' }}>
+                                <div style={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-ink)' }}>
                                   Saisonpass
                                 </div>
-                                <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', marginTop: 4 }}>{p.passName}</div>
+                                <div style={{ fontSize: '1rem', fontWeight: 600, letterSpacing: '-0.015em', marginTop: 4 }}>{p.passName}</div>
                               </div>
                               {open.length > 0
                                 ? <span className="chip ok" style={{ flexShrink: 0 }}><span className="d" />{open.length} offen</span>
                                 : <span className="chip" style={{ flexShrink: 0 }}><span className="d" />Alle eingelöst</span>}
                             </div>
-                            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.55 }}>
+                            <div style={{ fontSize: '0.7812rem', color: 'var(--ink-3)', lineHeight: 1.55 }}>
                               {next
                                 ? `Als Nächstes: ${next.eventName} · ${formatDate(next.eventDate)}${next.startTime ? `, ${next.startTime.slice(0, 5)}` : ''}`
                                 : `${p.dates.length} ${p.dates.length === 1 ? 'Termin' : 'Termine'} · alle besucht`}
@@ -1661,11 +1907,14 @@ export default function MyTickets() {
                 {/* ── Filterleiste ──────────────────────────────── */}
                 <div className="tk-filters">
                   <div className="seg">
+                    {/* Gefiltert zeigen die Zaehler die Treffer, nicht mehr die
+                        Gesamtzahl: sonst behauptet der inaktive Reiter Tickets,
+                        die die Suche gerade ausgeschlossen hat. */}
                     <button className={tab === 'upcoming' ? 'active' : ''} onClick={() => setTab('upcoming')}>
-                      Bevorstehend · {upcoming.length}
+                      Bevorstehend · {searching ? upcomingFiltered.length : upcoming.length}
                     </button>
                     <button className={tab === 'collection' ? 'active' : ''} onClick={() => setTab('collection')}>
-                      Sammlung · {past.length}
+                      Sammlung · {searching ? pastFiltered.length : past.length}
                     </button>
                   </div>
                   {tab === 'collection' && (
@@ -1685,11 +1934,19 @@ export default function MyTickets() {
                       onChange={(e) => setQuery(e.target.value)}
                     />
                   </div>
+                  {searching && (
+                    <div className="tk-search-count" role="status">
+                      {upcomingFiltered.length + pastFiltered.length === 1
+                        ? '1 Treffer'
+                        : `${upcomingFiltered.length + pastFiltered.length} Treffer`}
+                      {' '}für „{query.trim()}“
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Bevorstehend ──────────────────────────────── */}
                 {tab === 'upcoming' && (
-                  <div style={{ paddingTop: 26 }}>
+                  <div className="tk-panel" key="upcoming" style={{ paddingTop: 26 }}>
                     {groups.map((g) => (
                       <div key={g.label} style={{ marginBottom: 30 }}>
                         <div className="tk-group-head">
@@ -1716,11 +1973,11 @@ export default function MyTickets() {
 
                 {/* ── Sammlung ──────────────────────────────────── */}
                 {tab === 'collection' && (
-                  <div style={{ paddingTop: 26 }}>
+                  <div className="tk-panel" key="collection" style={{ paddingTop: 26 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 20, flexWrap: 'wrap' }}>
                       <div>
-                        <h2 style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Sammlung</h2>
-                        <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3 }}>
+                        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Sammlung</h2>
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--ink-3)', marginTop: 3 }}>
                           Abgerissene Stubs deiner besuchten Events — dein Archiv.
                         </p>
                       </div>
@@ -1746,20 +2003,26 @@ export default function MyTickets() {
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {collectionMonths.map((m) => (
-                          <div key={m.label} className="tk-timeline-row">
+                          <Fragment key={m.label}>
+                          {m.gapBefore > 0 && (
+                            <div className="tk-timeline-gap">
+                              {m.gapBefore === 1 ? 'ein Monat ohne Event' : `${m.gapBefore} Monate ohne Event`}
+                            </div>
+                          )}
+                          <div className="tk-timeline-row">
                             <div className="tk-timeline-label">
                               {m.label}
-                              <div className="mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 3 }}>{m.items.length} Events</div>
+                              <div className="mono" style={{ fontSize: '0.6875rem', color: 'var(--ink-4)', marginTop: 3 }}>{m.items.length} Events</div>
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                               {m.items.map((t) => (
                                 <Link key={t.assetId} href={`/tickets/${t.assetId}`} className="tk-timeline-item">
-                                  <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-2)' }}>
+                                  <div style={{ fontSize: '1.1875rem', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-2)' }}>
                                     {String(dayNum(t.eventDate)).padStart(2, '0')}
                                   </div>
                                   <div>
-                                    <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em' }}>{t.eventName}</div>
-                                    <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 1 }}>{t.venue ?? '—'}</div>
+                                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, letterSpacing: '-0.01em' }}>{t.eventName}</div>
+                                    <div style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', marginTop: 1 }}>{t.venue ?? '—'}</div>
                                   </div>
                                   <span className={t.redeemedAt ? 'chip ok' : 'chip'} style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>
                                     <span className="d" />{t.redeemedAt ? 'Dabei gewesen' : 'Nicht eingelöst'}
@@ -1768,6 +2031,7 @@ export default function MyTickets() {
                               ))}
                             </div>
                           </div>
+                          </Fragment>
                         ))}
                       </div>
                     )}
@@ -1790,18 +2054,38 @@ export default function MyTickets() {
         const earned = new Date(badgeDetail.earnedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
         return (
           <div
+            ref={badgeDialogRef}
+            tabIndex={-1}
             className={`badge-detail-overlay${badgeClosing ? ' is-closing' : ''}`}
             onClick={closeBadgeDetail}
             role="dialog"
             aria-modal="true"
             aria-label={`Abzeichen ${meta.name}`}
           >
-            <div className="badge-detail-card" style={{ '--bh': meta.hue } as React.CSSProperties} onClick={closeBadgeDetail}>
+            {/* Der Wachstumspunkt wird gesetzt, sobald die Karte im Dokument
+                steht und ihre eigene Lage kennt — im Callback-Ref, also vor dem
+                ersten Bild, sonst startet die Animation aus der Mitte und
+                springt danach. */}
+            <div
+              className="badge-detail-card"
+              ref={(el) => {
+                if (!el || !badgeDetail) return;
+                const r = el.getBoundingClientRect();
+                el.style.setProperty('--ox', `${badgeDetail.origin.x - r.left}px`);
+                el.style.setProperty('--oy', `${badgeDetail.origin.y - r.top}px`);
+              }}
+              style={{ '--bh': meta.hue } as React.CSSProperties}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="badge-medal">{meta.symbol}</div>
               <div className="bd-name">{meta.name}</div>
               <div className="bd-desc">{full?.description ?? 'Ein Abzeichen aus deiner Sammlung.'}</div>
               <div className="bd-meta">Verdient am {earned}</div>
-              <div className="bd-hint">Zum Schließen tippen</div>
+              {/* Die Karte war frueher selbst ein Schliessknopf. Das machte
+                  ihren Text unmarkierbar und jeden Fehlgriff zum Schliessen;
+                  jetzt tut es die Flaeche daneben, und ein echter Knopf sagt
+                  es auch der Tastatur. */}
+              <button className="bd-close" onClick={closeBadgeDetail}>Schließen</button>
             </div>
           </div>
         );
@@ -1818,25 +2102,33 @@ export default function MyTickets() {
 
       {resaleModal && (
         <div className="modal-backdrop" onClick={() => !resaleBusy && setResaleModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal"
+            ref={resaleDialogRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Ticket zurückgeben"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-head">
               <h3>Ticket zurückgeben</h3>
               <button className="close-btn" aria-label="Schließen" onClick={() => setResaleModal(null)} disabled={resaleBusy}><Icon name="x" size={16} /></button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
                 <b style={{ color: 'var(--ink)' }}>{resaleModal.eventName}</b><br />
                 Dein Platz geht zurück in den Verkauf. Sobald ihn jemand kauft, bekommst du dein
                 Geld auf dem Weg zurück, auf dem du bezahlt hast.
               </p>
 
               {!resaleQuote && !resaleError && (
-                <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>Wird geprüft …</div>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--ink-3)' }}>Wird geprüft …</div>
               )}
 
               {resaleQuote && (
                 <>
-                  <div className="card" style={{ padding: '12px 14px', fontSize: 13, display: 'grid', gap: 6 }}>
+                  <div className="card" style={{ padding: '12px 14px', fontSize: '0.8125rem', display: 'grid', gap: 6 }}>
                     <div className="row" style={{ justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--ink-3)' }}>Du hast gezahlt</span><span>{euro(resaleQuote.paidCents)}</span>
                     </div>
@@ -1854,7 +2146,7 @@ export default function MyTickets() {
                   {resaleQuote.backupIssued && (
                     <div
                       className="card"
-                      style={{ padding: '12px 14px', marginTop: 12, fontSize: 12.5, lineHeight: 1.55, display: 'flex', gap: 10, borderColor: 'var(--warn, var(--line))' }}
+                      style={{ padding: '12px 14px', marginTop: 12, fontSize: '0.7812rem', lineHeight: 1.55, display: 'flex', gap: 10, borderColor: 'var(--warn, var(--line))' }}
                     >
                       <Icon name="shield" size={15} />
                       <span>
@@ -1864,7 +2156,7 @@ export default function MyTickets() {
                     </div>
                   )}
 
-                  <p style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5, marginTop: 10 }}>
+                  <p style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', lineHeight: 1.5, marginTop: 10 }}>
                     Solange dein Ticket angeboten ist, kannst du es nicht selbst nutzen. Du kannst
                     es jederzeit zurückholen, solange es niemand gekauft hat. Verkauft es sich bis
                     zum Eventtag nicht, bekommst du es automatisch zurück.
@@ -1873,7 +2165,7 @@ export default function MyTickets() {
               )}
 
               {resaleError && (
-                <div style={{ marginTop: 12, fontSize: 13, color: 'var(--bad)', lineHeight: 1.5 }}>{resaleError}</div>
+                <div style={{ marginTop: 12, fontSize: '0.8125rem', color: 'var(--bad)', lineHeight: 1.5 }}>{resaleError}</div>
               )}
             </div>
             <div className="modal-foot">
@@ -1888,16 +2180,24 @@ export default function MyTickets() {
 
       {shareModal && (
         <div className="modal-backdrop" onClick={() => setShareModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal"
+            ref={shareDialogRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Ticket-Link teilen"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-head">
               <h3>Ticket-Link teilen</h3>
               <button className="close-btn" aria-label="Schließen" onClick={() => setShareModal(null)}><Icon name="x" size={16} /></button>
             </div>
             <div className="modal-body">
-              <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
                 Schicke diesen Link an eine Freundin oder einen Freund. Sobald er eingelöst wird, geht das Ticket über und der Link wird ungültig.
               </p>
-              <div className="input mono" style={{ fontSize: 12, wordBreak: 'break-all', userSelect: 'all' }}>{shareModal.url}</div>
+              <div className="input mono" style={{ fontSize: '0.75rem', wordBreak: 'break-all', userSelect: 'all' }}>{shareModal.url}</div>
             </div>
             <div className="modal-foot">
               <button className="btn ghost" onClick={() => setShareModal(null)}>Schließen</button>

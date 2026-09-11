@@ -43,6 +43,11 @@
   --shadow:    0 1px 2px rgba(17, 20, 45, 0.04), 0 2px 12px rgba(17,20,45,0.04);
   --shadow-lg: 0 8px 32px rgba(17,20,45,0.08), 0 2px 6px rgba(17,20,45,0.04);
 
+  /* Hoehe der Kopfleiste. Als Token, weil sich mehrere klebende Elemente
+     darunter einhaengen; die standen vorher mit festen Pixelwerten dagegen und
+     rissen einen Spalt auf, sobald die Schriftgroesse des Browsers stieg. */
+  --topbar-h: 3.75rem;
+
   --font: var(--font-geist), 'Geist', ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --mono: var(--font-geist-mono), 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }
@@ -168,7 +173,7 @@ summary:focus-visible,
 }
 .topbar-inner {
   max-width: 77.5rem; margin: 0 auto;
-  padding: 0 1.5rem; height: 3.75rem;
+  padding: 0 1.5rem; height: var(--topbar-h);
   display: flex; align-items: center; gap: 1.5rem;
 }
 .nav { display: flex; gap: 2px; align-items: center; }
@@ -577,9 +582,12 @@ section + section { margin-top: 2.25rem; }
 .modal-foot { padding: 0.88rem 1.38rem; border-top: 1px solid var(--line); display: flex; gap: 0.5rem; justify-content: flex-end; background: var(--surface-2); }
 
 .close-btn {
+  position: relative;
   width: 1.88rem; height: 1.88rem; border-radius: 8px; color: var(--ink-3);
   display: grid; place-items: center;
 }
+/* 30px sichtbar, 44px fuer den Finger. */
+.close-btn::after { content: ""; position: absolute; inset: -0.44rem; }
 .close-btn:hover { background: var(--surface-2); color: var(--ink); }
 
 /* Form */
@@ -693,9 +701,18 @@ section + section { margin-top: 2.25rem; }
   max-width: 100%; flex-wrap: wrap;
 }
 .seg button {
-  padding: 0.31rem 0.69rem; font-size: 0.78rem; color: var(--ink-3); font-weight: 500;
+  position: relative;
+  padding: 0.44rem 0.75rem; font-size: 0.78rem; color: var(--ink-3); font-weight: 500;
   border-radius: 6px;
+  transition: background-color 0.15s, color 0.15s, transform 0.1s ease-out;
 }
+/* Der Schalter blieb als einziger stumm unter dem Finger. Gleiche Sprache wie
+   .btn, nur schwaecher — er sitzt in einer Gruppe und soll die Nachbarn nicht
+   anstossen. */
+.seg button:active { transform: scale(0.96); }
+/* Unsichtbares Fingerpolster: sichtbar bleibt der Schalter klein, das Ziel
+   waechst auf die vollen 44px (§10). */
+.seg button::after { content: ""; position: absolute; inset: -0.3rem -0.12rem; }
 .seg button.active {
   background: var(--surface); color: var(--ink);
   box-shadow: 0 1px 2px rgba(17,20,45,0.06), 0 0 0 1px var(--line);
@@ -933,6 +950,7 @@ section + section { margin-top: 2.25rem; }
   .btn-shine::after { animation: none; }
   /* Der Druck bleibt spuerbar, nur nicht mehr als Bewegung. */
   .btn:not(:disabled):active { transform: none; filter: brightness(0.94); }
+  .seg button:active { transform: none; filter: brightness(0.94); }
   .celebrate-card, .celebrate-emoji { animation: none; }
   .confetti { display: none; }
 }
