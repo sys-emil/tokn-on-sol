@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { LegalPageShell } from '@/app/components/LegalPageShell';
 
 export const metadata: Metadata = {
@@ -269,7 +270,7 @@ export default function AgbPage() {
       <p>
         (4) Soweit Passly personenbezogene Daten der Gäste im Auftrag des
         Veranstalters verarbeitet (Gästeliste, Einlass, Nachrichten an Gäste,
-        Export), gilt die <a href="/avv">Vereinbarung zur Auftragsverarbeitung</a>
+        Export), gilt die <Link href="/avv">Vereinbarung zur Auftragsverarbeitung</Link>
         nach Art.&nbsp;28 DSGVO. Sie wird mit dem Anlegen des Veranstalter-Kontos
         Bestandteil dieses Vertrags.
       </p>
