@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { authClient } from '@/lib/authBrowser';
 import { Icon } from '@/app/components/passlyUi';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
+import { useT } from '@/app/components/LangProvider';
 
 /**
  * Muss mit "Email OTP Length" in den Supabase-Auth-Einstellungen uebereinstimmen
@@ -51,6 +52,7 @@ export function LoginModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const t = useT();
   const [step, setStep] = useState<Step>('email');
   const [phase, setPhase] = useState<Phase>('in');
   const [dir, setDir] = useState<1 | -1>(1);
@@ -169,7 +171,7 @@ export function LoginModal({
         options: { shouldCreateUser: true },
       });
       if (err) {
-        fail(err.message.toLowerCase().includes('rate') ? 'Zu viele Versuche' : 'Adresse prüfen');
+        fail(err.message.toLowerCase().includes('rate') ? t('login.tooMany') : t('login.checkAddress'));
         return;
       }
       setDigits(empty());
@@ -179,11 +181,11 @@ export function LoginModal({
       // ins erste Kaestchen, sobald es nicht mehr deaktiviert ist.
       else later(() => boxes.current[0]?.focus(), 0);
     } catch {
-      fail('Keine Verbindung');
+      fail(t('login.noConnection'));
     } finally {
       setBusy(false);
     }
-  }, [address, valid, busy, go, later]);
+  }, [address, valid, busy, go, later, t]);
 
   const verify = useCallback(async (code: string): Promise<void> => {
     if (code.length !== LENGTH || busy) return;
@@ -196,7 +198,7 @@ export function LoginModal({
         type: 'email',
       });
       if (err) {
-        setCodeError('Code stimmt nicht');
+        setCodeError(t('login.wrongCode'));
         setShake((n) => n + 1);
         later(() => { setDigits(empty()); boxes.current[0]?.focus(); }, 440);
         return;
@@ -206,12 +208,12 @@ export function LoginModal({
       setOk(true);
       later(onSuccess, 1100);
     } catch {
-      setCodeError('Keine Verbindung');
+      setCodeError(t('login.noConnection'));
       setShake((n) => n + 1);
     } finally {
       setBusy(false);
     }
-  }, [address, busy, later, onSuccess]);
+  }, [address, busy, later, onSuccess, t]);
 
   // Der Fehlschlag wird gespuert, nicht gelesen. Ueber die Web-Animations-API
   // statt per CSS-Klasse, weil sich dieselbe Animation sonst beim zweiten
@@ -421,7 +423,7 @@ export function LoginModal({
         className="login-card"
         role="dialog"
         aria-modal="true"
-        aria-label="Bei Passly anmelden"
+        aria-label={t('login.aria')}
         // Der Dialog waechst nach unten statt aus der Mitte heraus: das Raster
         // zentriert ihn bei jeder Hoehenaenderung neu, der halbe Zuwachs
         // schiebt ihn wieder zurueck und die Oberkante bleibt, wo sie war.
@@ -444,13 +446,13 @@ export function LoginModal({
                   type="email"
                   inputMode="email"
                   autoComplete="email"
-                  placeholder="deine@email.de"
-                  aria-label="E-Mail-Adresse"
+                  placeholder={t('login.emailPlaceholder')}
+                  aria-label={t('login.emailAria')}
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setEmailError(null); }}
                 />
                 <button type="submit" className="btn primary login-go" disabled={busy || !valid}>
-                  {busy ? 'Code wird gesendet' : 'Code anfordern'}
+                  {busy ? t('login.sending') : t('login.request')}
                 </button>
                 {emailError && <div role="alert" className="login-err">{emailError}</div>}
               </form>
@@ -475,7 +477,7 @@ export function LoginModal({
                       inputMode="numeric"
                       autoComplete="one-time-code"
                       maxLength={LENGTH}
-                      aria-label={`Ziffer ${i + 1} von ${LENGTH}`}
+                      aria-label={t('login.digitAria', { index: i + 1, total: LENGTH })}
                       value={d}
                       disabled={busy || ok}
                       onChange={(e) => fill(i, e.target.value)}
@@ -499,7 +501,7 @@ export function LoginModal({
                     onClick={() => void request(false)}
                     disabled={wait || busy || ok}
                   >
-                    {wait ? `Neuen Code senden · ${clock}` : 'Neuen Code senden'}
+                    {wait ? t('login.resendIn', { clock }) : t('login.resend')}
                   </button>
                 </div>
               </div>

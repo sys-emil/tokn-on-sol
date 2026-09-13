@@ -2,6 +2,7 @@
 
 import { getAccessToken } from '@/lib/auth';
 import { useState } from 'react';
+import { useT } from '@/app/components/LangProvider';
 
 /**
  * "Backup-Ticket erstellen": personalizes a static QR PDF for venues without
@@ -18,6 +19,7 @@ export function BackupTicketModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState('');
@@ -48,7 +50,7 @@ export function BackupTicketModal({
       });
       const data = (await res.json()) as { success: boolean; emailed?: boolean; pdfBase64?: string; error?: string };
       if (!res.ok || !data.success || !data.pdfBase64) {
-        setError(data.error ?? 'Das Backup-Ticket konnte nicht erstellt werden.');
+        setError(data.error ?? t('backup.errCreate'));
         return;
       }
 
@@ -65,7 +67,7 @@ export function BackupTicketModal({
 
       setDone({ emailed: Boolean(data.emailed) });
     } catch {
-      setError('Netzwerkfehler. Bitte versuch es erneut.');
+      setError(t('buy.errNetwork'));
     } finally {
       setBusy(false);
     }
@@ -75,41 +77,34 @@ export function BackupTicketModal({
     <div className="modal-backdrop" onClick={() => !busy && onClose()}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h3>Backup-Ticket erstellen</h3>
-          <button className="btn ghost sm" onClick={onClose} disabled={busy}>Schließen</button>
+          <h3>{t('backup.title')}</h3>
+          <button className="btn ghost sm" onClick={onClose} disabled={busy}>{t('backup.close')}</button>
         </div>
         <div className="modal-body">
           {done ? (
             <div style={{ textAlign: 'center', padding: '8px 0' }}>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>Dein Backup-Ticket ist fertig 🎉</div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{t('backup.doneTitle')}</div>
               <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.6, marginTop: 8 }}>
-                Das PDF wurde heruntergeladen{done.emailed ? ' und zusätzlich an deine E-Mail-Adresse geschickt' : ''}.
-                Speichere es auf deinem Handy oder drucke es aus, es funktioniert
-                auch ganz ohne Empfang, zusammen mit deinem Ausweis.
+                {t('backup.doneText', { mailed: done.emailed ? t('backup.doneMailed') : '' })}
               </p>
-              <button className="btn primary" style={{ marginTop: 16 }} onClick={onClose}>Fertig</button>
+              <button className="btn primary" style={{ marginTop: 16 }} onClick={onClose}>{t('backup.done')}</button>
             </div>
           ) : (
             <>
               <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.6, marginBottom: 16 }}>
-                Für Veranstaltungsorte ohne Empfang: ein PDF mit deinem Einlass-Code,
-                das ohne Internet funktioniert. Es wird auf dich personalisiert und
-                ist nur mit deinem Ausweis gültig, <b style={{ color: 'var(--ink)' }}>nicht
-                zum Weitergeben, Weiterverkauf verboten</b>. Deine Angaben werden
-                fälschungssicher in den Code eingebettet und am Einlass mit deinem
-                Ausweis abgeglichen, wir speichern sie nicht.
+                {t('backup.intro1')}<b style={{ color: 'var(--ink)' }}>{t('backup.introBold')}</b>{t('backup.intro2')}
               </p>
               <div style={{ display: 'grid', gap: 12 }}>
                 <div className="field">
-                  <label>Vorname</label>
+                  <label>{t('backup.firstName')}</label>
                   <input className="input" value={firstName} maxLength={40} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" />
                 </div>
                 <div className="field">
-                  <label>Nachname</label>
+                  <label>{t('backup.lastName')}</label>
                   <input className="input" value={lastName} maxLength={40} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" />
                 </div>
                 <div className="field">
-                  <label>Geburtsdatum</label>
+                  <label>{t('backup.birthDate')}</label>
                   <input className="input" type="date" value={birthDate} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setBirthDate(e.target.value)} autoComplete="bday" />
                 </div>
               </div>
@@ -123,9 +118,9 @@ export function BackupTicketModal({
         </div>
         {!done && (
           <div className="modal-foot">
-            <button className="btn ghost" onClick={onClose} disabled={busy}>Abbrechen</button>
+            <button className="btn ghost" onClick={onClose} disabled={busy}>{t('backup.cancel')}</button>
             <button className="btn primary" onClick={() => void create()} disabled={!canSubmit}>
-              {busy ? 'Wird erstellt …' : `PDF erstellen${assetIds.length > 1 ? ` (${assetIds.length} Tickets)` : ''}`}
+              {busy ? t('backup.creating') : assetIds.length > 1 ? t('backup.createPdfMany', { count: assetIds.length }) : t('backup.createPdf')}
             </button>
           </div>
         )}

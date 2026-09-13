@@ -9,9 +9,11 @@ import type { Lang } from '@/lib/i18n';
 export function Providers({ lang, children }: { lang: Lang; children: React.ReactNode }) {
   return (
     <>
-      <AuthProvider>
-        <LangProvider lang={lang}>{children}</LangProvider>
-      </AuthProvider>
+      {/* Sprache aussen, Sitzung innen: der Anmeldedialog wird vom AuthProvider
+          gerendert und braucht das Woerterbuch schon dort. */}
+      <LangProvider lang={lang}>
+        <AuthProvider>{children}</AuthProvider>
+      </LangProvider>
       {/* Ausserhalb des AuthProvider, weil dieser den Seiteninhalt fuer den
           Anmeldedialog unscharf schaltet: ein `filter` macht das Element zum
           Bezugsrahmen fuer `position: fixed` darin, und das Banner haengt dann
