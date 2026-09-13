@@ -169,6 +169,7 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 | `/preise` | Public pricing page (canonical; `/fuer-veranstalter` links here) |
 | `/shop/[id]` | Public event listing & purchase |
 | `/@[handle]` | Public organizer profile (YouTube-style; `src/app/[handle]/page.tsx`) |
+| `/embed/[id]` | Embeddable ticket card for the organizer's own website (`<iframe>`, `noindex`). Card only, no checkout: the CTA opens `/shop/[id]` with `target="_top"`. The **only** route whose CSP says `frame-ancestors *` (second `headers()` entry in `next.config.ts`; the main entry's source excludes `embed/`), and ConsentBanner/PageViewTracker skip it. Snippet generator: „Auf deine Website einbinden" on `/dashboard/events/[id]`. |
 | `/become-organizer` | Organizer application (Privy auth required) |
 | `/dashboard` | Organizer dashboard (approved organizer required). Shows an onboarding checklist (first event, Stripe, public profile, door link) until all four are done; `/api/organizers/status` carries `handle` and `door_links_count` for it. |
 | `/dashboard/profile` | Organizer public-profile editor (approved organizer required) |

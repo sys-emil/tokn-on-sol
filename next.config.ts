@@ -120,7 +120,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/:path*",
+        // Everything except the embeddable card below.
+        source: "/((?!embed/).*)",
         headers: [
           { key: cspHeaderName, value: csp },
           // Kept alongside frame-ancestors for browsers that predate it.
@@ -129,6 +130,19 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           // camera=(self) is load-bearing: the doorman scanner needs it.
           { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+        ],
+      },
+      {
+        // /embed/[id] is the ONE surface meant to live inside somebody else's
+        // page (the organizer's website), so it may be framed by any origin.
+        // Same policy otherwise; no X-Frame-Options, which cannot say "anyone".
+        source: "/embed/:path*",
+        headers: [
+          { key: cspHeaderName, value: csp.replace("frame-ancestors 'none'", "frame-ancestors *") },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
         ],
       },

@@ -22,6 +22,8 @@ export default function robots(): MetadataRoute.Robots {
         // canonical, and only /event/[id] is in the sitemap; letting both be
         // crawled just splits the same event across two URLs.
         '/shop/',
+        // The embeddable card lives inside other people's pages; nothing to index.
+        '/embed/',
         // Bearer tokens in the path — the token IS the credential. These
         // links travel by e-mail and are linked from nowhere, so a crawler
         // shouldn't find them anyway; this keeps them out of an index if one

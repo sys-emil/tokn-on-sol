@@ -121,6 +121,8 @@ export default function EventDetailPage() {
 
   const [plan, setPlan] = useState<'free' | 'pro'>('free');
   const [messageOpen, setMessageOpen] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
   const [msgSubject, setMsgSubject] = useState('');
   const [msgText, setMsgText] = useState('');
   const [msgSending, setMsgSending] = useState(false);
@@ -996,6 +998,9 @@ export default function EventDetailPage() {
                         <Link href={`/event/${event.id}`} className="btn ghost" style={{ justifyContent: 'flex-start' }}>
                           <Icon name="ticket" size={14} /> Event-Seite ansehen
                         </Link>
+                        <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={() => { setEmbedCopied(false); setEmbedOpen(true); }}>
+                          <Icon name="share" size={14} /> Auf deine Website einbinden
+                        </button>
                         <button className="btn ghost" style={{ justifyContent: 'flex-start' }} onClick={duplicateEvent}>
                           <Icon name="plus" size={14} /> Event duplizieren
                         </button>
@@ -1072,6 +1077,41 @@ export default function EventDetailPage() {
           </div>
         </div>
       )}
+
+      {embedOpen && event && (() => {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        const snippet = `<iframe src="${origin}/embed/${event.id}" title="Tickets: ${event.name.replace(/"/g, '&quot;')}" style="width:100%;max-width:520px;height:150px;border:0;" loading="lazy"></iframe>`;
+        return (
+          <div className="modal-backdrop" onClick={() => setEmbedOpen(false)}>
+            <div className="modal" role="dialog" aria-label="Auf deine Website einbinden" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-head">
+                <h3>Auf deine Website einbinden</h3>
+                <button className="close-btn" onClick={() => setEmbedOpen(false)} aria-label="Schließen"><Icon name="x" size={15} /></button>
+              </div>
+              <div className="modal-body">
+                <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+                  Eine kompakte Ticketkarte für deine eigene Seite: Name, Datum, Preis und ein Knopf, der zum
+                  Kauf führt. Füge den Code dort ein, wo die Karte erscheinen soll. Sie zeigt immer den aktuellen
+                  Stand, auch „Ausverkauft“.
+                </p>
+                <div style={{ marginTop: 14, border: '1px solid var(--line)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface-2)' }}>
+                  <iframe src={`/embed/${event.id}`} title="Vorschau" style={{ width: '100%', height: 150, border: 0, display: 'block' }} />
+                </div>
+                <pre className="input mono" style={{ marginTop: 12, fontSize: 11.5, whiteSpace: 'pre-wrap', wordBreak: 'break-all', userSelect: 'all', lineHeight: 1.5 }}>{snippet}</pre>
+              </div>
+              <div className="modal-foot">
+                <button className="btn ghost" onClick={() => setEmbedOpen(false)}>Schließen</button>
+                <button
+                  className="btn primary"
+                  onClick={() => { void navigator.clipboard.writeText(snippet).then(() => { setEmbedCopied(true); setTimeout(() => setEmbedCopied(false), 2000); }); }}
+                >
+                  {embedCopied ? 'Kopiert!' : 'Code kopieren'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {refundTarget && (
         <div className="modal-backdrop" onClick={() => !refundBusy && setRefundTarget(null)}>

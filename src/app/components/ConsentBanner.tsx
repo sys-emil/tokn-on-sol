@@ -11,6 +11,7 @@ import { getConsent, setConsent, track, OPEN_CONSENT_EVENT } from '@/lib/track';
  */
 export function ConsentBanner() {
   const [visible, setVisible] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Cookie ist erst im Browser lesbar; auf dem Server gaebe es kein Ergebnis, das man als Startwert nehmen koennte
@@ -20,7 +21,9 @@ export function ConsentBanner() {
     return () => window.removeEventListener(OPEN_CONSENT_EVENT, reopen);
   }, []);
 
-  if (!visible) return null;
+  // Die eingebettete Kaufkarte (/embed) sitzt im Rahmen einer fremden Website;
+  // ein Cookie-Banner darin waere unbrauchbar und setzt ohnehin nichts.
+  if (!visible || pathname.startsWith('/embed')) return null;
 
   const decide = (state: 'granted' | 'denied') => {
     setConsent(state);
@@ -88,7 +91,7 @@ export function PageViewTracker() {
 
   useEffect(() => {
     // Skip the doorman scanner; venue staff, not visitors.
-    if (pathname.startsWith('/doorman')) return;
+    if (pathname.startsWith('/doorman') || pathname.startsWith('/embed')) return;
     track('page_view');
   }, [pathname]);
 

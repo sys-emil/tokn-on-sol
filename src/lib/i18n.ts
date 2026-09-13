@@ -522,6 +522,10 @@ const de = {
   "backup.createPdf": "PDF erstellen",
   "backup.createPdfMany": "PDF erstellen ({count} Tickets)",
   "backup.errCreate": "Das Backup-Ticket konnte nicht erstellt werden.",
+  "embed.kicker": "Tickets",
+  "embed.from": "ab",
+  "embed.cta": "Tickets sichern",
+  "embed.by": "Tickets über Passly",
 
   // ── e-mails ──────────────────────────────────────────────────────────
   "mail.ticketSubjectOne": "Dein Ticket für {event}",
@@ -1023,6 +1027,10 @@ const en: Record<TranslationKey, string> = {
   "backup.createPdf": "Create PDF",
   "backup.createPdfMany": "Create PDF ({count} tickets)",
   "backup.errCreate": "The backup ticket could not be created.",
+  "embed.kicker": "Tickets",
+  "embed.from": "from",
+  "embed.cta": "Get tickets",
+  "embed.by": "Tickets by Passly",
 
   "mail.ticketSubjectOne": "Your ticket for {event}",
   "mail.ticketSubjectMany": "Your {count} tickets for {event}",
