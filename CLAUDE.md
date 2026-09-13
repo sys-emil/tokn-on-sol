@@ -451,6 +451,8 @@ without deciding that question first.
 
 `/doorman/[eventId]` keeps admitting guests without connectivity: while online it refreshes a ticket snapshot every 60 s (`/api/organizer/event/snapshot`, cached in localStorage). When the live verify call fails (5 s timeout), verification runs locally (`src/app/doorman/[eventId]/offline.ts`): same Ed25519 challenge + minute window as the server, ownership against `purchases.buyer_wallet` (kept current by claims), once-only redemption against snapshot + local queue. Queued offline scans sync via `/api/tickets/redeem-offline` (atomic redeem; conflicts reported when another device was first). Known trade-off: two offline devices can't see each other's scans.
 
+**Manual search at the door** (since 2026-09-13): „Gast suchen" above the scanner finds a ticket by buyer e-mail or short id (`#PSL-XXXX`, last four of the asset id) in the cached snapshot (`searchSnapshot` in `offline.ts`; the snapshot carries `e` = lowercase buyer e-mail from `mint_jobs`, read per event / per pass rather than per session list). „Einlassen" posts **one** entry to `/api/tickets/redeem-offline` — the same atomic once-only redemption as a scan, minus the QR signature, because the guest is standing there; offline it joins the ordinary pending queue. No new route, no new gate: the door surface was already gated by `requestMayWorkTheDoor`. The panel tells the doorman to check ID or confirmation mail first; the code cannot.
+
 ### Support
 
 - `/hilfe`; public FAQ + support address (`NEXT_PUBLIC_SUPPORT_EMAIL`, default support@getpassly.de), linked from all footers.

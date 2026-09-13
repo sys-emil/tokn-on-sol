@@ -32,6 +32,7 @@ export interface SnapshotTicket {
   p?: 1; // season pass, admitted to this date among others
   d?: 1; // re-entry: guest is currently inside
   ls?: string; // re-entry: ISO timestamp of the last in/out scan
+  e?: string; // buyer e-mail (lowercase), for the manual search at the door
 }
 
 /** Per-event re-entry configuration, mirrored into the snapshot. */
@@ -124,7 +125,7 @@ export function savePending(eventId: string, pending: PendingRedemption[]): void
  * may already carry another device's newer scan, our local one may be newer
  * than the last refresh.
  */
-function effectiveState(
+export function effectiveState(
   ticket: SnapshotTicket,
   local: { direction: ScanDirection; at: string } | undefined,
 ): { inside: boolean; at: string | undefined } {
@@ -255,4 +256,50 @@ export async function verifyOffline(
   }
 
   return { valid: true, assetId, backup: isBackup, person, seasonPass: ticket.p === 1 };
+}
+
+/** A ticket as the manual search shows it. */
+export interface SearchHit {
+  ticket: SnapshotTicket;
+  shortId: string;
+  /** What a tap on „Einlassen" would record; undefined when nothing can be done. */
+  action?: ScanDirection;
+  state: 'valid' | 'redeemed' | 'revoked' | 'inside' | 'outside';
+}
+
+/**
+ * Manual lookup for the guest whose phone died or who cannot find the mail:
+ * matches the buyer e-mail and the short ticket id (#PSL-XXXX = last four
+ * characters of the asset id). Runs entirely on the cached snapshot, so it
+ * works in a dead spot too; the admission itself then goes through the same
+ * queue as an offline scan. At most `limit` hits — the doorman needs a
+ * handful, not a list.
+ */
+export function searchSnapshot(
+  snapshot: Snapshot | null,
+  rawQuery: string,
+  locallyRedeemed: ReadonlySet<string>,
+  localScans: LocalScanState,
+  limit = 8,
+): SearchHit[] {
+  const q = rawQuery.trim().toLowerCase().replace(/^#?psl-?/, '');
+  if (!snapshot || q.length < 2) return [];
+  const hits: SearchHit[] = [];
+  for (const ticket of snapshot.tickets) {
+    const short = ticket.a.slice(-4).toLowerCase();
+    if (!(ticket.e?.includes(q) || short === q || short.startsWith(q) && q.length >= 3)) continue;
+    const shortId = `#PSL-${ticket.a.slice(-4).toUpperCase()}`;
+    if (ticket.x === 1) {
+      hits.push({ ticket, shortId, state: 'revoked' });
+    } else if (snapshot.reentry?.enabled) {
+      const inside = effectiveState(ticket, localScans.get(ticket.a)).inside;
+      hits.push({ ticket, shortId, state: inside ? 'inside' : 'outside', action: inside ? 'out' : 'in' });
+    } else if (ticket.r === 1 || locallyRedeemed.has(ticket.a)) {
+      hits.push({ ticket, shortId, state: 'redeemed' });
+    } else {
+      hits.push({ ticket, shortId, state: 'valid', action: 'in' });
+    }
+    if (hits.length >= limit) break;
+  }
+  return hits;
 }

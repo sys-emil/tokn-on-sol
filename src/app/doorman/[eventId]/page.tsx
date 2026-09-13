@@ -15,7 +15,9 @@ import {
   loadSnapshot,
   savePending,
   saveSnapshot,
+  searchSnapshot,
   verifyOffline,
+  type SearchHit,
   type BackupPersonView,
   type LocalScanState,
   type PendingRedemption,
@@ -37,7 +39,7 @@ type Phase =
   | { tag: 'camera-error'; message: string }
   | { tag: 'scanning' }
   | { tag: 'verifying' }
-  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string; offline?: boolean; backup?: boolean; person?: BackupPersonView; awaitConfirm?: boolean; seasonPass?: boolean; direction?: ScanDirection }
+  | { tag: 'result-valid'; assetId: string; eventName: string; redeemedAt: string; offline?: boolean; backup?: boolean; person?: BackupPersonView; awaitConfirm?: boolean; seasonPass?: boolean; direction?: ScanDirection; manual?: boolean }
   | { tag: 'result-used'; redeemedAt: string }
   | { tag: 'result-cooldown'; direction: ScanDirection; retryInSeconds: number; lastScanAt?: string }
   | { tag: 'result-invalid'; reason: string };
@@ -133,6 +135,31 @@ const PAGE_CSS = `
     font-size: 18px; font-weight: 600; letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
   }
+
+  .door-search { padding: 12px 20px 0; flex-shrink: 0; }
+  @media (max-width: 430px) { .door-search { padding: 12px 14px 0; } }
+  .door-search-toggle {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12.5px; font-weight: 500; color: var(--ink-2);
+    padding: 8px 12px; min-height: 40px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 9px;
+  }
+  .door-search-toggle[aria-expanded="true"] { border-color: var(--accent); color: var(--accent-ink, var(--ink)); }
+  .door-search-panel {
+    margin-top: 10px; padding: 12px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    display: grid; gap: 10px;
+  }
+  .door-search-panel .input { font-size: 15px; min-height: 44px; }
+  .door-hit {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 0; border-top: 1px solid var(--line);
+  }
+  .door-hit:first-child { border-top: 0; }
+  .door-hit .who { min-width: 0; font-size: 13px; }
+  .door-hit .who .mail { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .door-hit .who .meta { font-size: 11.5px; color: var(--ink-3); font-family: var(--mono); margin-top: 2px; }
+  .door-hit .btn { min-height: 40px; white-space: nowrap; }
 
   .scanner-wrap {
     flex: 1;
@@ -313,6 +340,12 @@ export default function DoormanPage() {
   // Re-entry: guests may leave and come back, so the interesting number is
   // how many are inside right now, not how often we scanned.
   const [reentry, setReentry] = useState<{ enabled: boolean; cooldownSeconds: number } | null>(null);
+  // Manuelle Suche: Handy leer, Mail nicht gefunden. Liest den Snapshot, laesst
+  // ueber denselben Pfad ein wie ein Offline-Scan.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchHits, setSearchHits] = useState<SearchHit[]>([]);
+  const [manualBusy, setManualBusy] = useState<string | null>(null);
   const [insideCount, setInsideCount] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -640,6 +673,70 @@ export default function DoormanPage() {
     }, 3000);
   }, [eventId, event?.name, doorAuthHeaders, noteScan]);
 
+  const runSearch = useCallback((q: string) => {
+    setSearchQuery(q);
+    setSearchHits(searchSnapshot(snapshotRef.current, q, locallyRedeemedRef.current, localScansRef.current as LocalScanState));
+  }, []);
+
+  /**
+   * Einlass von Hand, aus der Suche. Laeuft ueber `/api/tickets/redeem-offline`
+   * mit genau einem Eintrag — dieselbe atomare Einloesung wie ein Scan, nur
+   * ohne QR-Signatur, denn die Person steht ja vor dem Tuersteher. Ohne Netz
+   * wandert der Eintrag in die normale Offline-Warteschlange.
+   */
+  const admitManually = useCallback(async (hit: SearchHit) => {
+    if (!hit.action || processingRef.current || manualBusy) return;
+    const assetId = hit.ticket.a;
+    const direction: ScanDirection | undefined = reentry?.enabled ? hit.action : undefined;
+    setManualBusy(assetId);
+    processingRef.current = true;
+    const at = new Date().toISOString();
+    const entry: PendingRedemption = { assetId, at, id: newScanId(), ...(direction ? { direction } : {}) };
+
+    const applyLocal = (offline: boolean) => {
+      locallyRedeemedRef.current.add(assetId);
+      noteScan(assetId, direction, at);
+      if (direction !== 'out') setScannedToday((n) => n + 1);
+      setLastScan(at);
+      setPhase({ tag: 'result-valid', assetId, eventName: event?.name ?? '', redeemedAt: at, offline, seasonPass: hit.ticket.p === 1, direction, manual: true });
+    };
+
+    try {
+      const res = await fetch('/api/tickets/redeem-offline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await doorAuthHeaders()) },
+        body: JSON.stringify({ eventId, redemptions: [entry] }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { synced: string[]; conflicts: { reason: string; redeemedAt?: string }[] };
+      if (data.synced.length > 0) {
+        applyLocal(false);
+      } else {
+        const c = data.conflicts[0];
+        if (c?.reason === 'already_redeemed') setPhase({ tag: 'result-used', redeemedAt: c.redeemedAt ?? '' });
+        else if (c?.reason === 'cooldown') setPhase({ tag: 'result-cooldown', direction: hit.action, retryInSeconds: 0 });
+        else setPhase({ tag: 'result-invalid', reason: c?.reason === 'revoked' ? 'Ticket revoked (refunded)' : 'Ticket not found' });
+      }
+    } catch {
+      // Kein Netz: in die Warteschlange, wie ein Offline-Scan.
+      setOnline(false);
+      pendingRef.current = [...pendingRef.current, entry];
+      if (eventId) savePending(eventId, pendingRef.current);
+      setPendingCount(pendingRef.current.length);
+      applyLocal(true);
+    } finally {
+      setManualBusy(null);
+      setSearchOpen(false);
+      setSearchQuery('');
+      setSearchHits([]);
+      setTimeout(() => {
+        processingRef.current = false;
+        setPhase({ tag: 'scanning' });
+      }, 3000);
+    }
+  }, [eventId, event?.name, doorAuthHeaders, noteScan, reentry?.enabled, manualBusy]);
+
   // Resume scanning after the doorman confirms a backup ticket's ID check.
   const confirmAndResume = useCallback(() => {
     processingRef.current = false;
@@ -859,6 +956,71 @@ export default function DoormanPage() {
             />
           )}
 
+          {hasDoorAccess && snapshotReady && (
+            <div className="door-search">
+              <button
+                type="button"
+                className="door-search-toggle"
+                aria-expanded={searchOpen}
+                onClick={() => { setSearchOpen((v) => !v); if (searchOpen) { setSearchQuery(''); setSearchHits([]); } }}
+              >
+                <Icon name="search" size={14} />
+                Gast suchen
+              </button>
+              {searchOpen && (
+                <div className="door-search-panel">
+                  <input
+                    className="input"
+                    type="search"
+                    inputMode="email"
+                    autoComplete="off"
+                    autoFocus
+                    placeholder="E-Mail oder Ticket-Nr. (PSL-…)"
+                    value={searchQuery}
+                    onChange={(e) => runSearch(e.target.value)}
+                    aria-label="Gast suchen"
+                  />
+                  {searchQuery.trim().length >= 2 && searchHits.length === 0 && (
+                    <div style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>Kein Ticket gefunden. Die Liste ist {snapshotAt ? agoLabel(snapshotAt, nowTs) : 'unbekannten Alters'}.</div>
+                  )}
+                  {searchHits.length > 0 && (
+                    <div>
+                      {searchHits.map((h) => (
+                        <div key={h.ticket.a} className="door-hit">
+                          <div className="who">
+                            <div className="mail">{h.ticket.e ?? 'Ohne E-Mail'}</div>
+                            <div className="meta">
+                              {h.shortId}{h.ticket.p === 1 ? ' · Saisonpass' : ''}
+                              {h.state === 'redeemed' && ' · bereits eingelassen'}
+                              {h.state === 'revoked' && ' · storniert'}
+                              {h.state === 'inside' && ' · aktuell drin'}
+                              {h.state === 'outside' && ' · draußen'}
+                            </div>
+                          </div>
+                          {h.action ? (
+                            <button
+                              type="button"
+                              className="btn primary sm"
+                              disabled={manualBusy !== null}
+                              onClick={() => void admitManually(h)}
+                            >
+                              {manualBusy === h.ticket.a ? '…' : h.action === 'out' ? 'Auschecken' : 'Einlassen'}
+                            </button>
+                          ) : (
+                            <span className={`chip ${h.state === 'revoked' ? 'bad' : ''}`}>{h.state === 'revoked' ? 'Ungültig' : 'Eingelöst'}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5 }}>
+                    Für Gäste ohne funktionierenden Code. Lass dir Ausweis oder Bestätigungsmail zeigen, bevor du von Hand einlässt.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="scanner-wrap" role="status" aria-live="assertive">
             <video ref={videoRef} className="scanner-video" muted playsInline />
             <canvas ref={canvasRef} style={{ display: 'none' }} />
@@ -942,6 +1104,9 @@ export default function DoormanPage() {
                   <div style={{ fontSize: 13, marginTop: 4, opacity: 0.85 }}>{phase.eventName} · {shortId(phase.assetId)}</div>
                   {phase.seasonPass && (
                     <div style={{ fontSize: 12, marginTop: 6, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Saisonpass · gilt heute</div>
+                  )}
+                  {phase.manual && (
+                    <div style={{ fontSize: 11.5, marginTop: 6, opacity: 0.85 }}>Von Hand eingelassen</div>
                   )}
                   {phase.offline && (
                     <div style={{ fontSize: 11.5, marginTop: 6, opacity: 0.75 }}>Offline geprüft, wird später synchronisiert</div>

@@ -21,7 +21,7 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
       Umrechnung. Knopf auf `/dashboard/events/[id]` in der Ticketliste, mit
       Bestaetigung. Nicht fuer Abendkasse, Freitickets, Saisonpaesse,
       ausgezahlte Zeilen (wie bei der Rueckgabe).
-- [ ] **1.3 Manuelle Suche an der Tuer.** Doorman-Seite: Suchfeld ueber dem
+- [x] **1.3 Manuelle Suche an der Tuer.** _(2026-09-13)_ Doorman-Seite: Suchfeld ueber dem
       Scanner, sucht im Offline-Snapshot nach E-Mail/Name (Snapshot muss die
       Kaeufer-Mail tragen, nur fuer Tuer-berechtigte). Treffer zeigt
       Einlass-Stand, Knopf „Von Hand einlassen" laeuft ueber denselben

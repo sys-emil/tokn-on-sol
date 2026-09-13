@@ -169,6 +169,7 @@ export interface EventPassTicket {
   buyerWallet: string;
   redeemedHere: boolean;
   revoked: boolean;
+  stripeSessionId: string | null;
 }
 
 /**
@@ -187,12 +188,12 @@ export async function passTicketsForEvent(eventId: string): Promise<EventPassTic
 
   const { data: purchases } = await supabaseAdmin
     .from("purchases")
-    .select("id, asset_id, buyer_wallet, revoked_at")
+    .select("id, asset_id, buyer_wallet, revoked_at, stripe_session_id")
     .in("season_pass_id", passIds)
     .limit(10000);
 
   const rows = (purchases ?? []) as {
-    id: string; asset_id: string; buyer_wallet: string; revoked_at: string | null;
+    id: string; asset_id: string; buyer_wallet: string; revoked_at: string | null; stripe_session_id: string | null;
   }[];
   if (rows.length === 0) return [];
 
@@ -210,5 +211,6 @@ export async function passTicketsForEvent(eventId: string): Promise<EventPassTic
     buyerWallet: r.buyer_wallet,
     redeemedHere: used.has(r.id),
     revoked: Boolean(r.revoked_at),
+    stripeSessionId: r.stripe_session_id,
   }));
 }
