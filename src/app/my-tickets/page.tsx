@@ -793,7 +793,7 @@ const isVipTier = (t: Ticket) => /\bvip\b/i.test(t.tierName ?? '');
 
 export default function MyTickets() {
   const router = useRouter();
-  const { ready, authenticated, user, login } = useAuth();
+  const { ready, authenticated, user, login, isOrganizer } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
 
@@ -1485,7 +1485,7 @@ export default function MyTickets() {
             <PasslyLogo height={24} />
             <SiteNav active="tickets" />
             <div className="topbar-right">
-              <Link href="/dashboard" className="btn subtle sm">Dashboard</Link>
+              {isOrganizer && <Link href="/dashboard" className="btn subtle sm">Dashboard</Link>}
               <AccountMenu email={email} walletAddress={accountWallet} onLogout={() => logout()} />
             </div>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useLogout, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+import { useLogout, useAuth, useRequireOrganizer, useWallets as useSolanaWallets } from '@/lib/auth';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -87,9 +87,7 @@ export default function PassesPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (ready && !authenticated) router.push('/');
-  }, [ready, authenticated, router]);
+  useRequireOrganizer();
 
   const authHeaders = useCallback(async (): Promise<HeadersInit> => {
     const token = await getAccessToken();

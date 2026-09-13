@@ -3,10 +3,14 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/app/components/passlyUi';
+import { useAuth } from '@/lib/auth';
 
 /**
  * Clickable avatar in the topbar: opens a small menu with account editing,
  * the own public profile, and logout. Replaces the bare initials circle.
+ *
+ * Veranstalter sehen zusaetzlich den Weg ins Dashboard; ein Gastkonto sieht
+ * ihn nicht — die Rolle kommt aus `useAuth().isOrganizer`.
  */
 export function AccountMenu({
   email,
@@ -17,6 +21,7 @@ export function AccountMenu({
   walletAddress?: string;
   onLogout: () => void;
 }) {
+  const { isOrganizer } = useAuth();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +97,12 @@ export function AccountMenu({
             <div className="mail">{email || 'Angemeldet'}</div>
             <div className="sub">Dein Passly-Konto</div>
           </div>
+          {isOrganizer && (
+            <Link href="/dashboard" role="menuitem" onClick={() => setOpen(false)}>
+              <span className="item-icon"><Icon name="calendar" size={14} /></span>
+              Veranstalter-Dashboard
+            </Link>
+          )}
           <Link href="/account" role="menuitem" onClick={() => setOpen(false)}>
             <span className="item-icon"><Icon name="settings" size={14} /></span>
             Konto &amp; Profil bearbeiten

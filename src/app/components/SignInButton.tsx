@@ -20,6 +20,12 @@ import { postLoginDestination } from '@/lib/postLogin';
  * ein Veranstalter mit Konto hatte auf diesen Seiten ueberhaupt keinen Weg
  * hinein.
  *
+ * Angemeldet zeigt er die Rolle des Kontos: Veranstalter gehen ins Dashboard,
+ * Gaeste zu ihren Tickets. Ein Gastkonto bekommt hier bewusst keinen
+ * „Dashboard"-Knopf — das Dashboard, die Saisonpaesse und die Auszahlungen
+ * sind fuer Veranstalter, und wer eines werden will, tut das ueber „Event
+ * anlegen" auf den Veranstalterseiten.
+ *
  * Nach erfolgreicher Anmeldung geht es sofort weiter — ins Dashboard, wenn das
  * Konto ein freigeschalteter Veranstalter ist, sonst zu den eigenen Tickets
  * (`postLoginDestination`). Das gilt nur auf diesen Einstiegsseiten; wer sich
@@ -30,7 +36,7 @@ import { postLoginDestination } from '@/lib/postLogin';
  * braucht die Anmeldung.
  */
 export function SignInButton() {
-  const { ready, authenticated, login } = useAuth();
+  const { ready, authenticated, isOrganizer, login } = useAuth();
   const router = useRouter();
 
   // Bis die Sitzung geladen ist, steht der Knopf schon an seinem Platz — sonst
@@ -44,9 +50,9 @@ export function SignInButton() {
   }
 
   if (authenticated) {
-    // Wer kein Veranstalter ist, wird vom Dashboard selbst zur Bewerbung
-    // weitergeleitet; hier braucht es dafuer keine zweite Abfrage.
-    return <Link href="/dashboard" className="btn primary sm">Dashboard</Link>;
+    return isOrganizer
+      ? <Link href="/dashboard" className="btn primary sm">Dashboard</Link>
+      : <Link href="/my-tickets" className="btn primary sm">Meine Tickets</Link>;
   }
 
   return (

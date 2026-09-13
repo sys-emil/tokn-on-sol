@@ -1,6 +1,6 @@
 'use client';
 
-import { getAccessToken, useLogout, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+import { getAccessToken, useLogout, useAuth, useRequireOrganizer, useWallets as useSolanaWallets } from '@/lib/auth';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -123,7 +123,7 @@ function ProfileSkeleton() {
 
 export default function OrganizerProfilePage() {
   const router = useRouter();
-  const { ready, authenticated, user, login } = useAuth();
+  const { ready, user } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets } = useSolanaWallets();
   const walletAddress = wallets[0]?.address;
@@ -150,9 +150,7 @@ export default function OrganizerProfilePage() {
 
   const isPro = profile?.plan === 'pro';
 
-  useEffect(() => {
-    if (ready && !authenticated) login();
-  }, [ready, authenticated, login]);
+  useRequireOrganizer();
 
   // A success note that never goes away starts reading like a stuck UI;
   // errors stay until the next save attempt.

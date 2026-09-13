@@ -1,6 +1,6 @@
 'use client';
 
-import { useLogout, useAuth, useWallets as useSolanaWallets } from '@/lib/auth';
+import { useLogout, useAuth, useRequireOrganizer, useWallets as useSolanaWallets } from '@/lib/auth';
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -108,9 +108,7 @@ export default function PayoutsPage() {
     }
   }
 
-  useEffect(() => {
-    if (ready && !authenticated) router.push('/');
-  }, [ready, authenticated, router]);
+  useRequireOrganizer();
 
   const loadPayouts = useCallback(async (): Promise<void> => {
     if (!wallet) return;

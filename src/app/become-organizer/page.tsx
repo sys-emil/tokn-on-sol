@@ -58,7 +58,7 @@ const PAGE_CSS = `
 
 export default function BecomeOrganizer() {
   const router = useRouter();
-  const { ready, authenticated, login, user, getAccessToken } = useAuth();
+  const { ready, authenticated, login, user, getAccessToken, refreshAccount } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
   const { wallets: solanaWallets } = useSolanaWallets();
 
@@ -141,6 +141,9 @@ export default function BecomeOrganizer() {
         return;
       }
       // Freigabe ist automatisch: direkt an den Arbeitsplatz, kein Wartezustand.
+      // Ab hier ist das Konto ein Veranstalter-Konto; die Sitzung muss das
+      // erfahren, sonst zeigt die Navigation weiter die Gastansicht.
+      refreshAccount();
       router.push('/dashboard');
     } catch {
       setFormError('Netzwerkfehler. Bitte versuch es erneut.');

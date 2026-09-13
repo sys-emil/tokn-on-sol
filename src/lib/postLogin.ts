@@ -10,7 +10,8 @@ import { getAccessToken } from '@/lib/authBrowser';
  *
  * Veranstalter landen im Dashboard, alle anderen bei ihren Tickets. Nur
  * `approved` fuehrt ins Dashboard: `pending`/`rejected` wuerden dort sofort
- * wieder hinausgeleitet.
+ * wieder hinausgeleitet. Die Rolle kommt aus `/api/me`, derselben Antwort,
+ * aus der auch der `AuthProvider` sie liest.
  *
  * Faellt im Fehlerfall bewusst auf `/my-tickets` zurueck — das ist das Ziel
  * fuer die grosse Mehrheit, und eine gescheiterte Statusabfrage darf niemanden
@@ -25,16 +26,8 @@ export async function postLoginDestination(): Promise<string> {
 
     const meRes = await fetch('/api/me', { headers: auth, cache: 'no-store' });
     if (!meRes.ok) return fallback;
-    const { walletAddress } = (await meRes.json()) as { walletAddress?: string };
-    if (!walletAddress) return fallback;
-
-    const statusRes = await fetch(
-      `/api/organizers/status?walletAddress=${encodeURIComponent(walletAddress)}`,
-      { headers: auth, cache: 'no-store' },
-    );
-    if (!statusRes.ok) return fallback;
-    const { status } = (await statusRes.json()) as { status?: string };
-    return status === 'approved' ? '/dashboard' : fallback;
+    const { organizerStatus } = (await meRes.json()) as { organizerStatus?: string };
+    return organizerStatus === 'approved' ? '/dashboard' : fallback;
   } catch {
     return fallback;
   }
