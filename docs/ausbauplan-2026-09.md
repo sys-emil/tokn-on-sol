@@ -53,7 +53,7 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
 
 ## Block 3 — Produkt
 
-- [ ] **3.1 Onboarding-Checkliste im Dashboard.** Vier Haken: Profil (Handle),
+- [x] **3.1 Onboarding-Checkliste im Dashboard.** _(2026-09-13)_ Vier Haken: Profil (Handle),
       Stripe verbunden, erstes Event, Tuerlink erstellt. Verschwindet, wenn alle
       gesetzt sind. Passt zur Rollen-Aenderung vom 2026-09-13.
 - [ ] **3.2 Einbettbares Kaufwidget.** `/embed/[id]` (schlanke Shopkarte im

@@ -30,6 +30,23 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ status: "none" });
   }
 
+  // For the onboarding checklist on /dashboard: has this organizer ever
+  // created a door link? Two cheap queries; the event list is small.
+  const { data: eventRows } = await supabaseAdmin
+    .from("events")
+    .select("id")
+    .eq("organizer_wallet", walletAddress)
+    .limit(500);
+  const eventIds = ((eventRows ?? []) as { id: string }[]).map((e) => e.id);
+  let doorLinksCount = 0;
+  if (eventIds.length > 0) {
+    const { count } = await supabaseAdmin
+      .from("door_access_links")
+      .select("id", { count: "exact", head: true })
+      .in("event_id", eventIds);
+    doorLinksCount = count ?? 0;
+  }
+
   return NextResponse.json({
     status: data.status as string,
     stripe_account_id: (data.stripe_account_id as string | null) ?? null,
@@ -42,5 +59,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     public_name: (data.public_name as string | null) ?? null,
     is_verified: (data.is_verified as boolean) ?? false,
     verified_label: (data.verified_label as string | null) ?? null,
+    door_links_count: doorLinksCount,
   });
 }

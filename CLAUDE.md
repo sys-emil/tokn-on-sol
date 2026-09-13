@@ -170,7 +170,7 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 | `/shop/[id]` | Public event listing & purchase |
 | `/@[handle]` | Public organizer profile (YouTube-style; `src/app/[handle]/page.tsx`) |
 | `/become-organizer` | Organizer application (Privy auth required) |
-| `/dashboard` | Organizer dashboard (approved organizer required) |
+| `/dashboard` | Organizer dashboard (approved organizer required). Shows an onboarding checklist (first event, Stripe, public profile, door link) until all four are done; `/api/organizers/status` carries `handle` and `door_links_count` for it. |
 | `/dashboard/profile` | Organizer public-profile editor (approved organizer required) |
 | `/pass/[id]` | Public season-pass sale page |
 | `/dashboard/passes` | Organizer season-pass management (approved organizer required) |

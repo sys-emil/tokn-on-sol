@@ -54,6 +54,26 @@ function relativeTime(iso: string): string {
 
 
 const PAGE_CSS = `
+  .onb { padding: 18px 20px; }
+  .onb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .onb-title { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+  .onb-sub { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+  .onb-progress { height: 4px; border-radius: 2px; background: var(--surface-2); margin: 12px 0 6px; overflow: hidden; }
+  .onb-progress span { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s cubic-bezier(.2,.8,.2,1); }
+  .onb-list { list-style: none; margin: 0; padding: 0; }
+  .onb-list li { display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid var(--line); }
+  .onb-list li:first-child { border-top: 0; }
+  .onb-check {
+    width: 22px; height: 22px; border-radius: 50%; flex: none;
+    border: 1.5px solid var(--line-strong, var(--line));
+    display: grid; place-items: center; color: white;
+  }
+  .onb-list li.is-done .onb-check { background: var(--ok); border-color: var(--ok); }
+  .onb-list li.is-done .onb-label { color: var(--ink-3); text-decoration: line-through; }
+  .onb-text { flex: 1; min-width: 0; }
+  .onb-label { font-size: 13.5px; font-weight: 500; }
+  .onb-hint { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; line-height: 1.5; }
+
   /* ── Stronger aurora behind the dashboard hero ───────────── */
   .aurora {
     inset: -40% -14% auto -14%;
@@ -153,6 +173,11 @@ export default function Dashboard() {
   const [plan, setPlan] = useState<'free' | 'pro'>('free');
   const [orgVerified, setOrgVerified] = useState(false);
   const [orgVerifiedLabel, setOrgVerifiedLabel] = useState<string | null>(null);
+  // Onboarding-Checkliste: Handle und Tuerlinks kommen aus der Statusroute,
+  // Stripe und Events kennt die Seite ohnehin.
+  const [orgHandle, setOrgHandle] = useState<string | null>(null);
+  const [doorLinksCount, setDoorLinksCount] = useState(0);
+  const [checklistDismissed, setChecklistDismissed] = useState(false);
   const [planCancelAtPeriodEnd, setPlanCancelAtPeriodEnd] = useState(false);
   const [planPeriodEnd, setPlanPeriodEnd] = useState<string | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
@@ -200,6 +225,8 @@ export default function Dashboard() {
         public_name?: string | null;
         is_verified?: boolean;
         verified_label?: string | null;
+        handle?: string | null;
+        door_links_count?: number;
       };
       const s = data.status;
       setOrgStatus(s === 'approved' ? 'approved' : 'none');
@@ -212,6 +239,8 @@ export default function Dashboard() {
         setOrgVerifiedLabel(data.verified_label ?? null);
         setPlanPeriodEnd(data.plan_period_end ?? null);
         setPlanCancelAtPeriodEnd(data.plan_cancel_at_period_end ?? false);
+        setOrgHandle(data.handle ?? null);
+        setDoorLinksCount(data.door_links_count ?? 0);
       }
     }
     void checkOrg();
@@ -290,6 +319,22 @@ export default function Dashboard() {
   const loadingEvents = !!ownerWallet && !eventsLoaded;
 
   const totalRevenueCents = events.reduce((a, e) => a + e.tickets_sold * e.price_eur, 0);
+
+  /**
+   * Die vier Schritte vom frischen Konto zum ersten Abend. Seit der
+   * Auto-Freischaltung (2026-09-07) steht ein neuer Veranstalter sofort vor
+   * einem leeren Dashboard; die Liste fuehrt ihn durch, was vorher die
+   * Begruessungsmail nur beschrieb. Verschwindet von selbst, wenn alles
+   * gesetzt ist — und auf Wunsch frueher, fuer diese Sitzung.
+   */
+  const checklist = [
+    { key: 'event', done: events.length > 0, label: 'Erstes Event anlegen', hint: 'Datum, Preis, Kapazität. Teilen kannst du den Link sofort.', href: '/dashboard/events/neu' },
+    { key: 'stripe', done: stripeStatus === 'connected', label: 'Auszahlungen einrichten', hint: 'Stripe verifiziert dich einmalig. Erst danach laufen bezahlte Verkäufe.', href: null },
+    { key: 'profile', done: Boolean(orgHandle), label: 'Öffentliches Profil anlegen', hint: 'Name, Bild und dein @handle, auf das alle Event-Seiten verlinken.', href: '/dashboard/profile' },
+    { key: 'door', done: doorLinksCount > 0, label: 'Einlass vorbereiten', hint: 'Erstelle einen Türlink für dein Team und probier den Scanner aus.', href: events[0] ? `/dashboard/events/${events[0].id}` : '/dashboard/events/neu' },
+  ];
+  const checklistOpen = checklist.filter((c) => !c.done).length;
+  const showChecklist = eventsLoaded && !checklistDismissed && checklistOpen > 0;
   const activeEvents = events.filter((e) => isUpcoming(e.date)).length;
   const nextEvent = [...events]
     .filter((e) => isUpcoming(e.date))
@@ -395,6 +440,41 @@ export default function Dashboard() {
                     </Link>
                   </div>
                 </div>
+
+                {showChecklist && (
+                  <section>
+                    <div className="card onb">
+                      <div className="onb-head">
+                        <div>
+                          <div className="onb-title">Die ersten Schritte</div>
+                          <div className="onb-sub">{checklist.length - checklistOpen} von {checklist.length} erledigt</div>
+                        </div>
+                        <button className="btn ghost sm" onClick={() => setChecklistDismissed(true)} aria-label="Checkliste ausblenden">Ausblenden</button>
+                      </div>
+                      <div className="onb-progress"><span style={{ width: `${((checklist.length - checklistOpen) / checklist.length) * 100}%` }} /></div>
+                      <ol className="onb-list">
+                        {checklist.map((c) => (
+                          <li key={c.key} className={c.done ? 'is-done' : ''}>
+                            <span className="onb-check" aria-hidden="true">{c.done && <Icon name="check" size={12} strokeWidth={3} />}</span>
+                            <div className="onb-text">
+                              <div className="onb-label">{c.label}</div>
+                              {!c.done && <div className="onb-hint">{c.hint}</div>}
+                            </div>
+                            {!c.done && (
+                              c.href ? (
+                                <Link href={c.href} className="btn subtle sm">Los</Link>
+                              ) : (
+                                <button className="btn subtle sm" onClick={() => void handleConnectStripe()} disabled={connectingStripe}>
+                                  {connectingStripe ? '…' : stripeStatus === 'pending' ? 'Fortsetzen' : 'Los'}
+                                </button>
+                              )
+                            )}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  </section>
+                )}
 
                 <div className="kpis">
                   <div className="kpi">
