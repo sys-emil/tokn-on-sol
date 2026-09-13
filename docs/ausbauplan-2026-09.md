@@ -31,9 +31,9 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
       Payout-Cron: pro Veranstalter mit Verkaeufen in den letzten 24 h eine Mail
       („gestern 12 Tickets, 87 von 150, naechstes Event in 5 Tagen").
       Abschaltbar (`organizers.daily_digest` bool, default true).
-- [ ] **1.5 Ticketlimit pro Bestellung einstellbar.** `events.max_per_order`
+- [x] **1.5 Ticketlimit pro Bestellung einstellbar.** _(2026-09-13; Spalte `events.max_per_order` migriert)_ `events.max_per_order`
       (1–10, default 4), im EventEditor, im Shop und in `/api/checkout/create`.
-- [ ] **1.6 Mint-Status im Dashboard.** Auf `/dashboard/events/[id]`: Zeile
+- [x] **1.6 Mint-Status im Dashboard.** _(2026-09-13)_ Auf `/dashboard/events/[id]`: Zeile
       „n Tickets werden gerade ausgestellt" aus `mint_jobs` (queued/processing),
       und „n fehlgeschlagen, Kaeufer erstattet" bei `failed`.
 

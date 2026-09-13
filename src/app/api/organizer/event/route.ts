@@ -82,6 +82,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     checkedIn: passTickets.filter((p) => !p.revoked && p.redeemedHere).length,
   };
 
+  // Delivery state of the async mint queue, so the organizer sees "n tickets
+  // are being issued" instead of a ticket count that lags the sales count —
+  // and permanently failed orders (auto-refunded) instead of a silent gap.
+  const { data: jobs } = await supabaseAdmin
+    .from("mint_jobs")
+    .select("status, quantity, refund_id")
+    .eq("event_id", id)
+    .in("status", ["queued", "processing", "failed"]);
+  const mintStatus = { pendingTickets: 0, failedOrders: 0, refundedOrders: 0 };
+  for (const j of (jobs ?? []) as { status: string; quantity: number | null; refund_id: string | null }[]) {
+    if (j.status === "failed") {
+      mintStatus.failedOrders += 1;
+      if (j.refund_id) mintStatus.refundedOrders += 1;
+    } else {
+      mintStatus.pendingTickets += j.quantity ?? 1;
+    }
+  }
+
   const eventPublic = { ...(event as Record<string, unknown>) };
   delete eventPublic.organizer_wallet;
 
@@ -91,5 +109,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     tickets,
     stats: { checkedIn, revoked },
     passStats,
+    mintStatus,
   });
 }

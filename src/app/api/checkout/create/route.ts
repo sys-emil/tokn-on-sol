@@ -91,7 +91,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const { eventId, quantity: rawQty, tierId, discountCode } = body;
-  const quantity = Math.max(1, Math.min(4, Math.floor(rawQty ?? 1)));
+  // Auf das Limit des Events wird erst nach dem Laden geklemmt (max_per_order).
+  const requestedQty = Math.max(1, Math.min(10, Math.floor(rawQty ?? 1)));
   const isGuest = body.guest === true;
 
   if (!eventId) {
@@ -155,6 +156,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Guests pay first and unlock the ticket by signing in afterwards. An
   // organizer can require the account up front instead.
+  // Ticketlimit pro Bestellung ist eine Einstellung des Veranstalters (1–10,
+  // Standard 4). Geklemmt statt abgelehnt: der Shop kennt das Limit ohnehin.
+  const maxPerOrder = Number.isInteger(event.max_per_order) && event.max_per_order >= 1 ? Math.min(10, event.max_per_order as number) : 4;
+  const quantity = Math.min(requestedQty, maxPerOrder);
+
   if (isGuest && event.guest_checkout_enabled === false) {
     return NextResponse.json(
       { success: false, error: "Für dieses Event ist ein Konto nötig." },

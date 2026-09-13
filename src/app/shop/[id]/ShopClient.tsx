@@ -24,13 +24,14 @@ interface Props {
   queueEnabled?: boolean;
   /** events.fee_payer; decides how much of the service fee lands on the buyer. */
   feePayer?: FeePayer;
+  /** events.max_per_order; the organizer's per-order ticket cap (1–10). */
+  maxPerOrder?: number;
 }
 
 function formatPrice(cents: number): string {
   return (cents / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 }
 
-const MAX_QTY = 4;
 
 // A checkout the buyer started but hasn't finished. The server-side
 // reservation (30 min) keeps the seats, the Stripe session URL stays valid.
@@ -46,7 +47,8 @@ function formatCountdown(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export default function ShopClient({ eventId, tiers, waitlistEnabled = false, guestAllowed = true, queueEnabled = false, feePayer = 'buyer' }: Props) {
+export default function ShopClient({ eventId, tiers, waitlistEnabled = false, guestAllowed = true, queueEnabled = false, feePayer = 'buyer', maxPerOrder = 4 }: Props) {
+  const MAX_QTY = Math.min(10, Math.max(1, maxPerOrder));
   const { ready, authenticated, login } = useAuth();
   const { wallets: solanaWallets } = useWallets();
   const [loading, setLoading] = useState(false);

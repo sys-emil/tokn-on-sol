@@ -74,6 +74,8 @@ export type Event = {
   queue_enabled: boolean;
   /** How many buyers may hold a checkout slot at once while the queue is on. */
   queue_slots: number;
+  /** Tickets per checkout (1–10, default 4), since 2026-09-13. */
+  max_per_order?: number;
   created_at: string;
 };
 

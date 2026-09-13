@@ -55,6 +55,8 @@ export interface EventDraft {
   reentryCooldownMinutes: string;
   queueEnabled: boolean;
   queueSlots: string;
+  /** Tickets pro Bestellung (1–10). */
+  maxPerOrder: string;
   ticketsSold?: number;
   ticketsReserved?: number;
 }
@@ -67,6 +69,7 @@ export const INITIAL_DRAFT: EventDraft = {
   resaleEnabled: false,
   guestCheckout: true, reentryEnabled: false, reentryCooldownMinutes: '2',
   queueEnabled: false, queueSlots: '50',
+  maxPerOrder: '4',
 };
 
 const MAX_TIERS = 5;
@@ -282,6 +285,7 @@ export function EventEditor({
         border_style: draft.borderStyle,
         reentry_enabled: draft.reentryEnabled,
         reentry_cooldown_seconds: checked.reentryCooldownSeconds,
+        max_per_order: Math.min(10, Math.max(1, Math.floor(Number(draft.maxPerOrder)) || 4)),
       };
 
       const res = mode === 'create'
@@ -622,6 +626,17 @@ export function EventEditor({
                 </div>
               </>
             )}
+
+            <div className="field">
+              <label>Tickets pro Bestellung</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Höchstens</span>
+                <input type="number" className="input" style={{ width: 90 }} value={draft.maxPerOrder} min={1} max={10} step={1}
+                  onChange={(e) => set('maxPerOrder', e.target.value)} disabled={saving} />
+                <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>Tickets auf einmal</span>
+              </div>
+              <span className="hint">Zwischen 1 und 10. Familien und Gruppen kaufen gern zusammen; ein niedriges Limit bremst Aufkäufer.</span>
+            </div>
 
             <div className="eed-trust">
               <span style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 1 }}><Icon name="shield" size={16} /></span>

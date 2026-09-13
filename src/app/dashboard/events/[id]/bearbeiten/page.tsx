@@ -52,7 +52,7 @@ export default function EditEventPage() {
           accent_hue: number | null; border_style: string | null;
           is_private: boolean; payout_hold_days: number; resale_enabled: boolean;
           fee_payer: FeePayer | null;
-          guest_checkout_enabled: boolean; queue_enabled: boolean; queue_slots: number;
+          guest_checkout_enabled: boolean; queue_enabled: boolean; queue_slots: number; max_per_order?: number;
           reentry_enabled: boolean; reentry_cooldown_seconds: number;
           tickets_sold: number; cancelled_at: string | null;
         };
@@ -85,6 +85,7 @@ export default function EditEventPage() {
         guestCheckout: e.guest_checkout_enabled !== false,
         queueEnabled: e.queue_enabled === true,
         queueSlots: String(e.queue_slots ?? 50),
+        maxPerOrder: String(e.max_per_order ?? 4),
         reentryEnabled: e.reentry_enabled === true,
         reentryCooldownMinutes: String(Math.round((e.reentry_cooldown_seconds ?? 120) / 60)),
         ticketsSold: e.tickets_sold,

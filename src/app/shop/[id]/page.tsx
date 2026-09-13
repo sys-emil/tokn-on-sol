@@ -372,6 +372,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
                 guestAllowed={event.guest_checkout_enabled !== false}
                 queueEnabled={event.queue_enabled === true}
                 feePayer={feePayer}
+                maxPerOrder={typeof event.max_per_order === 'number' ? event.max_per_order : 4}
               />
             )}
           </div>

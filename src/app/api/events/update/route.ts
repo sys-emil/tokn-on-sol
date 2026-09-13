@@ -54,6 +54,7 @@ interface UpdateEventBody {
     queue_slots?: number;
     reentry_enabled?: boolean;
     reentry_cooldown_seconds?: number;
+    max_per_order?: number;
   };
   tiers?: TierEdit[];
 }
@@ -216,6 +217,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
     update.reentry_cooldown_seconds = fields.reentry_cooldown_seconds;
+  }
+  if (fields.max_per_order !== undefined) {
+    if (!Number.isInteger(fields.max_per_order) || fields.max_per_order < 1 || fields.max_per_order > 10) {
+      return NextResponse.json({ success: false, error: "max_per_order must be 1–10" }, { status: 400 });
+    }
+    update.max_per_order = fields.max_per_order;
   }
   if (fields.accent_hue !== undefined) {
     if (fields.accent_hue !== null && (!Number.isInteger(fields.accent_hue) || fields.accent_hue < 0 || fields.accent_hue > 360)) {

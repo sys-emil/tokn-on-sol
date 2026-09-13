@@ -93,6 +93,8 @@ interface EventApiResponse {
   stats: { checkedIn: number; revoked: number };
   /** Season-pass holders admitted to this date; not part of `tickets`. */
   passStats?: { total: number; checkedIn: number };
+  /** Async mint queue: tickets still being issued, orders that failed for good. */
+  mintStatus?: { pendingTickets: number; failedOrders: number; refundedOrders: number };
 }
 
 export default function EventDetailPage() {
@@ -107,6 +109,7 @@ export default function EventDetailPage() {
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [checkedIn, setCheckedIn] = useState(0);
   const [passStats, setPassStats] = useState<{ total: number; checkedIn: number } | null>(null);
+  const [mintStatus, setMintStatus] = useState<{ pendingTickets: number; failedOrders: number; refundedOrders: number } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -170,6 +173,7 @@ export default function EventDetailPage() {
         setTickets(data.tickets);
         setCheckedIn(data.stats.checkedIn);
         setPassStats(data.passStats ?? null);
+        setMintStatus(data.mintStatus ?? null);
       } catch {
         setLoadError('Verbindungsfehler. Bitte lade die Seite neu.');
       } finally {
@@ -193,6 +197,14 @@ export default function EventDetailPage() {
     void checkPlan();
   }, [walletAddress, getAccessToken]);
 
+  // While tickets are still being issued, reload every 10 s so the list and
+  // the "wird ausgestellt" line converge without the organizer refreshing.
+  useEffect(() => {
+    if (!mintStatus || mintStatus.pendingTickets === 0 || !loaded) return;
+    const timer = setTimeout(() => setLoaded(false), 10_000);
+    return () => clearTimeout(timer);
+  }, [mintStatus, loaded]);
+
   // Live refresh on the day of the event: doormen write redemptions while the
   // organizer watches this page, so the check-in numbers poll every 30 s.
   const liveDay = Boolean(event && !event.cancelled_at && isEventDay(event.date));
@@ -214,6 +226,7 @@ export default function EventDetailPage() {
           setTickets(data.tickets);
           setCheckedIn(data.stats.checkedIn);
           setPassStats(data.passStats ?? null);
+          setMintStatus(data.mintStatus ?? null);
         } catch {
           // transient, next tick retries
         }
@@ -649,6 +662,17 @@ export default function EventDetailPage() {
                       <div>
                         <h3>Ausgestellte Tickets</h3>
                         <div className="sub">{event.tickets_sold} Tickets · {checkedIn} bereits eingelöst</div>
+                        {mintStatus && mintStatus.pendingTickets > 0 && (
+                          <div className="sub" style={{ color: 'var(--accent)', marginTop: 2 }}>
+                            {mintStatus.pendingTickets === 1 ? '1 Ticket wird gerade ausgestellt' : `${mintStatus.pendingTickets} Tickets werden gerade ausgestellt`} …
+                          </div>
+                        )}
+                        {mintStatus && mintStatus.failedOrders > 0 && (
+                          <div className="sub" style={{ color: 'var(--bad)', marginTop: 2 }}>
+                            {mintStatus.failedOrders === 1 ? '1 Bestellung konnte nicht ausgestellt werden' : `${mintStatus.failedOrders} Bestellungen konnten nicht ausgestellt werden`}
+                            {mintStatus.refundedOrders > 0 ? ` · ${mintStatus.refundedOrders === mintStatus.failedOrders ? 'Käufer erstattet' : `${mintStatus.refundedOrders} erstattet`}` : ' · Support ist informiert'}
+                          </div>
+                        )}
                       </div>
                       <div className="row gap-2" style={{ flexWrap: 'wrap' }}>
                         <div style={{ position: 'relative' }}>

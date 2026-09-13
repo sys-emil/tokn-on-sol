@@ -47,6 +47,8 @@ interface CreateEventBody {
   fee_payer?: string;
   reentry_enabled?: boolean;
   reentry_cooldown_seconds?: number;
+  /** Tickets pro Bestellung (1–10, Standard 4). */
+  max_per_order?: number;
 }
 
 const MAX_TIERS = 5;
@@ -169,6 +171,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Re-entry lets guests leave and come back; the cooldown is what stops one
   // QR from walking a whole queue past the scanner.
+  const maxPerOrder = body.max_per_order ?? 4;
+  if (!Number.isInteger(maxPerOrder) || maxPerOrder < 1 || maxPerOrder > 10) {
+    return NextResponse.json({ success: false, error: "max_per_order must be an integer between 1 and 10" }, { status: 400 });
+  }
+
   const reentryCooldown = reentry_cooldown_seconds ?? DEFAULT_REENTRY_COOLDOWN_SECONDS;
   if (!Number.isInteger(reentryCooldown) || reentryCooldown < 0 || reentryCooldown > MAX_REENTRY_COOLDOWN_SECONDS) {
     return NextResponse.json(
@@ -288,6 +295,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         fee_payer: feePayer,
         reentry_enabled: reentry_enabled === true,
         reentry_cooldown_seconds: reentryCooldown,
+        max_per_order: maxPerOrder,
       })
       .select("id")
       .single();
