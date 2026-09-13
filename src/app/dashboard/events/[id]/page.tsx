@@ -137,6 +137,12 @@ export default function EventDetailPage() {
   const [doorError, setDoorError] = useState<string | null>(null);
   const [copiedDoorId, setCopiedDoorId] = useState<string | null>(null);
 
+  const [refundTarget, setRefundTarget] = useState<TicketRow | null>(null);
+  const [refundQuote, setRefundQuote] = useState<{ refundCents: number; netShareCents: number; fullRefund: boolean } | null>(null);
+  const [refundBusy, setRefundBusy] = useState(false);
+  const [refundError, setRefundError] = useState<string | null>(null);
+  const [refundDone, setRefundDone] = useState<{ refundCents: number; stripeFeeCents: number | null } | null>(null);
+
   const [filter, setFilter] = useState<'all' | 'valid' | 'checked'>('all');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -452,6 +458,54 @@ export default function EventDetailPage() {
     router.push('/dashboard/events/neu');
   }
 
+  async function openRefund(t: TicketRow): Promise<void> {
+    setRefundTarget(t);
+    setRefundQuote(null);
+    setRefundError(null);
+    setRefundDone(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/organizer/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ assetId: t.assetId }),
+      });
+      const data = (await res.json()) as { success: boolean; error?: string; refundCents?: number; netShareCents?: number; fullRefund?: boolean };
+      if (!res.ok || !data.success) {
+        setRefundError(data.error ?? 'Erstattung nicht möglich.');
+        return;
+      }
+      setRefundQuote({ refundCents: data.refundCents ?? 0, netShareCents: data.netShareCents ?? 0, fullRefund: data.fullRefund === true });
+    } catch {
+      setRefundError('Verbindungsfehler. Bitte versuch es erneut.');
+    }
+  }
+
+  async function confirmRefund(): Promise<void> {
+    if (!refundTarget || refundBusy) return;
+    setRefundBusy(true);
+    setRefundError(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch('/api/organizer/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ assetId: refundTarget.assetId, confirm: true }),
+      });
+      const data = (await res.json()) as { success: boolean; error?: string; refundCents?: number; stripeFeeCents?: number | null };
+      if (!res.ok || !data.success) {
+        setRefundError(data.error ?? `Erstattung fehlgeschlagen (HTTP ${res.status}).`);
+        return;
+      }
+      setRefundDone({ refundCents: data.refundCents ?? 0, stripeFeeCents: data.stripeFeeCents ?? null });
+      setLoaded(false); // Ticketliste und Zähler neu laden
+    } catch {
+      setRefundError('Verbindungsfehler. Bitte versuch es erneut.');
+    } finally {
+      setRefundBusy(false);
+    }
+  }
+
   async function confirmCancel(): Promise<void> {
     if (!event || cancelBusy || !walletAddress) return;
     setCancelBusy(true);
@@ -630,6 +684,7 @@ export default function EventDetailPage() {
                               <th>Gast</th>
                               <th>Ausgestellt</th>
                               <th>Status</th>
+                              <th style={{ width: 96 }}></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -647,6 +702,17 @@ export default function EventDetailPage() {
                                   {t.status === 'valid' && <span className="chip ok"><span className="d" />Gültig</span>}
                                   {t.status === 'checked' && <span className="chip"><span className="d" />Eingelöst</span>}
                                   {t.status === 'revoked' && <span className="chip bad"><span className="d" />Storniert</span>}
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  {t.status === 'valid' && !event?.cancelled_at && (
+                                    <button
+                                      className="btn ghost sm"
+                                      onClick={(e) => { e.stopPropagation(); void openRefund(t); }}
+                                      title="Ticket erstatten"
+                                    >
+                                      Erstatten
+                                    </button>
+                                  )}
                                 </td>
                               </tr>
                             ))}
@@ -977,6 +1043,71 @@ export default function EventDetailPage() {
                 <button className="btn primary" onClick={() => void sendMessage()} disabled={msgSending || !msgSubject.trim() || !msgText.trim()}>
                   {msgSending ? 'Sende …' : 'Senden'}
                 </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {refundTarget && (
+        <div className="modal-backdrop" onClick={() => !refundBusy && setRefundTarget(null)}>
+          <div className="modal" role="dialog" aria-label="Ticket erstatten" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Ticket #{refundTarget.serial} erstatten</h3>
+              <button className="close-btn" onClick={() => setRefundTarget(null)} disabled={refundBusy} aria-label="Schließen">
+                <Icon name="x" size={15} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {refundDone ? (
+                <div style={{
+                  padding: 14, borderRadius: 10,
+                  background: 'var(--ok-wash)', border: '1px solid oklch(0.86 0.08 150)',
+                  fontSize: 13, lineHeight: 1.55,
+                }}>
+                  <b>Erstattet.</b> {eur(refundDone.refundCents)} gehen an {refundTarget.email ?? 'den Gast'} zurück,
+                  das Ticket ist ungültig und der Platz wieder im Verkauf.
+                  {refundDone.stripeFeeCents ? ` Die Zahlungsgebühr von ${eur(refundDone.stripeFeeCents)} wird von deiner nächsten Auszahlung abgezogen.` : ''}
+                </div>
+              ) : refundError && !refundQuote ? (
+                <div style={{ fontSize: 13.5, color: 'var(--bad)', lineHeight: 1.55 }}>{refundError}</div>
+              ) : !refundQuote ? (
+                <p style={{ fontSize: 13.5, color: 'var(--ink-3)' }}>Betrag wird berechnet …</p>
+              ) : (
+                <>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+                    <b>{refundTarget.email ?? 'Der Gast'}</b> bekommt <b>{eur(refundQuote.refundCents)}</b> auf das
+                    ursprüngliche Zahlungsmittel zurück, inklusive Servicegebühr. Das Ticket wird sofort ungültig,
+                    der Platz geht zurück in den Verkauf.
+                    {refundQuote.fullRefund ? '' : ' Die übrigen Tickets dieser Bestellung bleiben gültig.'}
+                  </p>
+                  <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-3)', marginTop: 10 }}>
+                    Aus deiner Auszahlung fallen {eur(refundQuote.netShareCents)} heraus. Die Gebühr, die der
+                    Zahlungsdienstleister bei einer Erstattung einbehält, wird von deiner nächsten Auszahlung
+                    abgezogen (bei einem 20-€-Ticket etwa 0,55&nbsp;€ bis 1,00&nbsp;€, je nach Zahlart).
+                    Das lässt sich nicht rückgängig machen.
+                  </p>
+                  {refundError && (
+                    <div style={{ fontSize: 13, color: 'var(--bad)', lineHeight: 1.5, marginTop: 10 }}>{refundError}</div>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="modal-foot">
+              {refundDone || (refundError && !refundQuote) ? (
+                <button className="btn primary" onClick={() => setRefundTarget(null)}>Schließen</button>
+              ) : (
+                <>
+                  <button className="btn ghost" onClick={() => setRefundTarget(null)} disabled={refundBusy}>Abbrechen</button>
+                  <button
+                    className="btn primary"
+                    style={{ background: 'var(--bad)' }}
+                    onClick={() => void confirmRefund()}
+                    disabled={refundBusy || !refundQuote}
+                  >
+                    {refundBusy ? 'Wird erstattet …' : 'Jetzt erstatten'}
+                  </button>
+                </>
               )}
             </div>
           </div>

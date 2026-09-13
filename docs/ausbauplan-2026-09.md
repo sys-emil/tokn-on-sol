@@ -13,7 +13,7 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
 - [x] **1.1 ICS in der Bestaetigungsmail.** _(2026-09-13)_ `sendTicketConfirmation` bekommt die
       Kalenderdatei als Anhang (`text/calendar`) und den Link auf
       `/api/events/[eventId]/ics`. Nutzt den vorhandenen ICS-Generator.
-- [ ] **1.2 Einzelerstattung durch den Veranstalter.** Neue Route
+- [x] **1.2 Einzelerstattung durch den Veranstalter.** _(2026-09-13; Tabelle `organizer_refunds` migriert)_ Neue Route
       `POST /api/organizer/refund` (`requestOwnsWallet`, Event-Besitz): erstattet
       genau ein Ticket eines Kaufs, nur solange die `payouts`-Zeile `pending`
       ist. Voll-Refund bei 1 Ticket, Teil-Refund (anteilig gross) bei mehreren;

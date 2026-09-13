@@ -245,6 +245,7 @@ Tables:
 - `door_access_links`: time-limited doorman access; `id, event_id, token (unique plaintext bearer), label, expires_at (event date + 2 days), revoked_at`. Managed via `/api/organizer/door-links` (GET/POST/DELETE, organizer-gated, max 10 active/event; DELETE revokes instead of deleting). Doorman opens `/doorman/[eventId]?key=<token>` without Privy login; the key is validated via the snapshot route.
 - `platform_fees_due`: amounts the organizer owes Passly, settled by deducting them from their next payout; `id, organizer_wallet, event_id, season_pass_id, session_id (unique), source, quantity, fee_cents, currency, status (pending|settled|waived), settled_payout_id, settled_at, created_at`. Three sources: `box_office` (service fee collected in cash, see **Box office** above), `cancellation` and `chargeback` (see below). Consumed by the payout cron; `session_id` being UNIQUE is what makes every writer idempotent — the chargeback path has no checkout session of its own and uses `cb_<dispute id>`, which also keeps it from colliding with a cancellation row for the same sale. An admin sets `status = 'waived'` by hand to forgive one.
 - `stripe_webhook_events`: processed Stripe event IDs (`id` = evt_… primary key); the webhook idempotency gate.
+- `organizer_refunds`: single-ticket refunds triggered by the organizer; `id, purchase_id (unique), asset_id, event_id, organizer_wallet, stripe_session_id, charge_id, payment_intent_id, refund_id, refund_cents, currency, full_refund, created_at`. Audit log and the marker the `charge.refunded` webhook skips on. See **Single-ticket refund** below.
 - `resale_offers`: Rückgabe-Angebote ("Rückgabe & Neuverkauf"); `id, purchase_id, asset_id, event_id, tier_id, seller_wallet, origin_session_id, origin_charge_id, origin_payment_intent_id, paid_cents, return_fee_cents, refund_cents, currency, status (active|sold|withdrawn|expired), refund_id, sold_session_id, sold_at, refunded_at, closed_at`. Partial-unique index on `asset_id WHERE status = 'active'`. Claimed via `claim_resale_offer` (FOR UPDATE SKIP LOCKED); seats move via `release_sold_seats` / `reclaim_sold_seat`. See **Ticket return & resale** below.
 
 ### Stripe Connect payouts
@@ -329,6 +330,14 @@ no merchant-of-record role.
   original card become unreliable after roughly half a year. Box-office sales
   also never *consume* an offer: that cash never passed through Passly, so
   settling one would make Passly refund a seller out of its own pocket.
+
+### Single-ticket refund by the organizer (since 2026-09-13)
+
+„Ich kann doch nicht kommen" is the most common support request in ticketing. The organizer refunds **one ticket** from the ticket table on `/dashboard/events/[id]` („Erstatten", valid tickets only): `POST /api/organizer/refund` (`requestUser`, event ownership; `confirm: false` is a price preview). Logic in `src/lib/organizerRefund.ts`, audit table `organizer_refunds` (one row per purchase, RLS on).
+
+- **Modelled on the return, not the cancellation**: the route does the whole booking itself (revoke via CAS on `revoked_at`, `release_sold_seats(1)`, payout row rescaled with `net = gross − fee` preserved, `mint_jobs` stopped when nothing is left to deliver) and the `charge.refunded` webhook **skips** charges that have an `organizer_refunds` row (matched on charge **or** payment intent, without requiring `refund_id`, because Stripe can deliver the event before the id is written back). Letting the webhook do it was not an option: its partial path cannot revoke or free a seat, and on the last ticket `refund_ticket_sale` would free the reservation's full quantity again.
+- **Amount = this ticket's share of the payout row's current gross** (`gross / live tickets of the session`), so discount codes and earlier partial refunds are already in it; the last live ticket refunds the whole remainder (no `amount`, so no rounding cent is left on the charge). Service fee included, like the cancellation — the organizer triggers it, the guest gets everything back. Stripe's withheld fee is read from `charge.balance_transaction`, pro-rated, and booked as `platform_fees_due` with `source = 'cancellation'` and `session_id = rf_<row id>` (AGB § 4 Abs. 3 covers it).
+- **Only while the payout is `pending`.** `paid`/`held`/`disputed` go to a human at `/admin/payouts`; `effectiveHoldDays` guarantees `pending` until after the event. Not for season passes, box-office cash, free tickets, redeemed or already-revoked tickets, or cancelled events.
 
 ### Cancellation costs (since 2026-08-20)
 

@@ -286,6 +286,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ received: true, resaleReturn: true });
     }
 
+    // Same for a single-ticket refund the organizer triggered from the
+    // dashboard (`src/lib/organizerRefund.ts`): revoke, seat, payout row and
+    // the Stripe-fee pass-through were all booked by that route. Running the
+    // partial-refund rescaling below on top would take the money off twice.
+    // Matched on the charge OR the payment intent, and without waiting for
+    // `refund_id`: Stripe can deliver this event before the route has written
+    // the refund id back, and a row that exists at that moment means the
+    // refund was ours. Rows of failed refunds are deleted, so nothing stale
+    // can match here.
+    const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id ?? null;
+    const { data: organizerRefund } = await supabaseAdmin
+      .from("organizer_refunds")
+      .select("id")
+      .or(piId ? `charge_id.eq.${charge.id},payment_intent_id.eq.${piId}` : `charge_id.eq.${charge.id}`)
+      .limit(1)
+      .maybeSingle();
+    if (organizerRefund) {
+      return NextResponse.json({ received: true, organizerRefund: true });
+    }
+
     const { data: payout } = await supabaseAdmin
       .from("payouts")
       .select("id, status, stripe_session_id, event_id, currency, gross_cents, fee_cents, buyer_fee_cents")
