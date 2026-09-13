@@ -4,8 +4,10 @@ import { getAccessToken, useAuth } from '@/lib/auth';
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
 import { track } from '@/lib/track';
+import { useT } from '@/app/components/LangProvider';
 
 export default function TicketClient({ assetId }: { assetId: string }) {
+  const t = useT();
   const { ready, authenticated } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'refreshing'>('loading');
@@ -132,7 +134,7 @@ export default function TicketClient({ assetId }: { assetId: string }) {
           width={480}
           height={480}
           role="img"
-          aria-label="Dein persönlicher Einlass-Code, beim Einlass einscannen lassen"
+          aria-label={t('ticket.qrAria')}
           style={{ opacity: status === 'loading' ? 0 : 1 }}
         />
         {status !== 'ready' && (
@@ -148,7 +150,7 @@ export default function TicketClient({ assetId }: { assetId: string }) {
             color: '#23263c',
             letterSpacing: '0.08em',
           }}>
-            {status === 'refreshing' ? 'wird aktualisiert …' : 'wird erstellt …'}
+            {status === 'refreshing' ? t('ticket.qrRefreshing') : t('ticket.qrCreating')}
           </div>
         )}
       </div>

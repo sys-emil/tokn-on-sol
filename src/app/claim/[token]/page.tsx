@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
+import { useT } from '@/app/components/LangProvider';
 
 interface ClaimPreview {
   found: boolean;
@@ -88,6 +89,7 @@ export default function ClaimPage() {
   const params = useParams();
   const token = typeof params.token === 'string' ? params.token : '';
 
+  const t = useT();
   const { ready, authenticated, login } = useAuth();
   const { wallets: solanaWallets } = useSolanaWallets();
 
@@ -130,10 +132,10 @@ export default function ClaimPage() {
       } else if (data.error === 'Already claimed') {
         setPhase({ tag: 'already-claimed', claimedAt: new Date().toISOString() });
       } else {
-        setPhase({ tag: 'error', message: data.error ?? 'Etwas ist schiefgelaufen.' });
+        setPhase({ tag: 'error', message: data.error ?? t('claim.errGeneric') });
       }
     } catch {
-      setPhase({ tag: 'error', message: 'Netzwerkfehler. Bitte versuch es erneut.' });
+      setPhase({ tag: 'error', message: t('buy.errNetwork') });
     }
   }
 
@@ -162,41 +164,41 @@ export default function ClaimPage() {
 
         <div className="claim-card">
           <span className="chip accent" style={{ alignSelf: 'flex-start' }}>
-            <span className="d" />Ticket übernehmen
+            <span className="d" />{t('claim.title')}
           </span>
 
           {phase.tag === 'loading' && <div className="claim-spinner" />}
 
           {phase.tag === 'not-found' && (
             <>
-              <h1>Link nicht gefunden</h1>
-              <p className="claim-text">Dieser Link ist ungültig oder abgelaufen.</p>
-              <Link href="/" className="btn ghost" style={{ justifyContent: 'center' }}>Zur Startseite</Link>
+              <h1>{t('claim.notFoundTitle')}</h1>
+              <p className="claim-text">{t('claim.notFoundText')}</p>
+              <Link href="/" className="btn ghost" style={{ justifyContent: 'center' }}>{t('claim.home')}</Link>
             </>
           )}
 
           {phase.tag === 'already-claimed' && (
             <>
-              <h1>Schon übernommen</h1>
+              <h1>{t('claim.alreadyTitle')}</h1>
               <p className="claim-text">
-                Dieses Ticket wurde bereits übernommen{phase.claimedAt ? ` (um ${formatTime(phase.claimedAt)} Uhr)` : ''}.
+                {t('claim.alreadyText', { at: phase.claimedAt ? t('claim.alreadyAt', { time: formatTime(phase.claimedAt) }) : '' })}
               </p>
-              <Link href="/" className="btn ghost" style={{ justifyContent: 'center' }}>Zur Startseite</Link>
+              <Link href="/" className="btn ghost" style={{ justifyContent: 'center' }}>{t('claim.home')}</Link>
             </>
           )}
 
           {phase.tag === 'ready' && preview && (
             <>
-              <h1>Ein Ticket für dich</h1>
+              <h1>{t('claim.forYouTitle')}</h1>
               <div className="claim-event">
                 <div className="name">{preview.eventName}</div>
                 <div className="date">{formatDate(preview.eventDate ?? '')}</div>
               </div>
               <p className="claim-text">
-                Übernimm dieses Ticket in dein Passly-Konto. Danach gehört es dir, der ursprüngliche Link wird ungültig.
+                {t('claim.text')}
               </p>
               <button className="btn primary lg" style={{ justifyContent: 'center' }} onClick={handleClaimClick}>
-                Ticket übernehmen
+                {t('claim.take')}
               </button>
             </>
           )}
@@ -204,29 +206,29 @@ export default function ClaimPage() {
           {phase.tag === 'claiming' && (
             <>
               <div className="claim-spinner" />
-              <p className="claim-text" style={{ textAlign: 'center' }}>Das Ticket wird auf dein Konto übertragen …</p>
+              <p className="claim-text" style={{ textAlign: 'center' }}>{t('claim.workingText')}</p>
             </>
           )}
 
           {phase.tag === 'success' && (
             <>
               <div className="claim-success-icon"><Icon name="check" size={20} strokeWidth={2.4} /></div>
-              <h1 style={{ textAlign: 'center' }}>Das Ticket gehört jetzt dir</h1>
+              <h1 style={{ textAlign: 'center' }}>{t('claim.doneTitle')}</h1>
               <p className="claim-text" style={{ textAlign: 'center' }}>
-                Du findest es ab sofort in deiner Ticketübersicht.
+                {t('claim.doneText')}
               </p>
               <Link href="/my-tickets" className="btn primary lg" style={{ justifyContent: 'center' }}>
-                Zu meinen Tickets
+                {t('success.toMyTickets')}
               </Link>
             </>
           )}
 
           {phase.tag === 'error' && (
             <>
-              <h1>Etwas ist schiefgelaufen</h1>
+              <h1>{t('claim.errorTitle')}</h1>
               <p className="claim-text">{phase.message}</p>
               <button className="btn ghost" style={{ justifyContent: 'center' }} onClick={handleClaimClick}>
-                Erneut versuchen
+                {t('claim.retry')}
               </button>
             </>
           )}

@@ -10,8 +10,8 @@ import { fakeDb, eqValue, type FakeDb } from "./fakeSupabase";
 let db: FakeDb;
 const mintTicket = vi.fn();
 const refundsCreate = vi.fn();
-const sendTicketConfirmation = vi.fn(async (_args: unknown) => undefined);
-const sendAdminAlert = vi.fn(async (_args: unknown) => undefined);
+const sendTicketConfirmation = vi.fn<(args: unknown) => Promise<void>>(async () => undefined);
+const sendAdminAlert = vi.fn<(args: unknown) => Promise<void>>(async () => undefined);
 
 vi.mock("@/lib/supabase", () => ({ get supabaseAdmin() { return db; } }));
 vi.mock("@/lib/stripe", () => ({ stripe: { refunds: { create: refundsCreate } }, PLATFORM_FEE_BPS: 300 }));

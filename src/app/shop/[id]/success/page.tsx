@@ -8,6 +8,7 @@ import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { track } from '@/lib/track';
+import { useT } from '@/app/components/LangProvider';
 
 const PAGE_CSS = `
   .success-page {
@@ -100,6 +101,7 @@ interface ConfirmData {
 }
 
 function TicketRow({ index, assetId, orderToken }: { index: number; assetId: string | null; orderToken: string | null }) {
+  const t = useT();
   const minted = assetId !== null;
   return (
     <div className={`ticket-row${minted ? ' is-minted' : ''}`}>
@@ -110,19 +112,20 @@ function TicketRow({ index, assetId, orderToken }: { index: number; assetId: str
         <div className="spinner" />
       )}
       <div className="ticket-status">
-        <div className="label">{minted ? 'Bestätigt' : 'Wird vorbereitet …'}</div>
+        <div className="label">{minted ? t('success.confirmed') : t('success.preparing')}</div>
         {minted && assetId && (
           <div className="asset">{assetId.slice(0, 8)}…{assetId.slice(-6)}</div>
         )}
       </div>
       {minted && assetId && !orderToken && (
-        <Link href={`/tickets/${assetId}`} className="btn ghost sm">Ansehen</Link>
+        <Link href={`/tickets/${assetId}`} className="btn ghost sm">{t('success.view')}</Link>
       )}
     </div>
   );
 }
 
 function SuccessInner() {
+  const t = useT();
   const searchParams = useSearchParams();
   const params = useParams<{ id: string }>();
   const sessionId = searchParams.get('session_id') ?? '';
@@ -196,18 +199,16 @@ function SuccessInner() {
     return (
       <div className="success-card">
         <div className="success-head">
-          <span className="chip warn"><span className="d" />Dauert länger als gedacht</span>
-          <h1>Bestätigung steht noch aus</h1>
+          <span className="chip warn"><span className="d" />{t('success.delayChip')}</span>
+          <h1>{t('success.delayTitle')}</h1>
         </div>
         <div className="success-body">
           <div className="error-box">
-            Alles gut, deine Zahlung ist eingegangen. Die Tickets werden gerade im
-            Hintergrund fertiggestellt; das dauert manchmal ein paar Minuten. Sie
-            erscheinen automatisch in deiner Ticketübersicht, du musst nichts weiter tun.
+            {t('success.delayText')}
             <code>{sessionId}</code>
           </div>
           <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}>
-            Zu meinen Tickets
+            {t('success.toMyTickets')}
           </Link>
         </div>
       </div>
@@ -215,18 +216,18 @@ function SuccessInner() {
   }
 
   const title = allDone
-    ? quantity === 1 ? 'Dein Ticket ist da' : `Alle ${quantity} Tickets sind da`
+    ? quantity === 1 ? t('success.oneReady') : t('success.manyReady', { count: quantity })
     : quantity === 1
-    ? 'Dein Ticket wird vorbereitet …'
-    : 'Deine Tickets werden vorbereitet …';
+    ? t('success.onePreparing')
+    : t('success.manyPreparing');
 
   return (
     <div className="success-card">
       <div className="success-head">
-        <span className={`chip ${allDone ? 'ok' : 'accent'}`}><span className="d" />Zahlung bestätigt</span>
+        <span className={`chip ${allDone ? 'ok' : 'accent'}`}><span className="d" />{t('success.paid')}</span>
         <h1>{title}</h1>
         {quantity > 1 && (
-          <div className="progress-label"><b>{mintedCount} von {quantity}</b> Tickets bestätigt</div>
+          <div className="progress-label">{t('success.progress', { minted: mintedCount, total: quantity })}</div>
         )}
       </div>
 
@@ -243,9 +244,7 @@ function SuccessInner() {
           <div className="share-promo">
             <div className="icon-wrap"><Icon name="share" size={14} strokeWidth={2.2} /></div>
             <div>
-              <b>Für die Gruppe gekauft?</b> Gib jedes Ticket per Link an deine
-              Freunde weiter, sie bekommen es direkt in ihr eigenes Konto und
-              zeigen ihren QR-Code selbst am Einlass vor.
+              <b>{t('success.shareTitle')}</b> {t('success.shareText')}
             </div>
           </div>
         )}
@@ -255,16 +254,15 @@ function SuccessInner() {
             {orderToken ? (
               <>
                 <Link href={`/order/${orderToken}`} className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}>
-                  {quantity > 1 ? 'Zu meinen Tickets' : 'Zu meinem Ticket'}
+                  {quantity > 1 ? t('success.toMyTickets') : t('success.toMyTicket')}
                 </Link>
                 <div style={{ fontSize: 11.5, color: 'var(--ink-4)', lineHeight: 1.55, marginTop: 8, textAlign: 'center' }}>
-                  Dort meldest du dich kurz mit deiner E-Mail-Adresse an, dann ist dein
-                  Einlass-Code da. Den Link haben wir dir auch gemailt.
+                  {t('success.guestNote')}
                 </div>
               </>
             ) : (
               <Link href="/my-tickets" className="btn primary lg" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}>
-                {quantity > 1 ? 'Zu meinen Tickets & weitergeben' : 'Zu meinen Tickets'}
+                {quantity > 1 ? t('success.toMyTicketsShare') : t('success.toMyTickets')}
               </Link>
             )}
             {/* Backup tickets are signed by the buyer's own wallet, which a guest
@@ -275,7 +273,7 @@ function SuccessInner() {
                 style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
                 onClick={() => setBackupOpen(true)}
               >
-                Backup-Ticket erstellen
+                {t('success.backupCta')}
               </button>
             )}
             {params?.id && (
@@ -284,18 +282,17 @@ function SuccessInner() {
                 className="btn ghost"
                 style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
               >
-                Zum Kalender hinzufügen
+                {t('success.calendarCta')}
               </a>
             )}
             <div className="notice">
-              🎉 Herzlichen Glückwunsch! Tipp: Schlechter Empfang am Veranstaltungsort?
-              Das Backup-Ticket funktioniert ganz ohne Internet.
+              {t('success.tip')}
             </div>
           </>
         )}
 
         {!allDone && (
-          <div className="notice">Das kann bis zu einer Minute dauern. Lass den Tab am besten offen.</div>
+          <div className="notice">{t('success.wait')}</div>
         )}
 
         <BackupTicketModal
@@ -306,7 +303,7 @@ function SuccessInner() {
 
         {!allDone && mintedCount > 0 && (
           <Link href="/my-tickets" className="btn ghost" style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>
-            Fertige Tickets ansehen
+            {t('success.viewMinted')}
           </Link>
         )}
       </div>
@@ -324,10 +321,11 @@ function SuccessInner() {
  * Bezahlen als Erstes wissen will.
  */
 function SuccessSkeleton() {
+  const t = useT();
   return (
-    <div className="success-card" aria-busy="true" aria-label="Bestellung wird geladen">
+    <div className="success-card" aria-busy="true" aria-label={t('success.loadingOrder')}>
       <div className="success-head">
-        <span className="chip accent"><span className="d" />Zahlung bestätigt</span>
+        <span className="chip accent"><span className="d" />{t('success.paid')}</span>
         <div className="sk" style={{ width: '62%', height: 19, marginTop: 12 }} />
         <div className="sk" style={{ width: 148, height: 11, marginTop: 10 }} />
       </div>

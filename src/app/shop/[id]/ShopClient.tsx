@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { splitServiceFee, type FeePayer } from '@/lib/fees';
 import { track } from '@/lib/track';
+import { useT } from '@/app/components/LangProvider';
 
 export interface TierView {
   id: string;
@@ -49,6 +50,7 @@ function formatCountdown(seconds: number): string {
 
 export default function ShopClient({ eventId, tiers, waitlistEnabled = false, guestAllowed = true, queueEnabled = false, feePayer = 'buyer', maxPerOrder = 4 }: Props) {
   const MAX_QTY = Math.min(10, Math.max(1, maxPerOrder));
+  const t = useT();
   const { ready, authenticated, login } = useAuth();
   const { wallets: solanaWallets } = useWallets();
   const [loading, setLoading] = useState(false);
@@ -179,7 +181,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
         const data = (await res.json()) as { valid: boolean; error?: string };
         if (!stale && !data.valid) {
           setApplied(null);
-          setCodeError(data.error ?? 'Der Rabattcode gilt nicht für diese Anzahl.');
+          setCodeError(data.error ?? t('buy.errCodeQty'));
         }
       } catch { /* network hiccup; the checkout API is the authority anyway */ }
     })();
@@ -202,10 +204,10 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
         setCodeOpen(false);
         setCodeInput('');
       } else {
-        setCodeError(data.error ?? 'Dieser Code ist ungültig.');
+        setCodeError(data.error ?? t('buy.errCodeInvalid'));
       }
     } catch {
-      setCodeError('Netzwerkfehler. Bitte versuch es erneut.');
+      setCodeError(t('buy.errNetwork'));
     } finally {
       setCodeBusy(false);
     }
@@ -256,7 +258,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
       });
       const data = (await res.json()) as { success: boolean; url?: string; expiresAt?: number; error?: string };
       if (!res.ok || !data.success || !data.url) {
-        setError(data.error ?? 'Der Kauf konnte nicht gestartet werden. Bitte versuch es erneut.');
+        setError(data.error ?? t('buy.errStart'));
         return;
       }
       if (data.expiresAt) {
@@ -285,7 +287,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
         success: boolean; queueEnabled?: boolean; token?: string; admitted?: boolean; position?: number; error?: string;
       };
       if (!res.ok || !data.success) {
-        setError(data.error ?? 'Die Warteschlange ist gerade nicht erreichbar.');
+        setError(data.error ?? t('buy.errQueue'));
         queueResume.current = false;
         return;
       }
@@ -315,7 +317,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
       return;
     }
     if (authenticated && !walletAddress) {
-      setError('Dein Konto wird noch eingerichtet. Warte einen Moment und versuch es dann erneut.');
+      setError(t('buy.errAccount'));
       return;
     }
     if (!guestAllowed) {
@@ -572,15 +574,15 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
           <div>
             <div className="rb-title">
               {pending.quantity > 1
-                ? `${pending.quantity} Tickets für dich reserviert`
-                : 'Ein Ticket für dich reserviert'}
+                ? t('buy.reservedMany', { count: pending.quantity })
+                : t('buy.reservedOne')}
             </div>
             <div className="rb-time">
-              Noch <b>{formatCountdown(remainingSec)}</b>, danach können deine Plätze an andere Gäste gehen.
+              {t('buy.reservedCountdown', { time: formatCountdown(remainingSec) })}
             </div>
           </div>
           <div className="rb-actions">
-            <a className="btn primary sm" href={pending.url}>Kauf abschließen</a>
+            <a className="btn primary sm" href={pending.url}>{t('buy.resumeCta')}</a>
             <button
               type="button"
               className="rb-dismiss"
@@ -589,42 +591,42 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
                 try { sessionStorage.removeItem(storageKey); } catch { /* private mode */ }
               }}
             >
-              Verwerfen
+              {t('buy.dismiss')}
             </button>
           </div>
         </div>
       )}
 
       {!soldOut && tiers.length > 1 && (
-        <div className="tier-list" role="radiogroup" aria-label="Ticketkategorie">
-          {tiers.map((t) => {
-            const isVipTier = /\bvip\b/i.test(t.name);
+        <div className="tier-list" role="radiogroup" aria-label={t('buy.tierGroup')}>
+          {tiers.map((tierRow) => {
+            const isVipTier = /\bvip\b/i.test(tierRow.name);
             return (
             <button
-              key={t.id}
+              key={tierRow.id}
               type="button"
               role="radio"
-              aria-checked={t.id === tier?.id}
+              aria-checked={tierRow.id === tier?.id}
               className={`tier-option${isVipTier ? ' vip' : ''}`}
-              disabled={t.available <= 0 || loading}
-              onClick={() => selectTier(t.id)}
+              disabled={tierRow.available <= 0 || loading}
+              onClick={() => selectTier(tierRow.id)}
             >
               <span>
-                <span className="t-name">{t.name}</span>
+                <span className="t-name">{tierRow.name}</span>
                 {isVipTier && (
                   <span className="tier-vip-chip" aria-hidden="true">
                     <span className="star">★</span>
                   </span>
                 )}
                 <span className="t-left" style={{ display: 'block' }}>
-                  {t.available <= 0
-                    ? 'Ausverkauft'
-                    : t.available <= 10
-                    ? `Nur noch ${t.available}`
-                    : 'Verfügbar'}
+                  {tierRow.available <= 0
+                    ? t('buy.soldOut')
+                    : tierRow.available <= 10
+                    ? t('buy.onlyLeft', { count: tierRow.available })
+                    : t('buy.available')}
                 </span>
               </span>
-              <span className="t-price">{t.priceEur === 0 ? 'Kostenlos' : formatPrice(t.priceEur)}</span>
+              <span className="t-price">{tierRow.priceEur === 0 ? t('buy.free') : formatPrice(tierRow.priceEur)}</span>
             </button>
             );
           })}
@@ -633,13 +635,13 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
 
       {!soldOut && !tierSoldOut && (
         <div className="qty-row">
-          <div className="qty-label">Anzahl</div>
+          <div className="qty-label">{t('buy.quantity')}</div>
           <div className="qty-controls">
             <button
               className="qty-btn"
               onClick={() => changeQuantity(Math.max(1, quantity - 1))}
               disabled={quantity <= 1 || loading}
-              aria-label="Weniger Tickets"
+              aria-label={t('buy.fewer')}
             >
               −
             </button>
@@ -648,7 +650,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
               className="qty-btn"
               onClick={() => changeQuantity(Math.min(maxQty, quantity + 1))}
               disabled={quantity >= maxQty || loading}
-              aria-label="Mehr Tickets"
+              aria-label={t('buy.more')}
             >
               +
             </button>
@@ -659,7 +661,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
       {!soldOut && !tierSoldOut && quantity > 1 && (
         <p className="group-hint">
           <span>👥</span>
-          <span>Du kaufst für die Gruppe? Nach dem Kauf kannst du jedes Ticket per Link an deine Freunde weitergeben.</span>
+          <span>{t('buy.groupHint')}</span>
         </p>
       )}
 
@@ -667,14 +669,14 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
         <>
           {applied ? (
             <div className="code-applied">
-              <span>Code {applied.code} eingelöst: {applied.percentOff} % Rabatt</span>
-              <button type="button" onClick={() => setApplied(null)} disabled={loading}>Entfernen</button>
+              <span>{t('buy.codeApplied', { code: applied.code, percent: applied.percentOff })}</span>
+              <button type="button" onClick={() => setApplied(null)} disabled={loading}>{t('buy.codeRemove')}</button>
             </div>
           ) : codeOpen ? (
             <div className="code-row">
               <input
                 className="input"
-                placeholder="Rabattcode"
+                placeholder={t('buy.discountPlaceholder')}
                 value={codeInput}
                 maxLength={24}
                 onChange={(e) => { setCodeInput(e.target.value); setCodeError(null); }}
@@ -683,23 +685,23 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
                 style={{ padding: '8px 10px', fontSize: 13 }}
               />
               <button className="btn ghost" onClick={() => void applyCode()} disabled={codeBusy || !codeInput.trim()}>
-                {codeBusy ? '…' : 'Einlösen'}
+                {codeBusy ? '…' : t('buy.discountApply')}
               </button>
             </div>
           ) : (
             <button type="button" className="code-toggle" onClick={() => setCodeOpen(true)}>
-              Du hast einen Rabattcode?
+              {t('buy.codePrompt')}
             </button>
           )}
           {codeError && <div className="buy-error" style={{ marginTop: 0, marginBottom: 14 }}>{codeError}</div>}
 
           <div className="fee-summary">
             <div className="label">
-              Gesamt{feeTotal > 0
-                ? ` · inkl. ${formatPrice(feeTotal)} Servicegebühr`
-                : unitPrice > 0 ? ' · inkl. aller Gebühren' : ''}
+              {feeTotal > 0
+                ? t('buy.totalInclFee', { fee: formatPrice(feeTotal) })
+                : unitPrice > 0 ? t('buy.totalInclAll') : t('buy.total')}
             </div>
-            <div className="total">{grandTotal === 0 ? 'Kostenlos' : formatPrice(grandTotal)}</div>
+            <div className="total">{grandTotal === 0 ? t('buy.free') : formatPrice(grandTotal)}</div>
           </div>
         </>
       )}
@@ -707,11 +709,8 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
       {waiting ? (
         <div className="queue-box">
           <div className="queue-spinner" />
-          <div className="queue-pos">Platz {queuePos}</div>
-          <div className="queue-text">
-            Gerade sind viele gleichzeitig hier. Lass diese Seite offen, du rückst automatisch
-            nach und der Kauf geht dann von allein weiter.
-          </div>
+          <div className="queue-pos">{t('buy.queuePlace', { position: queuePos ?? 0 })}</div>
+          <div className="queue-text">{t('buy.queueTextLong')}</div>
         </div>
       ) : (
         <button
@@ -721,50 +720,49 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
           onClick={() => void handleBuy()}
         >
           {soldOut
-            ? 'Ausverkauft'
+            ? t('buy.soldOut')
             : tierSoldOut
-            ? 'Kategorie ausverkauft'
+            ? t('buy.tierSoldOutShort')
             : loading
-            ? 'Weiterleitung …'
+            ? t('buy.redirecting')
             : quantity > 1
-            ? `${quantity} Tickets kaufen`
-            : 'Ticket kaufen'}
+            ? t('buy.buyMany', { count: quantity })
+            : t('buy.buyOne')}
         </button>
       )}
 
       {error && <div className="buy-error">{error}</div>}
 
       {!soldOut && !tierSoldOut && grandTotal > 0 && (
-        <div className="pay-methods">Karte, PayPal, Apple&nbsp;Pay und Google&nbsp;Pay</div>
+        <div className="pay-methods">{t('buy.payMethods')}</div>
       )}
 
       {!soldOut && !tierSoldOut && !authenticated && guestAllowed && (
         <div className="guest-note">
-          Direkt bezahlen, ohne vorher ein Konto anzulegen. Dein Ticket schaltest du danach
-          mit deiner E-Mail-Adresse frei.
+          {t('buy.guestNoteLong')}
           <button type="button" className="linkish" onClick={handleBuyWithAccount} disabled={loading}>
-            Lieber gleich anmelden
+            {t('buy.signInInstead')}
           </button>
         </div>
       )}
 
       {soldOut && waitlistEnabled && (
         <div className="waitlist-box">
-          <div className="wl-title">Warteliste</div>
+          <div className="wl-title">{t('buy.waitlistHead')}</div>
           {wlDone ? (
             <div className="wl-sub" style={{ color: 'oklch(0.38 0.12 150)', fontWeight: 500 }}>
-              Du stehst auf der Liste! Wir schreiben dir, sobald wieder Tickets verfügbar sind.
+              {t('buy.waitlistDone')}
             </div>
           ) : (
             <>
               <div className="wl-sub">
-                Trag dich ein, dann bekommst du sofort eine E-Mail, sobald Plätze frei werden.
+                {t('buy.waitlistText')}
               </div>
               <div className="wl-row">
                 <input
                   className="input"
                   type="email"
-                  placeholder="deine@email.de"
+                  placeholder={t('buy.waitlistPlaceholder')}
                   value={wlEmail}
                   maxLength={254}
                   onChange={(e) => { setWlEmail(e.target.value); setWlError(null); }}
@@ -773,7 +771,7 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
                   style={{ padding: '8px 10px', fontSize: 13 }}
                 />
                 <button className="btn primary" onClick={() => void joinWaitlist()} disabled={wlBusy || !wlEmail.trim()}>
-                  {wlBusy ? '…' : 'Eintragen'}
+                  {wlBusy ? '…' : t('buy.waitlistJoin')}
                 </button>
               </div>
               {wlError && <div className="buy-error">{wlError}</div>}
@@ -792,11 +790,9 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
             color: 'var(--ink-3)',
           }}
         >
-          Mit dem Kauf akzeptierst du die <Link href="/agb" style={{ color: 'var(--accent)', fontWeight: 500 }}>AGB</Link>.
-          Der Vertrag kommt mit dem Veranstalter zustande. Für Tickets zu
-          termingebundenen Veranstaltungen besteht kein Widerrufsrecht
-          (§&nbsp;312g Abs.&nbsp;2 Nr.&nbsp;9 BGB). Jeder Kauf ist verbindlich.
-          Hinweise zur Datenverarbeitung: <Link href="/datenschutz" style={{ color: 'var(--accent)', fontWeight: 500 }}>Datenschutzerklärung</Link>.
+          {t('buy.legalAccept')} <Link href="/agb" style={{ color: 'var(--accent)', fontWeight: 500 }}>{t('buy.legalTerms')}</Link>.{' '}
+          {t('buy.legalBody')}{' '}
+          {t('buy.legalPrivacyLead')} <Link href="/datenschutz" style={{ color: 'var(--accent)', fontWeight: 500 }}>{t('buy.legalPrivacy')}</Link>.
         </p>
       )}
     </>

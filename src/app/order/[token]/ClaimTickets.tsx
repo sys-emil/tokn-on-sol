@@ -4,6 +4,7 @@ import { getAccessToken, useAuth, useWallets as useSolanaWallets } from '@/lib/a
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '@/app/components/LangProvider';
 
 /**
  * The one action on a guest order page: sign in, which moves the tickets out of
@@ -12,6 +13,7 @@ import { useEffect, useRef, useState } from 'react';
  * deliberate, see the page component.
  */
 export function ClaimTickets({ token, count }: { token: string; count: number }) {
+  const t = useT();
   const { ready, authenticated, login } = useAuth();
   const { wallets } = useSolanaWallets();
   const router = useRouter();
@@ -33,13 +35,13 @@ export function ClaimTickets({ token, count }: { token: string; count: number })
       });
       const data = (await res.json()) as { success: boolean; error?: string };
       if (!res.ok || !data.success) {
-        setError(data.error ?? 'Freischalten fehlgeschlagen.');
+        setError(data.error ?? t('order.errUnlock'));
         return;
       }
       // Straight to the ticket; the rotating QR lives there.
       router.push('/my-tickets');
     } catch {
-      setError('Netzwerkfehler. Bitte versuch es erneut.');
+      setError(t('buy.errNetwork'));
     } finally {
       setBusy(false);
     }
@@ -74,15 +76,15 @@ export function ClaimTickets({ token, count }: { token: string; count: number })
         disabled={busy || !ready || waitingForWallet}
       >
         {busy
-          ? 'Wird freigeschaltet …'
+          ? t('order.unlocking')
           : waitingForWallet
-          ? 'Konto wird eingerichtet …'
+          ? t('order.preparingAccount')
           : count > 1
-          ? 'Anmelden und Tickets anzeigen'
-          : 'Anmelden und Ticket anzeigen'}
+          ? t('order.signInShowMany')
+          : t('order.signInShowOne')}
       </button>
       <div className="claim-hint">
-        Es genügt deine E-Mail-Adresse, kein Passwort. Nimm am besten die, mit der du bezahlt hast.
+        {t('order.emailHint')}
       </div>
       {error && <div className="claim-error">{error}</div>}
 

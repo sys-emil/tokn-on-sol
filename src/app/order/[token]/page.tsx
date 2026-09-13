@@ -10,20 +10,25 @@ import { ReceiptButton } from '@/app/components/ReceiptButton';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon } from '@/app/components/passlyUi';
 import { ClaimTickets } from './ClaimTickets';
+import { getT } from '@/lib/i18nServer';
+import type { Lang } from '@/lib/i18n';
 
 export const dynamic = 'force-dynamic';
 
 // The token is a bearer credential; keep these pages out of search results.
-export const metadata: Metadata = {
-  title: 'Deine Tickets · Passly',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return {
+    title: t('order.metaTitle'),
+    robots: { index: false, follow: false },
+  };
+}
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, lang: Lang): string {
   if (!iso) return '';
   const [year, month, day] = iso.split('-');
   const d = new Date(Number(year), Number(month) - 1, Number(day));
-  return d.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 /**
@@ -65,6 +70,7 @@ async function kickUnfinishedMint(stripeSessionId: string): Promise<void> {
 
 export default async function GuestOrderPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  const { lang, t } = await getT();
 
   const order = await loadGuestOrder(token);
   if (!order) notFound();
@@ -104,25 +110,25 @@ export default async function GuestOrderPage({ params }: { params: Promise<{ tok
         <div className="order-card">
           <div className="order-head">
             <PasslyLogo height={22} />
-            <span className="eyebrow">{valid.length > 1 ? `${valid.length} Tickets` : 'Dein Ticket'}</span>
+            <span className="eyebrow">{valid.length > 1 ? t('order.ticketsCount', { count: valid.length }) : t('order.yourTicket')}</span>
           </div>
 
           <h1>{event.name as string}</h1>
           <div className="meta">
-            {formatDate(event.date as string)}
-            {event.start_time ? ` · ${event.start_time as string} Uhr` : ''}
+            {formatDate(event.date as string, lang)}
+            {event.start_time ? ` · ${event.start_time as string}${lang === 'en' ? '' : ' Uhr'}` : ''}
             {event.venue ? ` · ${event.venue as string}` : ''}
           </div>
 
           {event.cancelled_at && (
             <div className="notice bad">
-              Dieses Event wurde abgesagt. Der Betrag wird erstattet; du musst nichts tun.
+              {t('order.cancelled')}
             </div>
           )}
 
           {valid.length === 0 && !event.cancelled_at && (
             <div className="notice">
-              Deine Tickets werden gerade erstellt. Lade die Seite in ein paar Sekunden neu.
+              {t('order.creating')}
             </div>
           )}
 
@@ -131,23 +137,21 @@ export default async function GuestOrderPage({ params }: { params: Promise<{ tok
               <div className="done-box">
                 <div className="done-icon"><Icon name="check" size={16} strokeWidth={2.4} /></div>
                 <div>
-                  {valid.length > 1 ? 'Deine Tickets liegen' : 'Dein Ticket liegt'} in deinem Konto.
-                  {redeemedCount > 0 && ` ${redeemedCount} davon wurde${redeemedCount === 1 ? '' : 'n'} bereits eingelöst.`}
+                  {valid.length > 1 ? t('order.inAccountMany') : t('order.inAccountOne')}
+                  {redeemedCount > 0 && ` ${redeemedCount === 1 ? t('order.redeemedOne') : t('order.redeemedMany', { count: redeemedCount })}`}
                 </div>
               </div>
-              <Link href="/my-tickets" className="btn primary lg full">Zu meinen Tickets</Link>
+              <Link href="/my-tickets" className="btn primary lg full">{t('success.toMyTickets')}</Link>
             </>
           ) : valid.length > 0 ? (
             <>
               <div className="locked">
                 <div className="locked-badge"><Icon name="shield" size={22} strokeWidth={1.8} /></div>
                 <div className="locked-title">
-                  {valid.length > 1 ? 'Tickets anzeigen' : 'Ticket anzeigen'}
+                  {valid.length > 1 ? t('order.showTickets') : t('order.showTicket')}
                 </div>
                 <div className="locked-text">
-                  Melde dich mit deiner E-Mail-Adresse an, dann {valid.length > 1 ? 'werden deine Tickets' : 'wird dein Ticket'} freigeschaltet.
-                  Das dauert einen Moment und schützt dich: Der Einlass-Code wechselt danach jede
-                  Minute und lässt sich nicht abfotografieren oder weitergeben.
+                  {valid.length > 1 ? t('order.lockedTextPlural') : t('order.lockedText')}
                 </div>
               </div>
               <ClaimTickets token={token} count={valid.length} />
