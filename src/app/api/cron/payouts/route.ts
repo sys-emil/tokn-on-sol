@@ -4,6 +4,7 @@ import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { sendAdminAlert } from "@/lib/email";
 import { sendDueEventReminders } from "@/lib/reminders";
+import { sendDailySalesDigests } from "@/lib/salesDigest";
 import { sweepWaitlists } from "@/lib/waitlist";
 import { claimOffsetForPayout, releaseOffset } from "@/lib/platformFees";
 import { checkOperatorBalance } from "@/lib/operatorBalance";
@@ -275,6 +276,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     console.error("Waitlist sweep failed:", err instanceof Error ? err.message : err);
   }
 
+  // Taegliche Verkaufszusammenfassung an Veranstalter mit Verkaeufen seit
+  // dem letzten Lauf. Best-effort wie die Erinnerungen.
+  let salesDigests = { organizers: 0, mails: 0 };
+  try {
+    salesDigests = await sendDailySalesDigests(baseUrl);
+  } catch (err) {
+    console.error("Sales digests failed:", err instanceof Error ? err.message : err);
+  }
+
   return NextResponse.json({
     success: true,
     processed,
@@ -290,6 +300,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     resaleOffers,
     reminders,
     waitlistMails,
+    salesDigests,
   });
 }
 

@@ -30,6 +30,7 @@ interface Profile {
   name: string;
   business_name: string | null;
   type: 'private' | 'business';
+  daily_digest?: boolean;
 }
 
 interface EventLite { id: string; name: string; date: string }
@@ -138,6 +139,7 @@ export default function OrganizerProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [links, setLinks] = useState<OrganizerLink[]>([]);
+  const [dailyDigest, setDailyDigest] = useState(true);
   const [accentHue, setAccentHue] = useState<number | null>(null);
   const [featuredEventId, setFeaturedEventId] = useState<string | null>(null);
 
@@ -184,6 +186,7 @@ export default function OrganizerProfilePage() {
           setAvatarUrl(p.avatar_url);
           setBannerUrl(p.banner_url);
           setLinks(Array.isArray(p.links) ? p.links : []);
+          setDailyDigest(p.daily_digest !== false);
           setAccentHue(p.accent_hue);
           setFeaturedEventId(p.featured_event_id);
         }
@@ -253,6 +256,7 @@ export default function OrganizerProfilePage() {
           links: links.filter((l) => l.label.trim() && l.url.trim()),
           accentHue,
           featuredEventId,
+          dailyDigest,
         }),
       });
       const data = (await res.json()) as { success: boolean; error?: string; profile?: Profile };
@@ -413,6 +417,24 @@ export default function OrganizerProfilePage() {
                 <Icon name="plus" size={13} /> Link hinzufügen
               </button>
             )}
+          </div>
+
+          {/* Benachrichtigungen */}
+          <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Benachrichtigungen</div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginBottom: 14 }}>
+              Was Passly dir per E-Mail schickt.
+            </div>
+            <div className="field">
+              <label>Tägliche Verkaufszusammenfassung</label>
+              <div className="seg">
+                <button type="button" className={dailyDigest ? 'active' : ''} onClick={() => setDailyDigest(true)} disabled={saving}>An</button>
+                <button type="button" className={!dailyDigest ? 'active' : ''} onClick={() => setDailyDigest(false)} disabled={saving}>Aus</button>
+              </div>
+              <span className="hint">
+                Morgens eine Mail mit den Verkäufen des Vortags je Event, nur an Tagen, an denen etwas verkauft wurde.
+              </span>
+            </div>
           </div>
 
           {/* Pro customizations */}

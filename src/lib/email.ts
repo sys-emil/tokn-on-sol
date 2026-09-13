@@ -234,6 +234,58 @@ export async function sendOrganizerWelcome({
   });
 }
 
+export interface DigestEventLine {
+  eventId: string;
+  name: string;
+  date: string;
+  soldYesterday: number;
+  soldTotal: number;
+  capacity: number;
+  daysUntil: number;
+}
+
+/**
+ * Taegliche Verkaufszusammenfassung, siehe `src/lib/salesDigest.ts`. Nur an
+ * Tagen mit Verkaeufen; abschaltbar unter /dashboard/profile.
+ */
+export async function sendSalesDigest({
+  to,
+  name,
+  events,
+  baseUrl,
+}: {
+  to: string;
+  name: string;
+  events: DigestEventLine[];
+  baseUrl: string;
+}): Promise<void> {
+  if (!process.env.RESEND_API_KEY) return;
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  const total = events.reduce((n, e) => n + e.soldYesterday, 0);
+  const when = (d: number) => d === 0 ? "heute" : d === 1 ? "morgen" : d < 0 ? "vorbei" : `in ${d} Tagen`;
+  const lines = events.map((e) =>
+    `${e.name} (${formatDate(e.date)}, ${when(e.daysUntil)})\n`
+    + `  gestern: ${e.soldYesterday} Ticket${e.soldYesterday === 1 ? "" : "s"} · gesamt: ${e.soldTotal} von ${e.capacity}\n`
+    + `  ${baseUrl}/dashboard/events/${e.eventId}`,
+  ).join("\n\n");
+
+  const body = `Hallo ${name},\n\n`
+    + `gestern ${total === 1 ? "wurde 1 Ticket" : `wurden ${total} Tickets`} verkauft.\n\n`
+    + `${lines}\n\n`
+    + `Alle Zahlen: ${baseUrl}/dashboard\n\n`
+    + `Diese Zusammenfassung kommt nur an Tagen mit Verkaeufen. Abschalten kannst du sie unter ${baseUrl}/dashboard/profile.\n\n`
+    + `--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+
+  await resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to,
+    subject: total === 1 ? "Gestern: 1 Ticket verkauft" : `Gestern: ${total} Tickets verkauft`,
+    text: body,
+  });
+}
+
 /**
  * Entscheidung ueber eine angefragte Sofort-Auszahlung (siehe
  * /dashboard/payouts und den Admin-Tab). Freigegebenes Geld geht mit dem

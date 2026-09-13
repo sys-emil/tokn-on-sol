@@ -33,10 +33,11 @@ export interface OrganizerProfile {
   name: string;
   business_name: string | null;
   type: "private" | "business";
+  daily_digest: boolean;
 }
 
 const SELECT =
-  "wallet_address, handle, public_name, bio, avatar_url, banner_url, links, accent_hue, featured_event_id, is_verified, verified_label, plan, status, name, business_name, type";
+  "wallet_address, handle, public_name, bio, avatar_url, banner_url, links, accent_hue, featured_event_id, is_verified, verified_label, plan, status, name, business_name, type, daily_digest";
 
 /** Own organizer profile for the dashboard editor; requires wallet ownership. */
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -70,6 +71,8 @@ interface PutBody {
   links?: OrganizerLink[];
   accentHue?: number | null;
   featuredEventId?: string | null;
+  /** Taegliche Verkaufszusammenfassung per Mail (nur an Tagen mit Verkaeufen). */
+  dailyDigest?: boolean;
 }
 
 function cleanLinks(input: unknown): OrganizerLink[] {
@@ -146,6 +149,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     links: cleanLinks(body.links),
   };
   if (handle !== undefined) update.handle = handle;
+  if (typeof body.dailyDigest === "boolean") update.daily_digest = body.dailyDigest;
 
   // Pro-only customizations: silently ignored on the free plan (the UI locks
   // them, this is the server-side backstop).

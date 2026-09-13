@@ -27,7 +27,7 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
       Einlass-Stand, Knopf „Von Hand einlassen" laeuft ueber denselben
       Redeem-Pfad wie ein Scan (online `verify`-Aequivalent per assetId, offline
       in die Queue). Schutz: nur auf der ohnehin gegateten Tuer-Oberflaeche.
-- [ ] **1.4 Taegliche Verkaufszusammenfassung an den Veranstalter.** Im
+- [x] **1.4 Taegliche Verkaufszusammenfassung an den Veranstalter.** _(2026-09-13; Spalte `organizers.daily_digest` migriert)_ Im
       Payout-Cron: pro Veranstalter mit Verkaeufen in den letzten 24 h eine Mail
       („gestern 12 Tickets, 87 von 150, naechstes Event in 5 Tagen").
       Abschaltbar (`organizers.daily_digest` bool, default true).
