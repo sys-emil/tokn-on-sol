@@ -447,6 +447,7 @@ without deciding that question first.
 - Cookies `passly_consent` (`granted|denied`, 12 months) + `passly_cid` (UUID, only while granted); set client-side by `ConsentBanner` (`src/app/components/ConsentBanner.tsx`, mounted in the root layout with `PageViewTracker`). `track()` in `src/lib/track.ts` is a no-op without consent.
 - `POST /api/track` requires both cookies, enforces an event-name allowlist (`page_view`, `ticket_selected`, `checkout_started`, `purchase_completed`, `ticket_viewed`), caps props at 1 KB, always answers 204. Table `analytics_events` (no wallets/e-mails/IPs; `cid` is the only identifier). `referrer` feeds the Pro channel attribution — organizers only ever see aggregates.
 - `/datenschutz` Ziffer 10 documents the cookie + withdrawal (`ConsentSettingsButton`); the page and any tracking change MUST ship in the same deploy. Doorman pages are never tracked.
+- **Error tracking** (since 2026-09-13, `src/lib/observe.ts`): Sentry via `@sentry/nextjs`, **dormant until a DSN exists** — `SENTRY_DSN` for the server (`sentry.server.config.ts`, loaded by `src/instrumentation.ts`, which also exports `onRequestError`) and `NEXT_PUBLIC_SENTRY_DSN` for the browser (`src/instrumentation-client.ts`; its origin is added to the CSP `connect-src` at build time). No `withSentryConfig` wrapper on purpose: source-map upload needs an auth token and would tie every build to it. Caught errors on the money paths go through `reportError(message, err, extra)` (webhook refund/payout-row/after-mint, mint-job failure, payout transfer failure), and every `sendAdminAlert` is mirrored as a Sentry warning via `reportAlert`. Tracing and replay are off (`tracesSampleRate: 0`).
 - **Alerting**: operational failures e-mail `ADMIN_ALERT_EMAIL` via `sendAdminAlert` (src/lib/email.ts); held transfers (payout cron), refund-after-transfer, dispute created, refund/payout-row webhook failures, Connect bank-payout failures, unresolved refunds on event cancellation, permanently failed mint jobs. Always fire-and-forget (`void …().catch(…)`), never block the money path on Resend.
 
 ### Doorman offline buffer
@@ -542,6 +543,8 @@ ADMIN_ALERT_EMAIL      # Recipient for operational alerts (permanently failed mi
 ADMIN_SECRET           # Auth for /admin/payouts + /admin/organizers and their /api/admin/* routes (x-admin-secret header)
 NEXT_PUBLIC_SUPPORT_EMAIL  # Shown on /hilfe AND used as the reply-to of every outgoing mail (the sending subdomain has no inbox); defaults to support@getpassly.de when unset
 SOLANA_PRIORITY_FEE_MICROLAMPORTS  # Optional; price per compute unit on every mint (default 50000). Digits only — a malformed value falls back to the default rather than silently dropping the fee.
+SENTRY_DSN             # Optional; server-side error tracking (src/lib/observe.ts). Unset = Sentry off.
+NEXT_PUBLIC_SENTRY_DSN # Optional; browser-side error tracking; its origin is added to the CSP connect-src at build time.
 CSP_REPORT_ONLY        # Optional; "1" ships the Content-Security-Policy in report-only mode for one deploy. Unset = enforcing (the default).
 NEXTAUTH_SECRET        # Legacy name; no longer used for QR signing; do not remove
 VERCEL_URL             # Auto-set by Vercel; fallback for building absolute URLs

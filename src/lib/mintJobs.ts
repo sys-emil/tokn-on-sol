@@ -6,6 +6,7 @@ import { checkPurchaseBadges } from "@/lib/badges";
 import { passEventDates } from "@/lib/seasonPass";
 import { buildReceiptPdf, loadReceiptInput } from "@/lib/receipt";
 import { buildCalendar, type IcsEvent } from "@/lib/ics";
+import { reportError } from "@/lib/observe";
 import { settleReturnRefund, type ResaleOfferRow } from "@/lib/resaleReturn";
 
 /**
@@ -447,7 +448,7 @@ export async function processMintJobs(limit = 5, baseUrl = mintJobsSiteUrl): Pro
       minted += await processOneJob(job, baseUrl);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`Mint job ${job.id} failed:`, message);
+      reportError(`Mint job ${job.id} failed:`, err, { jobId: job.id, attempts: job.attempts });
       await supabaseAdmin
         .from("mint_jobs")
         .update({

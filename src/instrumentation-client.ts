@@ -1,4 +1,22 @@
 import { initBotId } from "botid/client/core";
+import * as Sentry from "@sentry/nextjs";
+
+// Browserseite des Fehler-Trackings; schlafend ohne NEXT_PUBLIC_SENTRY_DSN
+// (siehe src/lib/observe.ts). Kein Session-Replay, kein Tracing: nur Fehler.
+try {
+  const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+  Sentry.init({
+    dsn,
+    enabled: Boolean(dsn),
+    environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV,
+    tracesSampleRate: 0,
+    sendDefaultPii: false,
+  });
+} catch (err) {
+  console.error("Sentry client init failed:", err);
+}
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 
 /**
  * Client half of Vercel BotID: the listed routes get a proof-of-humanity

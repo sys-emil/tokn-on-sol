@@ -58,6 +58,20 @@ const ownDomainWildcard = (() => {
   }
 })();
 
+/**
+ * Sentry ingest origin, derived from the public DSN so the CSP follows the
+ * project. Empty (and therefore absent from the policy) when tracking is off.
+ */
+const sentryOrigin = (() => {
+  const raw = process.env.NEXT_PUBLIC_SENTRY_DSN;
+  if (!raw) return "";
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return "";
+  }
+})();
+
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
@@ -75,7 +89,8 @@ const csp = [
   `child-src ${ownDomainWildcard}`,
   `frame-src ${ownDomainWildcard} https://challenges.cloudflare.com`,
   // Supabase carries sign-in, token refresh and storage reads.
-  `connect-src 'self' ${ownDomainWildcard}${supabaseOrigin ? ` ${supabaseOrigin}` : ""}`,
+  // Sentry only when a DSN is configured; the browser SDK posts errors there.
+  `connect-src 'self' ${ownDomainWildcard}${supabaseOrigin ? ` ${supabaseOrigin}` : ""}${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
   "worker-src 'self'",
   "manifest-src 'self'",
 ].join("; ");

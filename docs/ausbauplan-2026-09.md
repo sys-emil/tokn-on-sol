@@ -39,7 +39,7 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
 
 ## Block 2 — Betrieb
 
-- [~] **2.1 Fehler-Tracking.** Sentry (`@sentry/nextjs`) fuer Server-Routen,
+- [x] **2.1 Fehler-Tracking.** _(2026-09-13 verdrahtet, schlafend; **Emil: Sentry-Projekt anlegen und `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` in Vercel setzen**)_ Sentry (`@sentry/nextjs`) fuer Server-Routen,
       Cron und Client; DSN als Env. Braucht ein Sentry-Konto von Emil (Free-Plan
       reicht). Ohne DSN muss alles weiterlaufen.
 - [ ] **2.2 Tests fuer den Geldweg.** Vitest mit gemocktem Supabase/Stripe:

@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { sendAdminAlert } from "@/lib/email";
 import { sendDueEventReminders } from "@/lib/reminders";
 import { sendDailySalesDigests } from "@/lib/salesDigest";
+import { reportError } from "@/lib/observe";
 import { sweepWaitlists } from "@/lib/waitlist";
 import { claimOffsetForPayout, releaseOffset } from "@/lib/platformFees";
 import { checkOperatorBalance } from "@/lib/operatorBalance";
@@ -210,7 +211,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         const message = err instanceof Stripe.errors.StripeError
           ? `${err.code ?? err.type}: ${err.message}`
           : err instanceof Error ? err.message : String(err);
-        console.error(`Transfer failed for payout ${payout.id}:`, message);
+        reportError(`Transfer failed for payout ${payout.id}:`, err, { payoutId: payout.id });
 
         // No transfer, no deduction: the dues go back into the pool so the next
         // successful payout of this organizer picks them up.

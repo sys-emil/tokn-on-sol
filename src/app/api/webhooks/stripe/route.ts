@@ -10,6 +10,7 @@ import { sendAdminAlert } from "@/lib/email";
 import { notifyWaitlistIfSeats } from "@/lib/waitlist";
 import { ensureGuestOrder } from "@/lib/guestOrders";
 import { bookChargebackFee } from "@/lib/platformFees";
+import { reportError } from "@/lib/observe";
 
 function appBaseUrl(): string {
   return process.env.APP_URL
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         try {
           await processMintJobs(3, siteUrl);
         } catch (err) {
-          console.error("Post-response mint processing failed:", err);
+          reportError("Post-response mint processing failed:", err);
         }
       });
       return NextResponse.json({ received: true });
@@ -407,7 +408,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         if (payoutError) throw new Error(payoutError.message);
       }
     } catch (err) {
-      console.error(`Failed to process refund for charge ${charge.id}:`, err);
+      reportError(`Failed to process refund for charge ${charge.id}:`, err, { chargeId: charge.id });
       alertAdmin(
         `Refund-Verarbeitung fehlgeschlagen; Charge ${charge.id}`,
         `Der charge.refunded-Webhook ist fehlgeschlagen und wird von Stripe erneut zugestellt.\n`
@@ -634,7 +635,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     } catch (err) {
       // Without a payout row the organizer would never be paid; release the
       // idempotency claim and let Stripe retry the whole event.
-      console.error(`Failed to record payout for session ${session.id}:`, err);
+      reportError(`Failed to record payout for session ${session.id}:`, err, { sessionId: session.id });
       alertAdmin(
         `Payout-Row konnte nicht geschrieben werden; Session ${session.id}`,
         `checkout.session.completed schlug beim Anlegen der Payout-Zeile fehl; Stripe stellt erneut zu.\n`

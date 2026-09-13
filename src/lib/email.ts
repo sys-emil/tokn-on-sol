@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { normalizeLang, t, type Lang } from "@/lib/i18n";
+import { reportAlert } from "@/lib/observe";
 
 // Absender aller ausgehenden Mails. Die Domain muss in Resend verifiziert
 // sein, sonst lehnt Resend den Versand ab — der Fallback zeigt deshalb auf
@@ -67,6 +68,8 @@ function orderRow(token: string, baseUrl: string, total: number, lang: Lang): st
 // Requires ADMIN_ALERT_EMAIL; silently skipped when unset so non-critical
 // environments don't need it.
 export async function sendAdminAlert({ subject, text }: { subject: string; text: string }): Promise<void> {
+  // Jeder betriebliche Alarm auch nach Sentry, damit er nicht nur im Postfach liegt.
+  reportAlert(subject, text);
   const to = process.env.ADMIN_ALERT_EMAIL;
   if (!process.env.RESEND_API_KEY || !to) return;
 
