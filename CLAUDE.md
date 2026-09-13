@@ -167,6 +167,7 @@ Passly is a Next.js 16 App Router application for minting Solana compressed NFT 
 |------|-----|
 | `/` | Public landing page (**organizer-first**, see Positioning below) |
 | `/preise` | Public pricing page (canonical; `/fuer-veranstalter` links here) |
+| `/avv` | Auftragsverarbeitungsvertrag (Art. 28 DSGVO) between organizer and Passly, `noindex`; accepted electronically with the organizer account (AGB § 13 Abs. 4). Draft pending legal review. Rollenmodell: Passly is **controller** for the guest's account, payment, ticket issuance and its own mails (→ `/datenschutz`), and **processor for the organizer** for everything shown to the organizer about their guests (guest list, door, messaging, export, refunds). Anlage 2 lists the sub-processors (Supabase, Vercel, Resend, Sentry); Stripe and Helius are deliberately not sub-processors. Keep Anlage 3 (TOMs) in step with the security model above. |
 | `/shop/[id]` | Public event listing & purchase |
 | `/@[handle]` | Public organizer profile (YouTube-style; `src/app/[handle]/page.tsx`) |
 | `/embed/[id]` | Embeddable ticket card for the organizer's own website (`<iframe>`, `noindex`). Card only, no checkout: the CTA opens `/shop/[id]` with `target="_top"`. The **only** route whose CSP says `frame-ancestors *` (second `headers()` entry in `next.config.ts`; the main entry's source excludes `embed/`), and ConsentBanner/PageViewTracker skip it. Snippet generator: „Auf deine Website einbinden" on `/dashboard/events/[id]`. |

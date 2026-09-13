@@ -266,6 +266,13 @@ export default function AgbPage() {
         (3) Passly kann Events sperren oder löschen, die gegen gesetzliche
         Vorschriften oder diese AGB verstoßen.
       </p>
+      <p>
+        (4) Soweit Passly personenbezogene Daten der Gäste im Auftrag des
+        Veranstalters verarbeitet (Gästeliste, Einlass, Nachrichten an Gäste,
+        Export), gilt die <a href="/avv">Vereinbarung zur Auftragsverarbeitung</a>
+        nach Art.&nbsp;28 DSGVO. Sie wird mit dem Anlegen des Veranstalter-Kontos
+        Bestandteil dieses Vertrags.
+      </p>
 
       <h2>§ 14 Schlussbestimmungen</h2>
       <p>

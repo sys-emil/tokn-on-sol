@@ -435,6 +435,10 @@ export default function OrganizerProfilePage() {
                 Morgens eine Mail mit den Verkäufen des Vortags je Event, nur an Tagen, an denen etwas verkauft wurde.
               </span>
             </div>
+            <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)', lineHeight: 1.6 }}>
+              Deine Gästedaten verarbeitet Passly in deinem Auftrag. Die Regeln dazu stehen in der{' '}
+              <Link href="/avv" style={{ color: 'var(--accent)', fontWeight: 500 }}>Vereinbarung zur Auftragsverarbeitung</Link>.
+            </div>
           </div>
 
           {/* Pro customizations */}

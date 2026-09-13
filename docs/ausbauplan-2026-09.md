@@ -62,11 +62,11 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
 - [x] **3.3 Mehrtaegige Events.** _(2026-09-13; Spalte `events.end_date` migriert)_ `events.end_date` (nullable): Anzeige
       „12.–14. Okt.", ICS mit Ende, Erinnerung/Einlass-Fenster/Payout-Anker auf
       den letzten Tag. Wiederkehrende Events bleiben Kopieren + Saisonpass.
-- [ ] **3.4 Wallet-Pass** (Apple Wallet `.pkpass`, Google Wallet). Groesster
+- [ ] **3.4 Wallet-Pass** _(verschoben, Emil 2026-09-13)_ (Apple Wallet `.pkpass`, Google Wallet). Groesster
       Qualitaetssprung, eine Woche. Braucht Apple-Developer-Zertifikat (Emil)
       und einen Pass-Push-Endpunkt fuer den rotierenden Code — Entwurf zuerst.
-- [~] **3.5 Sitzplaetze.** Eigenes Vorhaben, nur nach Entscheidung: Saalplan-
+- [~] **3.5 Sitzplaetze.** _(verschoben, Emil 2026-09-13)_ Eigenes Vorhaben, nur nach Entscheidung: Saalplan-
       Editor, `seats`-Tabelle, Reservierung pro Sitz. Vorher Bedarf beim
       Pilotkunden klaeren.
-- [~] **3.6 Auftragsverarbeitungsvertrag.** Kein Code; Vorlage fuer
+- [x] **3.6 Auftragsverarbeitungsvertrag.** _(2026-09-13 als Entwurf unter `/avv`; anwaltliche Pruefung offen)_ Kein Code; Vorlage fuer
       Veranstalter, verlinkt aus AGB und Dashboard. Braucht juristische Pruefung.

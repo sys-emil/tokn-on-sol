@@ -24,6 +24,7 @@ export default function robots(): MetadataRoute.Robots {
         '/shop/',
         // The embeddable card lives inside other people's pages; nothing to index.
         '/embed/',
+        '/avv',
         // Bearer tokens in the path — the token IS the credential. These
         // links travel by e-mail and are linked from nowhere, so a crawler
         // shouldn't find them anyway; this keeps them out of an index if one
