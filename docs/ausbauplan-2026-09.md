@@ -47,7 +47,7 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
       `checkout.session.expired`, `charge.refunded` (voll/teil/nach Auszahlung,
       Rueckgabe-Skip), Reservierungs-Retry bei erschoepfter Kapazitaet,
       Mint-Worker (Backoff, Auto-Refund einmalig).
-- [ ] **2.3 Englisch fertigstellen** (`ShopClient`, Shop-Erfolgsseite,
+- [x] **2.3 Englisch fertigstellen** _(2026-09-13)_ (`ShopClient`, Shop-Erfolgsseite,
       `/my-tickets`, `/claim/[token]`, `TicketClient`), Schluessel liegen in
       `i18n.ts`. Seiten immer ganz uebersetzen.
 

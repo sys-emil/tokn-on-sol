@@ -13,6 +13,8 @@ import { Icon } from '@/app/components/passlyUi';
 import { badgeDisplay, BADGE_META, type BadgeType } from '@/lib/badgeMeta';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SiteNav } from '@/app/components/SiteNav';
+import { useLang, useT } from '@/app/components/LangProvider';
+import type { Lang } from '@/lib/i18n';
 import { useDialogChrome } from '@/app/components/useDialogChrome';
 import { useStackMotion, useReducedMotion, type CardTarget } from './stackMotion';
 
@@ -601,7 +603,8 @@ interface Ticket {
   returnOffer: { id: string; paidCents: number; returnFeeCents: number; refundCents: number; status: string } | null;
 }
 
-const euro = (cents: number) => (cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const localeOf = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'de-DE');
+const euroL = (cents: number, lang: Lang) => (cents / 100).toLocaleString(localeOf(lang), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
 interface BadgeItem {
   badgeType: string;
@@ -644,12 +647,12 @@ const COLLAPSED_EDGE = 48;
  *  `badgeCardIn`/`badgeCardOut`-Regeln in PAGE_CSS passen. */
 const BADGE_CARD_MS = 280;
 
-const MONTHS_FULL = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-
-const monthShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
+const monthFull = (d: Date, lang: Lang) => d.toLocaleDateString(localeOf(lang), { month: 'long' });
+const monthShortL = (iso: string, lang: Lang) => new Date(iso + 'T00:00:00').toLocaleDateString(localeOf(lang), { month: 'short' }).replace('.', '');
 const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
-const formatDate = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
-const formatDateShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const formatDateL = (iso: string, lang: Lang) => new Date(iso + 'T00:00:00').toLocaleDateString(localeOf(lang), { day: '2-digit', month: 'long', year: 'numeric' });
+const formatDateShortL = (iso: string, lang: Lang) => new Date(iso + 'T00:00:00').toLocaleDateString(localeOf(lang), { day: '2-digit', month: '2-digit', year: 'numeric' });
+type Tr = ReturnType<typeof useT>;
 
 /**
  * Ladezustand der Ticketuebersicht.
@@ -660,10 +663,11 @@ const formatDateShort = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDat
  * die Seite baute sich danach in voller Breite neu auf.
  */
 function TicketsSkeleton() {
+  const tr = useT();
   return (
-    <div className="tk-lane" aria-busy="true" aria-label="Tickets werden geladen">
+    <div className="tk-lane" aria-busy="true" aria-label={tr('mine.loading')}>
       <div>
-        <div className="tk-lane-label" style={{ marginBottom: 10 }}>Als nächstes</div>
+        <div className="tk-lane-label" style={{ marginBottom: 10 }}>{tr('mine.upNext')}</div>
         <div className="sk block" style={{ width: '100%', height: 296, borderRadius: 14 }} />
         {/* Angedeutete Kanten der Karten darunter, wie im eingeklappten Stapel. */}
         <div className="sk block" style={{ width: '96%', height: 34, borderRadius: 14, margin: '10px auto 0', opacity: 0.7 }} />
@@ -671,7 +675,7 @@ function TicketsSkeleton() {
       </div>
 
       <div className="card tk-front" style={{ padding: 22 }}>
-        <div className="tk-lane-label">Dein nächstes Ticket</div>
+        <div className="tk-lane-label">{tr('mine.yourNextTicket')}</div>
         <div className="sk" style={{ width: '84%', height: 22, marginTop: 14 }} />
         <div style={{ display: 'grid', gap: 11, marginTop: 18 }}>
           {[188, 156, 172].map((w, i) => (
@@ -682,7 +686,7 @@ function TicketsSkeleton() {
           ))}
         </div>
         <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)' }}>
-          <div style={{ fontSize: '0.75rem', color: 'var(--accent-ink)', fontWeight: 500 }}>Türöffnung in</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--accent-ink)', fontWeight: 500 }}>{tr('mine.doorsIn')}</div>
           <div className="sk" style={{ width: 132, height: 30, marginTop: 4 }} />
         </div>
         <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
@@ -704,11 +708,11 @@ function daysUntil(iso: string): number {
 
 function isUpcoming(iso: string): boolean { return daysUntil(iso) >= 0; }
 
-function relativeDayLabel(iso: string): string {
+function relativeDayLabelL(iso: string, tr: Tr): string {
   const n = daysUntil(iso);
-  if (n <= 0) return 'Heute';
-  if (n === 1) return 'Morgen';
-  return `in ${n} Tagen`;
+  if (n <= 0) return tr('mine.today');
+  if (n === 1) return tr('mine.tomorrow');
+  return tr('mine.inDays', { count: n });
 }
 
 /** Startzeitpunkt als ms; ohne `start_time` gilt Mitternacht. */
@@ -718,14 +722,14 @@ function eventStartMs(t: Pick<Ticket, 'eventDate' | 'startTime'>): number {
 }
 
 /** Live-Countdown bis zum Einlass: Tage/Stunden, unter 24 h sekundengenau. */
-function countdownLabel(targetMs: number, nowMs: number): string {
+function countdownLabelL(targetMs: number, nowMs: number, tr: Tr): string {
   const diff = targetMs - nowMs;
-  if (diff <= 0) return 'Es geht los';
+  if (diff <= 0) return tr('mine.itStarts');
   const totalMinutes = Math.floor(diff / 60000);
   const days = Math.floor(totalMinutes / 1440);
   if (days >= 1) {
     const hours = Math.floor((totalMinutes % 1440) / 60);
-    return `${days} ${days === 1 ? 'Tag' : 'Tage'} ${hours} Std`;
+    return `${days} ${days === 1 ? tr('mine.dayOne') : tr('mine.dayMany')} ${hours} ${tr('mine.hoursShort')}`;
   }
   const secs = Math.floor(diff / 1000);
   const hh = String(Math.floor(secs / 3600)).padStart(2, '0');
@@ -792,6 +796,14 @@ function coverStyle(t: Ticket, hue: number): React.CSSProperties {
 const isVipTier = (t: Ticket) => /\bvip\b/i.test(t.tierName ?? '');
 
 export default function MyTickets() {
+  const tr = useT();
+  const { lang } = useLang();
+  const euro = (cents: number) => euroL(cents, lang);
+  const monthShort = (iso: string) => monthShortL(iso, lang);
+  const formatDate = (iso: string) => formatDateL(iso, lang);
+  const formatDateShort = (iso: string) => formatDateShortL(iso, lang);
+  const relativeDayLabel = (iso: string) => relativeDayLabelL(iso, tr);
+  const countdownLabel = (targetMs: number, nowMs: number) => countdownLabelL(targetMs, nowMs, tr);
   const router = useRouter();
   const { ready, authenticated, user, login, isOrganizer } = useAuth();
   const { logout } = useLogout({ onSuccess: () => router.push('/') });
@@ -918,12 +930,13 @@ export default function MyTickets() {
       setFreshAssetIds(new Set(ids));
       setCelebration({
         emoji: '🎟️',
-        title: 'Herzlichen Glückwunsch!',
+        title: tr('mine.congrats'),
         message: ids.length === 1
-          ? 'Dein neues Ticket ist da, sicher in deinem Konto und bereit für einen unvergesslichen Abend.'
-          : `Deine ${ids.length} neuen Tickets sind da, sicher in deinem Konto und bereit für einen unvergesslichen Abend.`,
+          ? tr('mine.newTicketOne')
+          : tr('mine.newTicketMany', { count: ids.length }),
       });
     } catch { /* private mode */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot handoff; the language at mount is the one to use
   }, []);
 
   // Badge celebration: compare the loaded badges against what this device has
@@ -943,16 +956,16 @@ export default function MyTickets() {
           const meta = badgeDisplay(fresh[0]);
           setCelebration((prev) => prev ?? {
             emoji: '🏅',
-            title: 'Neues Abzeichen!',
+            title: tr('mine.newBadge'),
             message: fresh.length === 1
-              ? `Herzlichen Glückwunsch, du hast dir „${meta.name}“ verdient. Ein echter Meilenstein für deine Sammlung.`
-              : `Herzlichen Glückwunsch, du hast dir ${fresh.length} neue Abzeichen verdient. Echte Meilensteine für deine Sammlung.`,
+              ? tr('mine.newBadgeOne', { name: meta.name })
+              : tr('mine.newBadgeMany', { count: fresh.length }),
           });
         }
       }
       localStorage.setItem(key, JSON.stringify(current));
     } catch { /* private mode */ }
-  }, [loaded, accountWallet, badges]);
+  }, [loaded, accountWallet, badges, tr]);
 
   // Der Anmeldedialog sprang frueher von selbst auf, sobald die Sitzung als
   // „nicht angemeldet" feststand. Das nimmt dem Besucher die Entscheidung ab,
@@ -1008,16 +1021,16 @@ export default function MyTickets() {
         setTickets((prev) => prev.map((t) => t.assetId === assetId ? { ...t, claimUrl: data.url! } : t));
         setShareModal({ assetId, url: data.url });
       } else if (data.error === 'not_delegated') {
-        setActionError({ assetId, at, message: 'Dieses Ticket wurde gekauft, bevor Weitergabe unterstützt wurde, und kann nicht geteilt werden.' });
+        setActionError({ assetId, at, message: tr('mine.errNotDelegated') });
       } else {
-        setActionError({ assetId, at, message: data.error ?? 'Der Link konnte nicht erstellt werden.' });
+        setActionError({ assetId, at, message: data.error ?? tr('mine.errLink') });
       }
     } catch {
       // Ohne diesen Zweig endete ein Netzfehler (oder eine Antwort, die kein
       // JSON ist) in einer unbehandelten Ablehnung: der Knopf hoerte auf zu
       // laden und sonst passierte nichts — der Gast steht vor einer Karte, die
       // seinen Druck quittiert und dann schweigt.
-      setActionError({ assetId, at, message: 'Der Link konnte nicht erstellt werden. Bitte versuch es noch einmal.' });
+      setActionError({ assetId, at, message: tr('mine.errLinkRetry') });
     } finally {
       setSharingAssetId(null);
     }
@@ -1050,10 +1063,10 @@ export default function MyTickets() {
           backupIssued: data.backupIssued === true,
         });
       } else {
-        setResaleError(data.error ?? 'Die Rückgabe ist für dieses Ticket nicht möglich.');
+        setResaleError(data.error ?? tr('mine.errReturnNotPossible'));
       }
     } catch {
-      setResaleError('Die Rückgabe konnte nicht geprüft werden.');
+      setResaleError(tr('mine.errReturnCheck'));
     }
   }
 
@@ -1073,10 +1086,10 @@ export default function MyTickets() {
         setResaleModal(null);
         setLoaded(false); // neu laden, das Ticket wechselt in den Zustand "angeboten"
       } else {
-        setResaleError(data.error ?? 'Die Rückgabe konnte nicht angelegt werden.');
+        setResaleError(data.error ?? tr('mine.errReturnCreate'));
       }
     } catch {
-      setResaleError('Die Rückgabe konnte nicht angelegt werden. Bitte versuch es noch einmal.');
+      setResaleError(tr('mine.errReturnCreateRetry'));
     } finally {
       setResaleBusy(false);
     }
@@ -1103,10 +1116,10 @@ export default function MyTickets() {
       if (data.success) {
         setLoaded(false);
       } else {
-        setActionError({ assetId, at, message: data.error ?? 'Das Angebot konnte nicht zurückgezogen werden.' });
+        setActionError({ assetId, at, message: data.error ?? tr('mine.errWithdraw') });
       }
     } catch {
-      setActionError({ assetId, at, message: 'Das Angebot konnte nicht zurückgezogen werden. Bitte versuch es noch einmal.' });
+      setActionError({ assetId, at, message: tr('mine.errWithdrawRetry') });
     } finally {
       setCancelBusyId(null);
     }
@@ -1246,14 +1259,14 @@ export default function MyTickets() {
     const out: { label: string; items: Ticket[] }[] = [];
     for (const t of upcomingFiltered) {
       const label = daysUntil(t.eventDate) <= 7
-        ? 'Diese Woche'
-        : `Im ${MONTHS_FULL[new Date(t.eventDate + 'T00:00:00').getMonth()]}`;
+        ? tr('mine.thisWeek')
+        : tr('mine.inMonth', { month: monthFull(new Date(t.eventDate + 'T00:00:00'), lang) });
       let g = out.find((x) => x.label === label);
       if (!g) { g = { label, items: [] }; out.push(g); }
       g.items.push(t);
     }
     return out;
-  }, [upcomingFiltered]);
+  }, [upcomingFiltered, lang, tr]);
 
   /**
    * Monate der Sammlung, absteigend. `gapBefore` zaehlt die uebersprungenen
@@ -1270,14 +1283,14 @@ export default function MyTickets() {
       const key = d.getFullYear() * 12 + d.getMonth();
       let m = out.find((x) => x.key === key);
       if (!m) {
-        m = { label: `${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`, items: [], key, gapBefore: 0 };
+        m = { label: `${monthFull(d, lang)} ${d.getFullYear()}`, items: [], key, gapBefore: 0 };
         out.push(m);
       }
       m.items.push(t);
     }
     for (let i = 1; i < out.length; i++) out[i].gapBefore = out[i - 1].key - out[i].key - 1;
     return out;
-  }, [pastFiltered]);
+  }, [pastFiltered, lang]);
 
   const cityCount = useMemo(
     () => new Set(past.map((t) => cityOf(t.venue)).filter(Boolean)).size,
@@ -1303,12 +1316,12 @@ export default function MyTickets() {
               <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', margin: '0 auto 14px', color: 'var(--accent)' }}>
                 <Icon name="ticket" size={20} />
               </div>
-              <div style={{ fontSize: '1rem', fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Tickets warten hier.</div>
+              <div style={{ fontSize: '1rem', fontWeight: 600, letterSpacing: '-0.015em' }}>{tr('mine.waitingTitle')}</div>
               <div style={{ fontSize: '0.8125rem', color: 'var(--ink-3)', marginTop: 6, lineHeight: 1.6 }}>
-                Melde dich mit deiner E-Mail-Adresse an. Ohne Passwort, ein Code genügt.
+                {tr('mine.waitingText')}
               </div>
               <button className="btn primary" style={{ marginTop: 18 }} onClick={() => login()}>
-                Anmelden
+                {tr('mine.signIn')}
               </button>
             </div>
           </div>
@@ -1338,7 +1351,7 @@ export default function MyTickets() {
       return (
         <div className="tk-stub-actions">
           <span className="chip accent" style={{ whiteSpace: 'nowrap' }}>
-            <span className="d" />{sold ? 'verkauft' : euro(t.returnOffer.refundCents)}
+            <span className="d" />{sold ? tr('mine.sold') : euro(t.returnOffer.refundCents)}
           </span>
           {!sold && (
             <button
@@ -1346,7 +1359,7 @@ export default function MyTickets() {
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); void withdrawResale(t.returnOffer!.id, t.assetId); }}
               disabled={cancelBusyId === t.returnOffer.id}
             >
-              <Icon name="x" size={13} />{cancelBusyId === t.returnOffer.id ? '…' : 'Zurückholen'}
+              <Icon name="x" size={13} />{cancelBusyId === t.returnOffer.id ? '…' : tr('mine.withdraw')}
             </button>
           )}
           {actionErrorFor(t.assetId, 'stub')}
@@ -1361,18 +1374,18 @@ export default function MyTickets() {
           disabled={sharingAssetId === t.assetId}
         >
           <Icon name="share" size={13} />
-          {sharingAssetId === t.assetId ? '…' : t.claimUrl ? 'Link kopieren' : 'Teilen'}
+          {sharingAssetId === t.assetId ? '…' : t.claimUrl ? tr('mine.copyLink') : tr('mine.share')}
         </button>
         {t.returnEnabled && (
           <button
             className="tk-stub-action"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); void openResale(t); }}
           >
-            <Icon name="euro" size={13} />Zurückgeben
+            <Icon name="euro" size={13} />{tr('mine.giveBack')}
           </button>
         )}
         <Link href={`/tickets/${t.assetId}`} className="tk-stub-action">
-          <Icon name="qr" size={13} />Vorzeigen
+          <Icon name="qr" size={13} />{tr('mine.show')}
         </Link>
         {actionErrorFor(t.assetId, 'stub')}
       </div>
@@ -1389,28 +1402,28 @@ export default function MyTickets() {
     if (isFresh) (style as Record<string, string | number>)['--fresh-delay'] = `${freshIndex * 120}ms`;
     return (
       <div key={t.assetId} className={`tk-stub${decorClass(t)}${isFresh ? ' is-fresh' : ''}`} style={style}>
-        <Link href={`/tickets/${t.assetId}`} className="tk-stub-link" aria-label={`Ticket öffnen: ${t.eventName}`} />
+        <Link href={`/tickets/${t.assetId}`} className="tk-stub-link" aria-label={tr('mine.openTicket', { name: t.eventName })} />
         <div className="tk-motif" style={motifStyle(t, hue, false)}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="tk-motif-kicker">EINTRITTSKARTE · PASSLY</span>
+            <span className="tk-motif-kicker">{tr('mine.kicker')}</span>
             {vip && <span className="tk-motif-vip">VIP</span>}
           </div>
           <div className="tk-motif-title">{t.eventName}</div>
-          <div className="tk-motif-venue">{t.venue ?? 'Ort wird bekannt gegeben'}</div>
+          <div className="tk-motif-venue">{t.venue ?? tr('mine.venueTba')}</div>
           <div className="tk-motif-facts">
             <div>
-              <div className="tk-motif-k">DATUM</div>
+              <div className="tk-motif-k">{tr('mine.factDate')}</div>
               <div className="tk-motif-v">{formatDateShort(t.eventDate)}</div>
             </div>
             {t.startTime && (
               <div>
-                <div className="tk-motif-k">EINLASS</div>
+                <div className="tk-motif-k">{tr('mine.factDoors')}</div>
                 <div className="tk-motif-v">{t.startTime.slice(0, 5)}</div>
               </div>
             )}
             {t.tierName && (
               <div>
-                <div className="tk-motif-k">PLATZ</div>
+                <div className="tk-motif-k">{tr('mine.factSeat')}</div>
                 <div className="tk-motif-v">{t.tierName}</div>
               </div>
             )}
@@ -1439,19 +1452,19 @@ export default function MyTickets() {
     const d = new Date(t.eventDate + 'T00:00:00');
     return (
       <div key={t.assetId} className={`tk-stub${decorClass(t)}${attended ? '' : ' is-muted'}`} style={{ '--hue': hue } as React.CSSProperties}>
-        <Link href={`/tickets/${t.assetId}`} className="tk-stub-link" aria-label={`Ticket öffnen: ${t.eventName}`} />
+        <Link href={`/tickets/${t.assetId}`} className="tk-stub-link" aria-label={tr('mine.openTicket', { name: t.eventName })} />
         <div className="tk-motif" style={motifStyle(t, hue, !attended)}>
-          <div className="tk-motif-kicker">EINTRITTSKARTE · PASSLY</div>
+          <div className="tk-motif-kicker">{tr('mine.kicker')}</div>
           <div className="tk-motif-title">{t.eventName}</div>
           <div className="tk-motif-venue">{t.venue ?? '—'}</div>
           <div className="tk-motif-facts">
             <div>
-              <div className="tk-motif-k">DATUM</div>
+              <div className="tk-motif-k">{tr('mine.factDate')}</div>
               <div className="tk-motif-v">{formatDateShort(t.eventDate)}</div>
             </div>
             {cityOf(t.venue) && (
               <div>
-                <div className="tk-motif-k">STADT</div>
+                <div className="tk-motif-k">{tr('mine.factCity')}</div>
                 <div className="tk-motif-v">{cityOf(t.venue)}</div>
               </div>
             )}
@@ -1465,7 +1478,7 @@ export default function MyTickets() {
             {String(dayNum(t.eventDate)).padStart(2, '0')}
           </div>
           <span className={attended ? 'chip ok' : 'chip'} style={{ marginTop: 4, whiteSpace: 'nowrap' }}>
-            <span className="d" />{attended ? 'Besucht' : 'Offen'}
+            <span className="d" />{attended ? tr('mine.attended') : tr('mine.open')}
           </span>
           {isVipTier(t) && <span className="chip accent">VIP</span>}
         </div>
@@ -1497,20 +1510,20 @@ export default function MyTickets() {
 
             <div className="tk-head">
               <div>
-                <h1 className="tk-title">Meine Tickets</h1>
+                <h1 className="tk-title">{tr('mine.title')}</h1>
                 <div className="tk-subline">
                   {accountWallet && (
                     <Link href={`/collection/${accountWallet}`} style={{ fontSize: '0.8438rem', color: 'var(--accent)', fontWeight: 500 }}>
-                      Öffentliches Profil ansehen →
+                      {tr('mine.publicProfile')}
                     </Link>
                   )}
                   {accountWallet && <span className="sep" />}
                   <span style={{ fontSize: '0.8438rem', color: 'var(--ink-3)' }}>
-                    {upcoming.length} bevorstehend · {past.length} besucht · {badges.length} Abzeichen
+                    {tr('mine.subline', { upcoming: upcoming.length, past: past.length, badges: badges.length })}
                   </span>
                 </div>
               </div>
-              <Link href="/events" className="btn primary"><Icon name="search" size={15} /> Events entdecken</Link>
+              <Link href="/events" className="btn primary"><Icon name="search" size={15} /> {tr('mine.discoverEvents')}</Link>
             </div>
 
             {loading && <TicketsSkeleton />}
@@ -1521,9 +1534,9 @@ export default function MyTickets() {
                   <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)', display: 'grid', placeItems: 'center', margin: '0 auto 12px', color: 'var(--accent)' }}>
                     <Icon name="ticket" size={20} />
                   </div>
-                  <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--ink)' }}>Dein erstes Ticket wartet hier.</div>
-                  <div style={{ fontSize: '0.8125rem', marginTop: 4, marginBottom: 16 }}>Kauf ein Ticket, es landet automatisch in dieser Übersicht.</div>
-                  <Link href="/events" className="btn primary">Events entdecken <Icon name="arrow" size={13} /></Link>
+                  <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--ink)' }}>{tr('mine.firstTicketTitle')}</div>
+                  <div style={{ fontSize: '0.8125rem', marginTop: 4, marginBottom: 16 }}>{tr('mine.firstTicketText')}</div>
+                  <Link href="/events" className="btn primary">{tr('mine.discoverEvents')} <Icon name="arrow" size={13} /></Link>
                 </div>
               </div>
             )}
@@ -1535,7 +1548,7 @@ export default function MyTickets() {
                   <div className="tk-lane" style={{ marginBottom: 14 }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
-                        <div className="tk-lane-label">Als nächstes</div>
+                        <div className="tk-lane-label">{tr('mine.upNext')}</div>
                         {canFan && (
                           <button
                             className="btn ghost sm"
@@ -1544,7 +1557,7 @@ export default function MyTickets() {
                             aria-pressed={fan}
                           >
                             <Icon name={fan ? 'chevronLeft' : 'chevronRight'} size={14} />
-                            {fan ? 'Stapeln' : 'Fächern'}
+                            {fan ? tr('mine.stack') : tr('mine.fan')}
                           </button>
                         )}
                       </div>
@@ -1584,7 +1597,7 @@ export default function MyTickets() {
                                 if (bringToFront) setFrontId(t.assetId);
                                 else router.push(`/tickets/${t.assetId}`);
                               }}
-                              aria-label={bringToFront ? `${t.eventName} nach vorn holen` : `Ticket öffnen: ${t.eventName}`}
+                              aria-label={bringToFront ? tr('mine.bringToFront', { name: t.eventName }) : tr('mine.openTicket', { name: t.eventName })}
                             >
                               <div className="tk-wcard-head">
                                 <div className="tk-datechip">
@@ -1593,7 +1606,7 @@ export default function MyTickets() {
                                 </div>
                                 <div style={{ minWidth: 0, flex: 1 }}>
                                   <div className="tk-wcard-title">{t.eventName}</div>
-                                  <div className="tk-wcard-venue">{t.venue ?? 'Ort wird bekannt gegeben'}</div>
+                                  <div className="tk-wcard-venue">{t.venue ?? tr('mine.venueTba')}</div>
                                 </div>
                                 {vip && <span className="chip accent" style={{ flex: 'none' }}>VIP</span>}
                               </div>
@@ -1602,15 +1615,15 @@ export default function MyTickets() {
                               </div>
                               <div className="tk-wcard-facts">
                                 <div>
-                                  <div className="tk-fact-k">Einlass</div>
+                                  <div className="tk-fact-k">{tr('mine.doors')}</div>
                                   <div className="tk-fact-v">{t.startTime ? t.startTime.slice(0, 5) : '—'}</div>
                                 </div>
                                 <div>
-                                  <div className="tk-fact-k">Platz</div>
-                                  <div className="tk-fact-v">{t.tierName ?? 'Standard'}</div>
+                                  <div className="tk-fact-k">{tr('mine.seat')}</div>
+                                  <div className="tk-fact-v">{t.tierName ?? tr('mine.standard')}</div>
                                 </div>
                                 <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                                  <div className="tk-fact-k">Ticket</div>
+                                  <div className="tk-fact-k">{tr('mine.ticket')}</div>
                                   <div className="mono" style={{ fontSize: '0.75rem', marginTop: 3, color: 'var(--ink-2)' }}>
                                     {ticketCode(t.eventName, t.assetId)}
                                   </div>
@@ -1622,7 +1635,7 @@ export default function MyTickets() {
                               <div className="tk-wcard-foot">
                                 <span className="chip accent"><span className="d" />{relativeDayLabel(t.eventDate)}</span>
                                 <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7812rem', fontWeight: 500, color: 'var(--accent)' }}>
-                                  <Icon name="qr" size={15} />{bringToFront ? 'Nach vorn' : 'Vorzeigen'}
+                                  <Icon name="qr" size={15} />{bringToFront ? tr('mine.toFront') : tr('mine.show')}
                                 </span>
                               </div>
                             </button>
@@ -1632,14 +1645,14 @@ export default function MyTickets() {
                       {restCount > 0 && (
                         <div style={{ marginTop: 12, fontSize: '0.7812rem', color: 'var(--ink-3)' }}>
                           {restCount === 1
-                            ? 'Noch 1 weiteres Ticket unten in der Liste'
-                            : `Noch ${restCount} weitere Tickets unten in der Liste`}
+                            ? tr('mine.moreBelowOne')
+                            : tr('mine.moreBelowMany', { count: restCount })}
                         </div>
                       )}
                     </div>
 
                     <div className="card tk-front" style={{ padding: 22, position: 'sticky', top: 'calc(var(--topbar-h) + 1rem)' }}>
-                      <div className="tk-lane-label">Dein nächstes Ticket</div>
+                      <div className="tk-lane-label">{tr('mine.yourNextTicket')}</div>
                       <h2 style={{ fontSize: '1.375rem', fontWeight: 600, letterSpacing: '-0.028em', lineHeight: 1.2, marginTop: 12 }}>
                         {frontTicket.eventName}
                       </h2>
@@ -1650,24 +1663,24 @@ export default function MyTickets() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: '0.8438rem', color: 'var(--ink-2)' }}>
                           <Icon name="location" size={15} />
-                          <span>{frontTicket.venue ?? 'Ort wird bekannt gegeben'}</span>
+                          <span>{frontTicket.venue ?? tr('mine.venueTba')}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: '0.8438rem', color: 'var(--ink-2)' }}>
                           <Icon name="ticket" size={15} />
                           <span>
-                            {frontTicket.tierName ?? 'Standard'} · <span className="mono" style={{ fontSize: '0.7812rem' }}>{ticketCode(frontTicket.eventName, frontTicket.assetId)}</span>
+                            {frontTicket.tierName ?? tr('mine.standard')} · <span className="mono" style={{ fontSize: '0.7812rem' }}>{ticketCode(frontTicket.eventName, frontTicket.assetId)}</span>
                           </span>
                         </div>
                       </div>
                       <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)' }}>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--accent-ink)', fontWeight: 500 }}>Türöffnung in</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--accent-ink)', fontWeight: 500 }}>{tr('mine.doorsIn')}</div>
                         <div style={{ fontSize: '1.875rem', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--accent-ink)', marginTop: 2 }}>
                           {countdownLabel(eventStartMs(frontTicket), nowMs)}
                         </div>
                       </div>
                       <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
                         <Link href={`/tickets/${frontTicket.assetId}`} className="btn primary lg" style={{ justifyContent: 'center' }}>
-                          <Icon name="qr" size={17} /> QR am Einlass vorzeigen
+                          <Icon name="qr" size={17} /> {tr('mine.showQr')}
                         </Link>
                         <div className="tk-actions-2">
                           <button
@@ -1677,7 +1690,7 @@ export default function MyTickets() {
                             disabled={sharingAssetId === frontTicket.assetId}
                           >
                             <Icon name="share" size={15} />
-                            {sharingAssetId === frontTicket.assetId ? '…' : frontTicket.claimUrl ? 'Link' : 'Teilen'}
+                            {sharingAssetId === frontTicket.assetId ? '…' : frontTicket.claimUrl ? tr('mine.link') : tr('mine.share')}
                           </button>
                           {frontTicket.returnOffer ? (
                             <button
@@ -1685,10 +1698,10 @@ export default function MyTickets() {
                               style={{ justifyContent: 'center' }}
                               onClick={() => void withdrawResale(frontTicket.returnOffer!.id, frontTicket.assetId, 'front')}
                               disabled={cancelBusyId === frontTicket.returnOffer.id || frontTicket.returnOffer.status === 'sold'}
-                              title={frontTicket.returnOffer.status === 'sold' ? 'Bereits verkauft, die Erstattung ist unterwegs.' : undefined}
+                              title={frontTicket.returnOffer.status === 'sold' ? tr('mine.soldRefundOnWay') : undefined}
                             >
                               <Icon name="x" size={15} />
-                              {cancelBusyId === frontTicket.returnOffer.id ? '…' : 'Zurückholen'}
+                              {cancelBusyId === frontTicket.returnOffer.id ? '…' : tr('mine.withdraw')}
                             </button>
                           ) : (
                             <button
@@ -1696,9 +1709,9 @@ export default function MyTickets() {
                               style={{ justifyContent: 'center' }}
                               onClick={() => void openResale(frontTicket)}
                               disabled={!frontTicket.returnEnabled}
-                              title={!frontTicket.returnEnabled ? 'Der Veranstalter hat die Rückgabe für dieses Event nicht freigegeben.' : undefined}
+                              title={!frontTicket.returnEnabled ? tr('mine.returnDisabled') : undefined}
                             >
-                              <Icon name="euro" size={15} /> Zurückgeben
+                              <Icon name="euro" size={15} /> {tr('mine.giveBack')}
                             </button>
                           )}
                         </div>
@@ -1707,7 +1720,7 @@ export default function MyTickets() {
                       <div style={{ display: 'flex', gap: 10, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)', color: 'var(--ink-3)' }}>
                         <Icon name="shield" size={15} />
                         <p style={{ fontSize: '0.7812rem', lineHeight: 1.55 }}>
-                          Fälschungssicher: der QR-Code erneuert sich jede Minute. Auch offline gültig.
+                          {tr('mine.forgeProof')}
                         </p>
                       </div>
                     </div>
@@ -1720,8 +1733,8 @@ export default function MyTickets() {
                     {loyalty.length > 0 && (
                       <div className="card tk-perks-card" style={{ padding: '18px 20px' }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-                          <h2 style={{ fontSize: '0.9375rem', fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Vorteile</h2>
-                          <span style={{ fontSize: '0.7812rem', color: 'var(--ink-3)' }}>Code am Einlass vorzeigen</span>
+                          <h2 style={{ fontSize: '0.9375rem', fontWeight: 600, letterSpacing: '-0.015em' }}>{tr('mine.perksTitle')}</h2>
+                          <span style={{ fontSize: '0.7812rem', color: 'var(--ink-3)' }}>{tr('mine.perksHint')}</span>
                         </div>
                         <div style={{ display: 'grid', gap: 10 }}>
                           {loyalty.map((p) => {
@@ -1733,14 +1746,14 @@ export default function MyTickets() {
                                 <div>
                                   <div style={{ fontSize: '0.8438rem', fontWeight: 600, letterSpacing: '-0.012em' }}>{p.benefitTitle}</div>
                                   <div style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', marginTop: 2 }}>
-                                    von {p.organizerName}
+                                    {tr('mine.perkFrom', { name: p.organizerName })}
                                     {p.tierName ? ` · ${p.tierName}` : ''}
                                     {p.benefitDescription ? ` · ${p.benefitDescription}` : ''}
                                   </div>
                                   {!p.qualified && (
                                     <>
                                       <div style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', marginTop: 8 }}>
-                                        Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis zu deinem Vorteil ({p.attendedEvents}/{p.threshold})
+                                        {tr('mine.perkRemaining', { count: remaining, plural: remaining !== 1 ? 's' : '', have: p.attendedEvents, need: p.threshold })}
                                       </div>
                                       <div className="progress" style={{ marginTop: 6, maxWidth: 320 }}><span style={{ width: `${pct}%` }} /></div>
                                     </>
@@ -1750,11 +1763,11 @@ export default function MyTickets() {
                                   <div className="tk-perk-action">
                                     {p.claim ? (
                                       p.claim.redeemedAt ? (
-                                        <span className="chip"><span className="d" />Eingelöst</span>
+                                        <span className="chip"><span className="d" />{tr('mine.perkRedeemed')}</span>
                                       ) : (
                                         <>
                                           <div className="tk-perk-code">{p.claim.code}</div>
-                                          <div style={{ fontSize: '0.6875rem', color: 'var(--ink-3)', marginTop: 2 }}>Am Einlass vorzeigen</div>
+                                          <div style={{ fontSize: '0.6875rem', color: 'var(--ink-3)', marginTop: 2 }}>{tr('mine.perkShowAtDoor')}</div>
                                         </>
                                       )
                                     ) : (
@@ -1763,7 +1776,7 @@ export default function MyTickets() {
                                         onClick={() => void handleClaimBenefit(p.programId)}
                                         disabled={claimingProgramId === p.programId}
                                       >
-                                        {claimingProgramId === p.programId ? '…' : 'Vorteil abholen'}
+                                        {claimingProgramId === p.programId ? '…' : tr('mine.perkClaim')}
                                       </button>
                                     )}
                                   </div>
@@ -1778,22 +1791,22 @@ export default function MyTickets() {
                     {(badges.length > 0 || progress?.nextMilestone || progress?.topOrganizer) && (
                       <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-                          <h2 style={{ fontSize: '0.9375rem', fontWeight: 600, letterSpacing: '-0.015em' }}>Abzeichen</h2>
+                          <h2 style={{ fontSize: '0.9375rem', fontWeight: 600, letterSpacing: '-0.015em' }}>{tr('mine.badgesTitle')}</h2>
                           <span style={{ fontSize: '0.7812rem', color: 'var(--ink-3)' }}>
-                            {badges.length > 0 ? `${badges.length} verdient` : 'Dein erstes Abzeichen wartet'}
+                            {badges.length > 0 ? tr('mine.badgesEarned', { count: badges.length }) : tr('mine.badgesFirst')}
                           </span>
                         </div>
                         <div className="badges-row">
                           {badges.map((b, i) => {
                             const meta = badgeDisplay(b.badgeType);
-                            const earned = new Date(b.earnedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
+                            const earned = new Date(b.earnedAt).toLocaleDateString(localeOf(lang), { day: '2-digit', month: 'short', year: 'numeric' });
                             const isNew = newBadgeTypes.has(b.badgeType);
                             return (
                               <div
                                 key={b.badgeType}
                                 role="button"
                                 tabIndex={0}
-                                aria-label={`${meta.name} – Details anzeigen`}
+                                aria-label={tr('mine.badgeDetails', { name: meta.name })}
                                 onClick={(e) => openBadgeDetail(b.badgeType, b.earnedAt, e.currentTarget)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter' || e.key === ' ') {
@@ -1804,7 +1817,7 @@ export default function MyTickets() {
                                 className={`badge-tile is-clickable${isNew ? ' is-new' : ''}`}
                                 style={{ '--bh': meta.hue, ...(isNew ? { '--fresh-delay': `${150 + i * 100}ms` } : null) } as React.CSSProperties}
                               >
-                                {isNew && <span className="badge-new-tag">Neu</span>}
+                                {isNew && <span className="badge-new-tag">{tr('mine.new')}</span>}
                                 <div className="badge-medal">{meta.symbol}</div>
                                 <div className="badge-name">{meta.name}</div>
                                 <div className="badge-date">{earned}</div>
@@ -1814,7 +1827,7 @@ export default function MyTickets() {
                           {progress?.nextMilestone && (() => {
                             const meta = badgeDisplay(progress.nextMilestone.type);
                             return (
-                              <div className="badge-slot" title={`Nächstes Abzeichen: ${meta.name}`}>
+                              <div className="badge-slot" title={tr('mine.nextBadge', { name: meta.name })}>
                                 <div className="ring"><Icon name="plus" size={16} /></div>
                                 <div style={{ fontSize: '0.7188rem', marginTop: 8, color: 'var(--ink-3)', lineHeight: 1.25 }}>{meta.name}</div>
                               </div>
@@ -1830,7 +1843,7 @@ export default function MyTickets() {
                               <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
                                   <span style={{ fontSize: '0.7812rem', color: 'var(--ink-2)', fontWeight: 500 }}>
-                                    Noch {remaining} Event{remaining !== 1 ? 's' : ''} bis „{meta.name}“
+                                    {tr('mine.badgeRemaining', { count: remaining, plural: remaining !== 1 ? 's' : '', name: meta.name })}
                                   </span>
                                   <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--ink-3)' }}>
                                     {progress.attendedCount}/{progress.nextMilestone.threshold}
@@ -1848,7 +1861,7 @@ export default function MyTickets() {
                               <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
                                   <span style={{ fontSize: '0.7812rem', color: 'var(--ink-2)', fontWeight: 500 }}>
-                                    Noch {remaining} Event{remaining !== 1 ? 's' : ''} bei {progress.topOrganizer.name} bis „{meta.name}“
+                                    {tr('mine.badgeRemainingAt', { count: remaining, plural: remaining !== 1 ? 's' : '', organizer: progress.topOrganizer.name, name: meta.name })}
                                   </span>
                                   <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--ink-3)' }}>
                                     {progress.topOrganizer.attendedEvents}/{progress.topOrganizer.threshold}
@@ -1871,7 +1884,7 @@ export default function MyTickets() {
                 {passes.length > 0 && (
                   <div style={{ paddingTop: 26 }}>
                     <div className="tk-group-head">
-                      <h2>Saisonpässe</h2>
+                      <h2>{tr('mine.passesTitle')}</h2>
                       <span className="n">{passes.length}</span>
                       <span className="rule" />
                     </div>
@@ -1884,18 +1897,18 @@ export default function MyTickets() {
                             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--accent-ink)' }}>
-                                  Saisonpass
+                                  {tr('mine.seasonPass')}
                                 </div>
                                 <div style={{ fontSize: '1rem', fontWeight: 600, letterSpacing: '-0.015em', marginTop: 4 }}>{p.passName}</div>
                               </div>
                               {open.length > 0
-                                ? <span className="chip ok" style={{ flexShrink: 0 }}><span className="d" />{open.length} offen</span>
-                                : <span className="chip" style={{ flexShrink: 0 }}><span className="d" />Alle eingelöst</span>}
+                                ? <span className="chip ok" style={{ flexShrink: 0 }}><span className="d" />{tr('mine.passOpen', { count: open.length })}</span>
+                                : <span className="chip" style={{ flexShrink: 0 }}><span className="d" />{tr('mine.passAllUsed')}</span>}
                             </div>
                             <div style={{ fontSize: '0.7812rem', color: 'var(--ink-3)', lineHeight: 1.55 }}>
                               {next
-                                ? `Als Nächstes: ${next.eventName} · ${formatDate(next.eventDate)}${next.startTime ? `, ${next.startTime.slice(0, 5)}` : ''}`
-                                : `${p.dates.length} ${p.dates.length === 1 ? 'Termin' : 'Termine'} · alle besucht`}
+                                ? tr('mine.passNext', { event: next.eventName, date: `${formatDate(next.eventDate)}${next.startTime ? `, ${next.startTime.slice(0, 5)}` : ''}` })
+                                : tr('mine.passAllAttended', { count: p.dates.length, unit: p.dates.length === 1 ? tr('mine.dateOne') : tr('mine.dateMany') })}
                             </div>
                           </Link>
                         );
@@ -1911,16 +1924,16 @@ export default function MyTickets() {
                         Gesamtzahl: sonst behauptet der inaktive Reiter Tickets,
                         die die Suche gerade ausgeschlossen hat. */}
                     <button className={tab === 'upcoming' ? 'active' : ''} onClick={() => setTab('upcoming')}>
-                      Bevorstehend · {searching ? upcomingFiltered.length : upcoming.length}
+                      {tr('mine.tabUpcoming', { count: searching ? upcomingFiltered.length : upcoming.length })}
                     </button>
                     <button className={tab === 'collection' ? 'active' : ''} onClick={() => setTab('collection')}>
-                      Sammlung · {searching ? pastFiltered.length : past.length}
+                      {tr('mine.tabCollection', { count: searching ? pastFiltered.length : past.length })}
                     </button>
                   </div>
                   {tab === 'collection' && (
                     <div className="seg">
-                      <button className={collectionLayout === 'mosaik' ? 'active' : ''} onClick={() => setCollectionLayout('mosaik')}>Mosaik</button>
-                      <button className={collectionLayout === 'timeline' ? 'active' : ''} onClick={() => setCollectionLayout('timeline')}>Zeitstrahl</button>
+                      <button className={collectionLayout === 'mosaik' ? 'active' : ''} onClick={() => setCollectionLayout('mosaik')}>{tr('mine.mosaic')}</button>
+                      <button className={collectionLayout === 'timeline' ? 'active' : ''} onClick={() => setCollectionLayout('timeline')}>{tr('mine.timeline')}</button>
                     </div>
                   )}
                   <div className="tk-search">
@@ -1928,8 +1941,8 @@ export default function MyTickets() {
                     <input
                       className="input"
                       style={{ paddingLeft: 32 }}
-                      aria-label="Tickets durchsuchen"
-                      placeholder="Event, Ort oder Ticket-Code"
+                      aria-label={tr('mine.searchAria')}
+                      placeholder={tr('mine.searchPlaceholder')}
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                     />
@@ -1937,9 +1950,9 @@ export default function MyTickets() {
                   {searching && (
                     <div className="tk-search-count" role="status">
                       {upcomingFiltered.length + pastFiltered.length === 1
-                        ? '1 Treffer'
-                        : `${upcomingFiltered.length + pastFiltered.length} Treffer`}
-                      {' '}für „{query.trim()}“
+                        ? tr('mine.hitOne')
+                        : tr('mine.hitMany', { count: upcomingFiltered.length + pastFiltered.length })}
+                      {' '}{tr('mine.hitsFor', { query: query.trim() })}
                     </div>
                   )}
                 </div>
@@ -1963,8 +1976,8 @@ export default function MyTickets() {
                       <div className="card">
                         <div className="empty">
                           {query.trim()
-                            ? <>Keine Tickets für „{query}“. Probier einen anderen Suchbegriff.</>
-                            : <>Keine bevorstehenden Tickets. <Link href="/events" style={{ color: 'var(--accent)', fontWeight: 500 }}>Events entdecken →</Link></>}
+                            ? <>{tr('mine.noneForQuery', { query })}</>
+                            : <>{tr('mine.noUpcoming')} <Link href="/events" style={{ color: 'var(--accent)', fontWeight: 500 }}>{tr('mine.discoverArrow')}</Link></>}
                         </div>
                       </div>
                     )}
@@ -1976,15 +1989,15 @@ export default function MyTickets() {
                   <div className="tk-panel" key="collection" style={{ paddingTop: 26 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 16, gap: 20, flexWrap: 'wrap' }}>
                       <div>
-                        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, letterSpacing: '-0.015em' }}>Deine Sammlung</h2>
+                        <h2 style={{ fontSize: '1.125rem', fontWeight: 600, letterSpacing: '-0.015em' }}>{tr('mine.collectionTitle')}</h2>
                         <p style={{ fontSize: '0.8125rem', color: 'var(--ink-3)', marginTop: 3 }}>
-                          Abgerissene Stubs deiner besuchten Events — dein Archiv.
+                          {tr('mine.collectionText')}
                         </p>
                       </div>
                       <div className="tk-stats">
-                        <div><div className="tk-stat-n">{past.length}</div><div className="tk-stat-l">Events</div></div>
-                        <div><div className="tk-stat-n">{cityCount}</div><div className="tk-stat-l">Städte</div></div>
-                        <div><div className="tk-stat-n">{badges.length}</div><div className="tk-stat-l">Abzeichen</div></div>
+                        <div><div className="tk-stat-n">{past.length}</div><div className="tk-stat-l">{tr('mine.statEvents')}</div></div>
+                        <div><div className="tk-stat-n">{cityCount}</div><div className="tk-stat-l">{tr('mine.statCities')}</div></div>
+                        <div><div className="tk-stat-n">{badges.length}</div><div className="tk-stat-l">{tr('mine.statBadges')}</div></div>
                       </div>
                     </div>
 
@@ -1992,8 +2005,8 @@ export default function MyTickets() {
                       <div className="card">
                         <div className="empty">
                           {query.trim()
-                            ? <>Nichts gefunden für „{query}“.</>
-                            : <>Events, bei denen du warst, erscheinen hier als Erinnerung.</>}
+                            ? <>{tr('mine.nothingFor', { query })}</>
+                            : <>{tr('mine.collectionEmpty')}</>}
                         </div>
                       </div>
                     ) : collectionLayout === 'mosaik' ? (
@@ -2006,13 +2019,13 @@ export default function MyTickets() {
                           <Fragment key={m.label}>
                           {m.gapBefore > 0 && (
                             <div className="tk-timeline-gap">
-                              {m.gapBefore === 1 ? 'ein Monat ohne Event' : `${m.gapBefore} Monate ohne Event`}
+                              {m.gapBefore === 1 ? tr('mine.gapOne') : tr('mine.gapMany', { count: m.gapBefore })}
                             </div>
                           )}
                           <div className="tk-timeline-row">
                             <div className="tk-timeline-label">
                               {m.label}
-                              <div className="mono" style={{ fontSize: '0.6875rem', color: 'var(--ink-4)', marginTop: 3 }}>{m.items.length} Events</div>
+                              <div className="mono" style={{ fontSize: '0.6875rem', color: 'var(--ink-4)', marginTop: 3 }}>{tr('mine.monthEvents', { count: m.items.length })}</div>
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                               {m.items.map((t) => (
@@ -2025,7 +2038,7 @@ export default function MyTickets() {
                                     <div style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', marginTop: 1 }}>{t.venue ?? '—'}</div>
                                   </div>
                                   <span className={t.redeemedAt ? 'chip ok' : 'chip'} style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>
-                                    <span className="d" />{t.redeemedAt ? 'Dabei gewesen' : 'Nicht eingelöst'}
+                                    <span className="d" />{t.redeemedAt ? tr('mine.wasThere') : tr('mine.notRedeemed')}
                                   </span>
                                 </Link>
                               ))}
@@ -2051,7 +2064,7 @@ export default function MyTickets() {
       {badgeDetail && (() => {
         const meta = badgeDisplay(badgeDetail.type);
         const full = BADGE_META[badgeDetail.type as BadgeType];
-        const earned = new Date(badgeDetail.earnedAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+        const earned = new Date(badgeDetail.earnedAt).toLocaleDateString(localeOf(lang), { day: '2-digit', month: 'long', year: 'numeric' });
         return (
           <div
             ref={badgeDialogRef}
@@ -2060,7 +2073,7 @@ export default function MyTickets() {
             onClick={closeBadgeDetail}
             role="dialog"
             aria-modal="true"
-            aria-label={`Abzeichen ${meta.name}`}
+            aria-label={tr('mine.badgeAria', { name: meta.name })}
           >
             {/* Der Wachstumspunkt wird gesetzt, sobald die Karte im Dokument
                 steht und ihre eigene Lage kennt — im Callback-Ref, also vor dem
@@ -2079,13 +2092,13 @@ export default function MyTickets() {
             >
               <div className="badge-medal">{meta.symbol}</div>
               <div className="bd-name">{meta.name}</div>
-              <div className="bd-desc">{full?.description ?? 'Ein Abzeichen aus deiner Sammlung.'}</div>
-              <div className="bd-meta">Verdient am {earned}</div>
+              <div className="bd-desc">{full?.description ?? tr('mine.badgeFallback')}</div>
+              <div className="bd-meta">{tr('mine.earnedOn', { date: earned })}</div>
               {/* Die Karte war frueher selbst ein Schliessknopf. Das machte
                   ihren Text unmarkierbar und jeden Fehlgriff zum Schliessen;
                   jetzt tut es die Flaeche daneben, und ein echter Knopf sagt
                   es auch der Tastatur. */}
-              <button className="bd-close" onClick={closeBadgeDetail}>Schließen</button>
+              <button className="bd-close" onClick={closeBadgeDetail}>{tr('mine.close')}</button>
             </div>
           </div>
         );
@@ -2108,35 +2121,34 @@ export default function MyTickets() {
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label="Ticket zurückgeben"
+            aria-label={tr('mine.returnTitle')}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-head">
-              <h3>Ticket zurückgeben</h3>
-              <button className="close-btn" aria-label="Schließen" onClick={() => setResaleModal(null)} disabled={resaleBusy}><Icon name="x" size={16} /></button>
+              <h3>{tr('mine.returnTitle')}</h3>
+              <button className="close-btn" aria-label={tr('mine.close')} onClick={() => setResaleModal(null)} disabled={resaleBusy}><Icon name="x" size={16} /></button>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: '0.8125rem', color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
                 <b style={{ color: 'var(--ink)' }}>{resaleModal.eventName}</b><br />
-                Dein Platz geht zurück in den Verkauf. Sobald ihn jemand kauft, bekommst du dein
-                Geld auf dem Weg zurück, auf dem du bezahlt hast.
+                {tr('mine.returnText')}
               </p>
 
               {!resaleQuote && !resaleError && (
-                <div style={{ fontSize: '0.8125rem', color: 'var(--ink-3)' }}>Wird geprüft …</div>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--ink-3)' }}>{tr('mine.checking')}</div>
               )}
 
               {resaleQuote && (
                 <>
                   <div className="card" style={{ padding: '12px 14px', fontSize: '0.8125rem', display: 'grid', gap: 6 }}>
                     <div className="row" style={{ justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--ink-3)' }}>Du hast gezahlt</span><span>{euro(resaleQuote.paidCents)}</span>
+                      <span style={{ color: 'var(--ink-3)' }}>{tr('mine.youPaid')}</span><span>{euro(resaleQuote.paidCents)}</span>
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--ink-3)' }}>Rückgabegebühr</span><span>− {euro(resaleQuote.returnFeeCents)}</span>
+                      <span style={{ color: 'var(--ink-3)' }}>{tr('mine.returnFee')}</span><span>− {euro(resaleQuote.returnFeeCents)}</span>
                     </div>
                     <div className="row" style={{ justifyContent: 'space-between', fontWeight: 600, borderTop: '1px solid var(--line)', paddingTop: 6 }}>
-                      <span>Du bekommst zurück</span>
+                      <span>{tr('mine.youGetBack')}</span>
                       <span style={{ color: 'var(--accent)' }}>{euro(resaleQuote.refundCents)}</span>
                     </div>
                   </div>
@@ -2150,16 +2162,13 @@ export default function MyTickets() {
                     >
                       <Icon name="shield" size={15} />
                       <span>
-                        Du hast für dieses Ticket ein Offline-Ticket erzeugt. Mit der Rückgabe
-                        verliert es seine Gültigkeit — bitte vernichte den Ausdruck.
+                        {tr('mine.backupWarning')}
                       </span>
                     </div>
                   )}
 
                   <p style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', lineHeight: 1.5, marginTop: 10 }}>
-                    Solange dein Ticket angeboten ist, kannst du es nicht selbst nutzen. Du kannst
-                    es jederzeit zurückholen, solange es niemand gekauft hat. Verkauft es sich bis
-                    zum Eventtag nicht, bekommst du es automatisch zurück.
+                    {tr('mine.returnTerms')}
                   </p>
                 </>
               )}
@@ -2169,9 +2178,9 @@ export default function MyTickets() {
               )}
             </div>
             <div className="modal-foot">
-              <button className="btn ghost" onClick={() => setResaleModal(null)} disabled={resaleBusy}>Abbrechen</button>
+              <button className="btn ghost" onClick={() => setResaleModal(null)} disabled={resaleBusy}>{tr('mine.cancel')}</button>
               <button className="btn primary" onClick={() => void submitResale()} disabled={!resaleQuote || resaleBusy}>
-                {resaleBusy ? 'Wird angeboten …' : 'Zurückgeben'}
+                {resaleBusy ? tr('mine.offering') : tr('mine.giveBack')}
               </button>
             </div>
           </div>
@@ -2186,23 +2195,23 @@ export default function MyTickets() {
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label="Ticket-Link teilen"
+            aria-label={tr('mine.shareTitle')}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-head">
-              <h3>Ticket-Link teilen</h3>
-              <button className="close-btn" aria-label="Schließen" onClick={() => setShareModal(null)}><Icon name="x" size={16} /></button>
+              <h3>{tr('mine.shareTitle')}</h3>
+              <button className="close-btn" aria-label={tr('mine.close')} onClick={() => setShareModal(null)}><Icon name="x" size={16} /></button>
             </div>
             <div className="modal-body">
               <p style={{ fontSize: '0.8125rem', color: 'var(--ink-3)', lineHeight: 1.55, marginBottom: 14 }}>
-                Schicke diesen Link an eine Freundin oder einen Freund. Sobald er eingelöst wird, geht das Ticket über und der Link wird ungültig.
+                {tr('mine.shareText')}
               </p>
               <div className="input mono" style={{ fontSize: '0.75rem', wordBreak: 'break-all', userSelect: 'all' }}>{shareModal.url}</div>
             </div>
             <div className="modal-foot">
-              <button className="btn ghost" onClick={() => setShareModal(null)}>Schließen</button>
+              <button className="btn ghost" onClick={() => setShareModal(null)}>{tr('mine.close')}</button>
               <button className="btn primary" onClick={() => void handleCopy(shareModal.url)}>
-                {copyConfirmed ? 'Kopiert!' : 'Link kopieren'}
+                {copyConfirmed ? tr('mine.copied') : tr('mine.copyLink')}
               </button>
             </div>
           </div>
