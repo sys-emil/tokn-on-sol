@@ -86,8 +86,11 @@ const csp = [
   // No third-party iframe left: the wallet provider is gone and the login is
   // our own dialog. Kept narrow rather than removed, so a stray frame is a
   // blocked frame instead of an allowed one.
-  `child-src ${ownDomainWildcard}`,
-  `frame-src ${ownDomainWildcard} https://challenges.cloudflare.com`,
+  // 'self' is load-bearing: the snippet dialog on /dashboard/events/[id]
+  // previews /embed/[id] in an iframe, and the apex domain is not matched by
+  // the subdomain wildcard.
+  `child-src 'self' ${ownDomainWildcard}`,
+  `frame-src 'self' ${ownDomainWildcard} https://challenges.cloudflare.com`,
   // Supabase carries sign-in, token refresh and storage reads.
   // Sentry only when a DSN is configured; the browser SDK posts errors there.
   `connect-src 'self' ${ownDomainWildcard}${supabaseOrigin ? ` ${supabaseOrigin}` : ""}${sentryOrigin ? ` ${sentryOrigin}` : ""}`,

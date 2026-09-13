@@ -139,7 +139,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: allRows, error } = await supabaseAdmin
     .from("purchases")
-    .select("id, asset_id, created_at, event_id, season_pass_id, redeemed_at, events(name, date, end_date, start_time, venue, image_url, accent_hue, border_style, price_eur, resale_enabled), ticket_tiers(name, price_eur)")
+    .select("id, asset_id, created_at, event_id, season_pass_id, redeemed_at, revoked_at, events(name, date, end_date, start_time, venue, image_url, accent_hue, border_style, price_eur, resale_enabled), ticket_tiers(name, price_eur)")
     .eq("buyer_wallet", buyerWallet)
     .order("created_at", { ascending: false });
 
@@ -197,7 +197,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     ]),
   );
 
-  const tickets = (data ?? []).map((row) => {
+  // Revoked tickets (refunded by the organizer, cancelled event, fully
+  // refunded charge) disappear from the list: a card that can never be shown
+  // at a door is clutter, and the money is already on its way back. The one
+  // revoked ticket that stays is the seller's own open return offer — revoked
+  // *by design* while it is on offer, and the card is where they take it back.
+  const visible = (data ?? []).filter((row) => !row.revoked_at || offeredAssets.has(row.asset_id as string));
+
+  const tickets = visible.map((row) => {
     const event = Array.isArray(row.events) ? row.events[0] : row.events;
     const tier = Array.isArray(row.ticket_tiers) ? row.ticket_tiers[0] : row.ticket_tiers;
     const assetId = row.asset_id as string;
