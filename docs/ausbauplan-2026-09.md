@@ -42,7 +42,7 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
 - [x] **2.1 Fehler-Tracking.** _(2026-09-13 verdrahtet, schlafend; **Emil: Sentry-Projekt anlegen und `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` in Vercel setzen**)_ Sentry (`@sentry/nextjs`) fuer Server-Routen,
       Cron und Client; DSN als Env. Braucht ein Sentry-Konto von Emil (Free-Plan
       reicht). Ohne DSN muss alles weiterlaufen.
-- [ ] **2.2 Tests fuer den Geldweg.** Vitest mit gemocktem Supabase/Stripe:
+- [x] **2.2 Tests fuer den Geldweg.** _(2026-09-13: `stripeWebhook.test.ts`, `mintJobs.test.ts`, `organizerRefund.test.ts` gegen `fakeSupabase.ts`)_ Vitest mit gemocktem Supabase/Stripe:
       Webhook `checkout.session.completed` (Idempotenz, Payout-Zeile, Job),
       `checkout.session.expired`, `charge.refunded` (voll/teil/nach Auszahlung,
       Rueckgabe-Skip), Reservierungs-Retry bei erschoepfter Kapazitaet,

@@ -14,7 +14,7 @@ that type-checks and has tests:
 ```bash
 npx tsc --noEmit   # type-check
 npm run lint       # ESLint (Next.js recommended + TypeScript strict)
-npm test           # Vitest; payout fee/hold/idempotency unit tests
+npm test           # Vitest; fee/hold/idempotency units + the money path (webhook, mint worker, single refund) against src/lib/__tests__/fakeSupabase.ts
 ```
 
 The user pushes to git and checks Vercel deploys manually.
