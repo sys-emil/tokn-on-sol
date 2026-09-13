@@ -435,6 +435,7 @@ export async function sendTicketConfirmation({
   baseUrl,
   orderToken,
   receiptPdf,
+  calendar,
   lang: rawLang,
 }: {
   to: string;
@@ -446,6 +447,11 @@ export async function sendTicketConfirmation({
   orderToken?: string | null;
   /** Purchase receipt, attached when the order actually cost money. */
   receiptPdf?: Uint8Array | null;
+  /**
+   * Calendar entry (.ics) for the event, attached and linked; null for season
+   * passes, which span many dates. Same file as the ticket page's download.
+   */
+  calendar?: { eventId: string; ics: string } | null;
   /** Buyer's language, carried on the order since the mail goes out later. */
   lang?: string | null;
 }): Promise<void> {
@@ -482,6 +488,9 @@ export async function sendTicketConfirmation({
             <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#8a8a99;">${t(lang, "mail.event")}</p>
             <p style="margin:0;font-size:18px;font-weight:700;color:#1c1c2b;">${eventName}</p>
             ${eventDate ? `<p style="margin:6px 0 0;font-size:13px;color:#6d6d7f;">${formatDate(eventDate, lang)}</p>` : ""}
+            ${calendar ? `<p style="margin:10px 0 0;font-size:12px;">
+              <a href="${baseUrl}/api/events/${calendar.eventId}/ics" style="color:#7c3aed;font-weight:600;text-decoration:none;">${t(lang, "mail.addToCalendar")} &rarr;</a>
+            </p>` : ""}
           </td>
         </tr>
 
@@ -524,6 +533,16 @@ export async function sendTicketConfirmation({
 </body>
 </html>`;
 
+  const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
+  if (receiptPdf) attachments.push({ filename: "passly-beleg.pdf", content: Buffer.from(receiptPdf) });
+  if (calendar) {
+    attachments.push({
+      filename: `passly-${eventDate.replace(/-/g, "")}.ics`,
+      content: Buffer.from(calendar.ics, "utf8"),
+      contentType: "text/calendar",
+    });
+  }
+
   await resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
@@ -532,8 +551,9 @@ export async function sendTicketConfirmation({
       ? t(lang, "mail.ticketSubjectMany", { count: assetIds.length, event: eventName })
       : t(lang, "mail.ticketSubjectOne", { event: eventName }),
     html,
-    // The receipt rides along with the confirmation so the buyer never has to
-    // come back for it; absent for free tickets, which have nothing to receipt.
-    ...(receiptPdf ? { attachments: [{ filename: "passly-beleg.pdf", content: Buffer.from(receiptPdf) }] } : {}),
+    // The receipt and the calendar entry ride along with the confirmation so
+    // the buyer never has to come back for them; the receipt is absent for
+    // free tickets, which have nothing to receipt.
+    ...(attachments.length > 0 ? { attachments } : {}),
   });
 }

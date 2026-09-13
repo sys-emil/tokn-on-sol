@@ -5,6 +5,7 @@ import { sendTicketConfirmation, sendAdminAlert } from "@/lib/email";
 import { checkPurchaseBadges } from "@/lib/badges";
 import { passEventDates } from "@/lib/seasonPass";
 import { buildReceiptPdf, loadReceiptInput } from "@/lib/receipt";
+import { buildCalendar, type IcsEvent } from "@/lib/ics";
 import { settleReturnRefund, type ResaleOfferRow } from "@/lib/resaleReturn";
 
 /**
@@ -139,7 +140,7 @@ async function autoRefundFailedJob(job: MintJob, totalMinted: number): Promise<s
  * cNFT per unit, so the mint loop below only needs a name, a date for the
  * legacy metadata fallback, and the metadata URI.
  */
-async function loadMintSubject(job: MintJob): Promise<{ name: string; date: string; metadataUri: string | null }> {
+async function loadMintSubject(job: MintJob): Promise<{ name: string; date: string; metadataUri: string | null; calendar: IcsEvent | null }> {
   if (job.season_pass_id) {
     const { data: pass, error } = await supabaseAdmin
       .from("season_passes")
@@ -156,12 +157,14 @@ async function loadMintSubject(job: MintJob): Promise<{ name: string; date: stri
       name: pass.name as string,
       date: dates[0] ?? "",
       metadataUri: (pass.metadata_uri as string | null) ?? null,
+      // A pass has many dates; the confirmation mail carries no calendar file.
+      calendar: null,
     };
   }
 
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
-    .select("name, date, metadata_uri")
+    .select("id, name, date, start_time, venue, description, metadata_uri")
     .eq("id", job.event_id)
     .single();
   if (eventError || !event) {
@@ -171,6 +174,14 @@ async function loadMintSubject(job: MintJob): Promise<{ name: string; date: stri
     name: event.name as string,
     date: event.date as string,
     metadataUri: (event.metadata_uri as string | null) ?? null,
+    calendar: {
+      id: event.id as string,
+      name: event.name as string,
+      date: event.date as string,
+      start_time: (event.start_time as string | null) ?? null,
+      venue: (event.venue as string | null) ?? null,
+      description: (event.description as string | null) ?? null,
+    },
   };
 }
 
@@ -328,6 +339,12 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           console.error(`Receipt build failed for session ${job.stripe_session_id}:`, err);
         }
 
+        // The calendar entry rides along too: the same file the ticket page
+        // offers, so the buyer never has to come back for it.
+        const calendar = event.calendar
+          ? { eventId: event.calendar.id, ics: buildCalendar([event.calendar], baseUrl) }
+          : null;
+
         void sendTicketConfirmation({
           to: job.buyer_email,
           eventName: event.name,
@@ -336,6 +353,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           baseUrl,
           orderToken: (guestOrder?.token as string | undefined) ?? null,
           receiptPdf,
+          calendar,
           lang: job.lang,
         }).catch((err) => console.error("Confirmation email failed:", err));
       }

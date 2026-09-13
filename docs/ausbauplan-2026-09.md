@@ -10,7 +10,7 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
 
 ## Block 1 — Der erste echte Abend (klein, sofort spuerbar)
 
-- [ ] **1.1 ICS in der Bestaetigungsmail.** `sendTicketConfirmation` bekommt die
+- [x] **1.1 ICS in der Bestaetigungsmail.** _(2026-09-13)_ `sendTicketConfirmation` bekommt die
       Kalenderdatei als Anhang (`text/calendar`) und den Link auf
       `/api/events/[eventId]/ics`. Nutzt den vorhandenen ICS-Generator.
 - [ ] **1.2 Einzelerstattung durch den Veranstalter.** Neue Route
