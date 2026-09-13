@@ -4,7 +4,9 @@ import * as Sentry from "@sentry/nextjs";
 // Browserseite des Fehler-Trackings; schlafend ohne NEXT_PUBLIC_SENTRY_DSN
 // (siehe src/lib/observe.ts). Kein Session-Replay, kein Tracing: nur Fehler.
 try {
-  const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+  // getrimmt: ein beim Einfuegen mitkopiertes Leerzeichen liess den DSN-Parser
+  // stumm scheitern — Client aktiv, aber ohne Ziel (gesehen am 2026-09-13).
+  const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() || undefined;
   Sentry.init({
     dsn,
     enabled: Boolean(dsn),

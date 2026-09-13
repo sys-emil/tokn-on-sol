@@ -63,7 +63,7 @@ const ownDomainWildcard = (() => {
  * project. Empty (and therefore absent from the policy) when tracking is off.
  */
 const sentryOrigin = (() => {
-  const raw = process.env.NEXT_PUBLIC_SENTRY_DSN;
+  const raw = process.env.NEXT_PUBLIC_SENTRY_DSN?.trim();
   if (!raw) return "";
   try {
     return new URL(raw).origin;
