@@ -15,6 +15,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { SiteNav } from '@/app/components/SiteNav';
 import { useLang, useT } from '@/app/components/LangProvider';
 import type { Lang } from '@/lib/i18n';
+import { formatEventDates } from '@/lib/eventDates';
 import { useDialogChrome } from '@/app/components/useDialogChrome';
 import { useStackMotion, useReducedMotion, type CardTarget } from './stackMotion';
 
@@ -587,6 +588,8 @@ interface Ticket {
   assetId: string;
   eventName: string;
   eventDate: string;
+  /** Last day of a multi-day event; null = one day. */
+  eventEndDate?: string | null;
   startTime: string | null;
   venue: string | null;
   purchasedAt: string;
@@ -707,6 +710,10 @@ function daysUntil(iso: string): number {
 }
 
 function isUpcoming(iso: string): boolean { return daysUntil(iso) >= 0; }
+/** Ein Ticket ist bevorstehend, bis der LETZTE Tag des Events vorbei ist. */
+function ticketUpcoming(t: Pick<Ticket, 'eventDate' | 'eventEndDate'>): boolean {
+  return isUpcoming(t.eventEndDate && t.eventEndDate > t.eventDate ? t.eventEndDate : t.eventDate);
+}
 
 function relativeDayLabelL(iso: string, tr: Tr): string {
   const n = daysUntil(iso);
@@ -1153,11 +1160,11 @@ export default function MyTickets() {
   }
 
   const upcoming = useMemo(
-    () => tickets.filter((t) => isUpcoming(t.eventDate)).sort((a, b) => a.eventDate.localeCompare(b.eventDate)),
+    () => tickets.filter((t) => ticketUpcoming(t)).sort((a, b) => a.eventDate.localeCompare(b.eventDate)),
     [tickets],
   );
   const past = useMemo(
-    () => tickets.filter((t) => !isUpcoming(t.eventDate)).sort((a, b) => b.eventDate.localeCompare(a.eventDate)),
+    () => tickets.filter((t) => !ticketUpcoming(t)).sort((a, b) => b.eventDate.localeCompare(a.eventDate)),
     [tickets],
   );
 
@@ -1659,7 +1666,7 @@ export default function MyTickets() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 14 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: '0.8438rem', color: 'var(--ink-2)' }}>
                           <Icon name="calendar" size={15} />
-                          <span>{formatDate(frontTicket.eventDate)}{frontTicket.startTime ? `, ${frontTicket.startTime.slice(0, 5)}` : ''}</span>
+                          <span>{formatEventDates({ date: frontTicket.eventDate, end_date: frontTicket.eventEndDate ?? null }, lang)}{frontTicket.startTime ? `, ${frontTicket.startTime.slice(0, 5)}` : ''}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: '0.8438rem', color: 'var(--ink-2)' }}>
                           <Icon name="location" size={15} />

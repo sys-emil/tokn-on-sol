@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase';
 import type { Event, TicketTier } from '@/lib/supabase';
 import { getT } from '@/lib/i18nServer';
-import type { Lang } from '@/lib/i18n';
+import { formatEventDates } from '@/lib/eventDates';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,12 +30,6 @@ export const metadata: Metadata = {
 function appOrigin(): string {
   return process.env.APP_URL
     ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-}
-
-function formatDate(iso: string, lang: Lang): string {
-  return new Date(iso + 'T00:00:00').toLocaleDateString(lang === 'en' ? 'en-GB' : 'de-DE', {
-    weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
-  });
 }
 
 export default async function EmbedPage({ params }: { params: Promise<{ id: string }> }) {
@@ -106,7 +100,7 @@ export default async function EmbedPage({ params }: { params: Promise<{ id: stri
             <div className="emb-kicker">{t('embed.kicker')}</div>
             <div className="emb-title" title={ev.name}>{ev.name}</div>
             <div className="emb-meta">
-              {formatDate(ev.date, lang)}{ev.start_time ? ` · ${ev.start_time}${lang === 'en' ? '' : ' Uhr'}` : ''}
+              {formatEventDates(ev, lang, { weekday: false })}{ev.start_time ? ` · ${ev.start_time}${lang === 'en' ? '' : ' Uhr'}` : ''}
               {ev.venue ? ` · ${ev.venue}` : ''}
             </div>
             <div className="emb-foot">

@@ -11,6 +11,8 @@ export interface IcsEvent {
   id: string;
   name: string;
   date: string;
+  /** Last day of a multi-day event; absent or null = one day. */
+  end_date?: string | null;
   start_time: string | null;
   venue: string | null;
   description: string | null;
@@ -48,17 +50,23 @@ export const VTIMEZONE_BERLIN = [
 /** Die VEVENT-Zeilen eines Events (ohne VCALENDAR-Rahmen). */
 export function buildVevent(event: IcsEvent, baseUrl: string, stamp: string): string[] {
   const day = event.date.replace(/-/g, "");
+  const lastDay = event.end_date && event.end_date > event.date ? event.end_date : event.date;
   const dtLines: string[] = [];
 
   if (event.start_time) {
     const startDt = new Date(`${event.date}T${event.start_time}:00`);
-    const endDt = new Date(startDt.getTime() + 3 * 60 * 60 * 1000);
+    // Multi-day: the entry runs until the same time on the last day; a
+    // single day keeps the 3 h placeholder (events have no end time).
+    const endDt = lastDay !== event.date
+      ? new Date(`${lastDay}T${event.start_time}:00`)
+      : new Date(startDt.getTime() + 3 * 60 * 60 * 1000);
     const fmt = (d: Date) =>
       `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}00`;
     dtLines.push(`DTSTART;TZID=Europe/Berlin:${fmt(startDt)}`);
     dtLines.push(`DTEND;TZID=Europe/Berlin:${fmt(endDt)}`);
   } else {
-    const next = new Date(`${event.date}T12:00:00Z`);
+    // DTEND of an all-day entry is exclusive: the day after the last day.
+    const next = new Date(`${lastDay}T12:00:00Z`);
     next.setUTCDate(next.getUTCDate() + 1);
     dtLines.push(`DTSTART;VALUE=DATE:${day}`);
     dtLines.push(`DTEND;VALUE=DATE:${next.toISOString().slice(0, 10).replace(/-/g, "")}`);

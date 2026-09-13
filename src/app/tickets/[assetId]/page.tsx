@@ -1,3 +1,4 @@
+import { formatEventDates } from '@/lib/eventDates';
 import { notFound } from 'next/navigation';
 import TicketClient from './TicketClient';
 import { BackupTicketButton } from './BackupTicketButton';
@@ -43,6 +44,7 @@ interface PurchaseInfo {
   eventId: string | null;
   eventName: string | null;
   eventDate: string | null;
+  eventEndDate: string | null;
   startTime: string | null;
   venue: string | null;
   tierName: string | null;
@@ -55,7 +57,7 @@ interface PurchaseInfo {
 async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
   const { data } = await supabaseAdmin
     .from('purchases')
-    .select('id, redeemed_at, revoked_at, event_id, season_pass_id, events(name, date, start_time, venue, reentry_enabled), ticket_tiers(name), season_passes(name)')
+    .select('id, redeemed_at, revoked_at, event_id, season_pass_id, events(name, date, end_date, start_time, venue, reentry_enabled), ticket_tiers(name), season_passes(name)')
     .eq('asset_id', assetId)
     .maybeSingle();
   if (!data) return null;
@@ -69,6 +71,7 @@ async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
     eventId: (data.event_id as string | null) ?? null,
     eventName: (ev?.name as string | undefined) ?? null,
     eventDate: (ev?.date as string | undefined) ?? null,
+    eventEndDate: (ev?.end_date as string | null | undefined) ?? null,
     startTime: (ev?.start_time as string | undefined) ?? null,
     venue: (ev?.venue as string | undefined) ?? null,
     tierName: (tier?.name as string | undefined) ?? null,
@@ -203,6 +206,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
     ?? t('ticket.unknownEvent');
   const dateAttr = asset?.content?.metadata?.attributes?.find((a) => a.trait_type === 'Event Date');
   const date = pass ? '' : purchase?.eventDate ?? dateAttr?.value ?? '';
+  const dateLabel = date ? formatEventDates({ date, end_date: purchase?.eventEndDate ?? null }, lang) : '';
   const venueAttr = asset?.content?.metadata?.attributes?.find((a) => a.trait_type === 'Venue');
   const venue = pass ? null : purchase?.venue ?? venueAttr?.value ?? null;
 
@@ -243,7 +247,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
             </div>
             <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.015em', lineHeight: 1.25, marginTop: 4 }}>{name}</div>
             {date && (
-              <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>{formatDate(date, lang)}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>{dateLabel}</div>
             )}
             {pass && (
               <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 6 }}>
@@ -304,7 +308,7 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
             )}
             {date && (
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <span className="muted">{t('ticket.date')}</span><span style={{ fontWeight: 500 }}>{formatDate(date, lang)}</span>
+                <span className="muted">{t('ticket.date')}</span><span style={{ fontWeight: 500 }}>{dateLabel}</span>
               </div>
             )}
             {purchase?.startTime && (

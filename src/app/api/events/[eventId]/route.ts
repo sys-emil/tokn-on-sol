@@ -12,7 +12,7 @@ export async function GET(
   // payout settings to anyone with the event ID.
   const { data, error } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, organizer_wallet")
+    .select("id, name, date, end_date, organizer_wallet")
     .eq("id", eventId)
     .single();
 

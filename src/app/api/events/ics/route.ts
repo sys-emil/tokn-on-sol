@@ -1,3 +1,4 @@
+import { upcomingOrFilter } from "@/lib/eventDates";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { buildCalendar, type IcsEvent } from "@/lib/ics";
@@ -22,8 +23,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   let query = supabaseAdmin
     .from("events")
-    .select("id, name, date, start_time, venue, description")
-    .gte("date", today)
+    .select("id, name, date, end_date, start_time, venue, description")
+    .or(upcomingOrFilter(today))
     .eq("is_private", false)
     .is("cancelled_at", null)
     .order("date", { ascending: true });

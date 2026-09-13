@@ -141,7 +141,7 @@ async function autoRefundFailedJob(job: MintJob, totalMinted: number): Promise<s
  * cNFT per unit, so the mint loop below only needs a name, a date for the
  * legacy metadata fallback, and the metadata URI.
  */
-async function loadMintSubject(job: MintJob): Promise<{ name: string; date: string; metadataUri: string | null; calendar: IcsEvent | null }> {
+async function loadMintSubject(job: MintJob): Promise<{ name: string; date: string; endDate: string | null; metadataUri: string | null; calendar: IcsEvent | null }> {
   if (job.season_pass_id) {
     const { data: pass, error } = await supabaseAdmin
       .from("season_passes")
@@ -157,6 +157,7 @@ async function loadMintSubject(job: MintJob): Promise<{ name: string; date: stri
     return {
       name: pass.name as string,
       date: dates[0] ?? "",
+      endDate: null,
       metadataUri: (pass.metadata_uri as string | null) ?? null,
       // A pass has many dates; the confirmation mail carries no calendar file.
       calendar: null,
@@ -165,7 +166,7 @@ async function loadMintSubject(job: MintJob): Promise<{ name: string; date: stri
 
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, start_time, venue, description, metadata_uri")
+    .select("id, name, date, end_date, start_time, venue, description, metadata_uri")
     .eq("id", job.event_id)
     .single();
   if (eventError || !event) {
@@ -174,11 +175,13 @@ async function loadMintSubject(job: MintJob): Promise<{ name: string; date: stri
   return {
     name: event.name as string,
     date: event.date as string,
+    endDate: (event.end_date as string | null) ?? null,
     metadataUri: (event.metadata_uri as string | null) ?? null,
     calendar: {
       id: event.id as string,
       name: event.name as string,
       date: event.date as string,
+      end_date: (event.end_date as string | null) ?? null,
       start_time: (event.start_time as string | null) ?? null,
       venue: (event.venue as string | null) ?? null,
       description: (event.description as string | null) ?? null,
@@ -350,6 +353,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           to: job.buyer_email,
           eventName: event.name,
           eventDate: event.date,
+          eventEndDate: event.endDate,
           assetIds,
           baseUrl,
           orderToken: (guestOrder?.token as string | undefined) ?? null,

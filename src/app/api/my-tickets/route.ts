@@ -139,7 +139,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: allRows, error } = await supabaseAdmin
     .from("purchases")
-    .select("id, asset_id, created_at, event_id, season_pass_id, redeemed_at, events(name, date, start_time, venue, image_url, accent_hue, border_style, price_eur, resale_enabled), ticket_tiers(name, price_eur)")
+    .select("id, asset_id, created_at, event_id, season_pass_id, redeemed_at, events(name, date, end_date, start_time, venue, image_url, accent_hue, border_style, price_eur, resale_enabled), ticket_tiers(name, price_eur)")
     .eq("buyer_wallet", buyerWallet)
     .order("created_at", { ascending: false });
 
@@ -218,6 +218,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       assetId,
       eventName: (event?.name ?? "") as string,
       eventDate: (event?.date ?? "") as string,
+      eventEndDate: (event?.end_date ?? null) as string | null,
       // Shown on the ticket stubs (Einlass-Uhrzeit / Ort / Stadt); both are
       // optional event fields, the UI falls back gracefully when NULL.
       startTime: (event?.start_time ?? null) as string | null,

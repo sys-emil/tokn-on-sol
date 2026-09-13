@@ -9,6 +9,7 @@ import { Icon } from '@/app/components/passlyUi';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { BoxOffice } from './BoxOffice';
 import type { FeePayer } from '@/lib/fees';
+import { formatEventDates } from '@/lib/eventDates';
 import {
   countInside,
   loadPending,
@@ -30,6 +31,7 @@ interface EventData {
   id: string;
   name: string;
   date: string;
+  end_date?: string | null;
   organizer_wallet: string;
 }
 
@@ -888,7 +890,7 @@ export default function DoormanPage() {
             <div>
               <div style={{ fontSize: 11.5, color: 'var(--ink-3)', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Einlass</div>
               <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{event.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{formatDate(event.date)}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{formatEventDates(event, 'de')}</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
               {online ? (

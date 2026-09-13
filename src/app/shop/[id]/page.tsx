@@ -1,3 +1,4 @@
+import { formatEventDates } from '@/lib/eventDates';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const event = await getEvent(id);
   if (!event) return { title: 'Event nicht gefunden · Passly' };
 
-  const dateLabel = formatDate(event.date);
+  const dateLabel = formatEventDates(event, 'de');
   const title = `${event.name} · ${dateLabel} · Passly`;
   const description = event.venue
     ? `${dateLabel} · ${event.venue}. Tickets sicher und fälschungssicher kaufen, Einlass per Handy.`
@@ -101,8 +102,6 @@ async function getTiers(eventId: string): Promise<TicketTier[]> {
 const monthShort = (iso: string) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
 const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
-const formatDate = (iso: string) =>
-  new Date(iso + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
 const PAGE_CSS = `
   .shop-page {
@@ -269,7 +268,7 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1>{event.name}</h1>
               <div className="when">
-                <span className="line"><Icon name="calendar" size={13} /> {formatDate(event.date)}{event.start_time ? ` · ${event.start_time} Uhr` : ''}</span>
+                <span className="line"><Icon name="calendar" size={13} /> {formatEventDates(event, 'de')}{event.start_time ? ` · ${event.start_time} Uhr` : ''}</span>
                 {venue && (
                   <span className="line">
                     <Icon name="location" size={13} />{' '}

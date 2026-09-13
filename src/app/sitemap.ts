@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { supabaseAdmin } from '@/lib/supabase';
 import { listedOrganizerWallets } from '@/lib/vetted';
+import { upcomingOrFilter } from '@/lib/eventDates';
 
 // Evaluated per request, not at build time; otherwise the event list would be
 // frozen until the next deploy.
@@ -26,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const { data } = await supabaseAdmin
     .from('events')
     .select('id, date')
-    .gte('date', today)
+    .or(upcomingOrFilter(today))
     .eq('is_private', false)
     .is('cancelled_at', null)
     .in('organizer_wallet', listed);

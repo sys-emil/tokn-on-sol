@@ -531,7 +531,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
-    .select("name, date, organizer_wallet, payout_hold_days")
+    .select("name, date, end_date, organizer_wallet, payout_hold_days")
     .eq("id", eventId)
     .single();
 
@@ -616,7 +616,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         chargeId,
         paymentMethod,
         eventId,
-        eventDate: event.date,
+        // Multi-day events are paid out after their LAST day; the hold
+        // protects against chargebacks from every one of them.
+        eventDate: (event.end_date as string | null) ?? event.date,
         organizerWallet: event.organizer_wallet,
         stripeAccountId: (organizer?.stripe_account_id as string | null) ?? null,
         // Plattform-Boden: fruehestens am Tag nach dem Event, beim allerersten

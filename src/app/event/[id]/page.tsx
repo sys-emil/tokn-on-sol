@@ -1,3 +1,4 @@
+import { formatEventDates } from '@/lib/eventDates';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -72,8 +73,6 @@ async function getPasses(eventId: string): Promise<{ id: string; name: string; p
 }
 
 const locale = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'de-DE');
-const formatDate = (iso: string, lang: Lang) =>
-  new Date(iso + 'T00:00:00').toLocaleDateString(locale(lang), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 const monthShort = (iso: string, lang: Lang) =>
   new Date(iso + 'T00:00:00').toLocaleDateString(locale(lang), { month: 'short' }).replace('.', '');
 const dayNum = (iso: string) => new Date(iso + 'T00:00:00').getDate();
@@ -85,7 +84,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const [event, { lang, t }] = await Promise.all([getEvent(id), getT()]);
   if (!event) return { title: 'Event nicht gefunden · Passly' };
 
-  const dateLabel = formatDate(event.date, lang);
+  const dateLabel = formatEventDates(event, lang);
   const title = `${event.name} · ${dateLabel} · Passly`;
   const description = (event.description?.trim() || null)
     ?? t('showcase.metaFallback', { name: event.name, date: dateLabel });
@@ -384,7 +383,7 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
           <div className={`sc-text${bodyText ? '' : ' empty'}`}>{bodyText ?? t('showcase.noText')}</div>
           <div className="sc-facts">
             <h3>{t('showcase.facts')}</h3>
-            <div className="sc-fact"><span className="k">{t('showcase.factDate')}</span><span className="v">{formatDate(event.date, lang)}</span></div>
+            <div className="sc-fact"><span className="k">{t('showcase.factDate')}</span><span className="v">{formatEventDates(event, lang)}</span></div>
             {event.start_time && (
               <div className="sc-fact"><span className="k">{t('showcase.factStart')}</span><span className="v">{event.start_time}{startSuffix ? ` ${startSuffix}` : ''}</span></div>
             )}

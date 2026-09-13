@@ -44,7 +44,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data, error } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, venue, price_eur, capacity, tickets_sold, is_private, image_url, accent_hue, border_style")
+    .select("id, name, date, end_date, venue, price_eur, capacity, tickets_sold, is_private, image_url, accent_hue, border_style")
     .eq("organizer_wallet", organizerWallet)
     .order("created_at", { ascending: false });
 

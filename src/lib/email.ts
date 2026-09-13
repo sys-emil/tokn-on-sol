@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { normalizeLang, t, type Lang } from "@/lib/i18n";
 import { reportAlert } from "@/lib/observe";
+import { formatEventDates } from "@/lib/eventDates";
 
 // Absender aller ausgehenden Mails. Die Domain muss in Resend verifiziert
 // sein, sonst lehnt Resend den Versand ab — der Fallback zeigt deshalb auf
@@ -486,6 +487,7 @@ export async function sendTicketConfirmation({
   to,
   eventName,
   eventDate,
+  eventEndDate,
   assetIds,
   baseUrl,
   orderToken,
@@ -496,6 +498,8 @@ export async function sendTicketConfirmation({
   to: string;
   eventName: string;
   eventDate: string;
+  /** Last day of a multi-day event; the mail then shows the range. */
+  eventEndDate?: string | null;
   assetIds: string[];
   baseUrl: string;
   /** Guest orders: one link to all tickets, since the buyer has no account. */
@@ -542,7 +546,7 @@ export async function sendTicketConfirmation({
           <td style="padding:24px 40px;border-bottom:1px solid #ececf2;">
             <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#8a8a99;">${t(lang, "mail.event")}</p>
             <p style="margin:0;font-size:18px;font-weight:700;color:#1c1c2b;">${eventName}</p>
-            ${eventDate ? `<p style="margin:6px 0 0;font-size:13px;color:#6d6d7f;">${formatDate(eventDate, lang)}</p>` : ""}
+            ${eventDate ? `<p style="margin:6px 0 0;font-size:13px;color:#6d6d7f;">${formatEventDates({ date: eventDate, end_date: eventEndDate ?? null }, lang)}</p>` : ""}
             ${calendar ? `<p style="margin:10px 0 0;font-size:12px;">
               <a href="${baseUrl}/api/events/${calendar.eventId}/ics" style="color:#7c3aed;font-weight:600;text-decoration:none;">${t(lang, "mail.addToCalendar")} &rarr;</a>
             </p>` : ""}

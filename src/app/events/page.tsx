@@ -13,6 +13,7 @@ import { eventCardView } from '@/lib/eventCardView';
 import type { CardLabel } from '@/lib/eventCardView';
 import type { Lang } from '@/lib/i18n';
 import { SiteNav } from '@/app/components/SiteNav';
+import { upcomingOrFilter } from '@/lib/eventDates';
 import { JsonLd } from '@/app/components/JsonLd';
 import { breadcrumbLd } from '@/lib/structuredData';
 
@@ -362,8 +363,8 @@ export default async function EventsPage({ searchParams }: {
 
   let dbQuery = supabaseAdmin
     .from('events')
-    .select('id, name, date, start_time, price_eur, capacity, tickets_sold, tickets_reserved, image_url, venue, description, created_at, organizer_wallet')
-    .gte('date', today)
+    .select('id, name, date, end_date, start_time, price_eur, capacity, tickets_sold, tickets_reserved, image_url, venue, description, created_at, organizer_wallet')
+    .or(upcomingOrFilter(today))
     .eq('is_private', false)
     .is('cancelled_at', null)
     .order('date', { ascending: true });

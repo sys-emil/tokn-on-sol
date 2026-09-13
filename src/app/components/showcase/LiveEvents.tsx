@@ -1,3 +1,4 @@
+import { upcomingOrFilter } from '@/lib/eventDates';
 import Link from 'next/link';
 import { EventCard, EventArt, EVENT_CARD_CSS } from '@/app/components/eventSurfaces/EventCard';
 import { eventCardView } from '@/lib/eventCardView';
@@ -70,7 +71,7 @@ export async function LiveEvents() {
         'id, name, date, start_time, price_eur, capacity, tickets_sold, tickets_reserved, image_url, venue, created_at',
         { count: 'exact' },
       )
-      .gte('date', today)
+      .or(upcomingOrFilter(today))
       .eq('is_private', false)
       .is('cancelled_at', null)
       .in('organizer_wallet', await listedOrganizerWallets())

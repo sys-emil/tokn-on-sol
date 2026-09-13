@@ -52,7 +52,7 @@ export default function EditEventPage() {
           accent_hue: number | null; border_style: string | null;
           is_private: boolean; payout_hold_days: number; resale_enabled: boolean;
           fee_payer: FeePayer | null;
-          guest_checkout_enabled: boolean; queue_enabled: boolean; queue_slots: number; max_per_order?: number;
+          guest_checkout_enabled: boolean; queue_enabled: boolean; queue_slots: number; max_per_order?: number; end_date?: string | null;
           reentry_enabled: boolean; reentry_cooldown_seconds: number;
           tickets_sold: number; cancelled_at: string | null;
         };
@@ -70,6 +70,7 @@ export default function EditEventPage() {
         ...INITIAL_DRAFT,
         name: e.name,
         date: e.date,
+        endDate: e.end_date ?? '',
         startTime: e.start_time ?? '',
         venue: e.venue ?? '',
         description: e.description ?? '',

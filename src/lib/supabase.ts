@@ -48,6 +48,8 @@ export type Event = {
   organizer_wallet: string;
   name: string;
   date: string;
+  /** Last day of a multi-day event (YYYY-MM-DD, text like `date`); NULL = one day. Since 2026-09-13. */
+  end_date?: string | null;
   /** Optional start time "HH:MM" (Europe/Berlin); NULL for events created before the field existed. */
   start_time: string | null;
   price_eur: number;

@@ -20,7 +20,7 @@ export async function GET(
 
   const { data: event } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, start_time, venue, description, cancelled_at")
+    .select("id, name, date, end_date, start_time, venue, description, cancelled_at")
     .eq("id", eventId)
     .maybeSingle();
 

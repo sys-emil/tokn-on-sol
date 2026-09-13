@@ -57,6 +57,8 @@ export interface EventDraft {
   queueSlots: string;
   /** Tickets pro Bestellung (1–10). */
   maxPerOrder: string;
+  /** Letzter Tag eines mehrtaegigen Events; leer = eintaegig. */
+  endDate: string;
   ticketsSold?: number;
   ticketsReserved?: number;
 }
@@ -70,6 +72,7 @@ export const INITIAL_DRAFT: EventDraft = {
   guestCheckout: true, reentryEnabled: false, reentryCooldownMinutes: '2',
   queueEnabled: false, queueSlots: '50',
   maxPerOrder: '4',
+  endDate: '',
 };
 
 const MAX_TIERS = 5;
@@ -246,6 +249,9 @@ export function EventEditor({
         : `Bei „Halbe/Halbe“ muss ein Ticket mindestens ${floor} kosten. „${tier.name}“ kostet ${eur(tooCheap)} – davon bliebe dir nichts.`);
       return null;
     }
+    if (draft.endDate && draft.endDate < draft.date) {
+      setError('Das Enddatum liegt vor dem ersten Tag.'); return null;
+    }
     const reentryCooldownSeconds = Math.round((Number(draft.reentryCooldownMinutes) || 0) * 60);
     if (draft.reentryEnabled && (reentryCooldownSeconds < 0 || reentryCooldownSeconds > 3600)) {
       setError('Die Pause zwischen zwei Scans muss zwischen 0 und 60 Minuten liegen.'); return null;
@@ -286,6 +292,7 @@ export function EventEditor({
         reentry_enabled: draft.reentryEnabled,
         reentry_cooldown_seconds: checked.reentryCooldownSeconds,
         max_per_order: Math.min(10, Math.max(1, Math.floor(Number(draft.maxPerOrder)) || 4)),
+        end_date: draft.endDate && draft.endDate > draft.date ? draft.endDate : null,
       };
 
       const res = mode === 'create'
@@ -399,6 +406,14 @@ export function EventEditor({
                   <span className="date-field-icon"><Icon name="calendar" size={15} /></span>
                   <input type="date" className="input" value={draft.date} onChange={(e) => set('date', e.target.value)} disabled={saving} />
                 </div>
+              </div>
+              <div className="field">
+                <label>Endet am (optional)</label>
+                <div className="date-field">
+                  <span className="date-field-icon"><Icon name="calendar" size={15} /></span>
+                  <input type="date" className="input" value={draft.endDate} min={draft.date || undefined} onChange={(e) => set('endDate', e.target.value)} disabled={saving} />
+                </div>
+                <span className="hint">Nur für mehrtägige Events, etwa ein Festival oder Turnier. Erinnerung und Rückgabefrist richten sich nach dem ersten Tag.</span>
               </div>
               <div className="field">
                 <label>Beginn (optional)</label>

@@ -22,6 +22,7 @@ interface EventData {
   id: string;
   name: string;
   date: string;
+  end_date?: string | null;
   start_time: string | null;
   venue: string | null;
   description: string | null;
@@ -65,10 +66,11 @@ function isUpcoming(iso: string): boolean {
   return new Date(iso + 'T00:00:00').getTime() >= today.getTime();
 }
 
-function isEventDay(iso: string): boolean {
+function isEventDay(iso: string, endIso?: string | null): boolean {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  return iso === today;
+  const last = endIso && endIso > iso ? endIso : iso;
+  return iso <= today && today <= last;
 }
 
 interface DiscountCode {
@@ -209,7 +211,7 @@ export default function EventDetailPage() {
 
   // Live refresh on the day of the event: doormen write redemptions while the
   // organizer watches this page, so the check-in numbers poll every 30 s.
-  const liveDay = Boolean(event && !event.cancelled_at && isEventDay(event.date));
+  const liveDay = Boolean(event && !event.cancelled_at && isEventDay(event.date, event.end_date));
   useEffect(() => {
     if (!liveDay || !id || !loaded) return;
     let stopped = false;

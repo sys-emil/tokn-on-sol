@@ -49,6 +49,8 @@ interface CreateEventBody {
   reentry_cooldown_seconds?: number;
   /** Tickets pro Bestellung (1–10, Standard 4). */
   max_per_order?: number;
+  /** Letzter Tag (YYYY-MM-DD) eines mehrtaegigen Events; null/absent = eintaegig. */
+  end_date?: string | null;
 }
 
 const MAX_TIERS = 5;
@@ -171,6 +173,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Re-entry lets guests leave and come back; the cooldown is what stops one
   // QR from walking a whole queue past the scanner.
+  const endDate = body.end_date ?? null;
+  if (endDate !== null && (typeof endDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < date)) {
+    return NextResponse.json({ success: false, error: "end_date must be YYYY-MM-DD and not before date" }, { status: 400 });
+  }
+
   const maxPerOrder = body.max_per_order ?? 4;
   if (!Number.isInteger(maxPerOrder) || maxPerOrder < 1 || maxPerOrder > 10) {
     return NextResponse.json({ success: false, error: "max_per_order must be an integer between 1 and 10" }, { status: 400 });
@@ -296,6 +303,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         reentry_enabled: reentry_enabled === true,
         reentry_cooldown_seconds: reentryCooldown,
         max_per_order: maxPerOrder,
+        end_date: endDate,
       })
       .select("id")
       .single();

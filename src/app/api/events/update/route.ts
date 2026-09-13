@@ -55,6 +55,7 @@ interface UpdateEventBody {
     reentry_enabled?: boolean;
     reentry_cooldown_seconds?: number;
     max_per_order?: number;
+    end_date?: string | null;
   };
   tiers?: TierEdit[];
 }
@@ -217,6 +218,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
     update.reentry_cooldown_seconds = fields.reentry_cooldown_seconds;
+  }
+  if (fields.end_date !== undefined) {
+    if (fields.end_date !== null && (typeof fields.end_date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(fields.end_date))) {
+      return NextResponse.json({ success: false, error: "end_date must be YYYY-MM-DD or null" }, { status: 400 });
+    }
+    // Checked against the effective start date: date and end_date may change
+    // in the same request or independently.
+    if (fields.end_date !== null) {
+      const startDate = (fields.date as string | undefined) ?? (event.date as string);
+      if (fields.end_date < startDate) {
+        return NextResponse.json({ success: false, error: "end_date must not be before date" }, { status: 400 });
+      }
+    }
+    update.end_date = fields.end_date;
   }
   if (fields.max_per_order !== undefined) {
     if (!Number.isInteger(fields.max_per_order) || fields.max_per_order < 1 || fields.max_per_order > 10) {

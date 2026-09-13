@@ -18,6 +18,7 @@ interface EventRow {
   id: string;
   name: string;
   date: string;
+  end_date?: string | null;
   venue: string | null;
   price_eur: number;
   capacity: number;
@@ -335,9 +336,9 @@ export default function Dashboard() {
   ];
   const checklistOpen = checklist.filter((c) => !c.done).length;
   const showChecklist = eventsLoaded && !checklistDismissed && checklistOpen > 0;
-  const activeEvents = events.filter((e) => isUpcoming(e.date)).length;
+  const activeEvents = events.filter((e) => isUpcoming(e.end_date && e.end_date > e.date ? e.end_date : e.date)).length;
   const nextEvent = [...events]
-    .filter((e) => isUpcoming(e.date))
+    .filter((e) => isUpcoming(e.end_date && e.end_date > e.date ? e.end_date : e.date))
     .sort((a, b) => a.date.localeCompare(b.date))[0];
   async function handleBilling(endpoint: 'checkout' | 'portal'): Promise<void> {
     if (!ownerWallet || billingBusy) return;
@@ -638,7 +639,7 @@ export default function Dashboard() {
                     <div className="events-grid">
                       {events.map((e) => {
                         const pct = e.capacity > 0 ? Math.round((e.tickets_sold / e.capacity) * 100) : 0;
-                        const upcoming = isUpcoming(e.date);
+                        const upcoming = isUpcoming(e.end_date && e.end_date > e.date ? e.end_date : e.date);
                         const cardClasses = [
                           'event-card',
                           e.border_style ? `border-${e.border_style}` : '',

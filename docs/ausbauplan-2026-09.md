@@ -59,7 +59,7 @@ Legende: `[ ]` offen · `[x]` erledigt · `[~]` braucht Emils Entscheidung/Zugan
 - [x] **3.2 Einbettbares Kaufwidget.** _(2026-09-13)_ `/embed/[id]` (schlanke Shopkarte im
       iframe, `frame-ancestors` dafuer gelockert nur auf dieser Route) plus
       Snippet-Generator auf der Event-Detailseite („Auf deine Website").
-- [ ] **3.3 Mehrtaegige Events.** `events.end_date` (nullable): Anzeige
+- [x] **3.3 Mehrtaegige Events.** _(2026-09-13; Spalte `events.end_date` migriert)_ `events.end_date` (nullable): Anzeige
       „12.–14. Okt.", ICS mit Ende, Erinnerung/Einlass-Fenster/Payout-Anker auf
       den letzten Tag. Wiederkehrende Events bleiben Kopieren + Saisonpass.
 - [ ] **3.4 Wallet-Pass** (Apple Wallet `.pkpass`, Google Wallet). Groesster
