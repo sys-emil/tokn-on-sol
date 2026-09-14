@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ProLink } from './ProLink';
 
 /**
  * Die Navigationsleiste aller Dashboard-Seiten.
@@ -31,7 +32,12 @@ export function DashboardNav({ active }: { active?: DashboardNavKey }) {
       <Link href="/dashboard" className={active === 'overview' ? 'active' : undefined}>Übersicht</Link>
       <Link href="/dashboard/passes" className={active === 'passes' ? 'active' : undefined}>Saisonpässe</Link>
       <Link href="/dashboard/payouts" className={active === 'payouts' ? 'active' : undefined}>Auszahlungen</Link>
-      <Link href="/dashboard/analytics" className={active === 'pro' ? 'active' : undefined}>Pro</Link>
+      {/* Pro ist dunkel; der Link zieht den Vorhang, damit der Wechsel als
+          Eintreten liest und nicht als Sprung (proTransition.ts). Auf der
+          Pro-Seite selbst ist er ein gewöhnlicher Link. */}
+      {active === 'pro'
+        ? <Link href="/dashboard/analytics" className="active">Pro</Link>
+        : <ProLink href="/dashboard/analytics">Pro</ProLink>}
       <Link href="/dashboard/profile" className={active === 'profile' ? 'active' : undefined}>Profil</Link>
       <span className="nav-sep" aria-hidden="true" />
       <Link href="/events">Events</Link>

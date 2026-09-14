@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import { AccountMenu } from '@/app/components/AccountMenu';
 import { Celebration } from '@/app/components/Celebration';
 import { ProfileNudge } from '@/app/components/ProfileNudge';
+import { ProLink } from '@/app/components/ProLink';
+import { darkCardCss, ON_DARK_ACCENT } from '@/app/components/darkTokens';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { Icon, Spark, VerifiedCheck } from '@/app/components/passlyUi';
@@ -55,6 +57,11 @@ function relativeTime(iso: string): string {
 
 
 const PAGE_CSS = `
+  /* Die Pro-Karte trägt die Palette des Pro-Bereichs: Dunkel heißt hier Pro,
+     und das Auge soll das lernen, bevor es den Bereich betritt. */
+  ${darkCardCss('.card.pro-dark')}
+  .card.pro-dark .pro-ic { color: ${ON_DARK_ACCENT}; }
+  .card.pro-dark.pro-outline { border-color: var(--accent-line); }
   .onb { padding: 18px 20px; }
   .onb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .onb-title { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
@@ -541,8 +548,8 @@ export default function Dashboard() {
                 )}
 
                 <section>
-                  <div className={`card${plan === 'free' ? ' pro-outline' : ' pro-active'}`} style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--accent)', border: 'none', display: 'grid', placeItems: 'center', color: 'white', flexShrink: 0, boxShadow: '0 2px 10px oklch(0.50 0.20 var(--hue) / 0.40)' }}>
+                  <div className={`card pro-dark${plan === 'free' ? ' pro-outline' : ' pro-active'}`} style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                    <div className="pro-ic" style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--accent)', border: 'none', display: 'grid', placeItems: 'center', flexShrink: 0, boxShadow: '0 2px 10px oklch(0.50 0.20 var(--hue) / 0.40)' }}>
                       <Icon name="sparkle" size={16} />
                     </div>
                     <div style={{ flex: 1, minWidth: 240 }}>
@@ -565,7 +572,7 @@ export default function Dashboard() {
                     </div>
                     {plan === 'pro' ? (
                       <div className="row gap-2">
-                        <Link href="/dashboard/analytics" className="btn ghost">Pro-Bereich</Link>
+                        <ProLink href="/dashboard/analytics" className="btn ghost">Pro-Bereich</ProLink>
                         <button className="btn subtle" onClick={() => void handleBilling('portal')} disabled={billingBusy}>
                           {billingBusy ? 'Weiterleitung …' : 'Abo verwalten'}
                         </button>

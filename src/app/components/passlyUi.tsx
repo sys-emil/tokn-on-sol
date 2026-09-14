@@ -7,7 +7,7 @@ type IconName =
   | 'plus' | 'calendar' | 'users' | 'ticket' | 'check' | 'doublecheck' | 'arrow'
   | 'download' | 'share' | 'x' | 'search' | 'dots' | 'qr' | 'scan' | 'clock'
   | 'euro' | 'mail' | 'location' | 'shield' | 'sparkle' | 'camera' | 'refresh'
-  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell' | 'edit' | 'lock' | 'tag';
+  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell' | 'edit' | 'lock' | 'tag' | 'moon' | 'sun';
 
 const ICON_PATHS: Record<IconName, React.ReactNode> = {
   plus: <><path d="M12 5v14"/><path d="M5 12h14"/></>,
@@ -40,6 +40,8 @@ const ICON_PATHS: Record<IconName, React.ReactNode> = {
   edit: <><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></>,
   lock: <><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></>,
   tag: <><path d="M20.59 13.41 12 22l-8-8V4h10l6.59 6.59a2 2 0 0 1 0 2.82z"/><circle cx="7.5" cy="7.5" r="1.5"/></>,
+  moon: <><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></>,
+  sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></>,
 };
 
 // Purely decorative by default; every use sits next to a text label or

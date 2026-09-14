@@ -5,6 +5,7 @@ import { Icon } from '@/app/components/passlyUi';
 import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
+import { darkCardCss, ON_DARK_ACCENT } from '@/app/components/darkTokens';
 import { MIN_SERVICE_FEE_CENTS, SERVICE_FEE_BANDS } from '@/lib/fees';
 import { SiteNav } from '@/app/components/SiteNav';
 import { JsonLd } from '@/app/components/JsonLd';
@@ -132,15 +133,17 @@ const PAGE_CSS = `
   }
   @media (max-width: 640px) { .plan { padding: 24px 20px; } }
   .plan.free .amount .big { color: var(--ink-2); }
+  /* Die Pro-Spalte ist dunkel wie der Pro-Bereich selbst: wer hier kauft,
+     sieht schon, wohin es geht. Palette aus darkTokens.ts. */
+  ${darkCardCss('.plan.pro')}
   .plan.pro {
     position: relative;
     overflow: hidden;
-    border-color: var(--accent-line);
-    box-shadow: var(--shadow);
     background:
-      radial-gradient(620px 240px at 12% -25%, var(--accent-wash), transparent 70%),
-      var(--surface);
+      radial-gradient(620px 240px at 12% -25%, oklch(0.34 0.10 285 / 0.55), transparent 70%),
+      linear-gradient(180deg, oklch(0.205 0.02 285) 0%, oklch(0.178 0.018 285) 100%);
   }
+  .plan.pro .recommend { color: ${ON_DARK_ACCENT}; }
   .plan.pro:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--accent); }
   /* Langsamer Lichtstreifen, gleiche Idee wie .btn-shine, nur ruhiger */
   .plan.pro::after {

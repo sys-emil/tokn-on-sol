@@ -13,6 +13,7 @@ import { LoyaltyRedeem } from '@/app/components/LoyaltyRedeem';
 import { CampaignDrawer, TierDrawer, tierDraftFrom, type TierDraft } from './ProDrawers';
 import { TrendChart } from './TrendChart';
 import { PRO_CSS } from './proTheme';
+import { finishProTransition } from '@/app/components/proTransition';
 import {
   dayLabel, deltaPoints, downloadCsv, eur, eurExact, nf, pct,
   relativeDays, relativeTime, shortDate, shortWallet, signedPct,
@@ -225,7 +226,12 @@ export default function ProDashboard() {
     }
   }
 
-  if (!ready || orgStatus === 'loading') return null;
+  // Den dunklen Vorhang (ProLink) erst heben, wenn die Seite dunkel dasteht;
+  // über dem leeren Zustand würde kurz Weiß durchscheinen.
+  const rendered = ready && orgStatus !== 'loading';
+  useEffect(() => { if (rendered) finishProTransition(); }, [rendered]);
+
+  if (!rendered) return null;
 
   const email = user?.email ?? '';
   const tierCount = loyalty?.tiers.length ?? 0;

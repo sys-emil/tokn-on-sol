@@ -4,8 +4,9 @@ import jsQR from 'jsqr';
 import { useAuth, useWallets } from '@/lib/auth';
 
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Icon } from '@/app/components/passlyUi';
+import { DARK_TOKENS } from '@/app/components/darkTokens';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { BoxOffice } from './BoxOffice';
 import type { FeePayer } from '@/lib/fees';
@@ -91,7 +92,43 @@ function reasonDe(reason: string): string {
   }
 }
 
+/*
+ * Dunkler Modus der Tür, per Schalter, für jeden Veranstalter. Anders als im
+ * Pro-Bereich ist Dunkel hier kein Signal, sondern Gebrauchstauglichkeit:
+ * nachts vor dem Club blendet ein weißes Telefon, und der Doorman schaut
+ * stundenlang darauf. Die Wahl liegt auf dem Gerät (localStorage), nicht am
+ * Konto — sie gehört zu dem Telefon, das an der Tür steht.
+ */
+const DOOR_DARK_KEY = 'passly_door_dark';
+const DOOR_DARK_EVENT = 'passly:door-dark';
+function readDoorDark(): boolean {
+  try { return localStorage.getItem(DOOR_DARK_KEY) === '1'; } catch { return false; }
+}
+function subscribeDoorDark(onChange: () => void): () => void {
+  window.addEventListener(DOOR_DARK_EVENT, onChange);
+  window.addEventListener('storage', onChange);
+  return () => {
+    window.removeEventListener(DOOR_DARK_EVENT, onChange);
+    window.removeEventListener('storage', onChange);
+  };
+}
+const DARK_CSS = `
+  :root { ${DARK_TOKENS} }
+  .door-header { background: color-mix(in oklab, var(--surface-2) 88%, transparent); }
+  .btn.ghost { background: oklch(0.225 0.02 285); color: var(--ink); border-color: var(--line-2); }
+  .btn.ghost:hover { background: oklch(0.27 0.025 285); }
+`;
+
 const PAGE_CSS = `
+  .door-theme {
+    width: 36px; height: 36px; padding: 0;
+    display: inline-grid; place-items: center;
+    border-radius: 8px;
+    border: 1px solid var(--line-2);
+    background: var(--surface); color: var(--ink-2);
+    cursor: pointer;
+  }
+  .door-theme:hover { color: var(--ink); background: var(--surface-2); }
   .door-root {
     min-height: 100dvh;
     display: flex; flex-direction: column;
@@ -330,6 +367,14 @@ export default function DoormanPage() {
   // Door access link (?key=…): venue staff scan without the organizer's
   // login. Read once via window; the key never appears in rendered output,
   // so the SSR/client difference can't cause a hydration mismatch.
+  // Auf dem Server immer hell (kein Hydration-Sprung), auf dem Gerät die
+  // gespeicherte Wahl; der Store ist localStorage selbst.
+  const dark = useSyncExternalStore(subscribeDoorDark, readDoorDark, () => false);
+  function toggleDark(): void {
+    try { localStorage.setItem(DOOR_DARK_KEY, dark ? '0' : '1'); } catch { /* nur Komfort */ }
+    window.dispatchEvent(new Event(DOOR_DARK_EVENT));
+  }
+
   const [doorKey] = useState(() =>
     typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('key') ?? '',
   );
@@ -823,6 +868,7 @@ export default function DoormanPage() {
   return (
     <>
       <style>{PAGE_CSS}</style>
+      {dark && <style>{DARK_CSS}</style>}
 
       {/* Loading / auth / access denied states */}
       {/* Ladezustand in der Form der fertigen Einlass-Ansicht: Kopfzeile,
@@ -893,11 +939,18 @@ export default function DoormanPage() {
               <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{formatEventDates(event, 'de')}</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-              {online ? (
-                <span className="chip ok"><span className="d" />Online</span>
-              ) : (
-                <span className="chip warn"><span className="d" />Offline{snapshotReady ? '' : ' · keine Liste'}</span>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button type="button" className="door-theme" onClick={toggleDark}
+                        aria-pressed={dark} aria-label={dark ? 'Helle Ansicht' : 'Dunkle Ansicht'}
+                        title={dark ? 'Helle Ansicht' : 'Dunkle Ansicht'}>
+                  <Icon name={dark ? 'sun' : 'moon'} size={16} />
+                </button>
+                {online ? (
+                  <span className="chip ok"><span className="d" />Online</span>
+                ) : (
+                  <span className="chip warn"><span className="d" />Offline{snapshotReady ? '' : ' · keine Liste'}</span>
+                )}
+              </div>
               <span style={{ fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>
                 {online
                   ? lastSyncAt
