@@ -6,6 +6,7 @@ import { ScrollReveal } from '@/app/components/ScrollReveal';
 import { HeroTicket } from '@/app/components/HeroTicket';
 import { FeeCalculator } from '@/app/components/FeeCalculator';
 import { ProPrice } from '@/app/components/ProPrice';
+import { darkCardCss } from '@/app/components/darkTokens';
 import { SiteNav } from '@/app/components/SiteNav';
 import { SHOP_CARD_CSS } from '@/app/components/eventSurfaces/ShopCard';
 import { DashboardMock, SHOWCASE_CSS } from '@/app/components/showcase/ShowcaseMocks';
@@ -205,18 +206,20 @@ const PAGE_CSS = `
   .fee-copy .more:active { opacity: 0.7; }
 
   /* ── Pro-Block ───────────────────────────────────────────── */
+  /* Dunkel wie der Pro-Bereich selbst (darkTokens.ts): der Block kuendigt an,
+     wohin das Abo fuehrt, genau wie die Pro-Spalte auf /preise. */
+  ${darkCardCss('.pro-block')}
   .pro-block {
-    border: 1px solid var(--accent-line);
+    border: 1px solid var(--line-2);
     background:
-      radial-gradient(700px 260px at 12% -30%, var(--accent-wash), transparent 70%),
-      var(--surface);
+      radial-gradient(700px 260px at 12% -30%, oklch(0.34 0.10 285 / 0.55), transparent 70%),
+      linear-gradient(180deg, oklch(0.205 0.02 285) 0%, oklch(0.178 0.018 285) 100%);
     border-radius: var(--radius-lg);
     padding: 2rem;
     display: grid;
     grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
     gap: 2.25rem;
     align-items: center;
-    box-shadow: var(--shadow);
   }
   @media (max-width: 56.25em) { .pro-block { grid-template-columns: 1fr; gap: 1.5rem; padding: 1.62rem 1.38rem; } }
   .pro-block .tag {

@@ -15,8 +15,8 @@
  * schwarzer Schirm wäre schlimmer als jeder Sprung.
  */
 const CURTAIN_ID = 'passly-pro-curtain';
-const ENTER_MS = 420;
-const LEAVE_MS = 320;
+const ENTER_MS = 220;
+const LEAVE_MS = 200;
 const ORPHAN_MS = 4000;
 
 function reducedMotion(): boolean {
