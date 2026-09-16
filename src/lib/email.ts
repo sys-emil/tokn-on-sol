@@ -488,6 +488,7 @@ export async function sendTicketConfirmation({
   eventName,
   eventDate,
   eventEndDate,
+  organizerName,
   assetIds,
   baseUrl,
   orderToken,
@@ -500,6 +501,11 @@ export async function sendTicketConfirmation({
   eventDate: string;
   /** Last day of a multi-day event; the mail then shows the range. */
   eventEndDate?: string | null;
+  /**
+   * Named in the mail because the guest's contract is with the organizer, not
+   * with Passly; see src/lib/organizerIdentity.ts.
+   */
+  organizerName?: string | null;
   assetIds: string[];
   baseUrl: string;
   /** Guest orders: one link to all tickets, since the buyer has no account. */
@@ -519,6 +525,10 @@ export async function sendTicketConfirmation({
   const lang: Lang = normalizeLang(rawLang);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const plural = assetIds.length > 1;
+  // Organizer-typed text lands in HTML; escape it.
+  const organizer = organizerName
+    ? organizerName.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    : null;
   const ticketRows = orderToken
     ? orderRow(orderToken, baseUrl, assetIds.length, lang)
     : assetIds.map((id, i) => ticketRow(id, baseUrl, i, assetIds.length, lang)).join("");
@@ -547,6 +557,7 @@ export async function sendTicketConfirmation({
             <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#8a8a99;">${t(lang, "mail.event")}</p>
             <p style="margin:0;font-size:18px;font-weight:700;color:#1c1c2b;">${eventName}</p>
             ${eventDate ? `<p style="margin:6px 0 0;font-size:13px;color:#6d6d7f;">${formatEventDates({ date: eventDate, end_date: eventEndDate ?? null }, lang)}</p>` : ""}
+            ${organizer ? `<p style="margin:6px 0 0;font-size:13px;color:#6d6d7f;">${t(lang, "mail.organizer")}: ${organizer}</p>` : ""}
             ${calendar ? `<p style="margin:10px 0 0;font-size:12px;">
               <a href="${baseUrl}/api/events/${calendar.eventId}/ics" style="color:#7c3aed;font-weight:600;text-decoration:none;">${t(lang, "mail.addToCalendar")} &rarr;</a>
             </p>` : ""}
@@ -576,6 +587,7 @@ export async function sendTicketConfirmation({
           <td style="padding:20px 40px 24px;">
             <p style="margin:0;font-size:11px;color:#9a9aa9;line-height:1.7;">
               ${t(lang, "mail.ticketFooter")}
+              ${organizer ? t(lang, "mail.contractPartner", { organizer }) : t(lang, "mail.contractPartnerGeneric")}
             </p>
             <p style="margin:12px 0 0;font-size:11px;color:#9a9aa9;line-height:1.7;">
               Passly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}<br/>

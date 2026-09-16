@@ -10,6 +10,7 @@ import { isBot, botDenied } from "@/lib/botCheck";
 import { holdsQueueSlot } from "@/lib/queue";
 import { getLang } from "@/lib/i18nServer";
 import { requestUser } from "@/lib/sessionUser";
+import { organizerDisplayName, statementSuffix } from "@/lib/organizerIdentity";
 
 interface CheckoutBody {
   eventId: string;
@@ -309,10 +310,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // excess back onto the buyer rather than letting Passly fund the discount.
   const feePayer: FeePayer = isFeePayer(event.fee_payer) ? event.fee_payer : "buyer";
   const { buyerCents: buyerFeePerTicket, totalCents: feePerTicket } = splitServiceFee(unitPrice, feePayer);
+  const lang = await getLang();
+  // The organizer is named on the line item and the card statement: the guest
+  // buys from them, Passly only brokers (see src/lib/organizerIdentity.ts).
+  const organizerName = await organizerDisplayName(event.organizer_wallet);
+  const descriptorSuffix = statementSuffix(organizerName);
   const lineItemName = tiers.length > 1 ? `${event.name}; ${tier.name}` : event.name;
-  const lineItemDescription = discount
-    ? `Ticket for ${event.date} · Code ${discount.code} (−${discount.percentOff} %)`
-    : `Ticket for ${event.date}`;
+  const lineItemDescription = [
+    lang === "en" ? `Ticket for ${event.date}` : `Ticket für ${event.date}`,
+    discount ? `Code ${discount.code} (−${discount.percentOff} %)` : null,
+    organizerName ? `${lang === "en" ? "Organizer" : "Veranstalter"}: ${organizerName}` : null,
+  ].filter(Boolean).join(" · ");
 
   try {
     // NOTE: `payment_method_types` is deliberately NOT set. Omitting it is what
@@ -347,6 +355,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ],
       success_url: `${origin}/shop/${eventId}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/shop/${eventId}`,
+      ...(descriptorSuffix ? { payment_intent_data: { statement_descriptor_suffix: descriptorSuffix } } : {}),
       metadata: {
         eventId,
         buyerWallet,
@@ -354,7 +363,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         tierId: tier.id,
         // The confirmation mail is sent minutes later by the mint worker, long
         // after this request's cookies are gone; the language has to travel.
-        lang: await getLang(),
+        lang,
         // The full platform take, regardless of who paid it; `buyerFeeCents`
         // is the part contained in `amount_total`.
         serviceFeeCents: String(feePerTicket * quantity),

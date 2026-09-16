@@ -7,6 +7,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { isBot, botDenied } from "@/lib/botCheck";
 import { getLang } from "@/lib/i18nServer";
 import { requestUser } from "@/lib/sessionUser";
+import { organizerDisplayName, statementSuffix } from "@/lib/organizerIdentity";
 
 /**
  * Checkout for a season pass (one ticket, many dates).
@@ -152,6 +153,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const expiresAt = Math.floor(Date.now() / 1000) + SESSION_MINUTES * 60;
 
   const feePerPass = serviceFeePerTicketCents(pass.price_eur);
+  const lang = await getLang();
+  // Organizer on the line item and the card statement, as for event tickets.
+  const organizerName = await organizerDisplayName(pass.organizer_wallet);
+  const descriptorSuffix = statementSuffix(organizerName);
+  const passDescription = [
+    lang === "en" ? `Season pass for ${liveDates} dates` : `Saisonpass für ${liveDates} Termine`,
+    organizerName ? `${lang === "en" ? "Organizer" : "Veranstalter"}: ${organizerName}` : null,
+  ].filter(Boolean).join(" · ");
 
   try {
     // `payment_method_types` stays unset here too; see /api/checkout/create.
@@ -166,7 +175,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             unit_amount: pass.price_eur,
             product_data: {
               name: pass.name,
-              description: `Saisonpass für ${liveDates} Termine`,
+              description: passDescription,
             },
           },
         },
@@ -185,12 +194,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ],
       success_url: `${origin}/pass/${passId}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pass/${passId}`,
+      ...(descriptorSuffix ? { payment_intent_data: { statement_descriptor_suffix: descriptorSuffix } } : {}),
       metadata: {
         purpose: "season_pass",
         passId,
         buyerWallet,
         quantity: String(quantity),
-        lang: await getLang(),
+        lang,
         serviceFeeCents: String(feePerPass * quantity),
       },
     });

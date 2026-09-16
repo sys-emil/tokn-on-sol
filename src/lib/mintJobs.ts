@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
 import { mintTicket } from "@/lib/mint";
 import { sendTicketConfirmation, sendAdminAlert } from "@/lib/email";
+import { organizerDisplayName } from "@/lib/organizerIdentity";
 import { checkPurchaseBadges } from "@/lib/badges";
 import { passEventDates } from "@/lib/seasonPass";
 import { buildReceiptPdf, loadReceiptInput } from "@/lib/receipt";
@@ -141,11 +142,11 @@ async function autoRefundFailedJob(job: MintJob, totalMinted: number): Promise<s
  * cNFT per unit, so the mint loop below only needs a name, a date for the
  * legacy metadata fallback, and the metadata URI.
  */
-async function loadMintSubject(job: MintJob): Promise<{ name: string; date: string; endDate: string | null; metadataUri: string | null; calendar: IcsEvent | null }> {
+async function loadMintSubject(job: MintJob): Promise<{ name: string; date: string; endDate: string | null; metadataUri: string | null; calendar: IcsEvent | null; organizerName: string | null }> {
   if (job.season_pass_id) {
     const { data: pass, error } = await supabaseAdmin
       .from("season_passes")
-      .select("name, metadata_uri")
+      .select("name, metadata_uri, organizer_wallet")
       .eq("id", job.season_pass_id)
       .single();
     if (error || !pass) {
@@ -161,12 +162,13 @@ async function loadMintSubject(job: MintJob): Promise<{ name: string; date: stri
       metadataUri: (pass.metadata_uri as string | null) ?? null,
       // A pass has many dates; the confirmation mail carries no calendar file.
       calendar: null,
+      organizerName: await organizerDisplayName(pass.organizer_wallet as string),
     };
   }
 
   const { data: event, error: eventError } = await supabaseAdmin
     .from("events")
-    .select("id, name, date, end_date, start_time, venue, description, metadata_uri")
+    .select("id, name, date, end_date, start_time, venue, description, metadata_uri, organizer_wallet")
     .eq("id", job.event_id)
     .single();
   if (eventError || !event) {
@@ -186,6 +188,7 @@ async function loadMintSubject(job: MintJob): Promise<{ name: string; date: stri
       venue: (event.venue as string | null) ?? null,
       description: (event.description as string | null) ?? null,
     },
+    organizerName: await organizerDisplayName(event.organizer_wallet as string),
   };
 }
 
@@ -354,6 +357,7 @@ async function processOneJob(job: MintJob, baseUrl: string): Promise<number> {
           eventName: event.name,
           eventDate: event.date,
           eventEndDate: event.endDate,
+          organizerName: event.organizerName,
           assetIds,
           baseUrl,
           orderToken: (guestOrder?.token as string | undefined) ?? null,
