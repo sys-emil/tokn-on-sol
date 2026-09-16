@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
 import { SiteNav } from '@/app/components/SiteNav';
+import { DashboardNav } from '@/app/components/DashboardNav';
+import { DashboardPageSkeleton } from '@/app/components/DashboardSkeleton';
 
 type OrgType = 'private' | 'business';
 type PageState = 'loading' | 'form' | 'pending' | 'rejected';
@@ -228,6 +230,34 @@ export default function BecomeOrganizer() {
     );
   }
 
+  // Angemeldet, Status noch offen. Wer ein Veranstalterkonto hat, wird gleich
+  // auf /dashboard geschickt — deshalb steht hier das Geruest der Uebersicht
+  // (Kopfleiste, Hero, Karte, Raster) und nicht das des Formulars, das sonst
+  // beim Weiterleiten auf die breite Seite aufspringt. Fuer einen Gast klappt
+  // stattdessen das Formular darunter auf; die Balken behaupten nichts.
+  if (pageState === 'loading') {
+    return (
+      <>
+        <style>{PAGE_CSS}</style>
+        <div className="app">
+          <div className="topbar">
+            <div className="topbar-inner">
+              <PasslyLogo height={24} />
+              <DashboardNav active="overview" />
+              <div className="topbar-right">
+                <button className="btn subtle sm" onClick={() => logout()}>Abmelden</button>
+              </div>
+            </div>
+          </div>
+          <div className="main">
+            <div className="aurora" aria-hidden="true" />
+            <DashboardPageSkeleton />
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <style>{PAGE_CSS}</style>
@@ -374,21 +404,6 @@ export default function BecomeOrganizer() {
                     {submitting ? 'Wird gesendet …' : 'Loslegen'}
                   </button>
 
-                </div>
-              )}
-
-              {/* Geruest des Bewerbungsformulars: dieselbe Karte, dieselben
-                  Feldabstaende. Vorher stand hier eine flache Karte mit
-                  „Einen Moment …", und das Formular klappte danach auf. */}
-              {pageState === 'loading' && (
-                <div className="card" style={{ padding: '24px 24px 22px' }} aria-busy="true" aria-label="Wird geladen">
-                  {[132, 96, 118].map((w, i) => (
-                    <div key={i} className="field">
-                      <div className="sk" style={{ width: w, height: 11, marginBottom: 8 }} />
-                      <div className="sk block" style={{ width: '100%', height: 42 }} />
-                    </div>
-                  ))}
-                  <div className="sk block" style={{ width: '100%', height: 46, marginTop: 22 }} />
                 </div>
               )}
 
