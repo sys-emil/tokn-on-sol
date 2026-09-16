@@ -18,7 +18,7 @@ export const metadata: Metadata = {
  * (First-Party-Cookie passly_cid, Speicherung in Supabase). Wird ein Dienst
  * ergänzt oder entfernt, MUSS diese Seite angepasst werden.
  *
- * VOR GO-LIVE: "PLATZHALTER" ausfüllen und mit allen genannten Anbietern
+ * VOR GO-LIVE: mit allen genannten Anbietern
  * Auftragsverarbeitungsverträge (AVV/DPA) abschließen, bei Vercel, Supabase,
  * Stripe und Resend im Dashboard verfügbar.
  *
@@ -44,10 +44,10 @@ export default function DatenschutzPage() {
 
       <h2>1. Verantwortlicher</h2>
       <div className="legal-address">
-        <strong>[PLATZHALTER: Vor- und Nachname]</strong><br />
-        [PLATZHALTER: Straße und Hausnummer]<br />
-        [PLATZHALTER: PLZ und Ort]<br />
-        E-Mail: [PLATZHALTER: kontakt@getpassly.de]
+        <strong>Emil Lange</strong><br />
+        Vingerstr. 47<br />
+        81375 München<br />
+        E-Mail: support@getpassly.de
       </div>
       <p>
         Ein Datenschutzbeauftragter ist nicht bestellt, da die gesetzlichen
@@ -293,8 +293,8 @@ export default function DatenschutzPage() {
         Außerdem hast du das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu
         beschweren (Art. 77 DSGVO), etwa bei der für deinen Wohnort oder unseren
         Sitz zuständigen Landesdatenschutzbehörde
-        ([PLATZHALTER: zuständige Behörde des Bundeslands, z. B. „Landesbeauftragte
-        für Datenschutz und Informationsfreiheit Nordrhein-Westfalen“]).
+        (für unseren Sitz: Bayerisches Landesamt für Datenschutzaufsicht, Promenade 18,
+        91522 Ansbach).
       </p>
 
       <h2>13. Keine automatisierte Entscheidungsfindung</h2>

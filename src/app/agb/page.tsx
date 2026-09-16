@@ -17,7 +17,6 @@ export const metadata: Metadata = {
  * Dieser Text ist ein sorgfältiger Entwurf, ERSETZT ABER KEINE anwaltliche
  * Prüfung, insbesondere §§ 3, 8, 9 und Teil B sollten vor Go-Live von einer
  * auf IT-/Vertriebsrecht spezialisierten Kanzlei freigegeben werden.
- * VOR GO-LIVE: "PLATZHALTER" ausfüllen.
  */
 
 export default function AgbPage() {
@@ -27,8 +26,8 @@ export default function AgbPage() {
       <h2>§ 1 Geltungsbereich und Rolle von Passly</h2>
       <p>
         (1) Diese Allgemeinen Geschäftsbedingungen (AGB) gelten für die Nutzung der
-        Plattform Passly (getpassly.de), betrieben von [PLATZHALTER: Vor- und
-        Nachname, Anschrift] („Passly“, „wir“).
+        Plattform Passly (getpassly.de), betrieben von Emil Lange,
+        Vingerstr. 47, 81375 München („Passly“, „wir“).
       </p>
       <p>
         (2) Passly ist eine <strong>Vermittlungsplattform</strong>: Veranstalter
@@ -178,11 +177,9 @@ export default function AgbPage() {
         die betroffenen Tickets verlieren ihre Gültigkeit.
       </p>
       <p>
-        (3) Ein Anspruch auf Erstattung der Servicegebühr gegen Passly besteht bei
-        Absage oder Verlegung durch den Veranstalter nicht, es sei denn, Passly hat
-        die Absage zu vertreten. [PLATZHALTER: Kulanzregelung prüfen, viele
-        Plattformen erstatten die Gebühr bei Absage freiwillig mit; das ist auch
-        kommunikativ die stärkere Lösung.]
+        (3) Sagt der Veranstalter die Veranstaltung ab, erstattet Passly dem Gast
+        zusammen mit dem Ticketpreis auch die Servicegebühr. Bei einer bloßen
+        Verlegung besteht kein Anspruch auf Erstattung der Servicegebühr.
       </p>
 
       <h2>§ 10 Haftung von Passly</h2>

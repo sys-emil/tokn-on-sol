@@ -28,7 +28,7 @@ export const metadata: Metadata = {
  * ENTWURF. Ersetzt keine anwaltliche Pruefung; insbesondere die Rollenabgrenzung
  * in Ziffer 1, die Unterauftragsverarbeiter in Anlage 2 (Drittlandtransfer
  * Vercel/Stripe) und die TOM in Anlage 3 vor dem ersten gewerblichen
- * Veranstalter freigeben lassen. VOR GO-LIVE: "PLATZHALTER" ausfuellen.
+ * Veranstalter freigeben lassen.
  */
 
 export default function AvvPage() {
@@ -37,8 +37,8 @@ export default function AvvPage() {
 
       <p>
         zwischen dem Veranstalter, der ein Veranstalter-Konto bei Passly führt
-        (nachfolgend „<strong>Verantwortlicher</strong>“), und [PLATZHALTER: Vor- und
-        Nachname, Anschrift], Betreiber der Plattform Passly, getpassly.de
+        (nachfolgend „<strong>Verantwortlicher</strong>“), und Emil Lange,
+        Vingerstr. 47, 81375 München, Betreiber der Plattform Passly, getpassly.de
         (nachfolgend „<strong>Auftragsverarbeiter</strong>“ oder „Passly“),
         gemeinsam „die Parteien“.
       </p>
@@ -276,8 +276,8 @@ export default function AvvPage() {
 
       <h2>13. Kontakt und Schlussbestimmungen</h2>
       <p>
-        (1) Ansprechpartner für Datenschutzfragen bei Passly: [PLATZHALTER: Vor- und
-        Nachname], E-Mail: [PLATZHALTER: datenschutz@getpassly.de]. Ein
+        (1) Ansprechpartner für Datenschutzfragen bei Passly: Emil Lange,
+        E-Mail: support@getpassly.de. Ein
         Datenschutzbeauftragter ist nach § 38 BDSG derzeit nicht zu benennen.
       </p>
       <p>

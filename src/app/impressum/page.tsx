@@ -12,7 +12,6 @@ export const metadata: Metadata = {
  * Anbieterkennzeichnung nach § 5 DDG (Digitale-Dienste-Gesetz, löst das TMG ab)
  * und § 18 Abs. 2 MStV.
  *
- * VOR GO-LIVE zwingend ausfüllen, grep nach "PLATZHALTER".
  * Ein fehlendes oder unvollständiges Impressum ist abmahnfähig.
  */
 
@@ -22,9 +21,9 @@ export default function ImpressumPage() {
 
       <h2>Angaben gemäß § 5 DDG</h2>
       <div className="legal-address">
-        <strong>[PLATZHALTER: Vor- und Nachname]</strong><br />
-        [PLATZHALTER: Straße und Hausnummer]<br />
-        [PLATZHALTER: PLZ und Ort]<br />
+        <strong>Emil Lange</strong><br />
+        Vingerstr. 47<br />
+        81375 München<br />
         Deutschland
       </div>
       <p>
@@ -36,23 +35,22 @@ export default function ImpressumPage() {
 
       <h2>Kontakt</h2>
       <p>
-        E-Mail: <a href="mailto:[PLATZHALTER: kontakt@getpassly.de]">[PLATZHALTER: kontakt@getpassly.de]</a><br />
-        Telefon: [PLATZHALTER: Telefonnummer, Pflicht ist ein zweiter schneller
-        Kommunikationsweg neben E-Mail; eine Telefonnummer erfüllt das sicher]
+        E-Mail: <a href="mailto:support@getpassly.de">support@getpassly.de</a><br />
+        Telefon: +49 152 03540460
       </p>
 
       <h2>Umsatzsteuer</h2>
       <p>
-        [PLATZHALTER: eine der beiden Varianten wählen:]<br />
-        <strong>Variante A (Kleinunternehmer):</strong> Gemäß § 19 UStG wird keine
-        Umsatzsteuer erhoben und ausgewiesen (Kleinunternehmerregelung).<br />
-        <strong>Variante B:</strong> Umsatzsteuer-Identifikationsnummer gemäß § 27a
-        UStG: [USt-IdNr.]
+        Gemäß § 19 UStG wird keine Umsatzsteuer erhoben und ausgewiesen
+        (Kleinunternehmerregelung).
+        {/* Bei Wechsel zur Regelbesteuerung: "Umsatzsteuer-Identifikationsnummer
+            gemäß § 27a UStG: DE…" – und die Gebührenstaffel in src/lib/fees.ts
+            neu kalkulieren (Kleinunternehmer-Annahme). */}
       </p>
 
       <h2>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
       <p>
-        [PLATZHALTER: Vor- und Nachname, Anschrift wie oben]
+        Emil Lange, Vingerstr. 47, 81375 München
       </p>
 
       <h2>Verbraucherstreitbeilegung</h2>

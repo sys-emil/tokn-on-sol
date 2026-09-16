@@ -17,9 +17,9 @@ const FROM = process.env.EMAIL_FROM ?? "Passly <tickets@contact.getpassly.de>";
 const REPLY_TO = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@getpassly.de";
 
 // Impressums-Angaben für den E-Mail-Footer (geschäftliche E-Mails müssen den
-// Absender erkennen lassen). VOR GO-LIVE ausfüllen, grep nach "PLATZHALTER".
-const LEGAL_NAME = "[PLATZHALTER: Vor- und Nachname]";
-const LEGAL_ADDRESS = "[PLATZHALTER: Straße Nr., PLZ Ort]";
+// Absender erkennen lassen). Muss mit /impressum übereinstimmen.
+const LEGAL_NAME = "Emil Lange";
+const LEGAL_ADDRESS = "Vingerstr. 47, 81375 München";
 
 function formatDate(iso: string, lang: Lang = "de"): string {
   if (!iso) return iso;
