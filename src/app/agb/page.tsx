@@ -217,6 +217,19 @@ export default function AgbPage() {
         (§&nbsp;4 Abs.&nbsp;2). Wählt er die Voreinstellung „Gast zahlt&ldquo;, erhält er{' '}
         <strong>100&nbsp;% des von ihm festgelegten Ticketpreises</strong>.
       </p>
+      <p>
+        (3) Zusätzliche Funktionen („Passly Pro&ldquo;) bietet Passly gegen ein
+        Entgelt als Abonnement mit monatlicher oder jährlicher Laufzeit an. Der
+        jeweils gültige Preis wird vor Abschluss im Bestellvorgang angezeigt und
+        ist für die gewählte Laufzeit im Voraus fällig. Das Abonnement
+        verlängert sich jeweils um die gewählte Laufzeit, wenn es nicht bis zum
+        Ende der laufenden Laufzeit gekündigt wird; die Kündigung ist jederzeit
+        in der Abo-Verwaltung möglich und wirkt zum Ende der laufenden Laufzeit.
+        Eine anteilige Erstattung bereits gezahlter Entgelte für die restliche
+        Laufzeit erfolgt nicht. Ein Wechsel von monatlicher auf jährliche
+        Laufzeit ist jederzeit möglich; bereits gezahlte Monatsentgelte werden
+        dabei angerechnet.
+      </p>
 
       <h2>§ 12 Auszahlung und Identitätsprüfung</h2>
       <p>

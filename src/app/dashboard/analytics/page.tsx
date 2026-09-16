@@ -22,6 +22,9 @@ import type {
   AnalyticsData, CustomerRow, CustomersData, LoyaltyData, LoyaltyTier, SegmentId,
 } from './proTypes';
 import { DashboardNav } from '@/app/components/DashboardNav';
+import { ProIntervalSwitch } from '@/app/components/ProIntervalSwitch';
+import { useProPrices } from '@/app/components/useProPrices';
+import { formatCents, yearlyPerMonthCents, type ProInterval } from '@/lib/proPricing';
 
 type Tab = 'overview' | 'customers' | 'loyalty';
 type Metric = 'revenue' | 'tickets' | 'buyers';
@@ -57,7 +60,8 @@ export default function ProDashboard() {
   const [plan, setPlan] = useState<'loading' | 'free' | 'pro'>('loading');
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
-  const [proPrice, setProPrice] = useState<{ unitAmount: number; currency: string; interval: string | null } | null>(null);
+  const proPrices = useProPrices();
+  const [billingInterval, setBillingInterval] = useState<ProInterval>('month');
 
   const [tab, setTab] = useState<Tab>('overview');
   const [range, setRange] = useState(30);
@@ -102,18 +106,6 @@ export default function ProDashboard() {
   useEffect(() => {
     if (orgStatus === 'none') router.push('/dashboard');
   }, [orgStatus, router]);
-
-  useEffect(() => {
-    async function loadPrice(): Promise<void> {
-      const res = await fetch('/api/organizer/billing/price');
-      if (!res.ok) return;
-      const data = (await res.json()) as { available: boolean; unitAmount?: number; currency?: string; interval?: string | null };
-      if (data.available && data.unitAmount != null && data.currency) {
-        setProPrice({ unitAmount: data.unitAmount, currency: data.currency, interval: data.interval ?? null });
-      }
-    }
-    void loadPrice();
-  }, []);
 
   const reloadLoyalty = useCallback(async (): Promise<void> => {
     if (!wallet) return;
@@ -173,7 +165,7 @@ export default function ProDashboard() {
       const res = await fetch('/api/organizer/billing/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ walletAddress: wallet }),
+        body: JSON.stringify({ walletAddress: wallet, interval: billingInterval }),
       });
       const data = (await res.json()) as { success: boolean; url?: string; error?: string };
       if (data.success && data.url) window.location.href = data.url;
@@ -307,19 +299,30 @@ export default function ProDashboard() {
                     <div><b>Treue belohnen</b><span>Mehrstufiges Treueprogramm mit Vorteilen zum Einlösen am Einlass.</span></div>
                   </div>
                 </div>
-                {proPrice && (
-                  <div style={{ marginTop: 22, fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em' }}>
-                    {(proPrice.unitAmount / 100).toLocaleString('de-DE', { style: 'currency', currency: proPrice.currency.toUpperCase() })}
-                    <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-3)' }}> / {proPrice.interval === 'year' ? 'Jahr' : 'Monat'}</span>
+                {proPrices?.month && (
+                  <div style={{ marginTop: 22, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <ProIntervalSwitch prices={proPrices} value={billingInterval} onChange={setBillingInterval} />
+                    <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em' }}>
+                      {formatCents(
+                        billingInterval === 'year' && proPrices.year ? yearlyPerMonthCents(proPrices.year.unitAmount) : proPrices.month.unitAmount,
+                        proPrices.month.currency,
+                      )}
+                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-3)' }}> / Monat</span>
+                      {billingInterval === 'year' && proPrices.year && (
+                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 500, color: 'var(--ink-3)', marginTop: 4 }}>
+                          {formatCents(proPrices.year.unitAmount, proPrices.year.currency)} im Jahr, jährlich abgerechnet
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
                 {billingError && <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 14 }}>{billingError}</div>}
-                <button className="btn primary lg btn-shine" style={{ marginTop: proPrice ? 16 : 24 }}
+                <button className="btn primary lg btn-shine" style={{ marginTop: proPrices ? 16 : 24 }}
                         onClick={() => void handleUpgrade()} disabled={billingBusy}>
                   {billingBusy ? 'Weiterleitung …' : 'Jetzt Pro werden'} <Icon name="arrow" size={14} />
                 </button>
                 <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 12 }}>
-                  Monatlich · jederzeit kündbar · sichere Abrechnung über Stripe
+                  {billingInterval === 'year' ? 'Jährlich' : 'Monatlich'} · jederzeit kündbar · sichere Abrechnung über Stripe
                 </div>
               </div>
             </section>

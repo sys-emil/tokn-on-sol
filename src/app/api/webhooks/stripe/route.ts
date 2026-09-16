@@ -158,13 +158,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const sub = stripeEvent.data.object as Stripe.Subscription;
     const deleted = stripeEvent.type === "customer.subscription.deleted";
     const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
-    const periodEnd = sub.items?.data?.[0]?.current_period_end ?? null;
+    const item = sub.items?.data?.[0];
+    const periodEnd = item?.current_period_end ?? null;
+    // Read from the Price, not from our own metadata: a switch in the Billing
+    // Portal changes the price and leaves the metadata as it was.
+    const rawInterval = item?.price?.recurring?.interval ?? null;
+    const interval = rawInterval === "month" || rawInterval === "year" ? rawInterval : null;
 
     const update = {
       plan: deleted ? "free" : subscriptionPlanFromStatus(sub.status),
       stripe_subscription_id: deleted ? null : sub.id,
       plan_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
       plan_cancel_at_period_end: deleted ? false : (sub.cancel_at_period_end ?? false),
+      plan_interval: deleted ? null : interval,
     };
 
     const organizerWallet = sub.metadata?.organizerWallet;

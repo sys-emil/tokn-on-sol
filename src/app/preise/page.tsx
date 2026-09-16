@@ -343,10 +343,7 @@ export default function PreisePage() {
                       <span className="recommend"><Icon name="sparkle" size={11} /> Empfohlen</span>
                     </div>
                     <h2>Wenn aus Abenden ein Publikum wird</h2>
-                    <div className="amount">
-                      <ProPrice />
-                      <span className="unit">monatlich kündbar</span>
-                    </div>
+                    <ProPrice picker />
                     <p className="what">
                       Ein volles Haus ist schön. Gäste, die beim nächsten Mal wiederkommen,
                       sind das Geschäft. Pro gibt dir die Werkzeuge dafür. An der
@@ -364,7 +361,7 @@ export default function PreisePage() {
                       <Link href="/become-organizer" className="btn primary btn-shine">
                         Mit Pro starten <Icon name="arrow" size={13} />
                       </Link>
-                      <span className="fine">Keine Mindestlaufzeit</span>
+                      <span className="fine">Jederzeit kündbar, zum Ende der Laufzeit</span>
                     </div>
                   </div>
                 </div>

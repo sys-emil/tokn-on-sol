@@ -82,6 +82,10 @@ const FAQ: { q: string; a: string }[] = [
     a: 'Ja, über Kategorien: bis zu fünf Preisstufen pro Spiel, jede mit eigenem Kontingent, zum Beispiel Erwachsene, Ermäßigt und Kinder frei. Wer bei euch was zahlt, entscheidet ihr. Rabattcodes für einzelne Gruppen gibt es zusätzlich im Pro-Tarif.',
   },
   {
+    q: 'Was kostet Pro, und passt das zu einer Saison?',
+    a: 'Pro gibt es monatlich oder als Jahresabo, bei dem zwei Monate geschenkt sind. Für einen Verein passt das Jahresabo meist besser: einmal zur Saison abrechnen, statt jeden Monat eine Buchung im Kassenbericht. Die genauen Beträge stehen auf der Preisseite und kommen direkt aus der Abrechnung, sie können also nicht abweichen.',
+  },
+  {
     q: 'Funktioniert der Einlass, wenn in der Halle kein Netz ist?',
     a: 'Ja. Die Türseite lädt die Ticketliste vor und prüft danach auf dem Gerät weiter — auch ohne Empfang, und auch dann nur einmal je Ticket. Sobald das Handy wieder online ist, werden die Scans nachgetragen. Genau dafür ist es gebaut: Hallen und Sportplätze sind selten Funklöcher-frei.',
   },

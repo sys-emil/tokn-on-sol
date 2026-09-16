@@ -8,6 +8,7 @@ import { AccountMenu } from '@/app/components/AccountMenu';
 import { Celebration } from '@/app/components/Celebration';
 import { ProfileNudge } from '@/app/components/ProfileNudge';
 import { ProLink } from '@/app/components/ProLink';
+import { EventsSkeleton } from '@/app/components/DashboardSkeleton';
 import { darkCardCss, ON_DARK_ACCENT } from '@/app/components/darkTokens';
 import { LegalLinks } from '@/app/components/LegalLinks';
 import { PasslyLogo } from '@/app/components/PasslyLogo';
@@ -15,6 +16,9 @@ import { Icon, Spark, VerifiedCheck } from '@/app/components/passlyUi';
 import { LoyaltyRedeem } from '@/app/components/LoyaltyRedeem';
 import { useEffect, useState } from 'react';
 import { DashboardNav } from '@/app/components/DashboardNav';
+import { ProIntervalSwitch } from '@/app/components/ProIntervalSwitch';
+import { useProPrices } from '@/app/components/useProPrices';
+import { formatCents, yearlySaving, yearlySavingLabel, type ProInterval } from '@/lib/proPricing';
 
 interface EventRow {
   id: string;
@@ -117,43 +121,6 @@ const PAGE_CSS = `
   }
 `;
 
-/**
- * Ladezustand des Event-Rasters.
- *
- * Dieselben Karten im selben Raster, damit die Uebersicht beim Eintreffen der
- * Daten nicht von einer schmalen Zeile auf mehrere Spalten aufspringt. Die
- * feststehenden Beschriftungen bleiben stehen: sie sind schon richtig und
- * machen sofort klar, was hier gleich steht.
- */
-function EventsSkeleton() {
-  return (
-    <div className="events-grid" aria-busy="true" aria-label="Veranstaltungen werden geladen">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="event-card" style={{ cursor: 'default' }}>
-          <div className="row gap-3">
-            <div className="sk block" style={{ width: 44, height: 46, flex: 'none' }} />
-            <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 7 }}>
-              <div className="sk" style={{ width: `${76 - i * 12}%`, height: 13 }} />
-              <div className="sk" style={{ width: 116, height: 10 }} />
-            </div>
-          </div>
-          <div>
-            <div className="sold">
-              <div className="sk" style={{ width: 128, height: 10 }} />
-              <div className="sk" style={{ width: 28, height: 10 }} />
-            </div>
-            <div className="progress"><span style={{ width: 0 }} /></div>
-          </div>
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <div className="sk" style={{ width: 62, height: 20, borderRadius: 6 }} />
-            <div className="sk" style={{ width: 74, height: 10 }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function isUpcoming(iso: string): boolean {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -188,6 +155,9 @@ export default function Dashboard() {
   const [checklistDismissed, setChecklistDismissed] = useState(false);
   const [planCancelAtPeriodEnd, setPlanCancelAtPeriodEnd] = useState(false);
   const [planPeriodEnd, setPlanPeriodEnd] = useState<string | null>(null);
+  const [planInterval, setPlanInterval] = useState<ProInterval | null>(null);
+  const [billingInterval, setBillingInterval] = useState<ProInterval>('month');
+  const proPrices = useProPrices();
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState<string | null>(null);
   const [showProCelebration, setShowProCelebration] = useState(false);
@@ -230,6 +200,7 @@ export default function Dashboard() {
         plan?: string;
         plan_period_end?: string | null;
         plan_cancel_at_period_end?: boolean;
+        plan_interval?: ProInterval | null;
         public_name?: string | null;
         is_verified?: boolean;
         verified_label?: string | null;
@@ -247,6 +218,7 @@ export default function Dashboard() {
         setOrgVerifiedLabel(data.verified_label ?? null);
         setPlanPeriodEnd(data.plan_period_end ?? null);
         setPlanCancelAtPeriodEnd(data.plan_cancel_at_period_end ?? false);
+        setPlanInterval(data.plan_interval ?? null);
         setOrgHandle(data.handle ?? null);
         setDoorLinksCount(data.door_links_count ?? 0);
       }
@@ -360,7 +332,7 @@ export default function Dashboard() {
       const res = await fetch(`/api/organizer/billing/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ walletAddress: ownerWallet }),
+        body: JSON.stringify({ walletAddress: ownerWallet, interval: billingInterval }),
       });
       const data = (await res.json()) as { success: boolean; url?: string; error?: string };
       if (data.success && data.url) {
@@ -566,6 +538,22 @@ export default function Dashboard() {
                             : 'Detaillierte Analytics, Gäste-Nachrichten und dein Treueprogramm sind freigeschaltet.'
                           : 'Kenne deine Stammgäste, schreibe allen Ticketinhabern und belohne Wiederkehrer mit deinem eigenen Treueprogramm, alles in einem Abo, jederzeit kündbar.'}
                       </div>
+                      {/* Monatsabonnenten sehen /preise nie wieder; das Jahresabo
+                          muss sie hier erreichen. Der Wechsel selbst läuft über
+                          das Billing Portal, das die Restlaufzeit anrechnet. */}
+                      {plan === 'pro' && planInterval === 'month' && !planCancelAtPeriodEnd && proPrices?.month && proPrices.year && (() => {
+                        const label = yearlySavingLabel(yearlySaving(proPrices.month.unitAmount, proPrices.year.unitAmount));
+                        return label ? (
+                          <div style={{ fontSize: 12.5, color: 'var(--accent-ink)', marginTop: 8, fontWeight: 500 }}>
+                            Jährlich zahlen, {label}: {formatCents(proPrices.year.unitAmount, proPrices.year.currency)} im Jahr statt {formatCents(proPrices.month.unitAmount * 12, proPrices.month.currency)}. Umstellen unter „Abo verwalten“.
+                          </div>
+                        ) : null;
+                      })()}
+                      {plan === 'free' && proPrices && (
+                        <div style={{ marginTop: 12 }}>
+                          <ProIntervalSwitch prices={proPrices} value={billingInterval} onChange={setBillingInterval} />
+                        </div>
+                      )}
                       {billingError && (
                         <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 6 }}>{billingError}</div>
                       )}

@@ -2,20 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requestOwnsWallet } from "@/lib/sessionUser";
+import { isProInterval, type ProInterval } from "@/lib/proPricing";
 
 /**
  * Starts the Dashboard-Pro subscription checkout. Creates (or reuses) a Stripe
  * Customer for the organizer, then a Checkout Session in subscription mode.
  * The webhook (`purpose: pro_subscription` + customer.subscription.*) is the
  * only writer of `organizers.plan`.
+ *
+ * `interval` picks the monthly or the yearly Price (since 2026-09-15). The
+ * plan itself does not depend on it — the webhook derives `plan` from the
+ * subscription status — but `plan_interval` is stored so the dashboard can
+ * offer the yearly plan to monthly subscribers and stay quiet for the rest.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const priceId = process.env.STRIPE_PRO_PRICE_ID;
-  if (!priceId) {
-    return NextResponse.json({ success: false, error: "Pro ist noch nicht verfügbar." }, { status: 503 });
-  }
-
-  let body: { walletAddress?: string };
+  let body: { walletAddress?: string; interval?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -24,6 +25,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const walletAddress = body.walletAddress ?? "";
   if (!walletAddress) {
     return NextResponse.json({ success: false, error: "walletAddress is required" }, { status: 400 });
+  }
+  const interval: ProInterval = isProInterval(body.interval) ? body.interval : "month";
+  const priceId = interval === "year" ? process.env.STRIPE_PRO_YEARLY_PRICE_ID : process.env.STRIPE_PRO_PRICE_ID;
+  if (!priceId) {
+    return NextResponse.json(
+      { success: false, error: interval === "year" ? "Das Jahresabo ist noch nicht verfügbar." : "Pro ist noch nicht verfügbar." },
+      { status: 503 },
+    );
   }
   if (!(await requestOwnsWallet(req, walletAddress))) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
@@ -64,8 +73,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      metadata: { purpose: "pro_subscription", organizerWallet: walletAddress },
-      subscription_data: { metadata: { organizerWallet: walletAddress } },
+      metadata: { purpose: "pro_subscription", organizerWallet: walletAddress, interval },
+      subscription_data: { metadata: { organizerWallet: walletAddress, interval } },
       success_url: `${origin}/dashboard?billing=success`,
       cancel_url: `${origin}/dashboard`,
     });
