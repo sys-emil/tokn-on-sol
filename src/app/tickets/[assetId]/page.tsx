@@ -52,12 +52,14 @@ interface PurchaseInfo {
   pass: { name: string; dates: PassDateView[] } | null;
   /** Event allows leaving and coming back; the guest has to scan on the way out. */
   reentry: boolean;
+  /** events.min_age; the guest should bring ID. */
+  minAge: number | null;
 }
 
 async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
   const { data } = await supabaseAdmin
     .from('purchases')
-    .select('id, redeemed_at, revoked_at, event_id, season_pass_id, events(name, date, end_date, start_time, venue, reentry_enabled), ticket_tiers(name), season_passes(name)')
+    .select('id, redeemed_at, revoked_at, event_id, season_pass_id, events(name, date, end_date, start_time, venue, reentry_enabled, min_age), ticket_tiers(name), season_passes(name)')
     .eq('asset_id', assetId)
     .maybeSingle();
   if (!data) return null;
@@ -76,6 +78,7 @@ async function getPurchase(assetId: string): Promise<PurchaseInfo | null> {
     venue: (ev?.venue as string | undefined) ?? null,
     tierName: (tier?.name as string | undefined) ?? null,
     reentry: ev?.reentry_enabled === true,
+    minAge: typeof ev?.min_age === 'number' ? ev.min_age : null,
     pass: data.season_pass_id
       ? {
           name: (passRow?.name as string | undefined) ?? 'Saisonpass',
@@ -314,6 +317,11 @@ export default async function TicketPage({ params }: { params: Promise<{ assetId
             {purchase?.startTime && (
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <span className="muted">{t('ticket.start')}</span><span style={{ fontWeight: 500 }}>{purchase.startTime}{t('ticket.startSuffix') && ` ${t('ticket.startSuffix')}`}</span>
+              </div>
+            )}
+            {purchase?.minAge && !pass && (
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="muted">{t('ticket.minAge')}</span><span style={{ fontWeight: 500 }}>{t('ticket.minAgeValue', { age: purchase.minAge })}</span>
               </div>
             )}
             <div className="row" style={{ justifyContent: 'space-between' }}>

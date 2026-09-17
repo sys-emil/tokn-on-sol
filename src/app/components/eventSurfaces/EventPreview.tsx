@@ -47,6 +47,8 @@ export interface PreviewDraft {
   borderStyle: string | null;
   /** Wer die Servicegebuehr traegt; bestimmt, was der Gast im Warenkorb sieht. */
   feePayer: FeePayer;
+  /** Mindestalter; null = ohne Hinweis. */
+  minAge?: number | null;
   /** Im Bearbeiten-Modus die echten Zahlen, beim Anlegen 0. */
   ticketsSold?: number;
   ticketsReserved?: number;
@@ -98,6 +100,7 @@ export function EventPreview({ draft }: { draft: PreviewDraft }) {
   const label = (l: CardLabel | null) => (l ? translate('de', l.key, l.vars) : null);
 
   const subLine = [draft.startTime ? `${draft.startTime} Uhr` : null, venue].filter(Boolean).join(' · ');
+  const ageNote = draft.minAge ? `Ab ${draft.minAge} Jahren · Ausweis am Einlass` : null;
   const hue = eventHue(name);
   const bodyText = draft.longDescription.trim() || draft.description.trim();
   const vip = draft.tiers.some((t) => isVipTier(t.name));
@@ -203,6 +206,7 @@ export function EventPreview({ draft }: { draft: PreviewDraft }) {
             dateChip={{ month: monthShort(date), day: String(dayNum(date)) }}
             whenLabel={`${longDate(date)}${draft.startTime ? ` · ${draft.startTime} Uhr` : ''}`}
             venue={venue}
+            ageNote={ageNote}
             description={draft.description.trim() || null}
             priceLabel={priceLabel}
             feeNote={minPrice > 0 ? (buyerFeeCents > 0 ? 'zzgl. Servicegebühr' : 'inkl. aller Gebühren') : null}

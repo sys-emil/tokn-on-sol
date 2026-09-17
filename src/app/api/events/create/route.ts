@@ -51,6 +51,8 @@ interface CreateEventBody {
   max_per_order?: number;
   /** Letzter Tag (YYYY-MM-DD) eines mehrtaegigen Events; null/absent = eintaegig. */
   end_date?: string | null;
+  /** Mindestalter fuer den Einlass (1–99, ueblich 16 oder 18); null/absent = keins. */
+  min_age?: number | null;
 }
 
 const MAX_TIERS = 5;
@@ -183,6 +185,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: false, error: "max_per_order must be an integer between 1 and 10" }, { status: 400 });
   }
 
+  const minAge = body.min_age ?? null;
+  if (minAge !== null && (!Number.isInteger(minAge) || minAge < 1 || minAge > 99)) {
+    return NextResponse.json({ success: false, error: "min_age must be an integer between 1 and 99, or null" }, { status: 400 });
+  }
+
   const reentryCooldown = reentry_cooldown_seconds ?? DEFAULT_REENTRY_COOLDOWN_SECONDS;
   if (!Number.isInteger(reentryCooldown) || reentryCooldown < 0 || reentryCooldown > MAX_REENTRY_COOLDOWN_SECONDS) {
     return NextResponse.json(
@@ -304,6 +311,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         reentry_cooldown_seconds: reentryCooldown,
         max_per_order: maxPerOrder,
         end_date: endDate,
+        min_age: minAge,
       })
       .select("id")
       .single();

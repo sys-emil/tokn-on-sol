@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { HOLD_MINUTES } from "@/lib/checkoutHold";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { SeasonPass } from "@/lib/supabase";
@@ -30,8 +31,6 @@ interface PassCheckoutBody {
 
 /** Stripe's minimum checkout-session lifetime. */
 const SESSION_MINUTES = 30;
-/** What the buyer is promised; the shop countdown uses this, not the session. */
-const HOLD_MINUTES = 5;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const rl = rateLimit(`checkout-pass:${clientIp(req)}`, 10, 60_000);

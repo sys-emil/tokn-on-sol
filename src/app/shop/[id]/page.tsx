@@ -282,6 +282,11 @@ export default async function ShopPage({ params }: { params: Promise<{ id: strin
                     </a>
                   </span>
                 )}
+                {event.min_age && (
+                  <span className="line" style={{ color: 'var(--ink-2)', fontWeight: 500 }}>
+                    <Icon name="idcard" size={13} /> Ab {event.min_age} Jahren · Ausweis am Einlass
+                  </span>
+                )}
               </div>
             </div>
           </div>

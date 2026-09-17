@@ -7,10 +7,12 @@ type IconName =
   | 'plus' | 'calendar' | 'users' | 'ticket' | 'check' | 'doublecheck' | 'arrow'
   | 'download' | 'share' | 'x' | 'search' | 'dots' | 'qr' | 'scan' | 'clock'
   | 'euro' | 'mail' | 'location' | 'shield' | 'sparkle' | 'camera' | 'refresh'
-  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell' | 'edit' | 'lock' | 'tag' | 'moon' | 'sun';
+  | 'chevronRight' | 'chevronLeft' | 'settings' | 'wifi' | 'bell' | 'edit' | 'lock' | 'tag' | 'moon' | 'sun' | 'idcard';
 
 const ICON_PATHS: Record<IconName, React.ReactNode> = {
   plus: <><path d="M12 5v14"/><path d="M5 12h14"/></>,
+  // Ausweis: Karte mit Passbild und zwei Textzeilen (Altersfreigabe).
+  idcard: <><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><path d="M6 16c.6-1.4 1.5-2 2.5-2s1.9.6 2.5 2"/><path d="M14 10h4"/><path d="M14 13.5h4"/></>,
   calendar: <><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9h18"/><path d="M8 3v3"/><path d="M16 3v3"/></>,
   users: <><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M17 3.13A4 4 0 0 1 17 11"/></>,
   ticket: <><path d="M2 9a3 3 0 1 1 0 6v3a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3a3 3 0 1 1 0-6V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2"/><path d="M13 11v2"/><path d="M13 17v2"/></>,

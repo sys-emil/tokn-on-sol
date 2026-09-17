@@ -27,7 +27,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const { data: event, error } = await supabaseAdmin
     .from("events")
-    .select("id, organizer_wallet, cancelled_at, reentry_enabled, reentry_cooldown_seconds, fee_payer")
+    .select("id, organizer_wallet, cancelled_at, reentry_enabled, reentry_cooldown_seconds, fee_payer, min_age")
     .eq("id", id)
     .single();
   if (error || !event) {
@@ -105,6 +105,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       enabled: reentryEnabled,
       cooldownSeconds: (event.reentry_cooldown_seconds as number) ?? 0,
     },
+    // The door is where the age restriction is actually enforced.
+    minAge: typeof event.min_age === "number" ? event.min_age : null,
     tiers: (tiers ?? []).map((t) => ({
       id: t.id as string,
       name: t.name as string,

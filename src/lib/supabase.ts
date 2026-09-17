@@ -78,6 +78,12 @@ export type Event = {
   queue_slots: number;
   /** Tickets per checkout (1–10, default 4), since 2026-09-13. */
   max_per_order?: number;
+  /**
+   * Minimum age for admission (e.g. 16 or 18); NULL = no restriction. Shown
+   * on the shop, the event page, the ticket and the door; never enforced by
+   * the code — the ID check happens at the door.
+   */
+  min_age?: number | null;
   created_at: string;
 };
 

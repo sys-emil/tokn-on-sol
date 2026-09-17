@@ -155,8 +155,13 @@ const PAGE_CSS = `
     .hero-v2 h1 { font-size: clamp(2.38rem, 8vw, 3.5rem); }
     .hero-v2-mock { min-height: 0; }
   }
-  @media (max-width: 26.25em) {
-    .hero-v2-ticket { width: 100% !important; }
+  /* Auf dem Handy entfaellt das Ticket-Mockup ganz: unter der einspaltigen
+     Ueberschrift nahm es einen vollen Bildschirm ein, bevor die Trust-Leiste
+     und der erste Inhalt kamen. Ab Tablet-Breite steht es weiter neben bzw.
+     unter dem Text. display:none stoppt auch seine Idle-Animation. */
+  @media (max-width: 40em) {
+    .hero-v2-mock { display: none; }
+    .hero-v2-inner { gap: 0; padding-bottom: 3rem; }
   }
   @media (prefers-reduced-motion: reduce) {
     .hero-v2-shimmer { animation: none; }

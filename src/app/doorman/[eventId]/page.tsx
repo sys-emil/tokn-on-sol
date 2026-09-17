@@ -159,6 +159,15 @@ const PAGE_CSS = `
     .door-counters.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .door-counters.three .door-counter:last-child { grid-column: 1 / -1; }
   }
+  .door-age {
+    display: flex; align-items: center; gap: 10px;
+    margin: 10px 20px 0; padding: 10px 12px;
+    background: var(--warn-wash); border: 1px solid var(--warn); border-radius: 9px;
+    font-size: 12.5px; line-height: 1.45; color: var(--ink-2);
+  }
+  .door-age svg { flex-shrink: 0; color: var(--warn); }
+  .door-age b { color: var(--ink); }
+  @media (max-width: 430px) { .door-age { margin: 10px 14px 0; } }
   .door-counter {
     min-width: 0;
     padding: 10px 12px;
@@ -387,6 +396,8 @@ export default function DoormanPage() {
   // Re-entry: guests may leave and come back, so the interesting number is
   // how many are inside right now, not how often we scanned.
   const [reentry, setReentry] = useState<{ enabled: boolean; cooldownSeconds: number } | null>(null);
+  // Altersfreigabe: der einzige Ort, an dem sie tatsaechlich geprueft wird.
+  const [minAge, setMinAge] = useState<number | null>(null);
   // Manuelle Suche: Handy leer, Mail nicht gefunden. Liest den Snapshot, laesst
   // ueber denselben Pfad ein wie ein Offline-Scan.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -464,6 +475,7 @@ export default function DoormanPage() {
       setTiers(snapshotRef.current.tiers ?? []);
       setFeePayer(snapshotRef.current.feePayer ?? 'buyer');
       setReentry(snapshotRef.current.reentry ?? null);
+      setMinAge(snapshotRef.current.minAge ?? null);
       setInsideCount(countInside(snapshotRef.current, localScansRef.current));
     }
     setPendingCount(pendingRef.current.length);
@@ -490,6 +502,7 @@ export default function DoormanPage() {
     setSnapshotReady(true);
     setSnapshotAt(snap.generatedAt);
     setReentry(snap.reentry ?? null);
+    setMinAge(snap.minAge ?? null);
     setInsideCount(countInside(snap, localScansRef.current));
     setLastSyncAt(new Date().toISOString());
   }, [eventId]);
@@ -992,6 +1005,13 @@ export default function DoormanPage() {
               <div className="v">{lastScan ? formatTime(lastScan) : 'noch keiner'}</div>
             </div>
           </div>
+
+          {minAge !== null && (
+            <div className="door-age" role="note">
+              <Icon name="idcard" size={15} />
+              <span><b>Ab {minAge} Jahren.</b> Ausweis prüfen – das Ticket sagt nichts über das Alter.</span>
+            </div>
+          )}
 
           {reentry?.enabled && (
             <div style={{ padding: '10px 20px 0', fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.5 }}>

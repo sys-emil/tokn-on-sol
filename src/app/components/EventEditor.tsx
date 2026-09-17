@@ -59,6 +59,8 @@ export interface EventDraft {
   maxPerOrder: string;
   /** Letzter Tag eines mehrtaegigen Events; leer = eintaegig. */
   endDate: string;
+  /** Mindestalter als Text ('' = keine Beschraenkung, sonst z. B. '16' oder '18'). */
+  minAge: string;
   ticketsSold?: number;
   ticketsReserved?: number;
 }
@@ -73,6 +75,7 @@ export const INITIAL_DRAFT: EventDraft = {
   queueEnabled: false, queueSlots: '50',
   maxPerOrder: '4',
   endDate: '',
+  minAge: '',
 };
 
 const MAX_TIERS = 5;
@@ -293,6 +296,7 @@ export function EventEditor({
         reentry_cooldown_seconds: checked.reentryCooldownSeconds,
         max_per_order: Math.min(10, Math.max(1, Math.floor(Number(draft.maxPerOrder)) || 4)),
         end_date: draft.endDate && draft.endDate > draft.date ? draft.endDate : null,
+        min_age: draft.minAge ? Number(draft.minAge) : null,
       };
 
       const res = mode === 'create'
@@ -352,6 +356,7 @@ export function EventEditor({
     feePayer,
     accentHue: draft.accentHue,
     borderStyle: draft.borderStyle,
+    minAge: draft.minAge ? Number(draft.minAge) : null,
     ticketsSold: draft.ticketsSold,
     ticketsReserved: draft.ticketsReserved,
   };
@@ -536,6 +541,20 @@ export function EventEditor({
               </div>
               <span className="hint">
                 {draft.isPrivate ? 'Nur über den direkten Link erreichbar.' : 'Erscheint in der öffentlichen Event-Liste.'}
+              </span>
+            </div>
+
+            <div className="field">
+              <label>Altersfreigabe</label>
+              <div className="seg">
+                <button type="button" className={!draft.minAge ? 'active' : ''} onClick={() => set('minAge', '')} disabled={saving}>Keine</button>
+                <button type="button" className={draft.minAge === '16' ? 'active' : ''} onClick={() => set('minAge', '16')} disabled={saving}>Ab 16</button>
+                <button type="button" className={draft.minAge === '18' ? 'active' : ''} onClick={() => set('minAge', '18')} disabled={saving}>Ab 18</button>
+              </div>
+              <span className="hint">
+                {draft.minAge
+                  ? `Steht auf der Kaufseite, dem Ticket und am Einlass-Scanner: „Ab ${draft.minAge} Jahren, Ausweis am Einlass“. Prüfen muss dein Team an der Tür – das Ticket allein hält niemanden auf.`
+                  : 'Kein Mindestalter. Für Clubnächte oder Konzerte mit Ausschank kannst du hier „Ab 16“ oder „Ab 18“ setzen.'}
               </span>
             </div>
 

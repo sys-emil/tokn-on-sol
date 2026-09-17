@@ -63,6 +63,8 @@ export interface Snapshot {
   feePayer?: FeePayer;
   /** Absent in snapshots cached before re-entry existed; off is the default. */
   reentry?: SnapshotReentry;
+  /** events.min_age; the door checks IDs against it. Absent/null = no restriction. */
+  minAge?: number | null;
 }
 
 export interface PendingRedemption {

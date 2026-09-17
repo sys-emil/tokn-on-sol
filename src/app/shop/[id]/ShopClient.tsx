@@ -4,6 +4,8 @@ import { useAuth, getAccessToken, useWallets } from '@/lib/auth';
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { HOLD_MINUTES } from '@/lib/checkoutHold';
 import { splitServiceFee, type FeePayer } from '@/lib/fees';
 import { track } from '@/lib/track';
 import { useT } from '@/app/components/LangProvider';
@@ -262,9 +264,13 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
         return;
       }
       if (data.expiresAt) {
+        const hold: PendingCheckout = { url: data.url, expiresAt: data.expiresAt, quantity };
         try {
-          sessionStorage.setItem(storageKey, JSON.stringify({ url: data.url, expiresAt: data.expiresAt, quantity } satisfies PendingCheckout));
+          sessionStorage.setItem(storageKey, JSON.stringify(hold));
         } catch { /* private mode */ }
+        // The hold is real from this moment on, so the timer starts now —
+        // the window is already up when the buyer comes back from Stripe.
+        setPending(hold);
       }
       window.location.href = data.url;
     } catch {
@@ -474,23 +480,81 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
           font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
           font-variant-numeric: tabular-nums; white-space: nowrap;
         }
-        .resume-banner {
-          display: flex; align-items: center; justify-content: space-between; gap: 12px;
-          padding: 12px 14px; margin-bottom: 16px;
-          background: var(--accent-wash);
+        /* Hold timer: a floating window that appears the moment the seats are
+           actually reserved (checkout created) and stays until the hold runs
+           out. Fixed to the viewport, so it also sits above the buy box when
+           the buyer bounces back from Stripe further down the page. Portalled
+           into <body>: .shop-card clips overflow. */
+        .hold-timer {
+          position: fixed; z-index: 80;
+          right: 16px; top: calc(16px + env(safe-area-inset-top, 0px));
+          width: min(340px, calc(100vw - 32px));
+          padding: 14px 16px 12px;
+          background: var(--surface);
           border: 1px solid var(--accent);
-          border-radius: 10px;
+          border-radius: var(--radius-lg);
+          box-shadow: var(--shadow-lg), 0 0 0 4px var(--accent-wash);
+          animation: holdTimerIn .32s cubic-bezier(.2,.8,.2,1) both;
         }
-        .resume-banner .rb-title { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
-        .resume-banner .rb-time { font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
-        .resume-banner .rb-time b {
-          color: var(--accent); font-weight: 600;
-          font-variant-numeric: tabular-nums;
+        @keyframes holdTimerIn {
+          from { opacity: 0; transform: translateY(-8px) scale(.98); }
+          to   { opacity: 1; transform: none; }
         }
-        .resume-banner .rb-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-        .resume-banner .rb-dismiss {
-          font-size: 11px; color: var(--ink-4);
+        .hold-timer .ht-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+        .hold-timer .ht-eyebrow {
+          display: inline-flex; align-items: center; gap: 6px;
+          font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+          color: var(--accent);
+        }
+        .hold-timer .ht-eyebrow .d {
+          width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+          animation: holdTimerPulse 1.6s ease-in-out infinite;
+        }
+        @keyframes holdTimerPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%      { opacity: .45; transform: scale(.8); }
+        }
+        .hold-timer .ht-time {
+          font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1;
+          font-variant-numeric: tabular-nums; color: var(--ink);
+        }
+        .hold-timer.urgent .ht-time, .hold-timer.urgent .ht-eyebrow, .hold-timer.urgent .ht-eyebrow .d { color: var(--bad); }
+        .hold-timer.urgent .ht-eyebrow .d { background: var(--bad); }
+        .hold-timer.urgent { border-color: var(--bad); box-shadow: var(--shadow-lg), 0 0 0 4px var(--bad-wash); }
+        .hold-timer .ht-title { font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; margin-top: 8px; }
+        .hold-timer .ht-bar {
+          height: 4px; border-radius: 999px; background: var(--line-2); overflow: hidden; margin-top: 8px;
+        }
+        .hold-timer .ht-bar > span {
+          display: block; height: 100%; border-radius: inherit; background: var(--accent);
+          transition: width 1s linear;
+        }
+        .hold-timer.urgent .ht-bar > span { background: var(--bad); }
+        .hold-timer .ht-text { font-size: 12px; color: var(--ink-3); line-height: 1.5; margin-top: 8px; }
+        .hold-timer .ht-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+        .hold-timer .ht-dismiss {
+          font-size: 11.5px; color: var(--ink-3);
           text-decoration: underline; text-underline-offset: 2px;
+          background: none; border: 0; padding: 4px 0; cursor: pointer;
+        }
+        @media (max-width: 40em) {
+          .hold-timer {
+            right: 12px; left: 12px; top: auto; width: auto;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            animation-name: holdTimerInUp;
+          }
+          @keyframes holdTimerInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: none; }
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hold-timer { animation: none; }
+          .hold-timer .ht-eyebrow .d { animation: none; }
+          .hold-timer .ht-bar > span { transition: none; }
+        }
+        .hold-note {
+          font-size: 11.5px; color: var(--ink-4); text-align: center; line-height: 1.5; margin-top: 8px;
         }
         .group-hint {
           display: flex; align-items: baseline; gap: 6px;
@@ -569,23 +633,29 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
 
       `}</style>
 
-      {pending && remainingSec > 0 && (
-        <div className="resume-banner">
-          <div>
-            <div className="rb-title">
-              {pending.quantity > 1
-                ? t('buy.reservedMany', { count: pending.quantity })
-                : t('buy.reservedOne')}
-            </div>
-            <div className="rb-time">
-              {t('buy.reservedCountdown', { time: formatCountdown(remainingSec) })}
-            </div>
+      {pending && remainingSec > 0 && typeof document !== 'undefined' && createPortal(
+        <div className={`hold-timer${remainingSec <= 60 ? ' urgent' : ''}`} role="status" aria-live="polite" aria-atomic="false">
+          <div className="ht-top">
+            <span className="ht-eyebrow"><span className="d" aria-hidden="true" />{t('buy.holdEyebrow')}</span>
+            {/* Ticks every second; kept out of the live region so a screen reader isn't read the clock. */}
+            <span className="ht-time" aria-hidden="true">{formatCountdown(remainingSec)}</span>
           </div>
-          <div className="rb-actions">
+          <div className="ht-title">
+            {pending.quantity > 1
+              ? t('buy.reservedMany', { count: pending.quantity })
+              : t('buy.reservedOne')}
+          </div>
+          <div className="ht-bar" aria-hidden="true">
+            <span style={{ width: `${Math.min(100, (remainingSec / (HOLD_MINUTES * 60)) * 100)}%` }} />
+          </div>
+          <div className="ht-text" aria-live="off">
+            {t('buy.reservedCountdown', { time: formatCountdown(remainingSec) })}
+          </div>
+          <div className="ht-actions">
             <a className="btn primary sm" href={pending.url}>{t('buy.resumeCta')}</a>
             <button
               type="button"
-              className="rb-dismiss"
+              className="ht-dismiss"
               onClick={() => {
                 setPending(null);
                 try { sessionStorage.removeItem(storageKey); } catch { /* private mode */ }
@@ -594,7 +664,8 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
               {t('buy.dismiss')}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {!soldOut && tiers.length > 1 && (
@@ -735,6 +806,10 @@ export default function ShopClient({ eventId, tiers, waitlistEnabled = false, gu
 
       {!soldOut && !tierSoldOut && grandTotal > 0 && (
         <div className="pay-methods">{t('buy.payMethods')}</div>
+      )}
+
+      {!soldOut && !tierSoldOut && !pending && (
+        <div className="hold-note">{t('buy.holdNote', { minutes: HOLD_MINUTES })}</div>
       )}
 
       {!soldOut && !tierSoldOut && !authenticated && guestAllowed && (

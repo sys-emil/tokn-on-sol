@@ -390,6 +390,9 @@ export default async function EventShowcasePage({ params }: { params: Promise<{ 
             {event.venue && (
               <div className="sc-fact"><span className="k">{t('showcase.factVenue')}</span><span className="v">{event.venue}</span></div>
             )}
+            {event.min_age && (
+              <div className="sc-fact"><span className="k">{t('showcase.factAge')}</span><span className="v">{t('showcase.factAgeValue', { age: event.min_age })}</span></div>
+            )}
             <div className="sc-fact"><span className="k">{t('showcase.factCapacity')}</span><span className="v">{event.capacity}</span></div>
             {organizerName && (
               <div className="sc-fact">

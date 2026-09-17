@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { HOLD_MINUTES } from "@/lib/checkoutHold";
 import { stripe } from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { TicketTier } from "@/lib/supabase";
@@ -23,8 +24,6 @@ interface CheckoutBody {
   queueToken?: string;
 }
 
-/** How long a buyer's seats are held before others may claim them. */
-const HOLD_MINUTES = 5;
 /** Stripe's minimum checkout-session lifetime. */
 const SESSION_MINUTES = 30;
 

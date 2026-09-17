@@ -56,6 +56,7 @@ interface UpdateEventBody {
     reentry_cooldown_seconds?: number;
     max_per_order?: number;
     end_date?: string | null;
+    min_age?: number | null;
   };
   tiers?: TierEdit[];
 }
@@ -238,6 +239,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ success: false, error: "max_per_order must be 1–10" }, { status: 400 });
     }
     update.max_per_order = fields.max_per_order;
+  }
+  if (fields.min_age !== undefined) {
+    if (fields.min_age !== null && (!Number.isInteger(fields.min_age) || fields.min_age < 1 || fields.min_age > 99)) {
+      return NextResponse.json({ success: false, error: "min_age must be 1–99 or null" }, { status: 400 });
+    }
+    update.min_age = fields.min_age;
   }
   if (fields.accent_hue !== undefined) {
     if (fields.accent_hue !== null && (!Number.isInteger(fields.accent_hue) || fields.accent_hue < 0 || fields.accent_hue > 360)) {

@@ -23,6 +23,8 @@ export interface ShopCardProps {
   /** Ausgeschriebenes Datum, z. B. "Freitag, 5. September · 20:00 Uhr". */
   whenLabel: string;
   venue?: string | null;
+  /** Altershinweis unter dem Datum, z. B. "Ab 18 Jahren · Ausweis am Einlass". */
+  ageNote?: string | null;
   description?: string | null;
   /** Fertig formatiert, z. B. "ab 12,00 €" oder "Kostenlos". */
   priceLabel: string;
@@ -39,6 +41,7 @@ export function ShopCard({
   dateChip,
   whenLabel,
   venue,
+  ageNote,
   description,
   priceLabel,
   feeNote,
@@ -60,6 +63,7 @@ export function ShopCard({
           <div className="when">
             <span><Icon name="calendar" size={13} /> {whenLabel}</span>
             {venue && <span><Icon name="location" size={13} /> {venue}</span>}
+            {ageNote && <span><Icon name="idcard" size={13} /> {ageNote}</span>}
           </div>
         </div>
       </div>
