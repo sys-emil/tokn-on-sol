@@ -12,4 +12,7 @@ im Dashboard neu einfuegen.
 Einfuegen: Supabase → Projekt getpassly → Authentication → Emails → Templates →
 **Magic Link** (die Vorlage, die `signInWithOtp` benutzt; `{{ .Token }}` darin
 macht aus dem Link den 6-stelligen Code). Betreff: `Dein Anmeldecode für Passly`.
-Platzhalter: `{{ .Token }}` (Code), `{{ .Email }}` (Empfaenger).
+Platzhalter: `{{ .Token }}` (Code), `{{ .ConfirmationURL }}` (Link zum direkten
+Anmelden; der Client hat dafuer `detectSessionInUrl` an), `{{ .Email }}` (Empfaenger).
+Die Gueltigkeit „eine Stunde“ im Text entspricht der Standard-OTP-Expiry (3600 s);
+wer die im Dashboard aendert, aendert auch den Satz.
