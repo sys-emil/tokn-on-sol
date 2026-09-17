@@ -545,8 +545,9 @@ export default function FuerVeranstalterPage() {
                     Jedes Ticket ist ein einzigartiges digitales Original, das eindeutig
                     einem Gast gehört. Der QR-Code erneuert sich jede Minute, jeder Scan
                     prüft Echtheit und Besitz in Echtzeit, und jedes Ticket lässt sich
-                    nur genau einmal einlösen. Weitergegebene Screenshots oder kopierte
-                    Codes kommen am Einlass nicht durch.
+                    nur genau einmal einlösen; schaltest du den Wiedereinlass ein, ist
+                    jeder Gast trotzdem immer nur einmal drin. Weitergegebene Screenshots
+                    oder kopierte Codes kommen am Einlass nicht durch.
                   </div>
                 </details>
                 <details>

@@ -338,10 +338,10 @@ export default function AvvPage() {
         </li>
         <li>
           <strong>Vercel Inc.</strong>, 440 N Barranca Ave #4133, Covina, CA 91723, USA – Hosting und Ausführung der Anwendung.
-          Verarbeitungsort: EU (Region Frankfurt) für die Anwendungsausführung, weltweites Netzwerk für die Auslieferung statischer Inhalte. Übermittlungsmechanismus: EU-U.S. Data Privacy Framework und Standardvertragsklauseln (Vercel DPA).
+          Verarbeitungsort: EU (Region Dublin, Irland) für die Anwendungsausführung, weltweites Netzwerk für die Auslieferung statischer Inhalte. Übermittlungsmechanismus: EU-U.S. Data Privacy Framework und Standardvertragsklauseln (Vercel DPA).
         </li>
         <li>
-          <strong>Resend, Inc.</strong>, 2261 Market Street #5039, San Francisco, CA 94114, USA – Versand von E-Mails an Gäste im Namen des Verantwortlichen.
+          <strong>Plus Five Five, Inc. (Resend)</strong>, 2261 Market Street #5039, San Francisco, CA 94114, USA – Versand von E-Mails an Gäste im Namen des Verantwortlichen.
           Verarbeitet: Empfängeradresse, Betreff, Inhalt, Zustellstatus. Übermittlungsmechanismus: Standardvertragsklauseln (Resend DPA).
         </li>
         <li>
@@ -350,7 +350,7 @@ export default function AvvPage() {
         </li>
       </ul>
       <p>
-        <strong>Kein Unterauftragsverarbeiter im Sinne dieser Vereinbarung</strong>: Stripe Payments Europe, Ltd. (Zahlungsabwicklung, eigene Verantwortlichkeit von Passly bzw. Stripe) sowie Helius Labs (Bereitstellung des öffentlichen Registers für die Ticketechtheit; dorthin gelangen keine Gästedaten, nur die pseudonyme Kontokennung und der einheitliche Ticketname).
+        <strong>Kein Unterauftragsverarbeiter im Sinne dieser Vereinbarung</strong>: Stripe Payments Europe, Ltd. (Zahlungsabwicklung, eigene Verantwortlichkeit von Passly bzw. Stripe) sowie Helius Blockchain Technologies, Inc. (Bereitstellung des öffentlichen Registers für die Ticketechtheit; dorthin gelangen keine Gästedaten, nur die pseudonyme Kontokennung und der einheitliche Ticketname).
       </p>
 
       <h2>Anlage 3: Technische und organisatorische Maßnahmen</h2>
@@ -377,7 +377,7 @@ export default function AvvPage() {
       </ul>
       <p><strong>Verfügbarkeitskontrolle</strong></p>
       <ul>
-        <li>Datenbank mit automatischen Sicherungen durch den Anbieter; die Anwendung ist zustandslos und wird bei jedem Stand neu ausgerollt, ein Rollback auf einen früheren Stand ist jederzeit möglich.</li>
+        <li>Die Anwendung ist zustandslos und wird bei jedem Stand vollständig neu ausgerollt; ein Rollback auf einen früheren Stand ist jederzeit möglich. Die Datenbank wird beim Anbieter aus Anlage 2 betrieben; Umfang und Turnus der dortigen Sicherungen richten sich nach dem gebuchten Leistungsumfang.</li>
         <li>Einlass funktioniert auch ohne Netzverbindung auf Basis einer lokal zwischengespeicherten Ticketliste; Vorgänge werden bei Rückkehr der Verbindung nachgetragen.</li>
         <li>Betriebsstörungen werden automatisch per E-Mail an den Betreiber gemeldet; Fehlerprotokollierung nach Anlage 2, soweit aktiviert.</li>
       </ul>
@@ -391,7 +391,7 @@ export default function AvvPage() {
       </ul>
       <p><strong>Organisation</strong></p>
       <ul>
-        <li>Änderungen an der Anwendung durchlaufen automatisierte Prüfungen (Typprüfung, statische Analyse, Tests der zahlungs- und ticketrelevanten Abläufe) vor jeder Auslieferung.</li>
+        <li>Der Quellcode wird vor jeder Auslieferung automatisch typgeprüft; statische Analyse und automatisierte Tests der zahlungs- und ticketrelevanten Abläufe sind Bestandteil des Entwicklungsprozesses und werden vor Änderungen an diesen Abläufen ausgeführt.</li>
         <li>Zugangsdaten zu den Diensten aus Anlage 2 werden ausschließlich in der verschlüsselten Konfigurationsverwaltung des Hostinganbieters gehalten, nicht im Quellcode.</li>
         <li>Mit allen Unterauftragsverarbeitern bestehen Auftragsverarbeitungsverträge.</li>
       </ul>

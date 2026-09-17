@@ -16,7 +16,7 @@ export default function HilfePage() {
   return (
     <>
       <JsonLd data={breadcrumbLd([{ name: 'Hilfe & Support', path: '/hilfe' }])} />
-    <LegalPageShell title="Hilfe & Support" stand="7. Juli 2026">
+    <LegalPageShell title="Hilfe & Support" stand="17. September 2026">
       <p>
         Die häufigsten Fragen sind hier beantwortet. Für alles andere erreichst du uns unter{' '}
         <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. Wir melden uns in der Regel
@@ -29,6 +29,11 @@ export default function HilfePage() {
         <Link href="/my-tickets">Meine Tickets</Link> auf einem beliebigen Gerät und melde dich mit
         derselben E-Mail-Adresse an, mit der du gekauft hast, und das Ticket ist sofort wieder da.
         Eine App oder ein Passwort brauchst du nicht; du bekommst einen Anmeldecode per E-Mail.
+      </p>
+      <p>
+        Hast du ohne Konto gekauft, findest du in deiner Bestätigungs-E-Mail einen Bestell-Link.
+        Öffne ihn und melde dich an, dann wird die Bestellung deinem Konto zugeordnet und das
+        Ticket erscheint unter „Meine Tickets&ldquo;. Vorher lässt sich kein QR-Code anzeigen.
       </p>
 
       <h2>Ich komme nicht mehr an meine E-Mail-Adresse</h2>
@@ -47,11 +52,25 @@ export default function HilfePage() {
         können nicht übertragen werden.
       </p>
 
-      <h2>Ich kann nicht kommen: kann ich mein Ticket weitergeben?</h2>
+      <h2>Ich kann nicht kommen: kann ich mein Ticket weitergeben oder zurückgeben?</h2>
       <p>
-        Ja. Öffne dein Ticket unter <Link href="/my-tickets">Meine Tickets</Link> und erstelle dort
-        einen Weitergabe-Link. Die Person, die den Link öffnet und sich anmeldet, erhält das Ticket,
-        sicher und nachvollziehbar. Dein eigener Zugriff erlischt dabei.
+        <strong>Weitergeben</strong> geht immer. Öffne dein Ticket unter{' '}
+        <Link href="/my-tickets">Meine Tickets</Link> und erstelle dort einen Weitergabe-Link.
+        Die Person, die den Link öffnet und sich anmeldet, erhält das Ticket; dein eigener
+        Zugriff erlischt dabei. Schicke den Link nur der Person, die das Ticket bekommen soll.
+      </p>
+      <p>
+        <strong>Zurückgeben</strong> geht, wenn der Veranstalter die Rückgabe für sein Event
+        freigeschaltet hat; du siehst das direkt beim Ticket. Dein Platz geht dann zurück in den
+        Verkauf. Sobald ihn jemand kauft, erhältst du den Ticketpreis abzüglich 10&nbsp;%
+        (mindestens 1&nbsp;€) auf dein ursprüngliches Zahlungsmittel zurück; die Servicegebühr
+        wird nicht erstattet. Wird der Platz bis zum Veranstaltungstag nicht verkauft, bekommst
+        du dein Ticket zurück. Bis dahin kannst du die Rückgabe jederzeit abbrechen. Möglich ist
+        das bis zum Tag vor der Veranstaltung und nur für noch nicht eingelöste Tickets.
+      </p>
+      <p>
+        Ist die Rückgabe nicht freigeschaltet, wende dich an den Veranstalter: Er kann ein
+        einzelnes Ticket aus seinem Dashboard vollständig erstatten, muss das aber nicht.
       </p>
 
       <h2>Das Event wurde abgesagt: bekomme ich mein Geld zurück?</h2>
@@ -68,6 +87,15 @@ export default function HilfePage() {
         <li>Screenshots funktionieren nicht. Zeige immer die geöffnete Ticketseite.</li>
         <li>Stelle die Bildschirmhelligkeit hoch, dann klappt der Scan schneller.</li>
       </ul>
+
+      <h2>Am Veranstaltungsort gibt es keinen Empfang</h2>
+      <p>
+        Der QR-Code auf der Ticketseite braucht eine Verbindung, weil er sich jede Minute
+        erneuert. Für Orte ohne Netz kannst du zusätzlich ein Offline-Ticket als PDF erzeugen,
+        direkt nach dem Kauf auf der Bestätigungsseite oder später auf deiner Ticketseite. Es
+        wird auf deinen Namen und dein Geburtsdatum ausgestellt und ist nur zusammen mit deinem
+        Ausweis gültig. Erzeuge es am besten zu Hause, bevor du losfährst.
+      </p>
 
       <h2>Ich veranstalte selbst und brauche Hilfe</h2>
       <p>

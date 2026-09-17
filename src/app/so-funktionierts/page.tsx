@@ -273,7 +273,8 @@ export default function SoFunktioniertsPage() {
                     jeder Scan prüft in Echtzeit, ob das Ticket echt ist und wirklich
                     dir gehört. Ein abfotografierter Code ist deshalb nach spätestens
                     einer Minute wertlos, und jedes Ticket lässt sich nur genau einmal
-                    einlösen.
+                    einlösen; erlaubt der Veranstalter Wiedereinlass, kannst du raus und
+                    wieder rein, bist aber nie doppelt drin.
                   </div>
                 </details>
                 <details>
@@ -310,7 +311,11 @@ export default function SoFunktioniertsPage() {
                     Weitergeben ja: Du schickst einen Übergabe-Link, die andere Person
                     nimmt das Ticket mit ihrer E-Mail-Adresse an. Danach gehört es ihr,
                     dein alter QR-Code funktioniert dann nicht mehr. So bleibt immer
-                    eindeutig, wem ein Ticket gehört.
+                    eindeutig, wem ein Ticket gehört. Verkaufen zu einem eigenen Preis
+                    geht nicht; hat der Veranstalter die Rückgabe freigeschaltet, kannst
+                    du dein Ticket aber zurückgeben und bekommst, sobald der Platz neu
+                    verkauft ist, den Ticketpreis abzüglich 10&nbsp;% (mindestens
+                    1&nbsp;€) zurück.
                   </div>
                 </details>
               </div>

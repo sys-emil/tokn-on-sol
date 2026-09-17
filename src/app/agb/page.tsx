@@ -12,11 +12,20 @@ export const metadata: Metadata = {
  * AGB im Vermittlermodell: Der Veranstaltungsvertrag kommt zwischen Gast und
  * Veranstalter zustande; Passly vermittelt, wickelt die Zahlung über Stripe ab
  * und stellt das Ticketsystem. Das entspricht dem technischen Aufbau
- * (Separate Charges & Transfers, Veranstalter erhält 100 % des Ticketpreises).
+ * (Separate Charges & Transfers; der Veranstalter erhält den Ticketpreis
+ * abzüglich des Anteils an der Servicegebühr, den er je Event selbst trägt,
+ * `events.fee_payer`).
+ *
+ * Jede Zahl hier hat eine Quelle im Code: Gebührenstaffel `src/lib/fees.ts`,
+ * Reservierung `HOLD_MINUTES` in `/api/checkout/create`, Auszahlungsfristen
+ * `effectiveHoldDays` in `src/lib/payouts.ts`, Rückgabe `RETURN_FEE_BPS` /
+ * `RETURN_WINDOW_DAYS` in `fees.ts` / `resaleReturn.ts`, Freikarten-Deckel
+ * `src/lib/freeTickets.ts`. Ändert sich eine Konstante, ändert sich dieser
+ * Text im selben Commit.
  *
  * Dieser Text ist ein sorgfältiger Entwurf, ERSETZT ABER KEINE anwaltliche
- * Prüfung, insbesondere §§ 3, 8, 9 und Teil B sollten vor Go-Live von einer
- * auf IT-/Vertriebsrecht spezialisierten Kanzlei freigegeben werden.
+ * Prüfung, insbesondere §§ 3, 8, 9, 9a und Teil B sollten von einer auf
+ * IT-/Vertriebsrecht spezialisierten Kanzlei freigegeben werden.
  */
 
 export default function AgbPage() {
@@ -48,14 +57,21 @@ export default function AgbPage() {
 
       <h2>§ 2 Konto</h2>
       <p>
-        (1) Für den Kauf und die Verwaltung von Tickets ist ein Passly-Konto
-        erforderlich. Die Anmeldung erfolgt mit einer gültigen E-Mail-Adresse über
-        einen Bestätigungscode; ein Passwort wird nicht vergeben.
+        (1) Tickets werden in einem Passly-Konto verwahrt und vorgezeigt. Die
+        Anmeldung erfolgt mit einer gültigen E-Mail-Adresse über einen
+        Bestätigungscode; ein Passwort wird nicht vergeben.
       </p>
       <p>
-        (2) Du bist verpflichtet, den Zugang zu deinem E-Mail-Postfach vor dem
-        Zugriff Dritter zu schützen, da darüber auf dein Konto und deine Tickets
-        zugegriffen werden kann.
+        (2) Soweit der Veranstalter dies zulässt, kann der Kauf auch ohne
+        bestehendes Konto abgeschlossen werden (Gastbestellung). Der Gast erhält
+        in diesem Fall per E-Mail einen Bestell-Link. Das Ticket kann erst
+        vorgezeigt werden, nachdem der Gast sich über diesen Link in einem
+        Passly-Konto angemeldet und die Bestellung dem Konto zugeordnet hat.
+      </p>
+      <p>
+        (3) Du bist verpflichtet, den Zugang zu deinem E-Mail-Postfach sowie
+        einen dir zugesandten Bestell-Link vor dem Zugriff Dritter zu schützen,
+        da darüber auf dein Konto und deine Tickets zugegriffen werden kann.
       </p>
 
       <h2>§ 3 Ticketkauf und Vertragsschluss</h2>
@@ -71,9 +87,12 @@ export default function AgbPage() {
         den Ticket-Links per E-Mail.
       </p>
       <p>
-        (3) Zur Vermeidung von Überverkauf werden Tickets während des
-        Bezahlvorgangs für 30 Minuten reserviert. Wird der Bezahlvorgang nicht
-        abgeschlossen, verfällt die Reservierung.
+        (3) Zur Vermeidung von Überverkauf werden die ausgewählten Tickets mit
+        Beginn des Bezahlvorgangs reserviert. Die Reservierung gilt längstens
+        30 Minuten. Ist der Bezahlvorgang nach fünf Minuten nicht abgeschlossen,
+        kann die Reservierung vorzeitig aufgehoben werden, wenn andere Gäste die
+        Plätze nachfragen; der Bezahlvorgang wird in diesem Fall abgebrochen. Eine
+        bereits abgeschlossene Zahlung bleibt hiervon unberührt.
       </p>
 
       <h2>§ 4 Preise und Servicegebühr</h2>
@@ -133,11 +152,31 @@ export default function AgbPage() {
         Konto angezeigt wird.
       </p>
       <p>
-        (2) Jedes Ticket berechtigt zum einmaligen Einlass. Kopien, Screenshots
-        oder Abfotografien des QR-Codes berechtigen nicht zum Einlass.
+        (2) Jedes Ticket berechtigt zum einmaligen Einlass. Hat der Veranstalter
+        für sein Event den Wiedereinlass freigeschaltet, kann der Gast den
+        Veranstaltungsort verlassen und mit demselben Ticket erneut eingelassen
+        werden; zwischen zwei Scans desselben Tickets gilt eine vom Veranstalter
+        festgelegte Sperrzeit. Ein Saisonpass berechtigt zum jeweils einmaligen
+        Einlass zu jedem im Pass enthaltenen Termin.
       </p>
       <p>
-        (3) Für die Einlasskontrolle und etwaige zusätzliche Einlassbedingungen
+        (3) Kopien, Screenshots oder Abfotografien des QR-Codes berechtigen nicht
+        zum Einlass.
+      </p>
+      <p>
+        (4) <strong>Offline-Ticket:</strong> Für Veranstaltungsorte ohne
+        Netzverbindung kann der Gast zu seinem Ticket zusätzlich ein
+        Offline-Ticket als PDF erzeugen. Es trägt einen unveränderlichen
+        QR-Code, der auf Vor- und Nachname sowie Geburtsdatum des Gastes
+        ausgestellt ist; diese Angaben sind Bestandteil des Codes und können
+        nachträglich nicht geändert werden. Am Einlass ist zum Offline-Ticket ein
+        amtlicher Lichtbildausweis vorzulegen; stimmen die Angaben nicht überein,
+        kann der Einlass verweigert werden. Das Offline-Ticket ist nicht
+        übertragbar. Es verliert seine Gültigkeit, sobald das zugehörige Ticket
+        eingelöst, weitergegeben, zurückgegeben oder erstattet wurde.
+      </p>
+      <p>
+        (5) Für die Einlasskontrolle und etwaige zusätzliche Einlassbedingungen
         (z.&nbsp;B. Altersgrenzen) ist der Veranstalter verantwortlich.
       </p>
 
@@ -146,7 +185,10 @@ export default function AgbPage() {
         (1) Tickets können über die dafür vorgesehene Funktion per
         Übergabe-Link an eine andere Person weitergegeben werden. Mit Annahme der
         Übergabe gehen alle Rechte aus dem Ticket auf die annehmende Person über;
-        der QR-Code des bisherigen Inhabers verliert seine Gültigkeit.
+        der QR-Code des bisherigen Inhabers und ein für das Ticket erzeugtes
+        Offline-Ticket verlieren ihre Gültigkeit. Der Übergabe-Link ist ein
+        Berechtigungsnachweis: Wer ihn kennt, kann das Ticket annehmen. Er ist
+        daher nur der Person zu übermitteln, die das Ticket erhalten soll.
       </p>
       <p>
         (2) Eine Weitergabe außerhalb dieser Funktion ist technisch nicht möglich
@@ -162,7 +204,8 @@ export default function AgbPage() {
         Widerrufsrecht ausgenommen, wenn der Vertrag, wie bei Veranstaltungen mit
         festem Termin, einen spezifischen Zeitpunkt oder Zeitraum für die
         Erbringung vorsieht. Jeder Ticketkauf ist daher verbindlich; eine Rückgabe
-        ist ausgeschlossen, soweit nicht §&nbsp;9 etwas anderes bestimmt.
+        ist ausgeschlossen, soweit nicht §&nbsp;9 oder §&nbsp;9a etwas anderes
+        bestimmt.
       </p>
 
       <h2>§ 9 Absage, Verlegung und Erstattung</h2>
@@ -180,6 +223,52 @@ export default function AgbPage() {
         (3) Sagt der Veranstalter die Veranstaltung ab, erstattet Passly dem Gast
         zusammen mit dem Ticketpreis auch die Servicegebühr. Bei einer bloßen
         Verlegung besteht kein Anspruch auf Erstattung der Servicegebühr.
+      </p>
+      <p>
+        (4) Erstattet der Veranstalter ein einzelnes Ticket auf Bitte des Gastes
+        oder aus eigenem Entschluss, erhält der Gast den für dieses Ticket
+        gezahlten Betrag einschließlich der Servicegebühr auf das ursprüngliche
+        Zahlungsmittel zurück; das Ticket verliert seine Gültigkeit. Ein Anspruch
+        des Gastes auf eine solche Erstattung besteht nicht; die Entscheidung
+        liegt beim Veranstalter. Die vom Zahlungsdienstleister einbehaltenen
+        Entgelte trägt der Veranstalter entsprechend §&nbsp;4 Abs.&nbsp;3.
+      </p>
+
+      <h2>§ 9a Rückgabe und Neuverkauf</h2>
+      <p>
+        (1) Der Veranstalter kann für ein Event die Rückgabe von Tickets
+        freischalten. Ob sie für ein Event verfügbar ist, wird im Passly-Konto
+        beim jeweiligen Ticket angezeigt. Ist sie freigeschaltet, kann der Gast
+        ein noch nicht eingelöstes Ticket bis zum Tag vor der Veranstaltung über
+        sein Passly-Konto zur Rückgabe anbieten.
+      </p>
+      <p>
+        (2) Mit dem Angebot verliert das Ticket seine Gültigkeit, und der Platz
+        wird zum ursprünglichen Ticketpreis erneut zum Verkauf gestellt. Ein
+        Verkauf zu einem höheren als dem ursprünglichen Preis ist nicht möglich.
+        Der neue Käufer erwirbt das Ticket über den regulären Kaufvorgang nach
+        §&nbsp;3.
+      </p>
+      <p>
+        (3) Wird der Platz erneut verkauft, erstattet Passly dem Gast den für
+        das Ticket gezahlten Ticketpreis abzüglich einer{' '}
+        <strong>Rückgabegebühr in Höhe von 10&nbsp;% des Ticketpreises,
+        mindestens jedoch 1,00&nbsp;€</strong>, auf das ursprüngliche
+        Zahlungsmittel. Eine beim Kauf gezahlte Servicegebühr wird nicht
+        erstattet. Der zu erwartende Erstattungsbetrag wird vor Abgabe des
+        Angebots angezeigt.
+      </p>
+      <p>
+        (4) Wird der Platz bis zum Tag der Veranstaltung nicht erneut verkauft,
+        erhält der Gast sein Ticket in gültiger Form zurück; ein Anspruch auf
+        Erstattung besteht in diesem Fall nicht. Bis zum Neuverkauf kann der
+        Gast das Angebot jederzeit zurücknehmen; das Ticket wird dann wieder
+        gültig.
+      </p>
+      <p>
+        (5) Die Rückgabe ist nicht möglich für Saisonpässe, kostenlose Tickets,
+        an der Abendkasse erworbene Tickets, bereits eingelöste Tickets sowie für
+        Käufe, die länger als 150 Tage zurückliegen.
       </p>
 
       <h2>§ 10 Haftung von Passly</h2>
@@ -226,6 +315,25 @@ export default function AgbPage() {
         Laufzeit erfolgt nicht. Ein Wechsel von monatlicher auf jährliche
         Laufzeit ist jederzeit möglich; bereits gezahlte Monatsentgelte werden
         dabei angerechnet.
+      </p>
+      <p>
+        (4) <strong>Abendkasse:</strong> Der Veranstalter kann Tickets über die
+        Einlassfunktion auch vor Ort gegen Barzahlung ausgeben. Passly wickelt
+        dabei keine Zahlung ab; der vereinnahmte Betrag verbleibt beim
+        Veranstalter. Der Preis an der Abendkasse entspricht dem Preis, den ein
+        Gast im Online-Vorverkauf für dasselbe Ticket zahlt, einschließlich des
+        auf den Gast entfallenden Anteils der Servicegebühr. Die Servicegebühr
+        nach §&nbsp;4 Abs.&nbsp;2 fällt für diese Tickets in voller Höhe an und
+        wird von der nächsten Auszahlung an den Veranstalter einbehalten. Die
+        offenen Beträge sind im Veranstalter-Konto einsehbar.
+      </p>
+      <p>
+        (5) <strong>Kostenlose Tickets:</strong> Je Event können ohne
+        Passly&nbsp;Pro bis zu 500 kostenlose Tickets angeboten werden; mit
+        Passly&nbsp;Pro gilt die allgemeine Kapazitätsgrenze je Event von
+        10.000 Tickets. Die Grenze wird beim Anlegen und Bearbeiten des Events
+        geprüft; für Events, die vor Einführung der Grenze angelegt wurden,
+        bleibt die bestehende Kapazität erhalten.
       </p>
 
       <h2>§ 12 Auszahlung und Identitätsprüfung</h2>

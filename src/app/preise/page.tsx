@@ -54,7 +54,7 @@ const FREE_FEATURES = [
   'Einlass-Scanner im Browser, auch ohne Empfang',
   'Türlinks fürs Personal, ohne eigenen Zugang',
   'Abendkasse für Barverkauf an der Tür',
-  'Weiterverkauf mit eigener Preisobergrenze',
+  'Rückgabe und Neuverkauf zum Originalpreis',
   'Saisonpässe für ganze Reihen',
   'Auszahlungen einzeln nachvollziehbar',
 ];
@@ -446,38 +446,48 @@ export default function PreisePage() {
                   <h3>Was kosten kostenlose Tickets?</h3>
                   <p>
                     Nichts, für beide Seiten. Bei einem Ticketpreis von 0&nbsp;€ fällt keine
-                    Servicegebühr an, weil gar keine Zahlung abgewickelt wird.
+                    Servicegebühr an, weil gar keine Zahlung abgewickelt wird. Im kostenlosen
+                    Plan sind bis zu 500 kostenlose Tickets pro Event möglich, mit Pro bis zu
+                    10.000.
                   </p>
                 </div>
                 <div className="card faq-item" data-reveal>
                   <h3>Wann bekomme ich mein Geld?</h3>
                   <p>
-                    Die Auszahlung läuft automatisch auf dein Bankkonto. Du legst pro Event
-                    einen Puffer nach dem Veranstaltungsdatum fest (0 bis 90 Tage); danach
-                    wird der Betrag überwiesen. Jede einzelne Auszahlung siehst du im
-                    Dashboard.
+                    Automatisch auf dein Bankkonto, ab dem Tag nach deinem Event; bei deiner
+                    allerersten Auszahlung drei Tage nach dem Event. Vorher wird nicht
+                    ausgezahlt, damit Absagen und Rückbuchungen abgewickelt werden können.
+                    Du kannst pro Event einen längeren Puffer festlegen (bis 90 Tage) oder
+                    im Dashboard eine vorzeitige Auszahlung anfragen. Jede einzelne
+                    Auszahlung siehst du im Dashboard.
                   </p>
                 </div>
                 <div className="card faq-item" data-reveal>
                   <h3>Was passiert bei einer Absage?</h3>
                   <p>
                     Sagst du ein Event ab, werden alle noch nicht ausgezahlten Zahlungen
-                    automatisch vollständig zurückerstattet und die Tickets entwertet. Der
-                    Verkauf stoppt sofort.
+                    automatisch vollständig zurückerstattet, inklusive Servicegebühr, und die
+                    Tickets entwertet. Der Verkauf stoppt sofort. Nur was der
+                    Zahlungsdienstleister bei einer Erstattung einbehält, wird mit deiner
+                    nächsten Auszahlung verrechnet; unsere Servicegebühr nicht. Den genauen
+                    Betrag siehst du, bevor du die Absage bestätigst.
                   </p>
                 </div>
                 <div className="card faq-item" data-reveal>
-                  <h3>Was kostet der Weiterverkauf?</h3>
+                  <h3>Was kostet die Rückgabe?</h3>
                   <p>
-                    Wenn du ihn für ein Event freischaltest, gilt eine Gebühr ab 8&nbsp;%
-                    des Verkaufspreises, die sich Käufer und Verkäufer teilen. Wie weit über
-                    dem Originalpreis verkauft werden darf, bestimmst du.
+                    Schaltest du sie für ein Event frei, kann ein Gast sein Ticket bis zum Tag
+                    vor dem Event zurückgeben. Der Platz geht zum Originalpreis zurück in den
+                    Verkauf; sobald er wieder verkauft ist, bekommt der Gast den Ticketpreis
+                    abzüglich 10&nbsp;% (mindestens 1&nbsp;€) zurück. Dich kostet das nichts,
+                    und einen Aufpreis kann niemand verlangen.
                   </p>
                 </div>
                 <div className="card faq-item" data-reveal>
                   <h3>Kann ich Pro wieder kündigen?</h3>
                   <p>
-                    Ja, monatlich. Nach dem Ende der Laufzeit läuft dein Konto im
+                    Ja, jederzeit zum Ende der laufenden Abrechnungsperiode, monatlich oder
+                    jährlich, je nachdem, was du gewählt hast. Danach läuft dein Konto im
                     kostenlosen Plan weiter, deine Events und Verkäufe bleiben bestehen.
                   </p>
                 </div>

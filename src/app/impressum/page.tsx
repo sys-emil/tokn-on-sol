@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function ImpressumPage() {
   return (
-    <LegalPageShell title="Impressum" stand="Juli 2026">
+    <LegalPageShell title="Impressum" stand="September 2026">
 
       <h2>Angaben gemäß § 5 DDG</h2>
       <div className="legal-address">
@@ -27,10 +27,10 @@ export default function ImpressumPage() {
         Deutschland
       </div>
       <p>
-        Passly wird derzeit von einer Einzelperson betrieben.
-        {/* Sobald ein Gewerbe angemeldet oder eine Gesellschaft gegründet ist:
-            Rechtsform, ggf. Handelsregister + Registernummer und
-            Vertretungsberechtigte hier ergänzen. */}
+        Passly wird als Einzelunternehmen betrieben (Gewerbe angemeldet; kein
+        Eintrag im Handelsregister).
+        {/* Bei Gründung einer Gesellschaft: Rechtsform, Handelsregister +
+            Registernummer und Vertretungsberechtigte hier ergänzen. */}
       </p>
 
       <h2>Kontakt</h2>
