@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { sendAdminAlert } from "@/lib/email";
 import { sendDueEventReminders } from "@/lib/reminders";
 import { sendDailySalesDigests } from "@/lib/salesDigest";
+import { sendDailySignupDigest } from "@/lib/signupDigest";
 import { reportError } from "@/lib/observe";
 import { sweepWaitlists } from "@/lib/waitlist";
 import { claimOffsetForPayout, releaseOffset } from "@/lib/platformFees";
@@ -286,6 +287,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     console.error("Sales digests failed:", err instanceof Error ? err.message : err);
   }
 
+  // Anmeldungen der letzten 24 h an den Admin, nur wenn es welche gab.
+  let signupDigest = { signups: 0, organizers: 0, sent: false };
+  try {
+    signupDigest = await sendDailySignupDigest(baseUrl);
+  } catch (err) {
+    console.error("Signup digest failed:", err instanceof Error ? err.message : err);
+  }
+
   return NextResponse.json({
     success: true,
     processed,
@@ -302,6 +311,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     reminders,
     waitlistMails,
     salesDigests,
+    signupDigest,
   });
 }
 

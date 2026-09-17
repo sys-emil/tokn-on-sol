@@ -558,6 +558,7 @@ const de = {
   "mail.waitlistHeading": "Es ist ein Platz frei geworden",
   "mail.waitlistText": "Für {event} sind wieder Tickets verfügbar. Wer zuerst kommt, mahlt zuerst; diese Nachricht reserviert nichts.",
   "mail.toEvent": "Zum Event",
+  "mail.myTickets": "Meine Tickets",
 } as const;
 
 export type TranslationKey = keyof typeof de;
@@ -1071,6 +1072,7 @@ const en: Record<TranslationKey, string> = {
   "mail.waitlistHeading": "A seat has opened up",
   "mail.waitlistText": "Tickets for {event} are available again. First come, first served; this message does not reserve anything.",
   "mail.toEvent": "Go to the event",
+  "mail.myTickets": "My tickets",
 };
 
 export const DICT: Record<Lang, Record<TranslationKey, string>> = { de, en };

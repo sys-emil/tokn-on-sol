@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { normalizeLang, t, type Lang } from "@/lib/i18n";
 import { reportAlert } from "@/lib/observe";
 import { formatEventDates } from "@/lib/eventDates";
+import { esc, monoLink, renderMail, MAIL, type Block, type MailSpec } from "@/lib/mailLayout";
 
 // Absender aller ausgehenden Mails. Die Domain muss in Resend verifiziert
 // sein, sonst lehnt Resend den Versand ab — der Fallback zeigt deshalb auf
@@ -21,6 +22,21 @@ const REPLY_TO = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@getpassly.de"
 const LEGAL_NAME = "Emil Lange";
 const LEGAL_ADDRESS = "Vingerstr. 47, 81375 München";
 
+const SUPPORT = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@getpassly.de";
+
+/**
+ * Alle Mails teilen ein Layout (`src/lib/mailLayout.ts`); jeder Sender
+ * beschreibt nur noch Überschrift, Blöcke und Fußnoten. `mail()` hängt die
+ * Impressumszeile an und liefert HTML plus die daraus abgeleitete Textfassung.
+ */
+function mail(spec: Omit<MailSpec, "footer"> & { baseUrl: string; notes?: string[]; agb?: boolean }): { html: string; text: string } {
+  const { baseUrl, notes, agb, ...rest } = spec;
+  return renderMail({
+    ...rest,
+    footer: { baseUrl, notes, agb, legalName: LEGAL_NAME, legalAddress: LEGAL_ADDRESS },
+  });
+}
+
 function formatDate(iso: string, lang: Lang = "de"): string {
   if (!iso) return iso;
   const [year, month, day] = iso.split("-");
@@ -32,18 +48,23 @@ function formatDate(iso: string, lang: Lang = "de"): string {
   });
 }
 
-function ticketRow(assetId: string, baseUrl: string, index: number, total: number, lang: Lang): string {
+function ticketRow(assetId: string, baseUrl: string, index: number, total: number, lang: Lang): Block {
   const url = `${baseUrl}/tickets/${assetId}`;
   const label = total > 1
     ? t(lang, "mail.ticketNo", { index: index + 1, total })
     : t(lang, "mail.yourTicket");
-  return `
-    <tr>
-      <td style="padding:12px 0;border-bottom:1px solid #ececf2;">
-        <span style="font-family:'SF Mono',Menlo,monospace;font-size:12px;color:#8a8a99;">${label}</span><br/>
-        <a href="${url}" style="font-size:14px;color:#7c3aed;text-decoration:none;word-break:break-all;">${url}</a>
+  // Bei einem einzelnen Ticket steht das Label schon als Eyebrow darüber;
+  // die Zeile zeigt dann nur den Link.
+  return {
+    type: "raw",
+    html: `<table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="padding:${total > 1 ? 12 : 4}px 0 12px;border-bottom:1px solid ${MAIL.line2};">
+        ${total > 1 ? `<span style="font-family:'SF Mono',Menlo,monospace;font-size:12px;color:${MAIL.ink3};">${esc(label)}</span><br/>` : ""}
+        ${monoLink(url)}
       </td>
-    </tr>`;
+    </tr></table>`,
+    text: `${label}: ${url}`,
+  };
 }
 
 /**
@@ -52,22 +73,26 @@ function ticketRow(assetId: string, baseUrl: string, index: number, total: numbe
  * ticket is unlocked after signing in. Saying so prevents people from turning
  * up at the door with just this mail.
  */
-function orderRow(token: string, baseUrl: string, total: number, lang: Lang): string {
+function orderRow(token: string, baseUrl: string, total: number, lang: Lang): Block {
   const url = `${baseUrl}/order/${token}`;
   const label = total > 1 ? t(lang, "mail.yourTickets") : t(lang, "mail.yourTicket");
-  return `
-    <tr>
-      <td style="padding:12px 0;border-bottom:1px solid #ececf2;">
-        <span style="font-family:'SF Mono',Menlo,monospace;font-size:12px;color:#8a8a99;">${label}</span><br/>
-        <a href="${url}" style="font-size:14px;color:#7c3aed;text-decoration:none;word-break:break-all;">${url}</a><br/>
-        <span style="font-size:12px;color:#8a8a99;line-height:1.5;">${t(lang, "success.guestNote")}</span>
+  const note = t(lang, "success.guestNote");
+  return {
+    type: "raw",
+    html: `<table width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="padding:4px 0 12px;border-bottom:1px solid ${MAIL.line2};">
+        ${monoLink(url)}<br/>
+        <span style="font-size:12px;color:${MAIL.ink3};line-height:1.5;">${esc(note)}</span>
       </td>
-    </tr>`;
+    </tr></table>`,
+    text: `${label}: ${url}\n${note}`,
+  };
 }
 
 // Plain-text operational alert to the platform admin (mint failures etc.).
 // Requires ADMIN_ALERT_EMAIL; silently skipped when unset so non-critical
-// environments don't need it.
+// environments don't need it. Bewusst ohne Layout: ein Alarm wird auf dem
+// Handy überflogen, und Stacktraces gehören in Monospace, nicht in eine Karte.
 export async function sendAdminAlert({ subject, text }: { subject: string; text: string }): Promise<void> {
   // Jeder betriebliche Alarm auch nach Sentry, damit er nicht nur im Postfach liegt.
   reportAlert(subject, text);
@@ -80,9 +105,10 @@ export async function sendAdminAlert({ subject, text }: { subject: string; text:
 
 /**
  * Pro feature: an organizer's message to all ticket holders of one event.
- * Plaintext only (no HTML injection surface); one e-mail per recipient so
- * addresses never leak to each other. Recipients are chunked through Resend's
- * batch endpoint.
+ * The organizer's text goes through the layout as an escaped paragraph, so
+ * there is no HTML injection surface; one e-mail per recipient so addresses
+ * never leak to each other. Recipients are chunked through Resend's batch
+ * endpoint.
  */
 export async function sendOrganizerMessage({
   recipients,
@@ -102,7 +128,17 @@ export async function sendOrganizerMessage({
   if (!process.env.RESEND_API_KEY || recipients.length === 0) return 0;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const body = `${text}\n\n--\nDiese Nachricht wurde von ${organizerName} über Passly an die Ticketinhaber von „${eventName}“ gesendet.\n${baseUrl}/my-tickets\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+  const body = mail({
+    eyebrow: `Nachricht von ${organizerName}`,
+    heading: subject,
+    intro: `Zu „${eventName}“`,
+    sections: [
+      [{ type: "p", text }],
+      [{ type: "button", label: "Meine Tickets", url: `${baseUrl}/my-tickets` }],
+    ],
+    notes: [`Diese Nachricht wurde von ${organizerName} über Passly an die Ticketinhaber von „${eventName}“ gesendet. Antworten gehen an Passly, nicht an den Veranstalter.`],
+    baseUrl,
+  });
 
   let sent = 0;
   const CHUNK = 50;
@@ -114,7 +150,7 @@ export async function sendOrganizerMessage({
         replyTo: REPLY_TO,
         to,
         subject: `[${eventName}] ${subject}`,
-        text: body,
+        ...body,
       })),
     );
     if (error) {
@@ -127,7 +163,7 @@ export async function sendOrganizerMessage({
 }
 
 /**
- * Pro segment campaign: one plaintext mail to a customer segment (Stammgäste,
+ * Pro segment campaign: one mail to a customer segment (Stammgäste,
  * Gefährdet, …). Unlike `sendOrganizerMessage` this is not tied to a single
  * event, so the footer names the organizer as the reason the guest is hearing
  * from them and points at the ticket collection.
@@ -150,7 +186,16 @@ export async function sendOrganizerCampaign({
   if (!process.env.RESEND_API_KEY || recipients.length === 0) return 0;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const body = `${text}\n\n--\nDu bekommst diese E-Mail, weil du bereits Tickets von ${organizerName} über Passly gekauft hast (Segment: ${segmentLabel}).\nDeine Tickets: ${baseUrl}/my-tickets\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+  const body = mail({
+    eyebrow: `Nachricht von ${organizerName}`,
+    heading: subject,
+    sections: [
+      [{ type: "p", text }],
+      [{ type: "button", label: "Meine Tickets", url: `${baseUrl}/my-tickets` }],
+    ],
+    notes: [`Du bekommst diese E-Mail, weil du bereits Tickets von ${organizerName} über Passly gekauft hast (Segment: ${segmentLabel}).`],
+    baseUrl,
+  });
 
   let sent = 0;
   const CHUNK = 50;
@@ -162,7 +207,7 @@ export async function sendOrganizerCampaign({
         replyTo: REPLY_TO,
         to,
         subject: `${organizerName}: ${subject}`,
-        text: body,
+        ...body,
       })),
     );
     if (error) {
@@ -176,8 +221,7 @@ export async function sendOrganizerCampaign({
 
 /**
  * Retention nudge after a check-in: "one more event until your next badge".
- * Sent at most once per redemption path (the caller guards against repeats);
- * plaintext like the organizer messages, no HTML injection surface.
+ * Sent at most once per redemption path (the caller guards against repeats).
  */
 export async function sendBadgeProgressEmail({
   to,
@@ -193,15 +237,21 @@ export async function sendBadgeProgressEmail({
   if (!process.env.RESEND_API_KEY) return;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const body = `${detail}\n\nDeine Sammlung und alle Abzeichen findest du hier:\n${baseUrl}/my-tickets\n\n--\nDu bekommst diese E-Mail, weil du gerade ein Ticket über Passly eingelöst hast.\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+  const body = mail({
+    heading: headline,
+    sections: [
+      [
+        { type: "p", text: detail },
+        { type: "button", label: "Meine Sammlung", url: `${baseUrl}/my-tickets` },
+      ],
+    ],
+    notes: ["Du bekommst diese E-Mail, weil du gerade ein Ticket über Passly eingelöst hast."],
+    baseUrl,
+  });
 
-  await resend.emails.send({ from: FROM, replyTo: REPLY_TO, to, subject: headline, text: body });
+  await resend.emails.send({ from: FROM, replyTo: REPLY_TO, to, subject: headline, ...body });
 }
 
-/**
- * Result of the manual organizer-application review (/admin/organizers).
- * Plaintext, single recipient, the applicant themselves.
- */
 /**
  * Begruessung nach der Registrierung als Veranstalter. Seit der Wegfall der
  * manuellen Freigabe (2026-09-07) ist das der einzige Brief, den ein neuer
@@ -220,21 +270,47 @@ export async function sendOrganizerWelcome({
   if (!process.env.RESEND_API_KEY) return;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const body = `Hallo ${name},\n\n`
-    + `dein Veranstalter-Konto bei Passly steht. Zwei Schritte trennen dich vom ersten verkauften Ticket:\n\n`
-    + `1. Veranstaltung anlegen: ${baseUrl}/dashboard/events/neu\n`
-    + `2. Auszahlungen einrichten: ${baseUrl}/dashboard — dafuer verifiziert dich Stripe einmalig. `
-    + `Solange das laeuft, kannst du dein Event schon anlegen und teilen; bezahlte Tickets werden erst danach verkauft.\n\n`
-    + `Deine Einnahmen ueberweisen wir nach dem Event. Beim ersten Event halten wir sie drei Tage laenger zurueck; `
-    + `brauchst du das Geld vorher, kannst du unter ${baseUrl}/dashboard/payouts eine Sofort-Auszahlung anfragen.\n\n`
-    + `--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+  const body = mail({
+    heading: "Willkommen bei Passly",
+    intro: `Hallo ${name}, dein Veranstalter-Konto steht.`,
+    sections: [
+      [
+        { type: "p", text: "Zwei Schritte trennen dich vom ersten verkauften Ticket:" },
+        {
+          type: "steps",
+          items: [
+            {
+              title: "Veranstaltung anlegen",
+              text: "Name, Datum, Preis. Das Event ist sofort teilbar, als Link oder eingebettet auf deiner Website.",
+              url: `${baseUrl}/dashboard/events/neu`,
+            },
+            {
+              title: "Auszahlungen einrichten",
+              text: "Dafür verifiziert dich Stripe einmalig. Solange das läuft, kannst du dein Event schon anlegen und teilen; bezahlte Tickets werden erst danach verkauft.",
+              url: `${baseUrl}/dashboard`,
+            },
+          ],
+        },
+        { type: "button", label: "Zum Dashboard", url: `${baseUrl}/dashboard` },
+      ],
+      [
+        {
+          type: "p",
+          muted: true,
+          text: "Deine Einnahmen überweisen wir nach dem Event. Beim ersten Event halten wir sie drei Tage länger zurück; brauchst du das Geld vorher, kannst du unter „Auszahlungen“ eine Sofort-Auszahlung anfragen.",
+        },
+      ],
+    ],
+    notes: [`Fragen? Antworte einfach auf diese Mail oder schreib an ${SUPPORT}.`],
+    baseUrl,
+  });
 
   await resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
     subject: "Willkommen bei Passly",
-    text: body,
+    ...body,
   });
 }
 
@@ -267,26 +343,88 @@ export async function sendSalesDigest({
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   const total = events.reduce((n, e) => n + e.soldYesterday, 0);
+  const tickets = (n: number) => n === 1 ? "1 Ticket" : `${n} Tickets`;
   const when = (d: number) => d === 0 ? "heute" : d === 1 ? "morgen" : d < 0 ? "vorbei" : `in ${d} Tagen`;
-  const lines = events.map((e) =>
-    `${e.name} (${formatDate(e.date)}, ${when(e.daysUntil)})\n`
-    + `  gestern: ${e.soldYesterday} Ticket${e.soldYesterday === 1 ? "" : "s"} · gesamt: ${e.soldTotal} von ${e.capacity}\n`
-    + `  ${baseUrl}/dashboard/events/${e.eventId}`,
-  ).join("\n\n");
+  const shortDate = (iso: string) => {
+    const [y, m, d] = iso.split("-");
+    return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" });
+  };
 
-  const body = `Hallo ${name},\n\n`
-    + `gestern ${total === 1 ? "wurde 1 Ticket" : `wurden ${total} Tickets`} verkauft.\n\n`
-    + `${lines}\n\n`
-    + `Alle Zahlen: ${baseUrl}/dashboard\n\n`
-    + `Diese Zusammenfassung kommt nur an Tagen mit Verkaeufen. Abschalten kannst du sie unter ${baseUrl}/dashboard/profile.\n\n`
-    + `--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+  const heading = `Gestern: ${tickets(total)} verkauft`;
+  const body = mail({
+    heading,
+    intro: `Hallo ${name}, so lief der Vorverkauf in den letzten 24 Stunden.`,
+    sections: [
+      [{
+        type: "stats",
+        items: events.map((e) => ({
+          label: e.name,
+          value: `+${e.soldYesterday}`,
+          sub: `${shortDate(e.date)} · ${when(e.daysUntil)} · ${e.soldTotal} von ${e.capacity} verkauft`,
+          progress: e.capacity > 0 ? e.soldTotal / e.capacity : 0,
+          url: `${baseUrl}/dashboard/events/${e.eventId}`,
+        })),
+      }],
+      [{ type: "button", label: "Alle Zahlen im Dashboard", url: `${baseUrl}/dashboard` }],
+    ],
+    notes: [`Diese Zusammenfassung kommt nur an Tagen mit Verkäufen. Abschalten kannst du sie unter ${baseUrl}/dashboard/profile.`],
+    baseUrl,
+  });
 
   await resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
-    subject: total === 1 ? "Gestern: 1 Ticket verkauft" : `Gestern: ${total} Tickets verkauft`,
-    text: body,
+    subject: heading,
+    ...body,
+  });
+}
+
+/**
+ * Taegliche Anmelde-Zusammenfassung an den Admin (siehe signupDigest.ts).
+ * Bewusst nicht ueber sendAdminAlert: das ist kein Alarm und gehoert nicht
+ * als Warnung nach Sentry. Gleiche Empfaenger-Variable, gleiches Schweigen,
+ * wenn sie fehlt.
+ */
+export async function sendAdminSignupDigest({
+  signups,
+  organizers,
+  total,
+  baseUrl,
+}: {
+  signups: number;
+  organizers: number;
+  total: number;
+  baseUrl: string;
+}): Promise<void> {
+  const to = process.env.ADMIN_ALERT_EMAIL;
+  if (!process.env.RESEND_API_KEY || !to) return;
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  const konto = (n: number) => n === 1 ? "1 neues Konto" : `${n} neue Konten`;
+  const heading = `Gestern: ${konto(signups)}`;
+  const body = mail({
+    heading,
+    sections: [
+      [{
+        type: "stats",
+        items: [
+          { label: "Neue Konten", value: `+${signups}`, sub: "Erster Login in den letzten 24 Stunden" },
+          { label: "davon Veranstalter", value: `${organizers}`, url: `${baseUrl}/admin?tab=organizers` },
+          { label: "Konten gesamt", value: `${total}` },
+        ],
+      }],
+    ],
+    notes: ["Diese Zusammenfassung kommt nur an Tagen mit mindestens einer Anmeldung."],
+    baseUrl,
+  });
+
+  await resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to,
+    subject: `[Passly] ${heading}`,
+    ...body,
   });
 }
 
@@ -311,25 +449,40 @@ export async function sendPayoutRequestDecision({
   if (!process.env.RESEND_API_KEY) return;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const body = approved
-    ? `Hallo ${name},\n\ndeine Sofort-Auszahlung fuer „${eventName}“ ist freigegeben. `
-      + `Das Geld geht mit dem naechsten Auszahlungslauf raus, spaetestens morgen frueh.\n\n`
-      + `Uebersicht: ${baseUrl}/dashboard/payouts\n\n`
-      + `--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`
-    : `Hallo ${name},\n\ndeine Sofort-Auszahlung fuer „${eventName}“ konnten wir nicht freigeben. `
-      + `Die Einnahmen werden wie geplant nach dem Event ueberwiesen.\n\n`
-      + `Fragen dazu beantworten wir gerne unter ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@getpassly.de"}.\n\n`
-      + `--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+  const heading = approved ? "Sofort-Auszahlung freigegeben" : "Sofort-Auszahlung abgelehnt";
+  const body = mail({
+    heading,
+    intro: `Hallo ${name},`,
+    sections: [
+      approved
+        ? [
+          { type: "meta", label: "Event", value: eventName },
+          { type: "p", text: "Deine Sofort-Auszahlung ist freigegeben. Das Geld geht mit dem nächsten Auszahlungslauf raus, spätestens morgen früh." },
+          { type: "button", label: "Auszahlungen ansehen", url: `${baseUrl}/dashboard/payouts` },
+        ]
+        : [
+          { type: "meta", label: "Event", value: eventName },
+          { type: "p", text: "Deine Sofort-Auszahlung konnten wir nicht freigeben. Die Einnahmen werden wie geplant nach dem Event überwiesen." },
+          { type: "p", muted: true, text: `Fragen dazu beantworten wir gerne unter ${SUPPORT}.` },
+        ],
+    ],
+    baseUrl,
+  });
 
   await resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
-    subject: approved ? "Sofort-Auszahlung freigegeben" : "Sofort-Auszahlung abgelehnt",
-    text: body,
+    subject: heading,
+    ...body,
   });
 }
 
+/**
+ * Result of the manual organizer-application review (/admin/organizers).
+ * Nur noch fuer Altbestand mit `pending`-Status; Neuanmeldungen sind seit
+ * 2026-09-07 sofort freigegeben.
+ */
 export async function sendOrganizerApplicationDecision({
   to,
   name,
@@ -346,16 +499,31 @@ export async function sendOrganizerApplicationDecision({
   if (!process.env.RESEND_API_KEY) return;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const body = approved
-    ? `Hallo ${name},\n\ndeine Bewerbung als Veranstalter bei Passly ist freigegeben. Du kannst ab sofort Events anlegen und Tickets verkaufen:\n${baseUrl}/dashboard\n\n--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`
-    : `Hallo ${name},\n\nwir konnten deine Bewerbung als Veranstalter bei Passly aktuell leider nicht freigeben.${reason ? `\n\nGrund: ${reason}` : ""}\n\nFragen dazu beantworten wir gerne unter ${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@getpassly.de"}.\n\n--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+  const heading = approved ? "Deine Veranstalter-Bewerbung ist freigegeben" : "Update zu deiner Veranstalter-Bewerbung";
+  const body = mail({
+    heading,
+    intro: `Hallo ${name},`,
+    sections: [
+      approved
+        ? [
+          { type: "p", text: "Du kannst ab sofort Events anlegen und Tickets verkaufen." },
+          { type: "button", label: "Zum Dashboard", url: `${baseUrl}/dashboard` },
+        ]
+        : [
+          { type: "p", text: "Wir konnten deine Bewerbung als Veranstalter bei Passly aktuell leider nicht freigeben." },
+          ...(reason ? [{ type: "meta", label: "Grund", value: reason } as Block] : []),
+          { type: "p", muted: true, text: `Fragen dazu beantworten wir gerne unter ${SUPPORT}.` },
+        ],
+    ],
+    baseUrl,
+  });
 
   await resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
-    subject: approved ? "Deine Veranstalter-Bewerbung ist freigegeben" : "Update zu deiner Veranstalter-Bewerbung",
-    text: body,
+    subject: heading,
+    ...body,
   });
 }
 
@@ -387,8 +555,20 @@ export async function sendEventReminder({
   const lang: Lang = normalizeLang(rawLang);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const subject = t(lang, "mail.reminderSubject", { event: eventName });
-  const when = `${formatDate(eventDate, lang)}${startTime ? ` · ${startTime}` : ""}${venue ? `\n${venue}` : ""}`;
-  const body = `${t(lang, "mail.reminderHeading")}: ${eventName}\n${when}\n\n${t(lang, "mail.reminderText")}\n${baseUrl}/my-tickets\n\n--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\n${baseUrl}/impressum · ${baseUrl}/datenschutz`;
+  const sub = [`${formatDate(eventDate, lang)}${startTime ? ` · ${startTime}` : ""}`];
+  if (venue) sub.push(venue);
+  const body = mail({
+    lang,
+    heading: t(lang, "mail.reminderHeading"),
+    sections: [
+      [{ type: "meta", label: t(lang, "mail.event"), value: eventName, sub }],
+      [
+        { type: "p", text: t(lang, "mail.reminderText") },
+        { type: "button", label: t(lang, "mail.myTickets"), url: `${baseUrl}/my-tickets` },
+      ],
+    ],
+    baseUrl,
+  });
 
   let sent = 0;
   const CHUNK = 50;
@@ -400,7 +580,7 @@ export async function sendEventReminder({
         replyTo: REPLY_TO,
         to,
         subject,
-        text: body,
+        ...body,
       })),
     );
     if (error) {
@@ -432,7 +612,18 @@ export async function sendWaitlistEmail({
   const lang: Lang = normalizeLang(rawLang);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const subject = t(lang, "mail.waitlistSubject", { event: eventName });
-  const body = `${t(lang, "mail.waitlistHeading")}\n\n${t(lang, "mail.waitlistText", { event: eventName })}\n${baseUrl}/event/${eventId}\n\n--\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\n${baseUrl}/impressum · ${baseUrl}/datenschutz`;
+  const body = mail({
+    lang,
+    heading: t(lang, "mail.waitlistHeading"),
+    sections: [
+      [{ type: "meta", label: t(lang, "mail.event"), value: eventName }],
+      [
+        { type: "p", text: t(lang, "mail.waitlistText", { event: eventName }) },
+        { type: "button", label: t(lang, "mail.toEvent"), url: `${baseUrl}/event/${eventId}` },
+      ],
+    ],
+    baseUrl,
+  });
 
   let sent = 0;
   const CHUNK = 50;
@@ -444,7 +635,7 @@ export async function sendWaitlistEmail({
         replyTo: REPLY_TO,
         to,
         subject,
-        text: body,
+        ...body,
       })),
     );
     if (error) {
@@ -471,14 +662,26 @@ export async function sendBackupTicketEmail({
   if (!process.env.RESEND_API_KEY) return;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const body = `Im Anhang findest du dein Backup-Ticket für „${eventName}“ als PDF.\n\nEs ist für Veranstaltungsorte ohne Empfang gedacht: Speichere es auf deinem Handy oder drucke es aus. Es ist auf dich personalisiert und nur zusammen mit deinem Ausweis gültig, nicht zum Weitergeben oder Teilen gedacht, Weiterverkauf verboten. Es gilt der erste Scan.\n\nDein normales Ticket bleibt unverändert gültig:\n${baseUrl}/my-tickets\n\nPassly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}\nImpressum: ${baseUrl}/impressum · Datenschutz: ${baseUrl}/datenschutz`;
+  const body = mail({
+    heading: "Dein Backup-Ticket liegt bei",
+    sections: [
+      [{ type: "meta", label: "Event", value: eventName, sub: ["Als PDF im Anhang dieser E-Mail"] }],
+      [
+        { type: "p", text: "Es ist für Veranstaltungsorte ohne Empfang gedacht: Speichere es auf deinem Handy oder drucke es aus." },
+        { type: "p", text: "Es ist auf dich personalisiert und nur zusammen mit deinem Ausweis gültig, nicht zum Weitergeben oder Teilen gedacht, Weiterverkauf verboten. Es gilt der erste Scan." },
+        { type: "p", muted: true, text: "Dein normales Ticket bleibt unverändert gültig." },
+        { type: "button", label: "Meine Tickets", url: `${baseUrl}/my-tickets` },
+      ],
+    ],
+    baseUrl,
+  });
 
   await resend.emails.send({
     from: FROM,
     replyTo: REPLY_TO,
     to,
     subject: `Dein Backup-Ticket für ${eventName}`,
-    text: body,
+    ...body,
     attachments: [{ filename: "passly-backup-ticket.pdf", content: Buffer.from(pdf) }],
   });
 }
@@ -525,84 +728,50 @@ export async function sendTicketConfirmation({
   const lang: Lang = normalizeLang(rawLang);
   const resend = new Resend(process.env.RESEND_API_KEY);
   const plural = assetIds.length > 1;
-  // Organizer-typed text lands in HTML; escape it.
-  const organizer = organizerName
-    ? organizerName.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    : null;
-  const ticketRows = orderToken
-    ? orderRow(orderToken, baseUrl, assetIds.length, lang)
-    : assetIds.map((id, i) => ticketRow(id, baseUrl, i, assetIds.length, lang)).join("");
 
-  const html = `<!DOCTYPE html>
-<html lang="de">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
-<body style="margin:0;padding:0;background:#f7f7fb;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7fb;padding:48px 0;">
-    <tr><td align="center">
-      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e8e8ef;border-radius:14px;max-width:520px;width:100%;">
+  const eventSub: string[] = [];
+  if (eventDate) eventSub.push(formatEventDates({ date: eventDate, end_date: eventEndDate ?? null }, lang));
+  if (organizerName) eventSub.push(`${t(lang, "mail.organizer")}: ${organizerName}`);
 
-        <!-- Header -->
-        <tr>
-          <td style="padding:32px 40px 24px;border-bottom:1px solid #ececf2;">
-            <p style="margin:0 0 16px;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:#7c3aed;font-weight:700;">Passly</p>
-            <h1 style="margin:0;font-size:22px;font-weight:700;letter-spacing:-0.02em;color:#1c1c2b;line-height:1.2;">
-              ${plural ? t(lang, "mail.ticketHeadingMany") : t(lang, "mail.ticketHeadingOne")}
-            </h1>
-          </td>
-        </tr>
+  const ticketRows: Block[] = orderToken
+    ? [orderRow(orderToken, baseUrl, assetIds.length, lang)]
+    : assetIds.map((id, i) => ticketRow(id, baseUrl, i, assetIds.length, lang));
 
-        <!-- Event info -->
-        <tr>
-          <td style="padding:24px 40px;border-bottom:1px solid #ececf2;">
-            <p style="margin:0 0 4px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#8a8a99;">${t(lang, "mail.event")}</p>
-            <p style="margin:0;font-size:18px;font-weight:700;color:#1c1c2b;">${eventName}</p>
-            ${eventDate ? `<p style="margin:6px 0 0;font-size:13px;color:#6d6d7f;">${formatEventDates({ date: eventDate, end_date: eventEndDate ?? null }, lang)}</p>` : ""}
-            ${organizer ? `<p style="margin:6px 0 0;font-size:13px;color:#6d6d7f;">${t(lang, "mail.organizer")}: ${organizer}</p>` : ""}
-            ${calendar ? `<p style="margin:10px 0 0;font-size:12px;">
-              <a href="${baseUrl}/api/events/${calendar.eventId}/ics" style="color:#7c3aed;font-weight:600;text-decoration:none;">${t(lang, "mail.addToCalendar")} &rarr;</a>
-            </p>` : ""}
-          </td>
-        </tr>
+  // Ein Knopf, wo es genau ein Ziel gibt: die Gastbestellung oder das eine
+  // Ticket. Bei mehreren Tickets bleiben die Zeilen die Navigation.
+  const cta: Block[] = orderToken
+    ? [{ type: "button", label: t(lang, "mail.openOrder"), url: `${baseUrl}/order/${orderToken}` }]
+    : assetIds.length === 1
+      ? [{ type: "button", label: t(lang, "mail.openTicket"), url: `${baseUrl}/tickets/${assetIds[0]}` }]
+      : [];
 
-        <!-- Ticket links -->
-        <tr>
-          <td style="padding:24px 40px 16px;border-bottom:1px solid #ececf2;">
-            <p style="margin:0 0 16px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#8a8a99;">
-              ${plural ? t(lang, "mail.yourTickets") : t(lang, "mail.yourTicket")}
-            </p>
-            <table width="100%" cellpadding="0" cellspacing="0">
-              ${ticketRows}
-            </table>
-            <p style="margin:16px 0 0;font-size:12px;color:#6d6d7f;line-height:1.6;">
-              ${t(lang, "mail.ticketHint")}
-            </p>
-            ${receiptPdf ? `<p style="margin:10px 0 0;font-size:12px;color:#6d6d7f;line-height:1.6;">
-              ${t(lang, "mail.receiptHint")}
-            </p>` : ""}
-          </td>
-        </tr>
-
-        <!-- Legal footer -->
-        <tr>
-          <td style="padding:20px 40px 24px;">
-            <p style="margin:0;font-size:11px;color:#9a9aa9;line-height:1.7;">
-              ${t(lang, "mail.ticketFooter")}
-              ${organizer ? t(lang, "mail.contractPartner", { organizer }) : t(lang, "mail.contractPartnerGeneric")}
-            </p>
-            <p style="margin:12px 0 0;font-size:11px;color:#9a9aa9;line-height:1.7;">
-              Passly · ${LEGAL_NAME} · ${LEGAL_ADDRESS}<br/>
-              <a href="${baseUrl}/impressum" style="color:#8a8a99;">Impressum</a> ·
-              <a href="${baseUrl}/datenschutz" style="color:#8a8a99;">Datenschutz</a> ·
-              <a href="${baseUrl}/agb" style="color:#8a8a99;">AGB</a>
-            </p>
-          </td>
-        </tr>
-
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+  const body = mail({
+    lang,
+    heading: plural ? t(lang, "mail.ticketHeadingMany") : t(lang, "mail.ticketHeadingOne"),
+    sections: [
+      [
+        { type: "meta", label: t(lang, "mail.event"), value: eventName, sub: eventSub },
+        ...(calendar ? [{ type: "link", label: t(lang, "mail.addToCalendar"), url: `${baseUrl}/api/events/${calendar.eventId}/ics` } as Block] : []),
+      ],
+      [
+        {
+          type: "raw",
+          html: `<p style="margin:0 0 4px;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${MAIL.ink3};">${esc(plural ? t(lang, "mail.yourTickets") : t(lang, "mail.yourTicket"))}</p>`,
+          text: "",
+        },
+        ...ticketRows,
+        { type: "raw", html: `<p style="margin:0 0 10px;"></p>`, text: "" },
+        ...cta,
+        { type: "p", muted: true, text: t(lang, "mail.ticketHint") },
+        ...(receiptPdf ? [{ type: "p", muted: true, text: t(lang, "mail.receiptHint") } as Block] : []),
+      ],
+    ],
+    notes: [
+      `${t(lang, "mail.ticketFooter")} ${organizerName ? t(lang, "mail.contractPartner", { organizer: organizerName }) : t(lang, "mail.contractPartnerGeneric")}`,
+    ],
+    agb: true,
+    baseUrl,
+  });
 
   const attachments: { filename: string; content: Buffer; contentType?: string }[] = [];
   if (receiptPdf) attachments.push({ filename: "passly-beleg.pdf", content: Buffer.from(receiptPdf) });
@@ -621,7 +790,7 @@ export async function sendTicketConfirmation({
     subject: plural
       ? t(lang, "mail.ticketSubjectMany", { count: assetIds.length, event: eventName })
       : t(lang, "mail.ticketSubjectOne", { event: eventName }),
-    html,
+    ...body,
     // The receipt and the calendar entry ride along with the confirmation so
     // the buyer never has to come back for them; the receipt is absent for
     // free tickets, which have nothing to receipt.
