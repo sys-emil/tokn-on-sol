@@ -85,7 +85,7 @@ const PAGE_CSS = `
     height: 74px; flex: none; display: grid; place-items: center;
     background-size: cover; background-position: center;
   }
-  .tk-cover span {
+  .tk-cover > span {
     font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.24em;
     color: rgba(255, 255, 255, 0.86); text-transform: uppercase;
     padding: 0 12px; text-align: center; white-space: nowrap;
@@ -116,6 +116,83 @@ const PAGE_CSS = `
   }
   .tk-stub:hover { box-shadow: var(--shadow-lg); border-color: var(--line-2); }
   .tk-stub.is-muted { opacity: 0.78; }
+
+  /* ── Zustand: Stempel, Kopf-Chip, gestrichelter Rand ─────────
+     Erstes Tester-Feedback: im Faecher und in der Sammlung war nicht zu
+     sehen, welches Ticket eingeloest ist, fuer welches ein Teilen-Link
+     offen ist und welches weg ist. Drei Mittel, jedes in der Sprache der
+     Karte: ein Stempel auf dem Motiv (eingeloest), ein gestrichelter Rand
+     fuer die Karte in der Schwebe (Link offen) und eine Geist-Karte ohne
+     Flaeche fuer das, was nicht mehr hier ist (weitergegeben). Im Faecher
+     sind nur die oberen 62px jeder Karte sichtbar, der Stempel also nicht -
+     dort traegt ein Chip im Kopf denselben Zustand. */
+  .tk-stamp {
+    position: absolute; z-index: 1; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 11px 7px; border: 2px solid rgba(255, 255, 255, 0.9);
+    outline: 1px solid rgba(255, 255, 255, 0.55); outline-offset: 2px;
+    border-radius: 7px; color: rgba(255, 255, 255, 0.95);
+    font-family: var(--mono); text-transform: uppercase;
+    transform: rotate(-10deg);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.22));
+  }
+  .tk-stamp .t { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.18em; line-height: 1; }
+  .tk-stamp .s { font-size: 0.5625rem; font-weight: 500; letter-spacing: 0.1em; line-height: 1; opacity: 0.88; font-variant-numeric: tabular-nums; }
+  /* Auf der Brieftaschenkarte sitzt er mittig auf dem Cover, der Eventname
+     darunter tritt zurueck; auf den Stubs unten rechts im Motiv, die Fakten
+     daneben behalten ihren Platz. */
+  .tk-wcard .tk-cover { position: relative; }
+  .tk-wcard .tk-stamp { left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-8deg); }
+  .tk-wcard.is-redeemed .tk-cover > span { visibility: hidden; }
+  /* Die Frontkarte traegt den Stempel und den Fuss-Chip; ein dritter
+     Vermerk im Kopf sagt nichts Neues. Hinten im Stapel ist der Kopf das
+     Einzige, was zu sehen ist, dort bleibt er. */
+  .tk-wcard.is-front.is-redeemed .tk-st { display: none; }
+  .tk-stub .tk-motif { position: relative; }
+  .tk-stub .tk-stamp { right: 16px; bottom: 18px; }
+  .tk-stub.is-redeemed .tk-motif-facts, .tk-stub.is-redeemed .tk-motif-count { max-width: calc(100% - 118px); }
+  .tk-mark {
+    position: absolute; z-index: 3; left: 9px; top: 9px;
+    width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+    color: #fff; border: 2px solid var(--surface); box-shadow: 0 1px 3px rgba(17, 20, 45, 0.18);
+  }
+  .tk-mark.redeemed { background: var(--ok); }
+  .tk-mark.link_open { background: var(--accent); }
+  .tk-mark.offered, .tk-mark.sold { background: var(--warn); }
+  /* Die Frontkarte ist ganz zu sehen; dort sagen Chip und Stempel dasselbe. */
+  .tk-wcard.is-front .tk-mark { display: none; }
+  .tk-wcard-head .chip { flex: none; }
+  .tk-wcard-head .chip svg, .tk-motif-tag svg { flex: none; }
+  .tk-motif-tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.12em;
+    padding: 2px 7px; border-radius: 5px; text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.34);
+  }
+  .tk-wcard.is-linked, .tk-stub.is-linked {
+    border-style: dashed;
+    border-color: color-mix(in oklab, var(--accent) 60%, var(--line));
+  }
+  .tk-wcard.is-linked .tk-wcard-head { border-bottom-style: dashed; }
+  .tk-front-note {
+    display: flex; gap: 9px; align-items: flex-start; margin-top: 10px;
+    padding: 10px 12px; border-radius: 10px;
+    border: 1px dashed color-mix(in oklab, var(--accent) 60%, var(--line));
+    background: var(--accent-wash); color: var(--accent-ink);
+    font-size: 0.75rem; line-height: 1.5; text-wrap: pretty;
+  }
+  .tk-front-note svg { flex: none; margin-top: 2px; }
+  /* Geist-Karte: nur Umriss, keine Flaeche, kein Link - das Ticket gehoert
+     jemand anderem, hier steht nur noch, dass es gegangen ist. */
+  .tk-stub.is-shared {
+    background: transparent; box-shadow: none; border-style: dashed; border-color: var(--line-2);
+    cursor: default;
+  }
+  .tk-stub.is-shared:hover { box-shadow: none; border-color: var(--line-2); }
+  .tk-stub.is-shared .tk-motif { opacity: 0.72; }
+  .tk-stub.is-shared .tk-stubcol { background: transparent; }
+  .tk-timeline-item.is-shared { border-style: dashed; background: transparent; cursor: default; }
 
   /* ── Druckrueckmeldung ───────────────────────────────────────
      Zwischen Tippen und fertiger Ticketseite liegen zwei Netzaufrufe. Ohne
@@ -606,6 +683,37 @@ interface Ticket {
   returnOffer: { id: string; paidCents: number; returnFeeCents: number; refundCents: number; status: string } | null;
 }
 
+/** Ein Ticket, das über einen Teilen-Link weitergegeben und dort eingelöst wurde. */
+interface SharedTicket {
+  assetId: string;
+  eventId: string;
+  eventName: string;
+  eventDate: string;
+  eventEndDate: string | null;
+  startTime: string | null;
+  venue: string | null;
+  imageUrl: string | null;
+  accentHue: number | null;
+  sharedAt: string;
+}
+
+/**
+ * Ein Zustand pro Ticket, aus dem jede Ansicht (Fächer, Front-Karte, Stubs,
+ * Sammlung) dasselbe Vokabular rendert. Vorher prüfte jede Stelle
+ * `redeemedAt`, `claimUrl` und `returnOffer` für sich, und der Fächer prüfte
+ * gar nichts: ein eingelöstes Ticket sah dort aus wie ein frisches. Die
+ * Rangfolge ist die des Geldes: ein Angebot geht vor, weil es die Karte
+ * gesperrt hat; danach die Tür; ein offener Link zuletzt, weil er als
+ * einziger nichts endgültig macht.
+ */
+type TicketStatus = 'valid' | 'redeemed' | 'link_open' | 'offered' | 'sold';
+function ticketStatus(t: Pick<Ticket, 'redeemedAt' | 'claimUrl' | 'returnOffer'>): TicketStatus {
+  if (t.returnOffer) return t.returnOffer.status === 'sold' ? 'sold' : 'offered';
+  if (t.redeemedAt) return 'redeemed';
+  if (t.claimUrl) return 'link_open';
+  return 'valid';
+}
+
 const localeOf = (lang: Lang) => (lang === 'en' ? 'en-GB' : 'de-DE');
 const euroL = (cents: number, lang: Lang) => (cents / 100).toLocaleString(localeOf(lang), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
@@ -765,7 +873,7 @@ function cityOf(venue: string | null): string | null {
 }
 
 /** Stabiler Farbton, wenn der Veranstalter keinen Akzent gesetzt hat. */
-function hueOf(t: Ticket): number {
+function hueOf(t: Pick<Ticket, 'accentHue' | 'eventId' | 'assetId'>): number {
   if (t.accentHue != null) return t.accentHue;
   let h = 0;
   for (const ch of t.eventId || t.assetId) h = (h * 31 + ch.charCodeAt(0)) % 100000;
@@ -777,7 +885,7 @@ function hueOf(t: Ticket): number {
  * hinterlegt hat; der Verlauf bleibt als Overlay drüber, damit die weiße
  * Schrift lesbar bleibt. Ohne Bild bleibt es der reine Verlauf.
  */
-function motifStyle(t: Ticket, hue: number, muted: boolean): React.CSSProperties {
+function motifStyle(t: Pick<Ticket, 'imageUrl'>, hue: number, muted: boolean): React.CSSProperties {
   const gradient = muted
     ? 'linear-gradient(150deg, oklch(0.68 0.03 275), oklch(0.48 0.025 275))'
     : `linear-gradient(150deg, oklch(0.62 0.19 ${hue + 8}), oklch(0.38 0.16 ${hue - 12}))`;
@@ -817,6 +925,7 @@ export default function MyTickets() {
   const { wallets: solanaWallets } = useSolanaWallets();
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [shared, setShared] = useState<SharedTicket[]>([]);
   const [passes, setPasses] = useState<PassView[]>([]);
   const [badges, setBadges] = useState<BadgeItem[]>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -995,8 +1104,9 @@ export default function MyTickets() {
           setAccountWallet(me.walletAddress);
         }
         if (res.ok) {
-          const data = (await res.json()) as { tickets: Ticket[]; passes?: PassView[]; badges: BadgeItem[]; progress?: Progress };
+          const data = (await res.json()) as { tickets: Ticket[]; shared?: SharedTicket[]; passes?: PassView[]; badges: BadgeItem[]; progress?: Progress };
           setTickets(data.tickets);
+          setShared(data.shared ?? []);
           setPasses(data.passes ?? []);
           setBadges(data.badges ?? []);
           setProgress(data.progress ?? null);
@@ -1178,11 +1288,17 @@ export default function MyTickets() {
   const upcomingFiltered = useMemo(() => upcoming.filter(matches), [upcoming, matches]);
   const pastFiltered = useMemo(() => past.filter(matches), [past, matches]);
 
-  // Brieftaschen-Stapel: das ausgewählte Ticket liegt vorn, der Rest nach Datum.
+  // Brieftaschen-Stapel: das ausgewählte Ticket liegt vorn, der Rest nach
+  // Datum - aber die bereits eingelösten hinter allen nutzbaren. Sonst liegt
+  // nach dem Einlass das entwertete Ticket des heutigen Abends vorn und das
+  // nächste, das man tatsächlich noch vorzeigen wird, dahinter.
   const stackOrder = useMemo(() => {
-    const front = upcoming.find((t) => t.assetId === frontId);
-    if (!front) return upcoming;
-    return [front, ...upcoming.filter((t) => t.assetId !== frontId)];
+    const usable = upcoming.filter((t) => ticketStatus(t) !== 'redeemed');
+    const spent = upcoming.filter((t) => ticketStatus(t) === 'redeemed');
+    const ordered = [...usable, ...spent];
+    const front = ordered.find((t) => t.assetId === frontId);
+    if (!front) return ordered;
+    return [front, ...ordered.filter((t) => t.assetId !== frontId)];
   }, [upcoming, frontId]);
 
   const stackGeometry = useMemo(() => {
@@ -1283,9 +1399,22 @@ export default function MyTickets() {
    * nicht ausgeschrieben, sonst stehen zwischen zwei Jahren dreissig leere
    * Zeilen.
    */
+  // Weitergegebene Tickets gehören in die Sammlung, egal wie ihr Datum liegt:
+  // für den Absender sind sie Vergangenheit. Sie stehen mit dem Eventdatum in
+  // der Zeitreihe, wie die Tickets, mit denen er selbst dort war.
+  const sharedFiltered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? shared.filter((t) => `${t.eventName} ${t.venue ?? ''}`.toLowerCase().includes(q)) : shared;
+  }, [shared, query]);
+  const collectionItems = useMemo<(Ticket | SharedTicket)[]>(
+    () => [...pastFiltered, ...sharedFiltered].sort((a, b) => b.eventDate.localeCompare(a.eventDate)),
+    [pastFiltered, sharedFiltered],
+  );
+  const isShared = (t: Ticket | SharedTicket): t is SharedTicket => 'sharedAt' in t;
+
   const collectionMonths = useMemo(() => {
-    const out: { label: string; items: Ticket[]; key: number; gapBefore: number }[] = [];
-    for (const t of pastFiltered) {
+    const out: { label: string; items: (Ticket | SharedTicket)[]; key: number; gapBefore: number }[] = [];
+    for (const t of collectionItems) {
       const d = new Date(t.eventDate + 'T00:00:00');
       const key = d.getFullYear() * 12 + d.getMonth();
       let m = out.find((x) => x.key === key);
@@ -1297,7 +1426,7 @@ export default function MyTickets() {
     }
     for (let i = 1; i < out.length; i++) out[i].gapBefore = out[i - 1].key - out[i].key - 1;
     return out;
-  }, [pastFiltered, lang]);
+  }, [collectionItems, lang]);
 
   const cityCount = useMemo(
     () => new Set(past.map((t) => cityOf(t.venue)).filter(Boolean)).size,
@@ -1344,6 +1473,42 @@ export default function MyTickets() {
   /** VIP > Rand-Preset des Veranstalters; identische Rangfolge wie auf /events. */
   const decorClass = (t: Ticket) => isVipTier(t) ? ' vip' : t.borderStyle ? ` border-${t.borderStyle}` : '';
 
+  /* Zustand in der Sprache der Karte: Klasse (Rand), Marke (Ecke), Chip
+     (Kopf), Stempel (Motiv). Alle vier lesen denselben `ticketStatus`. */
+  const statusClass = (t: Ticket) => {
+    const st = ticketStatus(t);
+    return st === 'redeemed' ? ' is-redeemed' : st === 'link_open' ? ' is-linked' : '';
+  };
+  /** Runde Marke in der Ecke ueber dem Datums-Chip: das Einzige, was im
+   *  Faecher von einer hinteren Karte zu sehen ist, sind ihre linken 60px. */
+  const statusMark = (t: Ticket) => {
+    const st = ticketStatus(t);
+    if (st === 'valid') return null;
+    return (
+      <span className={`tk-mark ${st}`} aria-hidden>
+        <Icon name={st === 'redeemed' ? 'check' : st === 'link_open' ? 'share' : 'euro'} size={10} />
+      </span>
+    );
+  };
+  const statusChip = (t: Ticket, cls = 'chip') => {
+    const st = ticketStatus(t);
+    if (st === 'redeemed') return <span className={`${cls} ok`}><Icon name="check" size={11} />{tr('mine.stRedeemed')}</span>;
+    if (st === 'link_open') return <span className={`${cls} accent`}><Icon name="share" size={11} />{tr('mine.stLinkOpen')}</span>;
+    if (st === 'offered') return <span className={`${cls} warn`}><Icon name="euro" size={11} />{tr('mine.stOffered')}</span>;
+    if (st === 'sold') return <span className={`${cls} warn`}><Icon name="euro" size={11} />{tr('mine.stSold')}</span>;
+    return null;
+  };
+  const stampDate = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.toLocaleDateString(localeOf(lang), { day: '2-digit', month: '2-digit' })} · ${d.toLocaleTimeString(localeOf(lang), { hour: '2-digit', minute: '2-digit' })}`;
+  };
+  const stamp = (t: Pick<Ticket, 'redeemedAt'>) => t.redeemedAt ? (
+    <div className="tk-stamp" aria-hidden>
+      <span className="t">{tr('mine.stRedeemed')}</span>
+      <span className="s">{stampDate(t.redeemedAt)}</span>
+    </div>
+  ) : null;
+
   /** Fehler der letzten Aktion — steht direkt unter dem ausloesenden Knopf. */
   const actionErrorFor = (assetId: string, at: 'front' | 'stub') =>
     actionError?.assetId === assetId && actionError.at === at
@@ -1370,6 +1535,17 @@ export default function MyTickets() {
             </button>
           )}
           {actionErrorFor(t.assetId, 'stub')}
+        </div>
+      );
+    }
+    // Eingeloest: Teilen lehnt der Server ab, Zurueckgeben ebenso; der Stub
+    // zeigt nur noch den Weg zum Ticket.
+    if (t.redeemedAt) {
+      return (
+        <div className="tk-stub-actions">
+          <Link href={`/tickets/${t.assetId}`} className="tk-stub-action">
+            <Icon name="qr" size={13} />{tr('mine.show')}
+          </Link>
         </div>
       );
     }
@@ -1408,12 +1584,13 @@ export default function MyTickets() {
     const style: React.CSSProperties = { '--hue': hue } as React.CSSProperties;
     if (isFresh) (style as Record<string, string | number>)['--fresh-delay'] = `${freshIndex * 120}ms`;
     return (
-      <div key={t.assetId} className={`tk-stub${decorClass(t)}${isFresh ? ' is-fresh' : ''}`} style={style}>
+      <div key={t.assetId} className={`tk-stub${decorClass(t)}${statusClass(t)}${isFresh ? ' is-fresh' : ''}`} style={style}>
         <Link href={`/tickets/${t.assetId}`} className="tk-stub-link" aria-label={tr('mine.openTicket', { name: t.eventName })} />
         <div className="tk-motif" style={motifStyle(t, hue, false)}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span className="tk-motif-kicker">{tr('mine.kicker')}</span>
             {vip && <span className="tk-motif-vip">VIP</span>}
+            {statusChip(t, 'tk-motif-tag')}
           </div>
           <div className="tk-motif-title">{t.eventName}</div>
           <div className="tk-motif-venue">{t.venue ?? tr('mine.venueTba')}</div>
@@ -1438,6 +1615,7 @@ export default function MyTickets() {
           <div className="tk-motif-count">
             <Icon name="clock" size={13} />{relativeDayLabel(t.eventDate)}
           </div>
+          {stamp(t)}
         </div>
         <div className="tk-stubcol">
           <div className="tk-qrbox"><Icon name="qr" size={40} /></div>
@@ -1452,15 +1630,55 @@ export default function MyTickets() {
     );
   };
 
-  /** Abgerissener Stub der Sammlung. */
+  /** Geist-Karte der Sammlung: ein Ticket, das per Link weitergegeben wurde. */
+  const sharedStub = (t: SharedTicket) => {
+    const hue = hueOf(t);
+    const d = new Date(t.eventDate + 'T00:00:00');
+    return (
+      <div key={`shared-${t.assetId}`} className="tk-stub is-shared" style={{ '--hue': hue } as React.CSSProperties}>
+        <div className="tk-motif" style={motifStyle(t, hue, true)}>
+          <div className="tk-motif-kicker">{tr('mine.kicker')}</div>
+          <div className="tk-motif-title">{t.eventName}</div>
+          <div className="tk-motif-venue">{t.venue ?? '—'}</div>
+          <div className="tk-motif-facts">
+            <div>
+              <div className="tk-motif-k">{tr('mine.factDate')}</div>
+              <div className="tk-motif-v">{formatDateShort(t.eventDate)}</div>
+            </div>
+          </div>
+        </div>
+        <div className="tk-stubcol narrow">
+          <div className="mono" style={{ fontSize: '0.625rem', letterSpacing: '0.14em', color: 'var(--ink-4)' }}>
+            {monthShort(t.eventDate).toUpperCase()} {d.getFullYear()}
+          </div>
+          <div style={{ fontSize: '2rem', fontWeight: 600, letterSpacing: '-0.045em', lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: 'var(--ink-3)' }}>
+            {String(dayNum(t.eventDate)).padStart(2, '0')}
+          </div>
+          <span className="chip" style={{ marginTop: 4, whiteSpace: 'nowrap' }}>
+            <Icon name="share" size={11} />{tr('mine.stShared')}
+          </span>
+          <div style={{ fontSize: '0.6562rem', color: 'var(--ink-4)', textAlign: 'center' }}>
+            {tr('mine.sharedOn', { date: formatDateShort(t.sharedAt.slice(0, 10)) })}
+          </div>
+        </div>
+        <div className="tk-stub-notch" style={{ right: 146, top: -9 }} />
+        <div className="tk-stub-notch" style={{ right: 146, bottom: -9 }} />
+      </div>
+    );
+  };
+
+  /** Abgerissener Stub der Sammlung. Ohne Stempel und mit grauem Motiv, wenn
+   *  das Ticket nie an der Tuer war: der Abend hat nicht stattgefunden, fuer
+   *  diese Person. */
   const collectionStub = (t: Ticket) => {
     const hue = hueOf(t);
     const attended = !!t.redeemedAt;
     const d = new Date(t.eventDate + 'T00:00:00');
     return (
-      <div key={t.assetId} className={`tk-stub${decorClass(t)}${attended ? '' : ' is-muted'}`} style={{ '--hue': hue } as React.CSSProperties}>
+      <div key={t.assetId} className={`tk-stub${decorClass(t)}${attended ? ' is-redeemed' : ' is-muted'}`} style={{ '--hue': hue } as React.CSSProperties}>
         <Link href={`/tickets/${t.assetId}`} className="tk-stub-link" aria-label={tr('mine.openTicket', { name: t.eventName })} />
         <div className="tk-motif" style={motifStyle(t, hue, !attended)}>
+          {stamp(t)}
           <div className="tk-motif-kicker">{tr('mine.kicker')}</div>
           <div className="tk-motif-title">{t.eventName}</div>
           <div className="tk-motif-venue">{t.venue ?? '—'}</div>
@@ -1485,7 +1703,8 @@ export default function MyTickets() {
             {String(dayNum(t.eventDate)).padStart(2, '0')}
           </div>
           <span className={attended ? 'chip ok' : 'chip'} style={{ marginTop: 4, whiteSpace: 'nowrap' }}>
-            <span className="d" />{attended ? tr('mine.attended') : tr('mine.open')}
+            {attended ? <Icon name="check" size={11} /> : <span className="d" />}
+            {attended ? tr('mine.attended') : tr('mine.notUsed')}
           </span>
           {isVipTier(t) && <span className="chip accent">VIP</span>}
         </div>
@@ -1580,7 +1799,7 @@ export default function MyTickets() {
                             <button
                               key={t.assetId}
                               ref={(el) => stackMotion.setNode(t.assetId, el)}
-                              className={`tk-wcard${decorClass(t)}${isFront ? ' is-front' : ''}`}
+                              className={`tk-wcard${decorClass(t)}${statusClass(t)}${isFront ? ' is-front' : ''}`}
                               // Lage, Neigung und Stapelordnung schreibt der
                               // Bewegungslauf direkt auf den Knoten; hier steht
                               // nur noch, was sich beim Ziehen nicht aendert.
@@ -1606,6 +1825,7 @@ export default function MyTickets() {
                               }}
                               aria-label={bringToFront ? tr('mine.bringToFront', { name: t.eventName }) : tr('mine.openTicket', { name: t.eventName })}
                             >
+                              {statusMark(t)}
                               <div className="tk-wcard-head">
                                 <div className="tk-datechip">
                                   <div className="m">{monthShort(t.eventDate).toUpperCase()}</div>
@@ -1616,9 +1836,11 @@ export default function MyTickets() {
                                   <div className="tk-wcard-venue">{t.venue ?? tr('mine.venueTba')}</div>
                                 </div>
                                 {vip && <span className="chip accent" style={{ flex: 'none' }}>VIP</span>}
+                                {statusChip(t, 'chip tk-st')}
                               </div>
                               <div className="tk-cover" style={coverStyle(t, hue)}>
                                 <span>{t.eventName}</span>
+                                {stamp(t)}
                               </div>
                               <div className="tk-wcard-facts">
                                 <div>
@@ -1640,7 +1862,9 @@ export default function MyTickets() {
                               <div className="tk-notch" style={{ left: -8 }} />
                               <div className="tk-notch" style={{ right: -8 }} />
                               <div className="tk-wcard-foot">
-                                <span className="chip accent"><span className="d" />{relativeDayLabel(t.eventDate)}</span>
+                                {t.redeemedAt
+                                  ? <span className="chip ok"><span className="d" />{tr('mine.stRedeemed')}</span>
+                                  : <span className="chip accent"><span className="d" />{relativeDayLabel(t.eventDate)}</span>}
                                 <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.7812rem', fontWeight: 500, color: 'var(--accent)' }}>
                                   <Icon name="qr" size={15} />{bringToFront ? tr('mine.toFront') : tr('mine.show')}
                                 </span>
@@ -1679,12 +1903,24 @@ export default function MyTickets() {
                           </span>
                         </div>
                       </div>
-                      <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)' }}>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--accent-ink)', fontWeight: 500 }}>{tr('mine.doorsIn')}</div>
-                        <div style={{ fontSize: '1.875rem', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--accent-ink)', marginTop: 2 }}>
-                          {countdownLabel(eventStartMs(frontTicket), nowMs)}
+                      {frontTicket.redeemedAt ? (
+                        <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'var(--ok-wash)', border: '1px solid oklch(0.86 0.08 150)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <span className="tk-mark redeemed" style={{ position: 'static', width: 26, height: 26, border: 'none', boxShadow: 'none' }}><Icon name="check" size={14} /></span>
+                          <div>
+                            <div style={{ fontSize: '0.75rem', color: 'oklch(0.38 0.12 150)', fontWeight: 500 }}>{tr('mine.stRedeemed')}</div>
+                            <div style={{ fontSize: '1.125rem', fontWeight: 600, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: 'oklch(0.32 0.11 150)', marginTop: 1 }}>
+                              {stampDate(frontTicket.redeemedAt)}
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div style={{ marginTop: 18, padding: '14px 16px', borderRadius: 12, background: 'var(--accent-wash)', border: '1px solid var(--accent-line)' }}>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--accent-ink)', fontWeight: 500 }}>{tr('mine.doorsIn')}</div>
+                          <div style={{ fontSize: '1.875rem', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--accent-ink)', marginTop: 2 }}>
+                            {countdownLabel(eventStartMs(frontTicket), nowMs)}
+                          </div>
+                        </div>
+                      )}
                       <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
                         <Link href={`/tickets/${frontTicket.assetId}`} className="btn primary lg" style={{ justifyContent: 'center' }}>
                           <Icon name="qr" size={17} /> {tr('mine.showQr')}
@@ -1694,7 +1930,8 @@ export default function MyTickets() {
                             className="btn ghost"
                             style={{ justifyContent: 'center' }}
                             onClick={() => void handleShare(frontTicket.assetId, frontTicket.claimUrl, 'front')}
-                            disabled={sharingAssetId === frontTicket.assetId}
+                            disabled={sharingAssetId === frontTicket.assetId || !!frontTicket.redeemedAt}
+                            title={frontTicket.redeemedAt ? tr('mine.redeemedNoShare') : undefined}
                           >
                             <Icon name="share" size={15} />
                             {sharingAssetId === frontTicket.assetId ? '…' : frontTicket.claimUrl ? tr('mine.link') : tr('mine.share')}
@@ -1723,6 +1960,12 @@ export default function MyTickets() {
                           )}
                         </div>
                         {actionErrorFor(frontTicket.assetId, 'front')}
+                        {ticketStatus(frontTicket) === 'link_open' && (
+                          <div className="tk-front-note">
+                            <Icon name="share" size={14} />
+                            <span>{tr('mine.linkOpenNote')}</span>
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: 'flex', gap: 10, marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--line)', color: 'var(--ink-3)' }}>
                         <Icon name="shield" size={15} />
@@ -1934,7 +2177,7 @@ export default function MyTickets() {
                       {tr('mine.tabUpcoming', { count: searching ? upcomingFiltered.length : upcoming.length })}
                     </button>
                     <button className={tab === 'collection' ? 'active' : ''} onClick={() => setTab('collection')}>
-                      {tr('mine.tabCollection', { count: searching ? pastFiltered.length : past.length })}
+                      {tr('mine.tabCollection', { count: searching ? pastFiltered.length + sharedFiltered.length : past.length + shared.length })}
                     </button>
                   </div>
                   {tab === 'collection' && (
@@ -1956,9 +2199,9 @@ export default function MyTickets() {
                   </div>
                   {searching && (
                     <div className="tk-search-count" role="status">
-                      {upcomingFiltered.length + pastFiltered.length === 1
+                      {upcomingFiltered.length + collectionItems.length === 1
                         ? tr('mine.hitOne')
-                        : tr('mine.hitMany', { count: upcomingFiltered.length + pastFiltered.length })}
+                        : tr('mine.hitMany', { count: upcomingFiltered.length + collectionItems.length })}
                       {' '}{tr('mine.hitsFor', { query: query.trim() })}
                     </div>
                   )}
@@ -2008,7 +2251,7 @@ export default function MyTickets() {
                       </div>
                     </div>
 
-                    {pastFiltered.length === 0 ? (
+                    {collectionItems.length === 0 ? (
                       <div className="card">
                         <div className="empty">
                           {query.trim()
@@ -2018,7 +2261,7 @@ export default function MyTickets() {
                       </div>
                     ) : collectionLayout === 'mosaik' ? (
                       <div className="tk-groups-grid">
-                        {pastFiltered.map(collectionStub)}
+                        {collectionItems.map((t) => isShared(t) ? sharedStub(t) : collectionStub(t))}
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -2035,20 +2278,32 @@ export default function MyTickets() {
                               <div className="mono" style={{ fontSize: '0.6875rem', color: 'var(--ink-4)', marginTop: 3 }}>{tr('mine.monthEvents', { count: m.items.length })}</div>
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                              {m.items.map((t) => (
-                                <Link key={t.assetId} href={`/tickets/${t.assetId}`} className="tk-timeline-item">
-                                  <div style={{ fontSize: '1.1875rem', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-2)' }}>
-                                    {String(dayNum(t.eventDate)).padStart(2, '0')}
-                                  </div>
-                                  <div>
-                                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, letterSpacing: '-0.01em' }}>{t.eventName}</div>
-                                    <div style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', marginTop: 1 }}>{t.venue ?? '—'}</div>
-                                  </div>
-                                  <span className={t.redeemedAt ? 'chip ok' : 'chip'} style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>
-                                    <span className="d" />{t.redeemedAt ? tr('mine.wasThere') : tr('mine.notRedeemed')}
-                                  </span>
-                                </Link>
-                              ))}
+                              {m.items.map((t) => {
+                                const inner = (
+                                  <>
+                                    <div style={{ fontSize: '1.1875rem', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', color: 'var(--ink-2)' }}>
+                                      {String(dayNum(t.eventDate)).padStart(2, '0')}
+                                    </div>
+                                    <div>
+                                      <div style={{ fontSize: '0.8125rem', fontWeight: 600, letterSpacing: '-0.01em' }}>{t.eventName}</div>
+                                      <div style={{ fontSize: '0.7188rem', color: 'var(--ink-3)', marginTop: 1 }}>{t.venue ?? '—'}</div>
+                                    </div>
+                                    {isShared(t) ? (
+                                      <span className="chip" style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>
+                                        <Icon name="share" size={11} />{tr('mine.stShared')}
+                                      </span>
+                                    ) : (
+                                      <span className={t.redeemedAt ? 'chip ok' : 'chip'} style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>
+                                        {t.redeemedAt ? <Icon name="check" size={11} /> : <span className="d" />}
+                                        {t.redeemedAt ? tr('mine.wasThere') : tr('mine.notRedeemed')}
+                                      </span>
+                                    )}
+                                  </>
+                                );
+                                return isShared(t)
+                                  ? <div key={`shared-${t.assetId}`} className="tk-timeline-item is-shared">{inner}</div>
+                                  : <Link key={t.assetId} href={`/tickets/${t.assetId}`} className="tk-timeline-item">{inner}</Link>;
+                              })}
                             </div>
                           </div>
                           </Fragment>

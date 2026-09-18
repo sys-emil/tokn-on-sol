@@ -125,6 +125,62 @@ async function loadPasses(rows: PassPurchaseRow[]): Promise<PassView[]> {
   });
 }
 
+/**
+ * Tickets this account handed on via a share link that was actually redeemed.
+ *
+ * A redeemed claim repoints `purchases.buyer_wallet` to the claimer, so the
+ * ticket vanishes from the sender's own rows — "what happened to my ticket?"
+ * had no answer on /my-tickets. The claims table still knows: one row per
+ * link with `seller_wallet` = the sender and `claimed_at` set. Returned as a
+ * separate list, never folded into `tickets`: these are not usable tickets
+ * (no QR, no return, no share), only the record that they went somewhere.
+ * A ticket handed on, received back and handed on again keeps the latest
+ * handover.
+ */
+async function loadSharedTickets(sellerWallet: string) {
+  const { data: claims } = await supabaseAdmin
+    .from("claims")
+    .select("asset_id, claimed_at")
+    .eq("seller_wallet", sellerWallet)
+    .not("claimed_at", "is", null)
+    .order("claimed_at", { ascending: false });
+  const latest = new Map<string, string>();
+  for (const c of (claims ?? []) as { asset_id: string; claimed_at: string }[]) {
+    if (!latest.has(c.asset_id)) latest.set(c.asset_id, c.claimed_at);
+  }
+  if (latest.size === 0) return [];
+
+  const { data: rows } = await supabaseAdmin
+    .from("purchases")
+    .select("asset_id, buyer_wallet, event_id, events(name, date, end_date, start_time, venue, image_url, accent_hue)")
+    .in("asset_id", [...latest.keys()])
+    .is("season_pass_id", null);
+
+  return ((rows ?? []) as {
+    asset_id: string; buyer_wallet: string; event_id: string;
+    events: { name: string; date: string; end_date: string | null; start_time: string | null; venue: string | null; image_url: string | null; accent_hue: number | null } | { name: string; date: string; end_date: string | null; start_time: string | null; venue: string | null; image_url: string | null; accent_hue: number | null }[] | null;
+  }[])
+    // A ticket that came back (the recipient shared it back to this account)
+    // is a live ticket again and already in `tickets`; no ghost for it.
+    .filter((row) => row.buyer_wallet !== sellerWallet)
+    .map((row) => {
+      const event = Array.isArray(row.events) ? row.events[0] : row.events;
+      return {
+        assetId: row.asset_id,
+        eventId: row.event_id,
+        eventName: (event?.name ?? "") as string,
+        eventDate: (event?.date ?? "") as string,
+        eventEndDate: (event?.end_date ?? null) as string | null,
+        startTime: (event?.start_time ?? null) as string | null,
+        venue: (event?.venue ?? null) as string | null,
+        imageUrl: (event?.image_url ?? null) as string | null,
+        accentHue: (event?.accent_hue ?? null) as number | null,
+        sharedAt: latest.get(row.asset_id) as string,
+      };
+    })
+    .sort((a, b) => b.eventDate.localeCompare(a.eventDate));
+}
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   // Die Adresse kommt aus der Sitzung, nicht aus der URL. Sie wird aus der
   // Nutzer-ID abgeleitet, also kann der Aufrufer sie gar nicht mehr behaupten —
@@ -156,7 +212,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const assetIds = (data ?? []).map((row) => row.asset_id as string);
 
-  const [claimsResult, badgesResult, offersResult] = await Promise.all([
+  const [claimsResult, badgesResult, offersResult, shared] = await Promise.all([
     assetIds.length > 0
       ? supabaseAdmin
           .from("claims")
@@ -177,6 +233,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .select("id, asset_id, paid_cents, return_fee_cents, refund_cents, status")
       .eq("seller_wallet", buyerWallet)
       .in("status", ["active", "sold"]),
+    loadSharedTickets(buyerWallet),
   ]);
 
   const offeredAssets = new Map<string, {
@@ -308,5 +365,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const progress = { attendedCount, nextMilestone, topOrganizer };
 
-  return NextResponse.json({ tickets, passes, badges, progress });
+  return NextResponse.json({ tickets, shared, passes, badges, progress });
 }
