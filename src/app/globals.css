@@ -508,7 +508,13 @@ section + section { margin-top: 2.25rem; }
   display: grid; grid-template-columns: minmax(0, 1fr) 21.25rem; gap: 1.5rem;
   align-items: flex-start;
 }
-@media (max-width: 57.5em) { .detail-grid { grid-template-columns: 1fr; } }
+/* minmax(0, 1fr), nicht 1fr: 1fr heisst minmax(auto, 1fr), und "auto" ist die
+   Mindestbreite des Inhalts. Die Ticket-Tabelle auf der Event-Detailseite ist
+   breiter als ein Handy, also wuchs die einzige Spalte auf Tabellenbreite,
+   und die Seitenkarten darunter (Schnellaktionen) ragten rechts aus dem Bild —
+   ihre Knoepfe waren abgeschnitten. Mit 0 als Minimum scrollt stattdessen der
+   overflow-x:auto-Rahmen der Tabelle, wofuer er da ist. */
+@media (max-width: 57.5em) { .detail-grid { grid-template-columns: minmax(0, 1fr); } }
 
 /* Ticket table */
 .ticket-table {
@@ -994,6 +1000,15 @@ section + section { margin-top: 2.25rem; }
   /* padding-block schafft Platz fuer den Fokusring: die scrollende Leiste ist
      ein Clip-Container und wuerde ihn sonst oben und unten abschneiden. */
   .nav { gap: 0; flex: 1; min-width: 0; padding-block: 0.25rem; overflow-x: auto; scrollbar-width: none; }
+  /* Die Leiste scrollt waagerecht, aber ohne Scrollbalken sah der halbe
+     Eintrag am rechten Rand wie ein Fehler aus. Der Verlauf sagt "hier geht
+     es weiter"; der Innenabstand rechts sorgt dafuer, dass der letzte Eintrag
+     ganz herausgescrollt werden kann und nicht selbst im Verlauf haengt. */
+  .nav {
+    padding-right: 1.5rem;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 1.5rem), transparent);
+  }
   .nav::-webkit-scrollbar { display: none; }
   .nav a, .nav button { padding: 0.44rem 0.5rem; font-size: 0.78rem; white-space: nowrap; }
   .topbar-right { gap: 0.5rem; flex-shrink: 0; }

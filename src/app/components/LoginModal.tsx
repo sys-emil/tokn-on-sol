@@ -318,7 +318,10 @@ export function LoginModal({
         @keyframes login-card { from { opacity: 0; transform: translateY(10px) scale(.985) } to { opacity: 1; transform: none } }
         @keyframes login-breathe { 0%, 100% { opacity: .42 } 50% { opacity: .85 } }
 
-        .login-scrim { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px; }
+        /* minmax(0, 1fr): mit der impliziten auto-Spur nahm die Spur die 400px
+           der Karte an, und "max-width: 100%" begrenzte auf 400px statt auf
+           den Bildschirm — auf dem Handy ragte die Karte rechts heraus. */
+        .login-scrim { position: fixed; inset: 0; z-index: 120; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 24px; }
         .login-veil {
           position: absolute; inset: 0;
           background: color-mix(in oklab, oklch(0.16 0.02 280) 46%, transparent);
@@ -335,7 +338,7 @@ export function LoginModal({
           }
         }
         .login-card {
-          position: relative; width: 400px; max-width: 100%;
+          position: relative; width: 100%; max-width: 400px;
           padding: 38px 36px 32px; border-radius: 22px;
           background: var(--surface); border: 1px solid var(--line);
           animation: login-card .34s ${EASE};

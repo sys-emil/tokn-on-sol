@@ -13,6 +13,11 @@ export const TICKET_SHELL_CSS = `
        hoeher ist als das, was tatsaechlich zu sehen ist. */
     min-height: 100vh;
     min-height: 100dvh;
+    /* minmax(0, 1fr) statt der impliziten auto-Spur: die Spur passte sich
+       sonst den 380px der Karte an, "max-width: 100%" bezog sich auf diese
+       380px statt auf den Bildschirm, und die Karte stand auf dem Handy
+       12px vom linken und -2px vom rechten Rand — sichtbar aus der Mitte. */
+    grid-template-columns: minmax(0, 1fr);
     display: grid; place-items: center;
     padding: 40px 20px;
     background:
@@ -24,7 +29,7 @@ export const TICKET_SHELL_CSS = `
     border: 1px solid var(--line);
     border-radius: 24px;
     box-shadow: var(--shadow-lg);
-    width: 380px; max-width: 100%;
+    width: 100%; max-width: 380px;
     display: flex; flex-direction: column;
     overflow: hidden;
   }

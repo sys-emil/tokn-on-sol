@@ -9,7 +9,8 @@
     "lint": "eslint",
     "create-tree": "ts-node -r dotenv/config --project tsconfig.scripts.json scripts/create-tree.ts",
     "upload-generic-metadata": "ts-node --project tsconfig.scripts.json scripts/upload-generic-metadata.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "mobile-audit": "node scripts/mobile-audit.mjs"
   },
   "dependencies": {
     "@metaplex-foundation/mpl-bubblegum": "^5.0.2",
@@ -48,6 +49,7 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "playwright": "^1.63.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "typescript": "^5",

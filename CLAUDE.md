@@ -23,6 +23,20 @@ The user pushes to git and checks Vercel deploys manually.
 npm run create-tree  # Deploy a Merkle tree to whichever network NEXT_PUBLIC_HELIUS_RPC_URL points at
 ```
 
+```bash
+npm run mobile-audit            # Mobile-Layout-Pruefung gegen getpassly.de (390 px, Playwright)
+npm run mobile-audit -- --login # einmalig anmelden; danach werden auch die eingeloggten Seiten geprueft
+```
+
+`scripts/mobile-audit.mjs` rendert jede Seite in einem emulierten iPhone und
+meldet horizontalen Ueberlauf, Elemente ausserhalb ihres Clip-Containers und
+Knoepfe mit abgeschnittenem Text; Screenshots landen in `.mobile-audit/shots/`
+(gitignored, wie die gespeicherte Sitzung). Chromium einmalig per
+`npx playwright install chromium`. Die haeufigste Ursache, die es findet:
+`grid-template-columns: 1fr` in einer Mobile-Media-Query — `1fr` ist
+`minmax(auto, 1fr)`, und eine Tabelle oder eine Karte mit fester Breite
+zieht die Spalte ueber den Bildschirm hinaus. Immer `minmax(0, 1fr)`.
+
 **Don't run `npm run build`.** The production build is the single biggest memory
 spike in this repo and has no local audience — Vercel builds every push anyway.
 
